@@ -1,6 +1,6 @@
 # Tailrmade
 
-Tailrmade is an open-source visual web app builder that runs in your browser.
+Tailrmade is an open-source visual web app builder/programming canvas that runs in your browser.
 Create interactive applications, transform and visualize data, and move between
 visual editing and code without signing up for a hosted service.
 
