@@ -1,0 +1,17 @@
+import React from 'react';
+
+import * as styles from '../utils/style.module.css';
+
+const PixiContainer = React.forwardRef(
+  (props, forwardedRef: React.Ref<HTMLDivElement> | null): JSX.Element => {
+    return (
+      <div
+        id="pixi-container"
+        ref={forwardedRef}
+        className={styles.pixicontainer}
+      ></div>
+    );
+  },
+);
+
+export default PixiContainer;

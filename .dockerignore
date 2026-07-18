@@ -1,0 +1,10 @@
+.git
+.github
+.env
+.yarn/cache
+node_modules
+node_modules.partial
+dist
+.cache
+tests/**/screenshots
+tests/**/videos

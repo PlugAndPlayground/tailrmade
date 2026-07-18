@@ -1,0 +1,784 @@
+{
+  "version": 0.1,
+  "graphSettings": {
+    "showExecutionVisualisation": true,
+    "viewportCenterPosition": {
+      "x": -3659.3607076362896,
+      "y": -9068.437533880953
+    },
+    "viewportScale": 0.7746991528471179
+  },
+  "overlay": {
+    "leftSide": {
+      "visible": false,
+      "width": 340
+    },
+    "dashboard": {
+      "visible": false,
+      "fullscreen": false,
+      "widthPercentage": 40,
+      "locked": false
+    },
+    "rightSide": {
+      "visible": false,
+      "width": 340
+    }
+  },
+  "nodes": [
+    {
+      "id": "shaggy-gecko-54",
+      "name": "Video player",
+      "type": "Video",
+      "x": -4105.353365636725,
+      "y": -9293.953646060278,
+      "width": 765.8708603712657,
+      "height": 382.921875,
+      "socketArray": [
+        {
+          "socketType": "in",
+          "name": "Local resource ID",
+          "dataType": "{\"class\":\"FileType\",\"type\":{\"filterExtensions\":[\"3gp\",\"avi\",\"flv\",\"mov\",\"mkv\",\"m4v\",\"mp4\",\"ogg\",\"qt\",\"swf\",\"webm\",\"wmv\"]}}",
+          "data": "",
+          "visible": false
+        },
+        {
+          "socketType": "in",
+          "name": "Play/Pause",
+          "dataType": "{\"class\":\"BooleanType\",\"type\":{}}",
+          "defaultData": true,
+          "visible": true
+        },
+        {
+          "socketType": "in",
+          "name": "Loop",
+          "dataType": "{\"class\":\"BooleanType\",\"type\":{}}",
+          "defaultData": true,
+          "visible": true
+        },
+        {
+          "socketType": "in",
+          "name": "Speed",
+          "dataType": "{\"class\":\"NumberType\",\"type\":{\"round\":false,\"minValue\":0,\"maxValue\":10,\"stepSize\":0.01,\"showDetails\":false}}",
+          "defaultData": 1,
+          "visible": true
+        },
+        {
+          "socketType": "in",
+          "name": "Mute",
+          "dataType": "{\"class\":\"BooleanType\",\"type\":{}}",
+          "defaultData": true,
+          "visible": true
+        },
+        {
+          "socketType": "in",
+          "name": "Volume",
+          "dataType": "{\"class\":\"NumberType\",\"type\":{\"round\":false,\"minValue\":0,\"maxValue\":1,\"stepSize\":0.01,\"showDetails\":false}}",
+          "defaultData": 1,
+          "visible": true
+        },
+        {
+          "socketType": "in",
+          "name": "Position (s)",
+          "dataType": "{\"class\":\"NumberType\",\"type\":{\"round\":false,\"minValue\":0,\"maxValue\":100,\"stepSize\":0.01,\"showDetails\":false}}",
+          "defaultData": 0,
+          "visible": true
+        },
+        {
+          "socketType": "in",
+          "name": "Position (%)",
+          "dataType": "{\"class\":\"NumberType\",\"type\":{\"round\":false,\"minValue\":0,\"maxValue\":100,\"stepSize\":0.01,\"showDetails\":false}}",
+          "defaultData": 0,
+          "visible": true
+        },
+        {
+          "socketType": "in",
+          "name": "Capture Size",
+          "dataType": "{\"class\":\"EnumType\",\"type\":{\"options\":[{\"text\":\"Quarter\",\"value\":0.25},{\"text\":\"Half\",\"value\":0.5},{\"text\":\"Full\",\"value\":1}],\"showAsButtons\":true}}",
+          "data": "Quarter",
+          "visible": true
+        },
+        {
+          "socketType": "in",
+          "name": "Get current frame",
+          "dataType": "{\"class\":\"TriggerType\",\"type\":{\"triggerType\":\"positiveFlank\",\"customFunctionString\":\"getCurrentFrame\",\"previousData\":null,\"showDetails\":false}}",
+          "defaultData": 0,
+          "visible": true
+        },
+        {
+          "socketType": "in",
+          "name": "Seconds/Percent",
+          "dataType": "{\"class\":\"EnumType\",\"type\":{\"options\":[{\"text\":\"Percentage\",\"value\":\"Percentage\"},{\"text\":\"Seconds\",\"value\":\"Seconds\"}],\"showAsButtons\":true}}",
+          "data": "Percentage",
+          "visible": true
+        },
+        {
+          "socketType": "in",
+          "name": "Frame array",
+          "dataType": "{\"class\":\"ArrayType\",\"type\":{}}",
+          "data": [
+            0,
+            0.25,
+            0.5,
+            1
+          ],
+          "visible": true
+        },
+        {
+          "socketType": "in",
+          "name": "Get frames",
+          "dataType": "{\"class\":\"TriggerType\",\"type\":{\"triggerType\":\"positiveFlank\",\"customFunctionString\":\"getFrameArray\",\"showDetails\":false}}",
+          "data": 0,
+          "visible": true
+        },
+        {
+          "socketType": "in",
+          "name": "Meta",
+          "dataType": "{\"class\":\"JSONType\",\"type\":{\"strictParsing\":false}}",
+          "data": {},
+          "visible": false
+        },
+        {
+          "socketType": "out",
+          "name": "Frame",
+          "dataType": "{\"class\":\"ImageType\",\"type\":{}}",
+          "visible": true
+        },
+        {
+          "socketType": "out",
+          "name": "FrameArray",
+          "dataType": "{\"class\":\"ArrayType\",\"type\":{}}",
+          "visible": false
+        },
+        {
+          "socketType": "out",
+          "name": "Details",
+          "dataType": "{\"class\":\"JSONType\",\"type\":{\"strictParsing\":false}}",
+          "visible": true
+        }
+      ],
+      "updateBehaviour": {
+        "load": true,
+        "update": true,
+        "interval": false,
+        "intervalFrequency": 1000
+      }
+    },
+    {
+      "id": "evil-pug-86",
+      "name": "Switch",
+      "type": "WidgetSwitch",
+      "x": -4486.331189035726,
+      "y": -9567.479283069446,
+      "width": 200,
+      "height": 104,
+      "socketArray": [
+        {
+          "socketType": "in",
+          "name": "Initial Value",
+          "dataType": "{\"class\":\"BooleanType\",\"type\":{}}",
+          "data": true,
+          "visible": false
+        },
+        {
+          "socketType": "in",
+          "name": "Off",
+          "dataType": "{\"class\":\"BooleanType\",\"type\":{}}",
+          "data": false,
+          "visible": false
+        },
+        {
+          "socketType": "in",
+          "name": "On",
+          "dataType": "{\"class\":\"BooleanType\",\"type\":{}}",
+          "data": true,
+          "visible": false
+        },
+        {
+          "socketType": "in",
+          "name": "Label",
+          "dataType": "{\"class\":\"StringType\",\"type\":{}}",
+          "data": "Play/Pause",
+          "visible": false
+        },
+        {
+          "socketType": "in",
+          "name": "Meta",
+          "dataType": "{\"class\":\"JSONType\",\"type\":{\"strictParsing\":false}}",
+          "data": {},
+          "visible": false
+        },
+        {
+          "socketType": "out",
+          "name": "Out",
+          "dataType": "{\"class\":\"BooleanType\",\"type\":{}}",
+          "visible": true
+        }
+      ],
+      "updateBehaviour": {
+        "load": true,
+        "update": true,
+        "interval": false,
+        "intervalFrequency": 1000
+      }
+    },
+    {
+      "id": "strong-firefox-4",
+      "name": "Switch",
+      "type": "WidgetSwitch",
+      "x": -4486.331189035726,
+      "y": -9436.32449758702,
+      "width": 200,
+      "height": 104,
+      "socketArray": [
+        {
+          "socketType": "in",
+          "name": "Initial Value",
+          "dataType": "{\"class\":\"BooleanType\",\"type\":{}}",
+          "data": true,
+          "visible": false
+        },
+        {
+          "socketType": "in",
+          "name": "Off",
+          "dataType": "{\"class\":\"BooleanType\",\"type\":{}}",
+          "data": false,
+          "visible": false
+        },
+        {
+          "socketType": "in",
+          "name": "On",
+          "dataType": "{\"class\":\"BooleanType\",\"type\":{}}",
+          "data": true,
+          "visible": false
+        },
+        {
+          "socketType": "in",
+          "name": "Label",
+          "dataType": "{\"class\":\"StringType\",\"type\":{}}",
+          "data": "Loop",
+          "visible": false
+        },
+        {
+          "socketType": "in",
+          "name": "Meta",
+          "dataType": "{\"class\":\"JSONType\",\"type\":{\"strictParsing\":false}}",
+          "data": {},
+          "visible": false
+        },
+        {
+          "socketType": "out",
+          "name": "Out",
+          "dataType": "{\"class\":\"BooleanType\",\"type\":{}}",
+          "visible": true
+        }
+      ],
+      "updateBehaviour": {
+        "load": true,
+        "update": true,
+        "interval": false,
+        "intervalFrequency": 1000
+      }
+    },
+    {
+      "id": "splendid-chicken-44",
+      "name": "Slider",
+      "type": "WidgetSlider",
+      "x": -4486.331189035726,
+      "y": -9305.169712104595,
+      "width": 200,
+      "height": 104,
+      "socketArray": [
+        {
+          "socketType": "in",
+          "name": "Initial Value",
+          "dataType": "{\"class\":\"NumberType\",\"type\":{\"round\":false,\"minValue\":0,\"maxValue\":100,\"stepSize\":0.01,\"showDetails\":false}}",
+          "data": 1,
+          "visible": false
+        },
+        {
+          "socketType": "in",
+          "name": "Min",
+          "dataType": "{\"class\":\"NumberType\",\"type\":{\"round\":false,\"minValue\":0,\"maxValue\":100,\"stepSize\":0.01,\"showDetails\":false}}",
+          "data": 0,
+          "visible": false
+        },
+        {
+          "socketType": "in",
+          "name": "Max",
+          "dataType": "{\"class\":\"NumberType\",\"type\":{\"round\":false,\"minValue\":0,\"maxValue\":100,\"stepSize\":0.01,\"showDetails\":false}}",
+          "data": 10,
+          "visible": false
+        },
+        {
+          "socketType": "in",
+          "name": "Round",
+          "dataType": "{\"class\":\"BooleanType\",\"type\":{}}",
+          "data": false,
+          "visible": false
+        },
+        {
+          "socketType": "in",
+          "name": "Label",
+          "dataType": "{\"class\":\"StringType\",\"type\":{}}",
+          "data": "Speed",
+          "visible": false
+        },
+        {
+          "socketType": "in",
+          "name": "Meta",
+          "dataType": "{\"class\":\"JSONType\",\"type\":{\"strictParsing\":false}}",
+          "data": {},
+          "visible": false
+        },
+        {
+          "socketType": "out",
+          "name": "Out",
+          "dataType": "{\"class\":\"NumberType\",\"type\":{\"round\":false,\"minValue\":0,\"maxValue\":100,\"stepSize\":0.01,\"showDetails\":false}}",
+          "visible": true
+        }
+      ],
+      "updateBehaviour": {
+        "load": false,
+        "update": true,
+        "interval": false,
+        "intervalFrequency": 1000
+      }
+    },
+    {
+      "id": "dull-emu-22",
+      "name": "Switch",
+      "type": "WidgetSwitch",
+      "x": -4486.331189035726,
+      "y": -9174.014926622169,
+      "width": 200,
+      "height": 104,
+      "socketArray": [
+        {
+          "socketType": "in",
+          "name": "Initial Value",
+          "dataType": "{\"class\":\"BooleanType\",\"type\":{}}",
+          "data": true,
+          "visible": false
+        },
+        {
+          "socketType": "in",
+          "name": "Off",
+          "dataType": "{\"class\":\"BooleanType\",\"type\":{}}",
+          "data": false,
+          "visible": false
+        },
+        {
+          "socketType": "in",
+          "name": "On",
+          "dataType": "{\"class\":\"BooleanType\",\"type\":{}}",
+          "data": true,
+          "visible": false
+        },
+        {
+          "socketType": "in",
+          "name": "Label",
+          "dataType": "{\"class\":\"StringType\",\"type\":{}}",
+          "data": "Mute",
+          "visible": false
+        },
+        {
+          "socketType": "in",
+          "name": "Meta",
+          "dataType": "{\"class\":\"JSONType\",\"type\":{\"strictParsing\":false}}",
+          "data": {},
+          "visible": false
+        },
+        {
+          "socketType": "out",
+          "name": "Out",
+          "dataType": "{\"class\":\"BooleanType\",\"type\":{}}",
+          "visible": true
+        }
+      ],
+      "updateBehaviour": {
+        "load": true,
+        "update": true,
+        "interval": false,
+        "intervalFrequency": 1000
+      }
+    },
+    {
+      "id": "silly-penguin-20",
+      "name": "Slider",
+      "type": "WidgetSlider",
+      "x": -4486.331189035726,
+      "y": -9042.860141139743,
+      "width": 200,
+      "height": 104,
+      "socketArray": [
+        {
+          "socketType": "in",
+          "name": "Initial Value",
+          "dataType": "{\"class\":\"NumberType\",\"type\":{\"round\":false,\"minValue\":0,\"maxValue\":100,\"stepSize\":0.01,\"showDetails\":false}}",
+          "data": 1,
+          "visible": false
+        },
+        {
+          "socketType": "in",
+          "name": "Min",
+          "dataType": "{\"class\":\"NumberType\",\"type\":{\"round\":false,\"minValue\":0,\"maxValue\":100,\"stepSize\":0.01,\"showDetails\":false}}",
+          "data": 0,
+          "visible": false
+        },
+        {
+          "socketType": "in",
+          "name": "Max",
+          "dataType": "{\"class\":\"NumberType\",\"type\":{\"round\":false,\"minValue\":0,\"maxValue\":100,\"stepSize\":0.01,\"showDetails\":false}}",
+          "data": 1,
+          "visible": false
+        },
+        {
+          "socketType": "in",
+          "name": "Round",
+          "dataType": "{\"class\":\"BooleanType\",\"type\":{}}",
+          "data": false,
+          "visible": false
+        },
+        {
+          "socketType": "in",
+          "name": "Label",
+          "dataType": "{\"class\":\"StringType\",\"type\":{}}",
+          "data": "Volume",
+          "visible": false
+        },
+        {
+          "socketType": "in",
+          "name": "Meta",
+          "dataType": "{\"class\":\"JSONType\",\"type\":{\"strictParsing\":false}}",
+          "data": {},
+          "visible": false
+        },
+        {
+          "socketType": "out",
+          "name": "Out",
+          "dataType": "{\"class\":\"NumberType\",\"type\":{\"round\":false,\"minValue\":0,\"maxValue\":100,\"stepSize\":0.01,\"showDetails\":false}}",
+          "visible": true
+        }
+      ],
+      "updateBehaviour": {
+        "load": false,
+        "update": true,
+        "interval": false,
+        "intervalFrequency": 1000
+      }
+    },
+    {
+      "id": "curvy-gecko-68",
+      "name": "Slider",
+      "type": "WidgetSlider",
+      "x": -4486.331189035726,
+      "y": -8911.705355657317,
+      "width": 200,
+      "height": 104,
+      "socketArray": [
+        {
+          "socketType": "in",
+          "name": "Initial Value",
+          "dataType": "{\"class\":\"NumberType\",\"type\":{\"round\":false,\"minValue\":0,\"maxValue\":100,\"stepSize\":0.01,\"showDetails\":false}}",
+          "data": 0,
+          "visible": false
+        },
+        {
+          "socketType": "in",
+          "name": "Min",
+          "dataType": "{\"class\":\"NumberType\",\"type\":{\"round\":false,\"minValue\":0,\"maxValue\":100,\"stepSize\":0.01,\"showDetails\":false}}",
+          "data": 0,
+          "visible": false
+        },
+        {
+          "socketType": "in",
+          "name": "Max",
+          "dataType": "{\"class\":\"NumberType\",\"type\":{\"round\":false,\"minValue\":0,\"maxValue\":100,\"stepSize\":0.01,\"showDetails\":false}}",
+          "data": 100,
+          "visible": false
+        },
+        {
+          "socketType": "in",
+          "name": "Round",
+          "dataType": "{\"class\":\"BooleanType\",\"type\":{}}",
+          "data": false,
+          "visible": false
+        },
+        {
+          "socketType": "in",
+          "name": "Label",
+          "dataType": "{\"class\":\"StringType\",\"type\":{}}",
+          "data": "Position (s)",
+          "visible": false
+        },
+        {
+          "socketType": "in",
+          "name": "Meta",
+          "dataType": "{\"class\":\"JSONType\",\"type\":{\"strictParsing\":false}}",
+          "data": {},
+          "visible": false
+        },
+        {
+          "socketType": "out",
+          "name": "Out",
+          "dataType": "{\"class\":\"NumberType\",\"type\":{\"round\":false,\"minValue\":0,\"maxValue\":100,\"stepSize\":0.01,\"showDetails\":false}}",
+          "visible": true
+        }
+      ],
+      "updateBehaviour": {
+        "load": false,
+        "update": true,
+        "interval": false,
+        "intervalFrequency": 1000
+      }
+    },
+    {
+      "id": "wet-seahorse-58",
+      "name": "Slider",
+      "type": "WidgetSlider",
+      "x": -4486.331189035726,
+      "y": -8780.550570174892,
+      "width": 200,
+      "height": 104,
+      "socketArray": [
+        {
+          "socketType": "in",
+          "name": "Initial Value",
+          "dataType": "{\"class\":\"NumberType\",\"type\":{\"round\":false,\"minValue\":0,\"maxValue\":100,\"stepSize\":0.01,\"showDetails\":false}}",
+          "data": 0,
+          "visible": false
+        },
+        {
+          "socketType": "in",
+          "name": "Min",
+          "dataType": "{\"class\":\"NumberType\",\"type\":{\"round\":false,\"minValue\":0,\"maxValue\":100,\"stepSize\":0.01,\"showDetails\":false}}",
+          "data": 0,
+          "visible": false
+        },
+        {
+          "socketType": "in",
+          "name": "Max",
+          "dataType": "{\"class\":\"NumberType\",\"type\":{\"round\":false,\"minValue\":0,\"maxValue\":100,\"stepSize\":0.01,\"showDetails\":false}}",
+          "data": 100,
+          "visible": false
+        },
+        {
+          "socketType": "in",
+          "name": "Round",
+          "dataType": "{\"class\":\"BooleanType\",\"type\":{}}",
+          "data": false,
+          "visible": false
+        },
+        {
+          "socketType": "in",
+          "name": "Label",
+          "dataType": "{\"class\":\"StringType\",\"type\":{}}",
+          "data": "Position (%)",
+          "visible": false
+        },
+        {
+          "socketType": "in",
+          "name": "Meta",
+          "dataType": "{\"class\":\"JSONType\",\"type\":{\"strictParsing\":false}}",
+          "data": {},
+          "visible": false
+        },
+        {
+          "socketType": "out",
+          "name": "Out",
+          "dataType": "{\"class\":\"NumberType\",\"type\":{\"round\":false,\"minValue\":0,\"maxValue\":100,\"stepSize\":0.01,\"showDetails\":false}}",
+          "visible": true
+        }
+      ],
+      "updateBehaviour": {
+        "load": false,
+        "update": true,
+        "interval": false,
+        "intervalFrequency": 1000
+      }
+    },
+    {
+      "id": "tall-newt-58",
+      "name": "Draw image",
+      "type": "DRAW_Image",
+      "x": -3258.390226236853,
+      "y": -9275.627613634382,
+      "width": 160,
+      "height": 88,
+      "socketArray": [
+        {
+          "socketType": "in",
+          "name": "Image",
+          "dataType": "{\"class\":\"ImageType\",\"type\":{}}",
+          "defaultData": "",
+          "visible": true
+        },
+        {
+          "socketType": "in",
+          "name": "Angle",
+          "dataType": "{\"class\":\"NumberType\",\"type\":{\"round\":true,\"minValue\":-180,\"maxValue\":180,\"stepSize\":0.01,\"showDetails\":false}}",
+          "data": 0,
+          "visible": false
+        },
+        {
+          "socketType": "in",
+          "name": "Scale",
+          "dataType": "{\"class\":\"TwoDVectorType\",\"type\":{}}",
+          "data": {
+            "x": 1,
+            "y": 1
+          },
+          "visible": false
+        },
+        {
+          "socketType": "in",
+          "name": "Offset",
+          "dataType": "{\"class\":\"TwoDVectorType\",\"type\":{}}",
+          "data": {
+            "x": 200,
+            "y": 0
+          },
+          "visible": false
+        },
+        {
+          "socketType": "in",
+          "name": "Meta",
+          "dataType": "{\"class\":\"JSONType\",\"type\":{\"strictParsing\":false}}",
+          "data": {},
+          "visible": false
+        },
+        {
+          "socketType": "out",
+          "name": "Graphics",
+          "dataType": "{\"class\":\"DeferredPixiType\",\"type\":{}}",
+          "visible": true
+        }
+      ],
+      "updateBehaviour": {
+        "load": true,
+        "update": true,
+        "interval": false,
+        "intervalFrequency": 1000
+      }
+    },
+    {
+      "id": "horrible-wolverine-100",
+      "name": "Button",
+      "type": "WidgetButton",
+      "x": -4486.331189035726,
+      "y": -8649.395784692466,
+      "width": 200,
+      "height": 104,
+      "socketArray": [
+        {
+          "socketType": "in",
+          "name": "Off",
+          "dataType": "{\"class\":\"AnyType\",\"type\":{}}",
+          "data": 0,
+          "visible": false
+        },
+        {
+          "socketType": "in",
+          "name": "On",
+          "dataType": "{\"class\":\"AnyType\",\"type\":{}}",
+          "data": 1,
+          "visible": false
+        },
+        {
+          "socketType": "in",
+          "name": "Label",
+          "dataType": "{\"class\":\"StringType\",\"type\":{}}",
+          "data": "Get current frame",
+          "visible": false
+        },
+        {
+          "socketType": "in",
+          "name": "Meta",
+          "dataType": "{\"class\":\"JSONType\",\"type\":{\"strictParsing\":false}}",
+          "data": {},
+          "visible": false
+        },
+        {
+          "socketType": "out",
+          "name": "Out",
+          "dataType": "{\"class\":\"AnyType\",\"type\":{}}",
+          "visible": true
+        }
+      ],
+      "updateBehaviour": {
+        "load": false,
+        "update": false,
+        "interval": false,
+        "intervalFrequency": 1000
+      }
+    }
+  ],
+  "links": [
+    {
+      "id": "5800bc93-07fc-4bb1-b4bf-51fe4cf0f355",
+      "sourceNodeId": "evil-pug-86",
+      "sourceSocketName": "Out",
+      "targetNodeId": "shaggy-gecko-54",
+      "targetSocketName": "Play/Pause"
+    },
+    {
+      "id": "d8539ca3-9089-4ce5-8f63-a05dbc702cf4",
+      "sourceNodeId": "strong-firefox-4",
+      "sourceSocketName": "Out",
+      "targetNodeId": "shaggy-gecko-54",
+      "targetSocketName": "Loop"
+    },
+    {
+      "id": "c87cff5c-3e46-438d-b666-b163394de8c6",
+      "sourceNodeId": "splendid-chicken-44",
+      "sourceSocketName": "Out",
+      "targetNodeId": "shaggy-gecko-54",
+      "targetSocketName": "Speed"
+    },
+    {
+      "id": "7e6cc18d-88de-49d2-af65-878701cdadc5",
+      "sourceNodeId": "dull-emu-22",
+      "sourceSocketName": "Out",
+      "targetNodeId": "shaggy-gecko-54",
+      "targetSocketName": "Mute"
+    },
+    {
+      "id": "f4616283-afb2-4640-b7ea-3e9ee4e88911",
+      "sourceNodeId": "silly-penguin-20",
+      "sourceSocketName": "Out",
+      "targetNodeId": "shaggy-gecko-54",
+      "targetSocketName": "Volume"
+    },
+    {
+      "id": "857dcbf6-a258-4c8d-85ea-dc011911d4df",
+      "sourceNodeId": "curvy-gecko-68",
+      "sourceSocketName": "Out",
+      "targetNodeId": "shaggy-gecko-54",
+      "targetSocketName": "Position (s)"
+    },
+    {
+      "id": "58bbfcc0-1d1e-4b98-b982-785f40c4ecf3",
+      "sourceNodeId": "wet-seahorse-58",
+      "sourceSocketName": "Out",
+      "targetNodeId": "shaggy-gecko-54",
+      "targetSocketName": "Position (%)"
+    },
+    {
+      "id": "6ed0028f-cf26-4589-9355-a3d6bdccb26e",
+      "sourceNodeId": "horrible-wolverine-100",
+      "sourceSocketName": "Out",
+      "targetNodeId": "shaggy-gecko-54",
+      "targetSocketName": "Get current frame"
+    },
+    {
+      "id": "6ca1105e-973d-4244-8ef9-2fc7134505ec",
+      "sourceNodeId": "shaggy-gecko-54",
+      "sourceSocketName": "Frame",
+      "targetNodeId": "tall-newt-58",
+      "targetSocketName": "Image"
+    }
+  ],
+  "layouts": {
+    "default": []
+  }
+}

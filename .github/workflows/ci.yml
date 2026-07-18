@@ -1,0 +1,57 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, ready_for_review]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  unit-and-quality:
+    runs-on: ubuntu-latest
+    if: github.event.pull_request.draft == false || github.event_name == 'push'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '22', cache: 'yarn' }
+      - run: yarn install --immutable
+      - run: yarn test:jest
+      - run: yarn code-style-check
+      - run: yarn build
+
+  cypress:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    if: github.event.pull_request.draft == false || github.event_name == 'push'
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
+    env:
+      NODE_OPTIONS: '--max_old_space_size=8192'
+      SPLIT: ${{ strategy.job-total }}
+      SPLIT_INDEX: ${{ strategy.job-index }}
+      SPLIT_FILE: cypress-timings.json
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '22', cache: 'yarn' }
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/Cypress
+          key: cypress-${{ runner.os }}-${{ hashFiles('yarn.lock') }}
+      - run: yarn install --immutable
+      - run: yarn test:e2e
+      - if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cypress-artifacts-shard-${{ matrix.shard }}
+          path: |
+            tests/frontend/cypress/videos
+            tests/frontend/cypress/screenshots
+          retention-days: 3

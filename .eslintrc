@@ -1,0 +1,33 @@
+{
+  "parser": "@typescript-eslint/parser",
+  "plugins": ["@typescript-eslint"],
+  "extends": [
+    "prettier",
+    "plugin:@typescript-eslint/recommended",
+    "plugin:prettier/recommended",
+  ],
+  "rules": {
+    "no-console": "off",
+    "no-underscore-dangle": "off",
+    "no-unused-vars": "off",
+    "no-undef": "off",
+    // A temporary hack related to IDE not resolving correct package.json
+    "import/no-extraneous-dependencies": "off",
+    "react/jsx-props-no-spreading": "off",
+    "require-await": "error",
+    "no-return-await": "error",
+    "@typescript-eslint/no-floating-promises": "error"
+  },
+  "parserOptions": {
+    "ecmaVersion": 2022,
+    "sourceType": "module",
+    "project": "./tsconfig.json",
+    // "tsconfigRootDir": __dirname,
+    "createDefaultProgram": true,
+  },
+  "settings": {
+    "import/parsers": {
+      "@typescript-eslint/parser": [".ts", ".tsx"],
+    },
+  },
+}

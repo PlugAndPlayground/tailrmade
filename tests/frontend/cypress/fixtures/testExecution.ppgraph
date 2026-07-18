@@ -1,0 +1,780 @@
+{
+  "version": 0.1,
+  "graphSettings": {
+    "showExecutionVisualisation": true,
+    "viewportCenterPosition": {
+      "x": -6858.627110881675,
+      "y": -11324.322556437672
+    },
+    "viewportScale": 0.8562481341429437
+  },
+  "overlay": {
+    "leftSide": {
+      "visible": false,
+      "width": 514.3333435058594
+    },
+    "dashboard": {
+      "visible": false,
+      "fullscreen": true,
+      "widthPercentage": 100,
+      "locked": false
+    },
+    "rightSide": {
+      "visible": true,
+      "width": 434.66644287109375
+    }
+  },
+  "nodes": [
+    {
+      "id": "hungry-ladybug-87",
+      "name": "Macro1",
+      "type": "Macro",
+      "x": -7708.422550887266,
+      "y": -11883.65770926568,
+      "width": 1097.2440998512002,
+      "height": 305.2845317355914,
+      "socketArray": [
+        {
+          "socketType": "in",
+          "name": "Output",
+          "dataType": "{\"class\":\"JSONType\",\"type\":{\"strictParsing\":false}}",
+          "visible": true
+        },
+        {
+          "socketType": "out",
+          "name": "Parameter 1",
+          "dataType": "{\"class\":\"NumberType\",\"type\":{\"round\":false,\"minValue\":0,\"maxValue\":100,\"stepSize\":0.01,\"showDetails\":false}}",
+          "visible": true
+        },
+        {
+          "socketType": "out",
+          "name": "Parameter 2",
+          "dataType": "{\"class\":\"AnyType\",\"type\":{}}",
+          "visible": true
+        }
+      ],
+      "updateBehaviour": {
+        "load": false,
+        "update": true,
+        "interval": false,
+        "intervalFrequency": 1000
+      }
+    },
+    {
+      "id": "chilly-wombat-61",
+      "name": "Add 1",
+      "type": "Add",
+      "x": -7469.663748445178,
+      "y": -11843.828345597358,
+      "width": 160,
+      "height": 112,
+      "socketArray": [
+        {
+          "socketType": "in",
+          "name": "Addend",
+          "dataType": "{\"class\":\"NumberType\",\"type\":{\"round\":false,\"minValue\":0,\"maxValue\":100,\"stepSize\":0.01,\"showDetails\":false}}",
+          "visible": true
+        },
+        {
+          "socketType": "in",
+          "name": "Addend 2",
+          "dataType": "{\"class\":\"NumberType\",\"type\":{\"round\":false,\"minValue\":0,\"maxValue\":100,\"stepSize\":0.01,\"showDetails\":false}}",
+          "data": 4,
+          "visible": true
+        },
+        {
+          "socketType": "out",
+          "name": "Added",
+          "dataType": "{\"class\":\"NumberType\",\"type\":{\"round\":false,\"minValue\":0,\"maxValue\":100,\"stepSize\":0.01,\"showDetails\":false}}",
+          "visible": true
+        }
+      ],
+      "updateBehaviour": {
+        "load": false,
+        "update": true,
+        "interval": false,
+        "intervalFrequency": 1000
+      }
+    },
+    {
+      "id": "bright-ape-22",
+      "name": "Delay",
+      "type": "CustomFunction",
+      "x": -7240.274275026747,
+      "y": -11802.056941056673,
+      "width": 160,
+      "height": 88,
+      "socketArray": [
+        {
+          "socketType": "in",
+          "name": "Code",
+          "dataType": "{\"class\":\"CodeType\",\"type\":{}}",
+          "data": "(a) => {\n\tawait new Promise(r => setTimeout(r,200));\n\treturn a;\n}",
+          "visible": false
+        },
+        {
+          "socketType": "in",
+          "name": "Main Thread",
+          "dataType": "{\"class\":\"BooleanType\",\"type\":{}}",
+          "data": true,
+          "visible": false
+        },
+        {
+          "socketType": "in",
+          "name": "a",
+          "dataType": "{\"class\":\"NumberType\",\"type\":{\"round\":false,\"minValue\":0,\"maxValue\":100,\"stepSize\":0.01,\"showDetails\":false}}",
+          "visible": true
+        },
+        {
+          "socketType": "out",
+          "name": "OutData",
+          "dataType": "{\"class\":\"NumberType\",\"type\":{\"round\":false,\"minValue\":0,\"maxValue\":100,\"stepSize\":0.01,\"showDetails\":false}}",
+          "visible": true
+        },
+        {
+          "socketType": "out",
+          "name": "Code",
+          "dataType": "{\"class\":\"CodeType\",\"type\":{}}",
+          "visible": false
+        }
+      ],
+      "updateBehaviour": {
+        "load": false,
+        "update": true,
+        "interval": false,
+        "intervalFrequency": 1000
+      },
+      "version": 3
+    },
+    {
+      "id": "new-frog-9",
+      "name": "Macro2",
+      "type": "Macro",
+      "x": -7693.407200207008,
+      "y": -11522.34099291492,
+      "width": 1000,
+      "height": 300,
+      "socketArray": [
+        {
+          "socketType": "in",
+          "name": "Output",
+          "dataType": "{\"class\":\"StringType\",\"type\":{}}",
+          "visible": true
+        },
+        {
+          "socketType": "out",
+          "name": "Parameter 1",
+          "dataType": "{\"class\":\"NumberType\",\"type\":{\"round\":false,\"minValue\":0,\"maxValue\":100,\"stepSize\":0.01,\"showDetails\":false}}",
+          "visible": true
+        },
+        {
+          "socketType": "out",
+          "name": "Parameter 2",
+          "dataType": "{\"class\":\"AnyType\",\"type\":{}}",
+          "visible": true
+        }
+      ],
+      "updateBehaviour": {
+        "load": false,
+        "update": true,
+        "interval": false,
+        "intervalFrequency": 1000
+      }
+    },
+    {
+      "id": "gentle-wasp-18",
+      "name": "Add 2",
+      "type": "Add",
+      "x": -7498.212036019397,
+      "y": -11482.468057383672,
+      "width": 160,
+      "height": 112,
+      "socketArray": [
+        {
+          "socketType": "in",
+          "name": "Addend",
+          "dataType": "{\"class\":\"NumberType\",\"type\":{\"round\":false,\"minValue\":0,\"maxValue\":100,\"stepSize\":0.01,\"showDetails\":false}}",
+          "visible": true
+        },
+        {
+          "socketType": "in",
+          "name": "Addend 2",
+          "dataType": "{\"class\":\"NumberType\",\"type\":{\"round\":false,\"minValue\":0,\"maxValue\":100,\"stepSize\":0.01,\"showDetails\":false}}",
+          "data": 4,
+          "visible": true
+        },
+        {
+          "socketType": "out",
+          "name": "Added",
+          "dataType": "{\"class\":\"NumberType\",\"type\":{\"round\":false,\"minValue\":0,\"maxValue\":100,\"stepSize\":0.01,\"showDetails\":false}}",
+          "visible": true
+        }
+      ],
+      "updateBehaviour": {
+        "load": false,
+        "update": true,
+        "interval": false,
+        "intervalFrequency": 1000
+      }
+    },
+    {
+      "id": "witty-baboon-16",
+      "name": "Delay",
+      "type": "CustomFunction",
+      "x": -7268.822562600966,
+      "y": -11440.696652842988,
+      "width": 160,
+      "height": 88,
+      "socketArray": [
+        {
+          "socketType": "in",
+          "name": "Code",
+          "dataType": "{\"class\":\"CodeType\",\"type\":{}}",
+          "data": "(a) => {\n\tawait new Promise(r => setTimeout(r,200));\n\treturn a;\n}",
+          "visible": false
+        },
+        {
+          "socketType": "in",
+          "name": "Main Thread",
+          "dataType": "{\"class\":\"BooleanType\",\"type\":{}}",
+          "data": true,
+          "visible": false
+        },
+        {
+          "socketType": "in",
+          "name": "a",
+          "dataType": "{\"class\":\"NumberType\",\"type\":{\"round\":false,\"minValue\":0,\"maxValue\":100,\"stepSize\":0.01,\"showDetails\":false}}",
+          "visible": true
+        },
+        {
+          "socketType": "out",
+          "name": "OutData",
+          "dataType": "{\"class\":\"NumberType\",\"type\":{\"round\":false,\"minValue\":0,\"maxValue\":100,\"stepSize\":0.01,\"showDetails\":false}}",
+          "visible": true
+        },
+        {
+          "socketType": "out",
+          "name": "Code",
+          "dataType": "{\"class\":\"CodeType\",\"type\":{}}",
+          "visible": false
+        }
+      ],
+      "updateBehaviour": {
+        "load": false,
+        "update": true,
+        "interval": false,
+        "intervalFrequency": 1000
+      },
+      "version": 3
+    },
+    {
+      "id": "grumpy-jellyfish-28",
+      "name": "Label",
+      "type": "Label",
+      "x": -7018.428336078546,
+      "y": -11366.428953237759,
+      "width": 160,
+      "height": 68.8,
+      "socketArray": [
+        {
+          "socketType": "in",
+          "name": "Input",
+          "dataType": "{\"class\":\"StringType\",\"type\":{}}",
+          "visible": true
+        },
+        {
+          "socketType": "in",
+          "name": "fontSize",
+          "dataType": "{\"class\":\"NumberType\",\"type\":{\"round\":true,\"minValue\":1,\"maxValue\":100,\"stepSize\":0.01,\"showDetails\":false}}",
+          "data": 32,
+          "visible": false
+        },
+        {
+          "socketType": "in",
+          "name": "Width",
+          "dataType": "{\"class\":\"NumberType\",\"type\":{\"round\":true,\"minValue\":0,\"maxValue\":1280,\"stepSize\":0.01,\"showDetails\":false}}",
+          "data": 0,
+          "visible": false
+        },
+        {
+          "socketType": "in",
+          "name": "Background color",
+          "dataType": "{\"class\":\"ColorType\",\"type\":{}}",
+          "data": {
+            "r": 84,
+            "g": 155,
+            "b": 224,
+            "a": 1
+          },
+          "visible": false
+        },
+        {
+          "socketType": "in",
+          "name": "backgroundColor",
+          "dataType": "{\"class\":\"ColorType\",\"type\":{}}",
+          "data": {
+            "r": 84,
+            "g": 155,
+            "b": 224,
+            "a": 1
+          },
+          "visible": false
+        },
+        {
+          "socketType": "out",
+          "name": "Output",
+          "dataType": "{\"class\":\"StringType\",\"type\":{}}",
+          "visible": true
+        }
+      ],
+      "updateBehaviour": {
+        "load": false,
+        "update": true,
+        "interval": false,
+        "intervalFrequency": 1000
+      }
+    },
+    {
+      "id": "green-dragon-33",
+      "name": "Execute Macro",
+      "type": "ExecuteMacro",
+      "x": -6999.404690047445,
+      "y": -11784.458090661197,
+      "width": 160,
+      "height": 112,
+      "socketArray": [
+        {
+          "socketType": "in",
+          "name": "Macro",
+          "dataType": "{\"class\":\"DynamicEnumType\",\"type\":{\"showAsButtons\":false}}",
+          "data": "Macro2",
+          "visible": true
+        },
+        {
+          "socketType": "in",
+          "name": "Parameter 1",
+          "dataType": "{\"class\":\"NumberType\",\"type\":{\"round\":false,\"minValue\":0,\"maxValue\":100,\"stepSize\":0.01,\"showDetails\":false}}",
+          "visible": true
+        },
+        {
+          "socketType": "out",
+          "name": "Output",
+          "dataType": "{\"class\":\"StringType\",\"type\":{}}",
+          "visible": true
+        }
+      ],
+      "updateBehaviour": {
+        "load": false,
+        "update": true,
+        "interval": false,
+        "intervalFrequency": 1000
+      }
+    },
+    {
+      "id": "wise-stingray-95",
+      "name": "Execute Macro",
+      "type": "ExecuteMacro",
+      "x": -7694.281382951871,
+      "y": -11192.071610876326,
+      "width": 160,
+      "height": 112,
+      "socketArray": [
+        {
+          "socketType": "in",
+          "name": "Macro",
+          "dataType": "{\"class\":\"DynamicEnumType\",\"type\":{\"showAsButtons\":false}}",
+          "data": "Macro1",
+          "visible": true
+        },
+        {
+          "socketType": "in",
+          "name": "Parameter 1",
+          "dataType": "{\"class\":\"AnyType\",\"type\":{}}",
+          "data": 0,
+          "visible": true
+        },
+        {
+          "socketType": "out",
+          "name": "Output",
+          "dataType": "{\"class\":\"NumberType\",\"type\":{\"round\":false,\"minValue\":0,\"maxValue\":100,\"stepSize\":0.01,\"showDetails\":false}}",
+          "visible": true
+        }
+      ],
+      "updateBehaviour": {
+        "load": false,
+        "update": true,
+        "interval": false,
+        "intervalFrequency": 1000
+      }
+    },
+    {
+      "id": "slimy-husky-55",
+      "name": "Execute Macro",
+      "type": "ExecuteMacro",
+      "x": -7695.279850679843,
+      "y": -11031.938646002502,
+      "width": 160,
+      "height": 112,
+      "socketArray": [
+        {
+          "socketType": "in",
+          "name": "Macro",
+          "dataType": "{\"class\":\"DynamicEnumType\",\"type\":{\"showAsButtons\":false}}",
+          "data": "Macro2",
+          "visible": true
+        },
+        {
+          "socketType": "in",
+          "name": "Parameter 1",
+          "dataType": "{\"class\":\"AnyType\",\"type\":{}}",
+          "data": 0,
+          "visible": true
+        },
+        {
+          "socketType": "out",
+          "name": "Output",
+          "dataType": "{\"class\":\"StringType\",\"type\":{}}",
+          "visible": true
+        }
+      ],
+      "updateBehaviour": {
+        "load": false,
+        "update": true,
+        "interval": false,
+        "intervalFrequency": 1000
+      }
+    },
+    {
+      "id": "black-monkey-26",
+      "name": "Label2",
+      "type": "Label",
+      "x": -7124.569653892136,
+      "y": -11138.781039767933,
+      "width": 160,
+      "height": 68.8,
+      "socketArray": [
+        {
+          "socketType": "in",
+          "name": "Input",
+          "dataType": "{\"class\":\"StringType\",\"type\":{}}",
+          "visible": true
+        },
+        {
+          "socketType": "in",
+          "name": "fontSize",
+          "dataType": "{\"class\":\"NumberType\",\"type\":{\"round\":true,\"minValue\":1,\"maxValue\":100,\"stepSize\":0.01,\"showDetails\":false}}",
+          "data": 32,
+          "visible": false
+        },
+        {
+          "socketType": "in",
+          "name": "Width",
+          "dataType": "{\"class\":\"NumberType\",\"type\":{\"round\":true,\"minValue\":0,\"maxValue\":1280,\"stepSize\":0.01,\"showDetails\":false}}",
+          "data": 0,
+          "visible": false
+        },
+        {
+          "socketType": "in",
+          "name": "Background color",
+          "dataType": "{\"class\":\"ColorType\",\"type\":{}}",
+          "data": {
+            "r": 84,
+            "g": 155,
+            "b": 224,
+            "a": 1
+          },
+          "visible": false
+        },
+        {
+          "socketType": "in",
+          "name": "backgroundColor",
+          "dataType": "{\"class\":\"ColorType\",\"type\":{}}",
+          "data": {
+            "r": 84,
+            "g": 155,
+            "b": 224,
+            "a": 1
+          },
+          "visible": false
+        },
+        {
+          "socketType": "out",
+          "name": "Output",
+          "dataType": "{\"class\":\"StringType\",\"type\":{}}",
+          "visible": false
+        }
+      ],
+      "updateBehaviour": {
+        "load": false,
+        "update": true,
+        "interval": false,
+        "intervalFrequency": 1000
+      }
+    },
+    {
+      "id": "cold-shrimp-48",
+      "name": "Label3",
+      "type": "Label",
+      "x": -7403.197831787514,
+      "y": -10940.300676898207,
+      "width": 160,
+      "height": 68.8,
+      "socketArray": [
+        {
+          "socketType": "in",
+          "name": "Input",
+          "dataType": "{\"class\":\"StringType\",\"type\":{}}",
+          "visible": true
+        },
+        {
+          "socketType": "in",
+          "name": "fontSize",
+          "dataType": "{\"class\":\"NumberType\",\"type\":{\"round\":true,\"minValue\":1,\"maxValue\":100,\"stepSize\":0.01,\"showDetails\":false}}",
+          "data": 32,
+          "visible": false
+        },
+        {
+          "socketType": "in",
+          "name": "Width",
+          "dataType": "{\"class\":\"NumberType\",\"type\":{\"round\":true,\"minValue\":0,\"maxValue\":1280,\"stepSize\":0.01,\"showDetails\":false}}",
+          "data": 0,
+          "visible": false
+        },
+        {
+          "socketType": "in",
+          "name": "Background color",
+          "dataType": "{\"class\":\"ColorType\",\"type\":{}}",
+          "data": {
+            "r": 84,
+            "g": 155,
+            "b": 224,
+            "a": 1
+          },
+          "visible": false
+        },
+        {
+          "socketType": "in",
+          "name": "backgroundColor",
+          "dataType": "{\"class\":\"ColorType\",\"type\":{}}",
+          "data": {
+            "r": 84,
+            "g": 155,
+            "b": 224,
+            "a": 1
+          },
+          "visible": false
+        },
+        {
+          "socketType": "out",
+          "name": "Output",
+          "dataType": "{\"class\":\"StringType\",\"type\":{}}",
+          "visible": false
+        }
+      ],
+      "updateBehaviour": {
+        "load": false,
+        "update": true,
+        "interval": false,
+        "intervalFrequency": 1000
+      }
+    },
+    {
+      "id": "strong-fly-49",
+      "name": "Label1",
+      "type": "Label",
+      "x": -7404.269036548652,
+      "y": -11208.26400564274,
+      "width": 160,
+      "height": 68.8,
+      "socketArray": [
+        {
+          "socketType": "in",
+          "name": "Input",
+          "dataType": "{\"class\":\"StringType\",\"type\":{}}",
+          "visible": true
+        },
+        {
+          "socketType": "in",
+          "name": "fontSize",
+          "dataType": "{\"class\":\"NumberType\",\"type\":{\"round\":true,\"minValue\":1,\"maxValue\":100,\"stepSize\":0.01,\"showDetails\":false}}",
+          "data": 32,
+          "visible": false
+        },
+        {
+          "socketType": "in",
+          "name": "Width",
+          "dataType": "{\"class\":\"NumberType\",\"type\":{\"round\":true,\"minValue\":0,\"maxValue\":1280,\"stepSize\":0.01,\"showDetails\":false}}",
+          "data": 0,
+          "visible": false
+        },
+        {
+          "socketType": "in",
+          "name": "Background color",
+          "dataType": "{\"class\":\"ColorType\",\"type\":{}}",
+          "data": {
+            "r": 84,
+            "g": 155,
+            "b": 224,
+            "a": 1
+          },
+          "visible": false
+        },
+        {
+          "socketType": "in",
+          "name": "backgroundColor",
+          "dataType": "{\"class\":\"ColorType\",\"type\":{}}",
+          "data": {
+            "r": 84,
+            "g": 155,
+            "b": 224,
+            "a": 1
+          },
+          "visible": false
+        },
+        {
+          "socketType": "out",
+          "name": "Output",
+          "dataType": "{\"class\":\"StringType\",\"type\":{}}",
+          "visible": false
+        }
+      ],
+      "updateBehaviour": {
+        "load": false,
+        "update": true,
+        "interval": false,
+        "intervalFrequency": 1000
+      }
+    },
+    {
+      "id": "itchy-zebra-77",
+      "name": "Add 3",
+      "type": "Add",
+      "x": -7410.07942849298,
+      "y": -11075.680281804496,
+      "width": 160,
+      "height": 64,
+      "socketArray": [
+        {
+          "socketType": "in",
+          "name": "Addend",
+          "dataType": "{\"class\":\"NumberType\",\"type\":{\"round\":false,\"minValue\":0,\"maxValue\":100,\"stepSize\":0.01,\"showDetails\":false}}",
+          "visible": true
+        },
+        {
+          "socketType": "in",
+          "name": "Addend 2",
+          "dataType": "{\"class\":\"NumberType\",\"type\":{\"round\":false,\"minValue\":0,\"maxValue\":100,\"stepSize\":0.01,\"showDetails\":false}}",
+          "visible": true
+        },
+        {
+          "socketType": "out",
+          "name": "Added",
+          "dataType": "{\"class\":\"NumberType\",\"type\":{\"round\":false,\"minValue\":0,\"maxValue\":100,\"stepSize\":0.01,\"showDetails\":false}}",
+          "visible": true
+        }
+      ],
+      "updateBehaviour": {
+        "load": false,
+        "update": true,
+        "interval": false,
+        "intervalFrequency": 1000
+      }
+    }
+  ],
+  "links": [
+    {
+      "id": "75b3aea9-c248-4314-ac13-1fc8005c48e4",
+      "sourceNodeId": "green-dragon-33",
+      "sourceSocketName": "Output",
+      "targetNodeId": "hungry-ladybug-87",
+      "targetSocketName": "Output"
+    },
+    {
+      "id": "805eab0e-b4c6-4fd4-af9d-a430dfcf4d06",
+      "sourceNodeId": "hungry-ladybug-87",
+      "sourceSocketName": "Parameter 1",
+      "targetNodeId": "chilly-wombat-61",
+      "targetSocketName": "Addend"
+    },
+    {
+      "id": "566770fa-b3fc-449e-8c7e-1fa9d4c1e96a",
+      "sourceNodeId": "chilly-wombat-61",
+      "sourceSocketName": "Added",
+      "targetNodeId": "bright-ape-22",
+      "targetSocketName": "a"
+    },
+    {
+      "id": "7d7b1831-a934-4e96-8847-4fe5cc858719",
+      "sourceNodeId": "grumpy-jellyfish-28",
+      "sourceSocketName": "Output",
+      "targetNodeId": "new-frog-9",
+      "targetSocketName": "Output"
+    },
+    {
+      "id": "288a42a7-400a-49b6-aa64-52c5dff3e832",
+      "sourceNodeId": "new-frog-9",
+      "sourceSocketName": "Parameter 1",
+      "targetNodeId": "gentle-wasp-18",
+      "targetSocketName": "Addend"
+    },
+    {
+      "id": "2663dbeb-62d0-434f-98b9-ce459081c689",
+      "sourceNodeId": "gentle-wasp-18",
+      "sourceSocketName": "Added",
+      "targetNodeId": "witty-baboon-16",
+      "targetSocketName": "a"
+    },
+    {
+      "id": "4636ac42-586e-4650-820f-9164937b63f6",
+      "sourceNodeId": "witty-baboon-16",
+      "sourceSocketName": "OutData",
+      "targetNodeId": "grumpy-jellyfish-28",
+      "targetSocketName": "Input"
+    },
+    {
+      "id": "c79f53e8-9499-461c-a0e8-821dfed56d23",
+      "sourceNodeId": "bright-ape-22",
+      "sourceSocketName": "OutData",
+      "targetNodeId": "green-dragon-33",
+      "targetSocketName": "Parameter 1"
+    },
+    {
+      "id": "3ab0a960-b69f-4ecd-b8a7-f71d204c34f7",
+      "sourceNodeId": "itchy-zebra-77",
+      "sourceSocketName": "Added",
+      "targetNodeId": "black-monkey-26",
+      "targetSocketName": "Input"
+    },
+    {
+      "id": "a78e9248-1c72-445f-bbc7-d209420e7e36",
+      "sourceNodeId": "slimy-husky-55",
+      "sourceSocketName": "Output",
+      "targetNodeId": "cold-shrimp-48",
+      "targetSocketName": "Input"
+    },
+    {
+      "id": "0fbaf657-431a-42b5-a1d1-115333eefee9",
+      "sourceNodeId": "wise-stingray-95",
+      "sourceSocketName": "Output",
+      "targetNodeId": "strong-fly-49",
+      "targetSocketName": "Input"
+    },
+    {
+      "id": "4b364312-95e0-43ee-975c-811c7d09bfe6",
+      "sourceNodeId": "wise-stingray-95",
+      "sourceSocketName": "Output",
+      "targetNodeId": "itchy-zebra-77",
+      "targetSocketName": "Addend"
+    },
+    {
+      "id": "94c8d312-d81d-4cb2-93d4-d7962a7620d6",
+      "sourceNodeId": "slimy-husky-55",
+      "sourceSocketName": "Output",
+      "targetNodeId": "itchy-zebra-77",
+      "targetSocketName": "Addend 2"
+    }
+  ],
+  "layouts": {
+    "default": ""
+  }
+}

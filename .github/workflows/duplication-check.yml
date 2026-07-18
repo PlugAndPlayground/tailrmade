@@ -1,0 +1,78 @@
+name: Duplicate Code Check
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, ready_for_review]
+
+jobs:
+  duplication-check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    if: github.event.pull_request.draft == false || github.event_name == 'push'
+    permissions:
+      contents: read
+      actions: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Download baseline from main
+        if: github.event_name == 'pull_request'
+        uses: dawidd6/action-download-artifact@v6
+        with:
+          workflow: duplication-check.yml
+          branch: main
+          name: duplication-baseline
+          path: .
+          if_no_artifact_found: warn
+
+      - name: Rename baseline for comparison
+        if: github.event_name == 'pull_request'
+        run: |
+          [ -f duplicated_segments.json ] && mv duplicated_segments.json previous_segments.json || true
+          [ -f duplication_severity.txt ] && mv duplication_severity.txt previous_severity.txt || true
+
+      - name: Download duplicate code checker
+        run: |
+          curl --fail --location --show-error --silent \
+            --output duplicateCodeChecker3.py \
+            https://bitbucket.org/futureuniverse/repostaticanalysis/raw/main/duplicateCodeChecker3.py
+
+      - name: Run duplicate code checker
+        run: |
+          python duplicateCodeChecker3.py \
+            "src" \
+            99999 \
+            "node_modules/*,dist/*,dist-server/*,.yarn/*,cypress/*,docusaurus/*,*.test.*,*.spec.*"
+
+      - name: Upload baseline artifact
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: actions/upload-artifact@v4
+        with:
+          name: duplication-baseline
+          path: |
+            duplicated_segments.json
+            duplication_severity.txt
+          retention-days: 90
+          overwrite: true
+
+      - name: Upload HTML report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: duplication-report.html
+          path: duplication_report.html
+          retention-days: 30
+          overwrite: true
+
+concurrency:
+  group: duplication-${{ github.ref }}
+  cancel-in-progress: true

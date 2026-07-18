@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Loading tailrmade</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <style>
+      #initial-loader {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: #ffffff;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        z-index: 9999;
+      }
+      #initial-loader .spinner {
+        width: 50px;
+        height: 50px;
+        border: 5px solid #f3f3f3;
+        border-top: 5px solid #3498db;
+        border-radius: 50%;
+        animation:
+          spin 1s linear infinite,
+          colorChange 5s linear infinite;
+        margin-bottom: 20px;
+      }
+      #loading-text {
+        font-family: Arial, sans-serif;
+        font-size: 18px;
+        color: #333;
+      }
+      @keyframes spin {
+        0% {
+          transform: rotate(0deg);
+        }
+        100% {
+          transform: rotate(360deg);
+        }
+      }
+      @keyframes colorChange {
+        0% {
+          border-top-color: #3498db;
+        }
+        25% {
+          border-top-color: #e74c3c;
+        }
+        50% {
+          border-top-color: #f1c40f;
+        }
+        75% {
+          border-top-color: #2ecc71;
+        }
+        100% {
+          border-top-color: #3498db;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div id="initial-loader">
+      <div class="spinner"></div>
+      <div id="loading-text">Loading tailrmade</div>
+    </div>
+    <div id="root"></div>
+  </body>
+</html>

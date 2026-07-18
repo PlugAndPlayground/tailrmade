@@ -1,0 +1,11 @@
+{
+  "_comment": "Spec durations (ms) used by cypress-split to balance the 4 CI shards (see .github/workflows/main.yml SPLIT_FILE and tests/frontend/cypress/cypress.config.ts). cypress-split rewrites this file with real durations after a run whose changes exceed SPLIT_TIME_THRESHOLD; on ephemeral CI that write is discarded, so refresh it from a full single-machine run and commit: SPLIT_FILE=cypress-timings.json yarn test:frontend:e2e. Specs absent here are weighted at the average of the ones listed, so listing the heavy layout-matrix subfiles is enough to spread them across shards instead of pinning them to one contiguous slice.",
+  "durations": [
+    { "spec": "tests/frontend/cypress/e2e/parallelizable/layoutMatrix.widgetWidget.cy.ts", "duration": 130000 },
+    { "spec": "tests/frontend/cypress/e2e/parallelizable/layoutMatrix.containerContainer.cy.ts", "duration": 130000 },
+    { "spec": "tests/frontend/cypress/e2e/parallelizable/layoutMatrix.widgetContainer.cy.ts", "duration": 130000 },
+    { "spec": "tests/frontend/cypress/e2e/parallelizable/layoutMatrix.surfaceSurface.cy.ts", "duration": 160000 },
+    { "spec": "tests/frontend/cypress/e2e/parallelizable/layoutMatrix.widgetSurface.cy.ts", "duration": 160000 },
+    { "spec": "tests/frontend/cypress/e2e/parallelizable/layoutMatrix.containerSurface.cy.ts", "duration": 160000 }
+  ]
+}

@@ -1,0 +1,520 @@
+{
+  "version": 0.1,
+  "graphSettings": {
+    "showExecutionVisualisation": true,
+    "viewportCenterPosition": {
+      "x": 821.3163421050909,
+      "y": 909.4691548563461
+    },
+    "viewportScale": 0.7691032893127459
+  },
+  "nodes": [
+    {
+      "id": "loud-earwig-33",
+      "name": "Label",
+      "type": "Label",
+      "x": -74.03104392874485,
+      "y": 523.2195389097113,
+      "width": 421.5260416666667,
+      "height": 69,
+      "socketArray": [
+        {
+          "socketType": "in",
+          "name": "Input",
+          "dataType": "{\"class\":\"StringType\",\"type\":{\"valueChangedListeners\":[null,null]}}",
+          "data": "https://randomuser.me/api/",
+          "visible": false
+        },
+        {
+          "socketType": "in",
+          "name": "fontSize",
+          "dataType": "{\"class\":\"NumberType\",\"type\":{\"round\":true,\"minValue\":1,\"maxValue\":100,\"stepSize\":0.01,\"valueChangedListeners\":[null,null]}}",
+          "data": 32,
+          "visible": false
+        },
+        {
+          "socketType": "in",
+          "name": "Width",
+          "dataType": "{\"class\":\"NumberType\",\"type\":{\"round\":true,\"minValue\":0,\"maxValue\":1280,\"stepSize\":0.01}}",
+          "data": 0,
+          "visible": false
+        },
+        {
+          "socketType": "in",
+          "name": "Background color",
+          "dataType": "{\"class\":\"ColorType\",\"type\":{\"valueChangedListeners\":[]}}",
+          "data": {
+            "r": 86,
+            "g": 225,
+            "b": 204,
+            "a": 1
+          },
+          "visible": false
+        },
+        {
+          "socketType": "in",
+          "name": "Meta",
+          "dataType": "{\"class\":\"JSONType\",\"type\":{\"strictParsing\":false}}",
+          "data": {},
+          "visible": false
+        },
+        {
+          "socketType": "in",
+          "name": "min-width",
+          "dataType": "{\"class\":\"NumberType\",\"type\":{\"round\":true,\"minValue\":1,\"maxValue\":100,\"stepSize\":0.01,\"valueChangedListeners\":[null,null]}}",
+          "data": 128,
+          "visible": false
+        },
+        {
+          "socketType": "out",
+          "name": "Output",
+          "dataType": "{\"class\":\"StringType\",\"type\":{\"valueChangedListeners\":[null,null]}}",
+          "visible": true
+        }
+      ],
+      "updateBehaviour": {
+        "load": false,
+        "update": true,
+        "interval": false,
+        "intervalFrequency": 1000
+      }
+    },
+    {
+      "id": "bright-hound-90",
+      "name": "CodeEditor",
+      "type": "CodeEditor",
+      "x": 767.890189191965,
+      "y": 985.7118326340537,
+      "width": 379.16415984974196,
+      "height": 334.00693362160723,
+      "socketArray": [
+        {
+          "socketType": "in",
+          "name": "input",
+          "dataType": "{\"class\":\"CodeType\",\"type\":{\"valueChangedListeners\":[null,null,null,null,null]}}",
+          "defaultData": "// javascript code editor\n// to run this code, plug it into a CustomFunction node\n(a) => {\nreturn a;\n}",
+          "visible": true
+        },
+        {
+          "socketType": "in",
+          "name": "Meta",
+          "dataType": "{\"class\":\"JSONType\",\"type\":{\"strictParsing\":false}}",
+          "data": {},
+          "visible": false
+        },
+        {
+          "socketType": "out",
+          "name": "output",
+          "dataType": "{\"class\":\"CodeType\",\"type\":{\"valueChangedListeners\":[null,null,null,null,null]}}",
+          "visible": true
+        }
+      ],
+      "updateBehaviour": {
+        "load": false,
+        "update": true,
+        "interval": false,
+        "intervalFrequency": 1000
+      }
+    },
+    {
+      "id": "serious-gecko-7",
+      "name": "HTTP",
+      "type": "HTTPNode",
+      "x": 458.9287438336434,
+      "y": 523.2195389097113,
+      "width": 160,
+      "height": 184,
+      "socketArray": [
+        {
+          "socketType": "in",
+          "name": "URL",
+          "dataType": "{\"class\":\"StringType\",\"type\":{}}",
+          "defaultData": "https://jsonplaceholder.typicode.com/posts",
+          "visible": true
+        },
+        {
+          "socketType": "in",
+          "name": "Headers",
+          "dataType": "{\"class\":\"JSONType\",\"type\":{\"strictParsing\":false}}",
+          "data": {
+            "Content-Type": "application/json",
+            "Authorization": "Basic ${YOUR_ENVIRONMENTAL_COMPANION_VARIABLE_HERE}"
+          },
+          "visible": true
+        },
+        {
+          "socketType": "in",
+          "name": "Method",
+          "dataType": "{\"class\":\"EnumType\",\"type\":{\"options\":[{\"text\":\"Get\",\"value\":\"Get\"},{\"text\":\"Post\",\"value\":\"Post\"},{\"text\":\"Put\",\"value\":\"Put\"},{\"text\":\"Patch\",\"value\":\"Patch\"},{\"text\":\"Delete\",\"value\":\"Delete\"}]}}",
+          "data": "Get",
+          "visible": true
+        },
+        {
+          "socketType": "in",
+          "name": "Body",
+          "dataType": "{\"class\":\"JSONType\",\"type\":{\"strictParsing\":false}}",
+          "data": {},
+          "visible": true
+        },
+        {
+          "socketType": "in",
+          "name": "Send Through Companion",
+          "dataType": "{\"class\":\"BooleanType\",\"type\":{}}",
+          "data": false,
+          "visible": true
+        },
+        {
+          "socketType": "in",
+          "name": "Companion Location",
+          "dataType": "{\"class\":\"StringType\",\"type\":{}}",
+          "data": "http://localhost:6655"
+        },
+        {
+          "socketType": "in",
+          "name": "Meta",
+          "dataType": "{\"class\":\"JSONType\",\"type\":{\"strictParsing\":false}}",
+          "data": {},
+          "visible": false
+        },
+        {
+          "socketType": "out",
+          "name": "Content",
+          "dataType": "{\"class\":\"JSONType\",\"type\":{\"strictParsing\":false}}",
+          "visible": true
+        }
+      ],
+      "updateBehaviour": {
+        "load": false,
+        "update": true,
+        "interval": false,
+        "intervalFrequency": 1000
+      }
+    },
+    {
+      "id": "spotty-baboon-27",
+      "name": "Break JSON",
+      "type": "Break",
+      "x": 730.362489929365,
+      "y": 523.2195389097113,
+      "width": 160,
+      "height": 112,
+      "socketArray": [
+        {
+          "socketType": "in",
+          "name": "JSON",
+          "dataType": "{\"class\":\"JSONType\",\"type\":{\"strictParsing\":true}}",
+          "defaultData": {},
+          "visible": true
+        },
+        {
+          "socketType": "in",
+          "name": "Lock Outputs",
+          "dataType": "{\"class\":\"BooleanType\",\"type\":{}}",
+          "data": false,
+          "visible": false
+        },
+        {
+          "socketType": "in",
+          "name": "Meta",
+          "dataType": "{\"class\":\"JSONType\",\"type\":{\"strictParsing\":false}}",
+          "data": {},
+          "visible": false
+        },
+        {
+          "socketType": "out",
+          "name": "results→0",
+          "dataType": "{\"class\":\"JSONType\",\"type\":{\"strictParsing\":false}}",
+          "visible": true
+        },
+        {
+          "socketType": "out",
+          "name": "info",
+          "dataType": "{\"class\":\"JSONType\",\"type\":{\"strictParsing\":false}}",
+          "visible": true
+        }
+      ],
+      "updateBehaviour": {
+        "load": false,
+        "update": true,
+        "interval": false,
+        "intervalFrequency": 1000
+      }
+    },
+    {
+      "id": "chilly-badger-71",
+      "name": "Break JSON",
+      "type": "Break",
+      "x": 1001.7962360250865,
+      "y": 523.2195389097113,
+      "width": 160,
+      "height": 352,
+      "socketArray": [
+        {
+          "socketType": "in",
+          "name": "JSON",
+          "dataType": "{\"class\":\"JSONType\",\"type\":{\"strictParsing\":true}}",
+          "defaultData": {},
+          "visible": true
+        },
+        {
+          "socketType": "in",
+          "name": "Lock Outputs",
+          "dataType": "{\"class\":\"BooleanType\",\"type\":{}}",
+          "data": false,
+          "visible": false
+        },
+        {
+          "socketType": "in",
+          "name": "Meta",
+          "dataType": "{\"class\":\"JSONType\",\"type\":{\"strictParsing\":false}}",
+          "data": {},
+          "visible": false
+        },
+        {
+          "socketType": "out",
+          "name": "gender",
+          "dataType": "{\"class\":\"StringType\",\"type\":{}}",
+          "visible": true
+        },
+        {
+          "socketType": "out",
+          "name": "name",
+          "dataType": "{\"class\":\"JSONType\",\"type\":{\"strictParsing\":false}}",
+          "visible": true
+        },
+        {
+          "socketType": "out",
+          "name": "location",
+          "dataType": "{\"class\":\"JSONType\",\"type\":{\"strictParsing\":false}}",
+          "visible": true
+        },
+        {
+          "socketType": "out",
+          "name": "email",
+          "dataType": "{\"class\":\"StringType\",\"type\":{}}",
+          "visible": true
+        },
+        {
+          "socketType": "out",
+          "name": "login",
+          "dataType": "{\"class\":\"JSONType\",\"type\":{\"strictParsing\":false}}",
+          "visible": true
+        },
+        {
+          "socketType": "out",
+          "name": "dob",
+          "dataType": "{\"class\":\"JSONType\",\"type\":{\"strictParsing\":false}}",
+          "visible": true
+        },
+        {
+          "socketType": "out",
+          "name": "registered",
+          "dataType": "{\"class\":\"JSONType\",\"type\":{\"strictParsing\":false}}",
+          "visible": true
+        },
+        {
+          "socketType": "out",
+          "name": "phone",
+          "dataType": "{\"class\":\"StringType\",\"type\":{}}",
+          "visible": true
+        },
+        {
+          "socketType": "out",
+          "name": "cell",
+          "dataType": "{\"class\":\"StringType\",\"type\":{}}",
+          "visible": true
+        },
+        {
+          "socketType": "out",
+          "name": "id",
+          "dataType": "{\"class\":\"JSONType\",\"type\":{\"strictParsing\":false}}",
+          "visible": true
+        },
+        {
+          "socketType": "out",
+          "name": "picture",
+          "dataType": "{\"class\":\"JSONType\",\"type\":{\"strictParsing\":false}}",
+          "visible": true
+        },
+        {
+          "socketType": "out",
+          "name": "nat",
+          "dataType": "{\"class\":\"StringType\",\"type\":{}}",
+          "visible": true
+        }
+      ],
+      "updateBehaviour": {
+        "load": false,
+        "update": true,
+        "interval": false,
+        "intervalFrequency": 1000
+      }
+    },
+    {
+      "id": "smooth-sheep-25",
+      "name": "Break JSON",
+      "type": "Break",
+      "x": 1273.229982120808,
+      "y": 523.2195389097113,
+      "width": 160,
+      "height": 136,
+      "socketArray": [
+        {
+          "socketType": "in",
+          "name": "JSON",
+          "dataType": "{\"class\":\"JSONType\",\"type\":{\"strictParsing\":true}}",
+          "defaultData": {},
+          "visible": true
+        },
+        {
+          "socketType": "in",
+          "name": "Lock Outputs",
+          "dataType": "{\"class\":\"BooleanType\",\"type\":{}}",
+          "data": false,
+          "visible": false
+        },
+        {
+          "socketType": "in",
+          "name": "Meta",
+          "dataType": "{\"class\":\"JSONType\",\"type\":{\"strictParsing\":false}}",
+          "data": {},
+          "visible": false
+        },
+        {
+          "socketType": "out",
+          "name": "title",
+          "dataType": "{\"class\":\"StringType\",\"type\":{}}",
+          "visible": true
+        },
+        {
+          "socketType": "out",
+          "name": "first",
+          "dataType": "{\"class\":\"StringType\",\"type\":{}}",
+          "visible": true
+        },
+        {
+          "socketType": "out",
+          "name": "last",
+          "dataType": "{\"class\":\"StringType\",\"type\":{}}",
+          "visible": true
+        }
+      ],
+      "updateBehaviour": {
+        "load": false,
+        "update": true,
+        "interval": false,
+        "intervalFrequency": 1000
+      }
+    },
+    {
+      "id": "tame-snail-20",
+      "name": "Label",
+      "type": "Label",
+      "x": 1544.6637282165295,
+      "y": 523.2195389097113,
+      "width": 160,
+      "height": 69,
+      "socketArray": [
+        {
+          "socketType": "in",
+          "name": "Input",
+          "dataType": "{\"class\":\"StringType\",\"type\":{}}",
+          "defaultData": "",
+          "visible": true
+        },
+        {
+          "socketType": "in",
+          "name": "fontSize",
+          "dataType": "{\"class\":\"NumberType\",\"type\":{\"round\":true,\"minValue\":1,\"maxValue\":100,\"stepSize\":0.01}}",
+          "data": 32,
+          "visible": false
+        },
+        {
+          "socketType": "in",
+          "name": "Width",
+          "dataType": "{\"class\":\"NumberType\",\"type\":{\"round\":true,\"minValue\":0,\"maxValue\":1280,\"stepSize\":0.01}}",
+          "data": 0,
+          "visible": false
+        },
+        {
+          "socketType": "in",
+          "name": "Background color",
+          "dataType": "{\"class\":\"ColorType\",\"type\":{}}",
+          "data": {
+            "r": 84,
+            "g": 155,
+            "b": 224,
+            "a": 1
+          },
+          "visible": false
+        },
+        {
+          "socketType": "in",
+          "name": "Meta",
+          "dataType": "{\"class\":\"JSONType\",\"type\":{\"strictParsing\":false}}",
+          "data": {},
+          "visible": false
+        },
+        {
+          "socketType": "out",
+          "name": "Output",
+          "dataType": "{\"class\":\"StringType\",\"type\":{}}",
+          "visible": false
+        }
+      ],
+      "updateBehaviour": {
+        "load": false,
+        "update": true,
+        "interval": false,
+        "intervalFrequency": 1000
+      }
+    }
+  ],
+  "links": [
+    {
+      "id": "0c850a03-725f-492c-b965-2fb6f6e15b1d",
+      "sourceNodeId": "serious-gecko-7",
+      "sourceSocketName": "Content",
+      "targetNodeId": "bright-hound-90",
+      "targetSocketName": "input"
+    },
+    {
+      "id": "c63de525-6749-46b8-82ac-3b63202fb0e9",
+      "sourceNodeId": "loud-earwig-33",
+      "sourceSocketName": "Output",
+      "targetNodeId": "serious-gecko-7",
+      "targetSocketName": "URL"
+    },
+    {
+      "id": "dc780d8d-7ae9-4fc8-8131-dd74bf1700df",
+      "sourceNodeId": "serious-gecko-7",
+      "sourceSocketName": "Content",
+      "targetNodeId": "spotty-baboon-27",
+      "targetSocketName": "JSON"
+    },
+    {
+      "id": "1470ed9a-e83c-4ef3-b014-c79a9c1508a4",
+      "sourceNodeId": "spotty-baboon-27",
+      "sourceSocketName": "results→0",
+      "targetNodeId": "chilly-badger-71",
+      "targetSocketName": "JSON"
+    },
+    {
+      "id": "bff85c63-f2ed-49b8-aa9d-850cde5e1aed",
+      "sourceNodeId": "chilly-badger-71",
+      "sourceSocketName": "name",
+      "targetNodeId": "smooth-sheep-25",
+      "targetSocketName": "JSON"
+    },
+    {
+      "id": "09b11cdc-5cfa-4e0a-8085-691ac553f5ff",
+      "sourceNodeId": "smooth-sheep-25",
+      "sourceSocketName": "first",
+      "targetNodeId": "tame-snail-20",
+      "targetSocketName": "Input"
+    }
+  ],
+  "layouts": {
+    "default": []
+  }
+}

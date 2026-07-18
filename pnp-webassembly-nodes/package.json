@@ -1,0 +1,16 @@
+{
+  "name": "pnp-webassembly-nodes",
+  "type": "module",
+  "version": "0.1.0",
+  "license": "AGPL-3.0-or-later",
+  "files": [
+    "pnp_webassembly_nodes_bg.wasm",
+    "pnp_webassembly_nodes.js",
+    "pnp_webassembly_nodes.d.ts"
+  ],
+  "main": "pnp_webassembly_nodes.js",
+  "types": "pnp_webassembly_nodes.d.ts",
+  "sideEffects": [
+    "./snippets/*"
+  ]
+}
