@@ -4,8 +4,7 @@ Tailrmade is an open-source visual web app builder/programming canvas that runs 
 Create interactive applications, transform and visualize data, work with AI and move between
 visual editing and code.
 
-The hosted product is available at [tailrmade.app](https://tailrmade.app), but
-this repository does not deploy there. It contains the complete frontend and a
+The hosted product is available at [tailrmade.app](https://tailrmade.app). This repository contains the application itself and a
 small static server for self-hosting.
 
 ## Develop
