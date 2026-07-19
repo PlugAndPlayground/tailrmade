@@ -1,6 +1,6 @@
 import React from 'react';
 import { Button, Stack, styled } from '@mui/material';
-import { BlueskyIcon, DiscordIcon, RedditIcon } from '../utils/icons';
+import { BlueskyIcon, DiscordIcon, GithubIcon } from '../utils/icons';
 import { TRgba } from '../utils/color';
 
 export const StyledSocialButton = styled(Button, {
@@ -37,14 +37,17 @@ const SocialIcons = (props) => {
         <DiscordIcon />
       </StyledSocialButton>
       <StyledSocialButton
-        title="Open reddit"
-        data-cy="open-social-redit"
+        title="Open Tailrmade on GitHub"
+        data-cy="open-social-github"
         onClick={() =>
-          window.open('https://www.reddit.com/r/tailrmade', '_blank')
+          window.open(
+            'https://github.com/PlugAndPlayground/tailrmade',
+            '_blank',
+          )
         }
         sx={{ background: 'transparent', borderRadius: '24px' }}
       >
-        <RedditIcon />
+        <GithubIcon />
       </StyledSocialButton>
       <StyledSocialButton
         title="Open bluesky"
