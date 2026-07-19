@@ -18,7 +18,7 @@ yarn dev
 ```
 
 The development server is available at <http://localhost:8080> and uses local,
-browser-only storage. It does not require Firebase or the private backend.
+browser-only storage..
 
 Useful commands:
 
@@ -43,14 +43,9 @@ docker run --rm -p 8080:8080 tailrmade
 
 Contributions are welcome. Fork this repository, create a branch, and open a
 pull request. CI runs the build, code-quality checks, unit tests, and browser
-tests. No backend credentials or Firebase emulators are needed.
+tests.
 
-Cloud integration is maintained in the private deployment repository. That
-repository consumes this project as a complete source checkout and owns all
-backend- and Firebase-dependent tests.
-
-Documentation source lives in `docusaurus/` and is reviewed through the same
-public contribution workflow as frontend code.
+Documentation source lives in `docusaurus/`.
 
 ## License
 
