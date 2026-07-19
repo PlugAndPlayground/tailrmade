@@ -1,0 +1,107 @@
+# Style Guide
+
+import {
+  PrimaryButton,
+  SecondaryButton,
+} from '@site/src/components/CustomButtons';
+
+This page demonstrates how to use the custom button components throughout the _tailrmade_ documentation.
+
+## Button Components
+
+You can use the custom button components by importing them at the top of your MDX file:
+
+```jsx
+import {
+  PrimaryButton,
+  SecondaryButton,
+} from '@site/src/components/CustomButtons';
+```
+
+### Primary Button
+
+<PrimaryButton href="https://tailrmade.app/?new=true">
+  Create New App
+</PrimaryButton>
+
+Code:
+
+```jsx
+<PrimaryButton href="https://tailrmade.app/?new=true">
+  Create New App
+</PrimaryButton>
+```
+
+### Secondary Button
+
+<SecondaryButton href="/help/docs/getting-started/quickstart">
+  Learn Basics
+</SecondaryButton>
+
+Code:
+
+```jsx
+<SecondaryButton href="/help/docs/getting-started/quickstart">
+  Learn Basics
+</SecondaryButton>
+```
+
+### Full Width Button
+
+<PrimaryButton
+  href="https://discord.com/channels/818911619354198019/1159139141381017730"
+  fullWidth
+  size="small"
+>
+  Join our Discord Community
+</PrimaryButton>
+
+Code:
+
+```jsx
+<PrimaryButton
+  href="https://discord.com/channels/818911619354198019/1159139141381017730"
+  fullWidth
+  size="small"
+>
+  Join our Discord Community
+</PrimaryButton>
+```
+
+## Button Options
+
+Both button components accept these props:
+
+- `href`: URL to navigate to (internal or external)
+- `size`: Button size ('small' or 'large', defaults to 'large')
+- `fullWidth`: Set to true for 100% width buttons
+- `onClick`: Custom click handler if needed
+- `sx`: Additional Material UI styling overrides
+
+## Button Row
+
+You can create a row of buttons like this:
+
+<div style={{ display: 'flex', gap: '10px', marginTop: '20px' }}>
+  <PrimaryButton href="https://tailrmade.app/?new=true">
+    Primary Action
+  </PrimaryButton>
+
+  <SecondaryButton href="/help/docs/getting-started/quickstart">
+    Secondary Action
+  </SecondaryButton>
+</div>
+
+Code:
+
+```jsx
+<div style={{ display: 'flex', gap: '10px', marginTop: '20px' }}>
+  <PrimaryButton href="https://tailrmade.app/?new=true">
+    Primary Action
+  </PrimaryButton>
+
+  <SecondaryButton href="/help/docs/getting-started/quickstart">
+    Secondary Action
+  </SecondaryButton>
+</div>
+```

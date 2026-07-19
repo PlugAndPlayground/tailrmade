@@ -1,0 +1,91 @@
+# Update the execution logic
+
+Nodes are executed and update their outputs based on specific triggers.
+
+- on load
+- on change
+  - Allows cascading updates through connected nodes
+- on interval
+- on trigger
+  - Allows to build more custom logic
+
+![Node Update Behaviour](/img/screenshots/node-execution-2.gif)
+_In above example, all nodes are set to update "on change" except for the "Heavy calculation" node. This get's updated "on trigger"._
+
+:::info
+You can also combine multiple update methods.
+:::
+
+## Checking the update behaviour
+
+| ![Update on change](/img/screenshots/trigger-onchange.png) | ![Update on interval](/img/screenshots/trigger-oninterval.png) | ![Update manually](/img/screenshots/trigger-manual.png) |
+| :--------------------------------------------------------: | :------------------------------------------------------------: | :-----------------------------------------------------: |
+|                      Update on change                      |                       Update on interval                       |               Update on trigger/manually                |
+
+## Changing the update behaviour
+
+1. Select the node and open the inspector
+2. Show the "Common" section
+3. Select the desired update behaviour
+
+![Node Update Behaviour](/img/screenshots/inspector-node-common.png)
+
+### Update on load
+
+- The node calculates its output once when the node is added/pasted or when the app is loaded
+
+### Update on change
+
+- The node recalculates its output whenever any of its inputs change
+
+:::info
+
+- Nodes are executed in the correct order to ensure data flows correctly
+- Each node's outputs are calculated before dependent nodes execute
+  :::
+
+### Update on interval
+
+- The node updates at regular time intervals
+  - Set the time interval in milliseconds
+
+### Update on trigger
+
+The node updates when it receives a trigger signal.
+
+#### Add a trigger input
+
+1. Right-click the node and select "Add trigger input"
+
+![Add Trigger Input](/img/screenshots/add-trigger-input.png)
+
+#### Configure a trigger input
+
+1. Select the node and open the inspector
+2. Show the "Trigger" section
+3. Click on the expand icon on the right
+4. Change the trigger method
+
+##### Available trigger methods
+
+- **positiveFlank**: Triggers when the new value is larger than the previous one
+- **negativeFlank**: Triggers when the new value is smaller than the previous one
+- **change**: Triggers when the new value is different from the previous one
+- **always**: Triggers on every execution, regardless of value
+
+![Configure trigger input](/img/screenshots/configure-trigger-input.png)
+
+:::warning
+Do not change the name of the trigger function!
+:::
+
+### Update on manual trigger
+
+1. Hover over the node
+2. Click the "Trigger" button
+
+![Trigger manually](/img/screenshots/trigger-manual-mouse.png)
+
+OR Click the "Update now" button in the inspector
+
+![Update now button](/img/screenshots/inspector-node-common.png)

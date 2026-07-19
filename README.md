@@ -23,7 +23,10 @@ browser-only storage. It does not require Firebase or the private backend.
 
 Useful commands:
 
-- `yarn build` creates a self-hosted production bundle in `dist/`.
+- `yarn build` creates a self-hosted production bundle, including the
+  documentation under `dist/help`, in `dist/`.
+- `yarn build:docs` builds only the documentation and copies it to `dist/help`.
+- `yarn dev:docs` starts the documentation development server.
 - `yarn start` serves an existing production bundle on port 8080.
 - `yarn test:jest` runs frontend unit tests.
 - `yarn test:e2e` runs frontend Cypress tests against a temporary local server.
@@ -46,6 +49,9 @@ tests. No backend credentials or Firebase emulators are needed.
 Cloud integration is maintained in the private deployment repository. That
 repository consumes this project as a complete source checkout and owns all
 backend- and Firebase-dependent tests.
+
+Documentation source lives in `docusaurus/` and is reviewed through the same
+public contribution workflow as frontend code.
 
 ## License
 

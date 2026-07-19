@@ -1,0 +1,281 @@
+# Build the user interface
+
+With the built in editor you can create interactive user interfaces (UIs) that:
+
+- Provide controls for your users to interact with your app
+- Display data in a clean, organized way
+- Work without users needing to understand the node graph
+
+![User interface in edit mode](/img/screenshots/user-interface.png)
+
+## How to open
+
+- Press `2` to show/hide the user interface panel
+  - Press `E` to enter/exit edit mode
+- OR click the user interface icon in the top left corner
+  - Click the Edit user interface icon to enter/exit edit mode
+
+| ![Open user interface](/img/screenshots/open-userinterface-icon.png) | ![Edit user interface](/img/screenshots/edit-userinterface-icon.png) |
+| :------------------------------------------------------------------: | :------------------------------------------------------------------: |
+|                       Open/close the UI panel                        |              Enter/exit edit mode (when panel is open)               |
+
+## Add socket controls
+
+The simplest way to add controls to your interface is to directly expose the sockets of nodes.
+
+1. Hold `Shift` and click on the socket
+2. A widget for that socket is added to the interface
+
+- the widget used depends on the socket type at the time of adding
+
+This works for both input and output sockets.
+
+![Shift-click socket](/img/screenshots/add-socket-to-ui.gif)
+
+OR
+
+1. Select the node
+2. Click the "Add to user interface" button in the inspector
+
+![Click add to user interface button](/img/screenshots/click-add-to-ui-icon.png)
+
+## Add widget node
+
+All nodes with the `Widget` category can be added/exposed to the interface. Adding/Exposing creates a widget in the user interface which is linked to the node on the canvas. You can either
+
+- add an existing node from the canvas
+- OR add one directly in the editor
+  - which automatically creates a linked node on the canvas
+
+### Add widget from existing node
+
+#### Use button on the node
+
+1. Hover over the node
+2. Click the "Add to user interface" button
+3. **Click a 2nd time to confirm**
+4. The editor is opened if not already and the widget is added
+
+![Add node to user interface](/img/screenshots/add-node-to-ui.gif)
+
+#### Use menu in the editor
+
+1. Open the user interface editor
+2. Go to the "Existing nodes" section on the left side menu
+   - this shows all widget nodes on the canvas
+   - hovering the list highlights the corresponding node on the canvas
+3. Click the one you want to add
+   - the widget is placed after the one selected
+   - _if a container is selected, the widget is added inside the container_
+
+OR drag and drop it to the desired position
+
+![Add via the menu in the editor](/img/screenshots/add-existing-via-menu.gif)
+
+### Add new widget/node
+
+1. Open the user interface editor
+2. Go to the "Dynamic (node)" section on the left side menu
+3. Click the one you want to add (the widget is placed after the one selected)
+   - OR drag and drop it to the desired position
+4. A corresponding/linked node is created on the canvas
+
+## Add layout nodes
+
+To organize your interface you can use layout nodes. These nodes help structure and arrange your interface components. You can
+
+- group widgets together
+- toggle the visibility of groups
+- manage their spacing and alignment
+- add text labels and titles
+
+![Container stacked](/img/screenshots/container-stacked.png)
+![Container side by side](/img/screenshots/container-side-by-side.png)
+
+Use
+
+- **static widgets** for fixed elements
+- **dynamic widgets** if they should be controlled via the node graph
+
+### Add static layout widget
+
+1. Open the user interface editor
+2. Go to the "Static" section on the left side menu
+3. Click the one you want to add (the widget is placed after the one selected)
+   - OR drag and drop it to the desired position
+
+![Static widget menu](/img/screenshots/static-widget-menu.png)
+
+### Add dynamic layout widget
+
+Same as adding a widget node. Check "Search nodes" for available layout nodes.
+
+![Dynamic widget menu](/img/screenshots/dynamic-layout-widgets.png)
+
+## Edit widget properties
+
+1. Select the "User interface" tab in the inspector
+2. Select one of the widgets in the layer view or enter edit mode by pressing `E` or clicking the edit icon in the top left toolbar
+
+![Static widget inspector](/img/screenshots/inspector-edit-ui.png)
+
+3. Select the widget in the user interface
+4. Change the desired properties
+
+|                    Dynamic widget properties (example)                     |                    Static widget properties (example)                    |
+| :------------------------------------------------------------------------: | :----------------------------------------------------------------------: |
+| ![Dynamic widget inspector](/img/screenshots/dynamic-widget-inspector.png) | ![Static widget inspector](/img/screenshots/static-widget-inspector.png) |
+
+## Arrange widgets
+
+![Move widget](/img/screenshots/widget-header.png)
+
+### Select a widget using the mouse
+
+- Click on the widget
+- Click on the "Select parent" icon in the widget header to select the parent container
+
+### Select a widget using the keyboard
+
+- Press `Arrow up` and `Arrow down` keys to cycle through widgets on the same level
+- Press `Enter` and `Shift+Enter` keys to enter and exit containers (go one level down/up)
+
+### Move a widget
+
+1. Open the user interface editor
+2. Select the widget you want to move
+3. Click and drag the move icon in the widget headerand drop it to the desired position
+   - OR press `Alt+Arrow up` and `Alt+Arrow down` buttons to move it up/down
+
+### Duplicate a widget
+
+1. Select the widget you want to duplicate
+2. Click the duplicate icon in the widget header
+3. A copy of the widget is created below the original one
+
+### Delete a widget
+
+1. Select the widget you want to delete
+2. Click the delete icon in the widget header
+
+## Control the visibility
+
+Show/hide elements based on state:
+
+1. Add a `Widget Container` to the user interface
+2. Add/Move widgets inside the container
+3. On the canvas, connect a `Switch` node to the container's `Visible` input
+   - OR control its "Collapse Mode" input
+4. Optionally, add the `Switch` widget to the user interface for user control
+
+![Conditional Visibility](/img/screenshots/toggle-visibility.png)
+
+Example controlling visibility via a "Button Group" (Tabs)
+
+![Conditional Visibility](/img/screenshots/tabs-visibility.png)
+
+## Create multi-page interfaces
+
+Use the **Widget Page** node to build multi-page app flows within your user interface. Only one page is visible at a time within a page group, making it easy to create wizards, tabbed views, or multi-step forms.
+
+### How it works
+
+Each **Widget Page** acts like a container — you place widgets inside it just like a regular container. Pages with the same **Page Group** are linked together: when one page becomes active, all other pages in that group automatically hide.
+
+### Add pages
+
+1. Open the user interface editor
+2. Search for **Widget page** in the node search or the "Dynamic (node)" section
+3. Add multiple page nodes and give each a unique **Page Name** (e.g. "Home", "Settings", "Profile")
+4. Place widgets inside each page
+
+#### Page inputs
+
+| Input               | Description                                                                                             |
+| :------------------ | :------------------------------------------------------------------------------------------------------ |
+| **Page Name**       | A unique name for the page (used to navigate to it)                                                     |
+| **Page Group**      | Groups pages together — only one page per group is visible at a time. Leave empty for the default group |
+| **Is Default Page** | Mark one page per group as the default — it will activate automatically when the dashboard loads        |
+| **Layout**          | Same layout options as a regular container (direction, padding, etc.)                                   |
+
+#### Page outputs
+
+| Output            | Description                                                                       |
+| :---------------- | :-------------------------------------------------------------------------------- |
+| **Page Active**   | `true` when this page is currently visible                                        |
+| **On Page Enter** | Fires a trigger when this page becomes active — use it to run logic on page entry |
+
+### Navigate between pages
+
+Use the **Navigate to page** node to switch pages. Connect it to a button or any trigger node.
+
+1. Add a **Navigate to page** node on the canvas
+2. Set the **Page Name** to the name of the target page
+3. Set the **Page Group** if targeting a specific group (leave empty for the default group)
+4. Connect a trigger (e.g. a **Button** node) to the **Navigate** input
+
+#### Navigate to page inputs
+
+| Input          | Description                                                                |
+| :------------- | :------------------------------------------------------------------------- |
+| **Page Name**  | The name of the page to navigate to (must match a Widget Page's Page Name) |
+| **Page Group** | The group to navigate within (leave empty for the default group)           |
+| **Navigate**   | Trigger input — set to `true` to perform the navigation                    |
+
+### Page groups
+
+Page groups let you have independent sets of pages in the same interface. For example:
+
+- A main navigation with pages "Home", "Settings", "Profile" (group: empty/default)
+- A secondary tabbed section within one of those pages (group: "settings-tabs")
+
+Navigating within one group does not affect pages in other groups.
+
+:::tip
+Mark exactly one page per group as **Is Default Page** so users see content immediately when the dashboard loads.
+:::
+
+## Customize container styling
+
+In addition to _Direction, Padding, Alignment, Width, Height, Background color,_ you can apply custom CSS styling to widget containers using
+
+### Custom CSS Properties
+
+Add custom CSS properties as a JSON object to apply additional styles to a container:
+
+**Example:**
+
+```json
+{
+  "border": "2px solid #3498db",
+  "boxShadow": "0 4px 6px rgba(0,0,0,0.1)",
+  "borderRadius": "8px",
+  "fontFamily": "monospace"
+}
+```
+
+These properties will be merged with the container's existing styles, allowing you to:
+
+- Add borders and shadows
+- Set custom fonts
+- Apply transforms
+- Add transitions and animations
+- Override any CSS property
+
+:::tip
+Custom CSS properties take precedence over the default container styles, allowing you to fine-tune the appearance of your UI.
+:::
+
+### Dynamic container styling
+
+For dynamic layouts controlled by the node graph, use the **Widget Container** node's **Layout** socket:
+
+1. Add a `Widget Container` node to the canvas
+2. Unhide the `Layout` input socket
+3. Construct the layout options using JSON nodes
+
+![Construct custom css](/img/screenshots/create-custom-css.png)
+
+:::tip
+To see the base settings (JSON), drag a connection from the Layout socket, release the mouse and add a _Code editor_ node
+:::

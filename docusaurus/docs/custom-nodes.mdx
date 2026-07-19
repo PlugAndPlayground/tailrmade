@@ -1,0 +1,91 @@
+# Create custom nodes
+
+Custom nodes allow you to write JavaScript code to:
+
+- Create specialized functionality
+- Process data in ways not covered by built-in nodes
+- Integrate external libraries and APIs
+
+## Creating a custom node
+
+In the node search
+
+1. Search for the "Custom function" node and add it to the canvas
+2. Optionally - Rename it in the inspector
+
+OR
+
+1. type your own custom name
+2. Select "Create custom node" from the search results
+3. A node with that name is created
+
+![Add custom node](/img/screenshots/search-node-custom-name.png)
+
+## Writing a custom function
+
+The code editor for custom nodes provides a JavaScript environment where you can:
+
+1. Select the node and open the inspector
+2. Write your function in the "Code" property
+3. For every input parameter, an input socket is automatically created
+
+### Basic Structure
+
+- the function name/keyword can be omitted
+- the function can be written as
+  - an arrow function
+  - OR a standard function
+
+Learn more about how to write [JavaScript functions](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Functions)
+
+```js
+(inputA, inputB) => {
+  // Your code here
+
+  return inputA.valueX + inputB.valueY;
+};
+```
+
+#### Example: Simple Math Function
+
+```js
+function process(inputs) {
+  const a = inputs.a || 0;
+  const b = inputs.b || 0;
+
+  const sum = a + b;
+  const product = a * b;
+
+  return {
+    sum: sum,
+    product: product,
+  };
+}
+```
+
+:::info
+
+### Execution Environment
+
+Custom functions can run on the
+
+- **Worker Thread** (default): Runs in an isolated environment for security and performance. Cannot access browser APIs like `window` or DOM, but provides protection from infinite loops and **prevents malicious code execution**.
+
+- **Main Thread**: Runs with full access to the browser environment. This allows using browser APIs and DOM manipulation, but requires caution as it can block the UI if code is inefficient.
+
+Toggle this option via the "Main Thread" property in the inspector panel:
+
+```js
+// Worker Thread (safer, default)
+(data) => {
+  return data.map((item) => item * 2); // Safe data processing
+};
+
+// Main Thread (full access)
+(data) => {
+  document.title = 'Processing...'; // Can access DOM
+  return data;
+};
+```
+
+:::

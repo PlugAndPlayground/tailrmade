@@ -73,16 +73,35 @@ const server = http.createServer((request, response) => {
       return;
     }
 
-    const indexPath = path.join(dist, 'index.html');
-    fs.stat(indexPath, (indexError) => {
-      if (indexError) {
-        response.writeHead(404).end('Build not found. Run `yarn build` first.');
-        return;
-      }
-      sendFile(response, indexPath);
-    });
+    if (!error && stats.isDirectory()) {
+      const directoryIndexPath = path.join(filePath, 'index.html');
+      fs.stat(
+        directoryIndexPath,
+        (directoryIndexError, directoryIndexStats) => {
+          if (!directoryIndexError && directoryIndexStats.isFile()) {
+            sendFile(response, directoryIndexPath);
+            return;
+          }
+          sendAppIndex(response);
+        },
+      );
+      return;
+    }
+
+    sendAppIndex(response);
   });
 });
+
+function sendAppIndex(response) {
+  const indexPath = path.join(dist, 'index.html');
+  fs.stat(indexPath, (indexError) => {
+    if (indexError) {
+      response.writeHead(404).end('Build not found. Run `yarn build` first.');
+      return;
+    }
+    sendFile(response, indexPath);
+  });
+}
 
 server.listen(port, host, () => {
   console.log(`Tailrmade is available at http://${host}:${port}`);

@@ -1,0 +1,106 @@
+# Create and use macros
+
+Macros are reusable node groups that:
+
+- Encapsulate complex functionality into a single node
+- Can be reused across your application
+- Allow for abstraction and organization of your node graph
+- Make your canvas cleaner and more manageable
+
+![Macro example](/img/screenshots/macro-example-draw.png)
+
+You can use macros to create:
+
+- Reusable data processing pipelines
+- Custom visual components
+- Interactive widgets
+
+## Creating a Macro
+
+### Extract from existing nodes
+
+1. Select multiple nodes you want to include in the macro
+2. Right-click and select "Extract to macro" or press `Shift` + `M`
+
+![Extract to macro](/img/screenshots/extract-to-macro.png)
+
+- The selected nodes are framed by a new macro node
+- An "Execute Macro" node is created referencing the new macro
+
+![After extract to macro](/img/screenshots/after-extract-to-macro.png)
+
+3. Connect inputs and the output to define the macro's interface
+
+![Connect inside macro](/img/screenshots/connect-inside-macro.gif)
+
+### Create a new macro from scratch
+
+1. Add a "Macro" node from the node search
+2. Optionally - Name your macro in the node inspector
+3. Add/Move the nodes inside the macro
+4. Connect inputs and the output to define the macro's interface
+
+## Using Macros
+
+Macros can be used like any other node in your graph. You can either
+
+- reference them directly with an **"Execute Macro" node for single operations**
+  - runs your macro once with the provided inputs
+- reference them in a **"Map Execute Macro" node for batch operations**
+  - runs your macro multiple times, once for each item in the input array
+
+### Use an execute macro node
+
+To use a macro you've created:
+
+1. Add an "Execute Macro" node from the node search
+2. In the node inspector, select your macro name
+3. Connect inputs and use outputs as with any other node
+4. In the node inspector, select your macro name to reference it
+
+![Select macro](/img/screenshots/select-macro.png)
+
+:::tip
+The node list also shows "Execute Macro" nodes which are already linked to your macro.
+
+![Add execute macro node](/img/screenshots/add-execute-macro-node.png)
+:::
+
+### Use a map execute macro node
+
+To use a macro for batch processing:
+
+1. Add a "Map Execute Macro" node from the node search
+2. In the node inspector, select your macro name
+3. Connect your input array to the "Array" input
+4. Select the input sockets and map them to a property of your input array
+
+![Add execute macro node](/img/screenshots/mapexecutemacro-parameters.gif)
+
+## Calling Macros from Code
+
+### Custom Function Node
+
+In a Custom Function node (with "Main Thread" enabled), you can call macros using the `macro()` function:
+
+```javascript
+const result = await macro('myMacroName', arg1, arg2);
+```
+
+### HTML Renderer and IFrame Renderer Nodes
+
+In HTML and IFrame Renderer nodes, you can call macros in two ways:
+
+**Handlebars helper** (evaluated at render time):
+
+```handlebars
+<p>Result: {{macro "myMacroName" arg1 arg2}}</p>
+```
+
+**JavaScript** (for runtime calls like onclick):
+
+```html
+<button onclick="macro('myMacroName', arg1, arg2).then(r => console.log(r))">
+  Run Macro
+</button>
+```

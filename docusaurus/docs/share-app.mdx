@@ -1,0 +1,96 @@
+# Share your app
+
+By default, your app is private and only accessible to you. You can share your app with others by
+
+- making it public and sharing the link
+- downloading it and share it the old fashion way
+- create a content link and share that
+  - this encodes the whole content of your app into the URL
+  - useful for sharing small apps quickly
+
+:::tip
+To share the app with a hidden canvas/graph
+
+1. Maximise the user interface
+
+![Maximise user interface](/img/screenshots/maximize-user-interface.png)
+
+2. Save the app
+3. Next time you or someone else opens the app
+   - the canvas and the toolbar are hidden
+   - clicking on the _tailrmade_ logo in the top left corner shows the toolbar again
+
+![Maximise user interface](/img/screenshots/home-button.gif)
+
+:::
+
+## Share via public link
+
+1. Sign in to _tailrmade_
+   - Learn more about how to [Sign in to tailrmade](/docs/signin)
+2. Open the app you want to share
+3. Open the "Edit app details" dialog
+   - by clicking the "Edit app" button in the apps list
+   - OR by pressing `Cmd/Ctrl+E`
+
+![Edit app button](/img/screenshots/edit-app-button.png)
+
+4. Set app access level to "Public"
+
+![App details dialog](/img/screenshots/edit-app-details-public.png)
+
+5. Click "Save"
+6. Click on "Copy URL" in
+   - the share menu in the top left corner
+   - OR on the app name in the apps list
+
+![Copy URL button](/img/screenshots/copy-url-share-menu.png)
+![Copy URL button](/img/screenshots/copy-url-button.png)
+
+## Embed in website
+
+1. Follow the steps above to make your app public
+2. Use an iframe HTML element to embed your app in any website
+
+```html
+<iframe
+  src="YOUR_APPS_PUBLIC_URL"
+  width="800"
+  height="600"
+  style="border: none; border-radius: 8px;"
+  title="Tailrmade App Embed"
+  allow="camera"
+  loading="lazy"
+>
+</iframe>
+```
+
+Replace `YOUR_APPS_PUBLIC_URL` with your app's actual public URL.
+
+### Customization options
+
+You can customize how the embedded app appears:
+
+- `width` and `height`: Set dimensions (pixels or percentage)
+- `style`: Add custom CSS (border, border-radius, box-shadow, etc.)
+
+## Download the app
+
+1. Open the app you want to download
+2. In the share menu on the top left, click on
+   - "Download (Plain text)" - JSON file
+   - OR "Download (Compressed)" - compressed file
+3. The file is downloaded in your browser's default download location
+
+## Share via content link
+
+1. In the share menu on the top left, click on "Share app embedded in link"
+   - OR press `Cmd/Ctrl+K`
+2. The app is encoded into the URL and copied to your clipboard
+
+:::info
+
+- Max URL size is around 5 MB
+- Content links can get very long depending on the size of your app
+- Some platforms may not support pasting very long URLs
+  :::

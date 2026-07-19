@@ -1,0 +1,162 @@
+# Access APIs
+
+APIs (Application Programming Interfaces) allow your apps to interact with external services, fetch data from databases, send notifications, and much more.
+
+## Get data from an API
+
+1. Add an **HTTP** node
+2. Enter the API URL in the "URL" input
+3. Configure headers if needed
+4. Choose the request method (GET, POST, etc.)
+5. Add request parameters or body if required
+6. Update the node to fetch data
+   - Learn more about a node's [update behaviour](/help/docs/update-behaviour)
+
+_For API calls with CORS restrictions, use the [PnP companion app](https://github.com/magnificus/pnp-companion-2/releases/latest)_
+
+### HTTP Node responses
+
+The HTTP node outputs the following content:
+
+- **Status**: HTTP status code (e.g., 200, 404, 500)
+- **Response**: The response body (often JSON)
+  - **Error**: Any error that occurred during the request
+
+## Processing API Responses
+
+Most APIs return data in JSON format, which you'll need to parse and process:
+
+1. Connect the HTTP node's **Response** output to a **Break** node
+2. Then connect to its **data** output
+
+![Http node example](/img/screenshots/http-node-example.png)
+
+## Authentication Methods
+
+### Storing API Keys Securely (Recommended)
+
+You can securely store your API keys and reference them in HTTP nodes using the `$TM_KEY{key_name}` syntax. This keeps your credentials safe and makes it easy to share apps without exposing sensitive values.
+
+There are two ways to store API keys, depending on your companion location setting:
+
+#### Cloud Companion (Recommended)
+
+:::tip
+Use the Cloud Companion if you want to run your apps on mobile devices, as the local companion app is only available on desktop.
+:::
+
+With **Companion location** set to **Cloud**:
+
+1. [Sign in to tailrmade](/docs/signin)
+2. Click on your profile icon and go to **User Profile**
+3. Click the **key icon** to open the API Keys manager
+4. Add a new API key:
+   - **Name**: A reference name for your key (e.g., `openai`)
+   - **Domain**: The API domain (e.g., `api.openai.com`)
+   - **API Key**: Your actual API key or token value
+
+#### Local Companion
+
+When using the [local companion app](https://github.com/PlugAndPlayground/pnp-companion-2/releases/latest) with **Companion location** set to **Local**:
+
+1. Create a `.env` file in the same folder as the companion executable
+2. Add your API keys in the format:
+   ```
+   openai=your_api_key_here
+   weather=another_api_key
+   ```
+
+#### Using Stored Keys
+
+Once your keys are stored (either in the cloud or locally), reference them in your HTTP node headers:
+
+```json
+{
+  "Authorization": "Token $TM_KEY{openai}",
+  "Content-Type": "application/json"
+}
+```
+
+The `$TM_KEY{key_name}` placeholder will be replaced with your actual key when the request is made.
+
+### Direct Authentication
+
+If you need to quickly test an API without setting up stored keys, you can add credentials directly to the HTTP node headers.
+
+:::warning
+This approach exposes your keys in the app.
+:::
+
+#### API Keys
+
+For APIs requiring an API key:
+
+1. In the HTTP node's **Headers** section, add:
+   ```
+   Authorization: ApiKey YOUR_API_KEY
+   ```
+   or
+   ```
+   X-API-Key: YOUR_API_KEY
+   ```
+
+#### Bearer Tokens
+
+For APIs using bearer token authentication:
+
+1. In the HTTP node's **Headers** section, add:
+   ```
+   Authorization: Bearer YOUR_TOKEN
+   ```
+
+### OAuth Authentication
+
+For OAuth-based APIs, you'll typically:
+
+1. Add an **HTTP** node to handle the authentication flow
+2. Store the returned token using a **Store** node
+3. Use that token in subsequent API requests
+
+## Handling CORS Issues
+
+When facing CORS (Cross-Origin Resource Sharing) issues:
+
+### Using the PnP Companion App
+
+1. Download and install the [PnP Companion app](https://github.com/magnificus/pnp-companion-2/releases/latest)
+2. Run the companion app on your computer
+3. Use the **HTTP** node with the companion app enabled
+
+## Best Practices
+
+### Rate Limiting
+
+Be mindful of API rate limits:
+
+- Add delays between requests
+- Batch requests when possible
+- Cache responses to reduce API calls
+
+### Security
+
+Keep your API credentials secure:
+
+- Use the **stored API keys** feature to avoid hardcoding keys in your apps
+- Reference keys using `$TM_KEY{key_name}` syntax in HTTP node headers
+- Never share apps with hardcoded API keys
+- Use appropriate authentication for sensitive APIs
+
+### Data Validation
+
+Always validate API responses:
+
+- Check if the expected data exists
+- Handle missing or null values gracefully
+- Transform data into the expected format
+
+### Common Issues
+
+- **401/403 errors**: Authentication issues
+- **404 errors**: Incorrect endpoint URL
+- **CORS errors**: Cross-origin resource sharing restrictions
+- **Rate limit exceeded**: Too many requests too quickly

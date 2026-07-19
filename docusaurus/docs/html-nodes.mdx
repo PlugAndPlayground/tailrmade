@@ -1,0 +1,351 @@
+---
+sidebar_label: Create custom UI elements
+---
+
+# Create Custom UI Elements
+
+Build rich, custom interfaces using HTML nodes with Tailwind CSS styling. HTML nodes let you create any UI component you can imagine—from simple cards to complex dashboards.
+
+## HTML Renderer Node
+
+The **HTML Renderer** node displays custom HTML content with full Tailwind CSS support.
+
+### Adding an HTML Renderer
+
+1. Double-click the canvas or press `Cmd/Ctrl+F`
+2. Search for "HTML Renderer"
+3. Add the node to your canvas
+
+The node comes with example HTML to get you started.
+
+## Passing Data with Handlebars
+
+Use **double curly brackets** `{{ }}` to create input sockets and inject dynamic data into your HTML:
+
+```html
+<div class="p-4 bg-white rounded shadow">
+  <h2 class="text-xl font-bold">{{title}}</h2>
+  <p class="text-gray-600">{{description}}</p>
+  <span class="text-blue-500">{{price}}</span>
+</div>
+```
+
+Each `{{variableName}}` automatically creates an input socket on the node that you can connect to other nodes.
+
+### Dot Notation
+
+Access nested properties using dot notation:
+
+```html
+<div class="p-4">
+  <h3>{{user.name}}</h3>
+  <p>{{user.email}}</p>
+  <span>{{user.address.city}}</span>
+</div>
+```
+
+Connect a JSON object to the `user` socket, and the template will access the nested values automatically.
+
+### Array Access
+
+Access array elements by index:
+
+```html
+<p>First item: {{items.0}}</p>
+<p>Second item: {{items.1}}</p>
+```
+
+## Building Repeating Elements
+
+Create lists, grids, and repeating UI patterns by chaining HTML nodes with macros.
+
+### Example: Card Grid from Data Array
+
+**Goal:** Display an array of data as styled cards in a grid layout.
+
+#### Step 1: Create the Card Macro
+
+1. Create a new macro
+2. Add an **HTML Renderer** node inside with your card template:
+
+```html
+<div class="bg-white rounded-lg shadow p-4">
+  <img src="{{image}}" class="w-full h-32 object-cover rounded" />
+  <h3 class="font-bold mt-2">{{title}}</h3>
+  <p class="text-gray-600 text-sm">{{description}}</p>
+</div>
+```
+
+3. Connect the macro inputs to the HTML placeholders
+
+#### Step 2: Map Over Your Data
+
+1. Outside the macro, add your data source (API, JSON, etc.)
+2. Add a **Map - Execute Macro** node
+3. Connect your data array to the Map node
+4. Select your card macro
+5. The output is an array of HTML strings—one for each item
+
+#### Step 3: Combine the Cards
+
+1. Add a **Join** node
+2. Connect the array of HTML strings to it
+3. Set the separator to empty string `""` (no comma)
+
+#### Step 4: Wrap in a Container
+
+1. Add another **HTML Renderer** node
+2. Create a grid container that includes the joined cards:
+
+```html
+<div class="grid grid-cols-3 gap-4 p-4">{{cards}}</div>
+```
+
+3. Connect the joined HTML string to the `cards` input
+
+#### Step 5: Expose to user interface
+
+1. Hover over the container HTML node
+2. Click "Add to user interface"
+
+### Why This Pattern Works
+
+- **Reusable components:** The card macro can be used anywhere
+- **Dynamic data:** Works with any array length
+- **Flexible layouts:** Change the grid, add filters, sort—all in the node graph
+- **Clean separation:** Styling in HTML, logic in nodes
+
+## Composing Templates
+
+Build complex HTML by combining reusable template components across multiple HTML nodes. This is useful for creating consistent layouts with shared headers, footers, or UI patterns.
+
+### Using Template Passthrough and Templates
+
+The **Template Passthrough** checkbox allows you to pass unprocessed HTML templates to other nodes. Combined with the **Templates** input, you can inject reusable components into your HTML.
+
+#### Example: Shared Header and Footer
+
+**Step 1: Create Template Components**
+
+Create two HTML Renderer nodes with Template Passthrough enabled:
+
+**Header Node** (Template Passthrough: ✓):
+
+```html
+<header class="bg-blue-600 text-white p-4">
+  <h1 class="text-2xl font-bold">{{appName}}</h1>
+</header>
+```
+
+**Footer Node** (Template Passthrough: ✓):
+
+```html
+<footer class="bg-gray-800 text-white p-4 text-center">
+  <p>© {{year}} {{companyName}}</p>
+</footer>
+```
+
+**Step 2: Combine Templates into a JSON Object**
+
+Use a **Create Object** node to combine your templates:
+
+1. Add a Create Object node
+2. Connect the Header node's output to a property
+3. Name the property `header` (or click the property name to rename)
+4. Connect the Footer node's output to another property
+5. Name it `footer`
+
+The Create Object node outputs:
+
+```json
+{
+  "header": "<header class=\"bg-blue-600 text-white p-4\">...</header>",
+  "footer": "<footer class=\"bg-gray-800 text-white p-4 text-center\">...</footer>"
+}
+```
+
+**Step 3: Use Templates in Final HTML Node**
+
+Create a final HTML Renderer node with Template Passthrough **disabled** and connect your templates object to the **Templates** input:
+
+```html
+<div class="min-h-screen flex flex-col">
+  {{> header}}
+
+  <main class="flex-1 p-8">
+    <h2>{{pageTitle}}</h2>
+    <p>{{pageContent}}</p>
+  </main>
+
+  {{> footer}}
+</div>
+```
+
+The `{{> templateName}}` syntax injects the named templates from your Templates input.
+
+### How Template Passthrough Works
+
+- **Enabled (✓):** HTML with Handlebars syntax `{{variable}}` is preserved and output as-is. Data input is ignored.
+- **Disabled ( ):** Handlebars syntax is processed with data from the Data input. Templates from the Templates input are available for use.
+
+### Benefits of Template Composition
+
+- **Better Overview:** Break complex UIs into separate nodes instead of cramming everything into one large HTML block
+- **Easier Editing:** Change individual components without navigating through lengthy HTML
+- **Modularity:** Build and test components independently, then compose them
+- **Reusability:** Define components once, use them in multiple layouts
+- **Consistency:** Shared templates ensure uniform styling across your app
+
+## Handle HTML Events
+
+Add interactivity to your HTML by connecting user interactions (clicks, inputs, etc.) to your node graph.
+
+### Quick Start
+
+1. Add an event attribute to your HTML element
+2. Add an **HTMLEventListener** node and name it to match
+3. Connect the listener's outputs to trigger actions
+
+```html
+<button
+  data-tm-event-click='{"listener": "onButtonClick", "data": {"action": "save"}}'
+  class="bg-blue-500 text-white px-4 py-2 rounded"
+>
+  Save
+</button>
+```
+
+### Event Attribute Format
+
+```
+data-tm-event-{eventType}='{"listener": "listenerName", "data": {...}}'
+```
+
+| Property          | Description                                                                    |
+| ----------------- | ------------------------------------------------------------------------------ |
+| `eventType`       | The DOM event: `click`, `input`, `keydown`, `focus`, `blur`, etc.              |
+| `listener`        | The name of the HTMLEventListener node to trigger                              |
+| `data`            | Custom data to pass to the listener (optional)                                 |
+| `stopPropagation` | Set to `true` to prevent the event from bubbling to parent elements (optional) |
+| `preventDefault`  | Set to `true` to prevent the browser's default action (optional)               |
+
+### HTMLEventListener Node
+
+The **HTMLEventListener** node receives events from HTML elements.
+
+1. Add the node and set its **name** to match the `listener` value in your HTML
+2. When the event fires, the node outputs:
+
+| Output            | Description                                                           |
+| ----------------- | --------------------------------------------------------------------- |
+| **Event Type**    | The type of event (e.g., "click", "keydown")                          |
+| **Custom Data**   | The `data` object from your HTML attribute                            |
+| **Event Details** | Browser event info (mouse position, key pressed, element value, etc.) |
+
+### Examples
+
+**Button with custom data:**
+
+```html
+<button
+  data-tm-event-click='{"listener": "onAction", "data": {"id": 123, "type": "delete"}}'
+>
+  Delete Item
+</button>
+```
+
+**Input field tracking changes:**
+
+```html
+<input
+  data-tm-event-input='{"listener": "onSearch", "data": {"field": "search"}}'
+  class="border p-2 rounded"
+  placeholder="Search..."
+/>
+```
+
+The current input value is available in **Event Details** → `target.value`.
+
+**Multiple elements, one handler:**
+
+```html
+<button
+  data-tm-event-click='{"listener": "tabHandler", "data": {"tab": "home"}}'
+>
+  Home
+</button>
+<button
+  data-tm-event-click='{"listener": "tabHandler", "data": {"tab": "settings"}}'
+>
+  Settings
+</button>
+```
+
+Use the **Custom Data** output to determine which element triggered the event.
+
+### Controlling Event Propagation
+
+When you have nested elements with event listeners, a click on the inner element will bubble up and also trigger the outer element's handler. Use `stopPropagation` to prevent this:
+
+```html
+<div
+  data-tm-event-click='{"listener": "selectCard", "data": {"id": 1}}'
+  class="p-4 border rounded relative"
+>
+  Card content
+  <button
+    data-tm-event-click='{"listener": "deleteCard", "data": {"id": 1}, "stopPropagation": true}'
+    class="absolute top-2 right-2 bg-red-500 text-white px-2 py-1 rounded"
+  >
+    Delete
+  </button>
+</div>
+```
+
+Without `stopPropagation`, clicking "Delete" would trigger **both** `deleteCard` and `selectCard`. With `"stopPropagation": true`, only `deleteCard` fires.
+
+Use `preventDefault` to stop the browser's default behavior for an event (e.g., preventing a form from submitting or a link from navigating):
+
+```html
+<a
+  href="https://example.com"
+  data-tm-event-click='{"listener": "onLink", "data": {"url": "example"}, "preventDefault": true}'
+>
+  Handle in graph instead of navigating
+</a>
+```
+
+### Supported Events
+
+| Category     | Events                                                                   |
+| ------------ | ------------------------------------------------------------------------ |
+| **Mouse**    | `click`, `dblclick`, `mouseenter`, `mouseleave`, `mouseover`, `mouseout` |
+| **Keyboard** | `keydown`, `keyup`, `keypress`                                           |
+| **Form**     | `change`, `input`, `focus`, `blur`, `submit`                             |
+| **Touch**    | `touchstart`, `touchend`, `touchmove`                                    |
+
+### Auto-Update on Rename
+
+When you rename an HTMLEventListener node, all HTML nodes automatically update their references. You don't need to manually edit your HTML.
+
+## Tips
+
+:::tip Use Tailwind CSS
+HTML nodes support all [Tailwind CSS](https://tailwindcss.com/docs) classes. Use them for rapid styling without writing custom CSS.
+:::
+
+:::tip Sanitize input
+The "Sanitize input" socket is enabled by default to prevent XSS attacks. Disable it only if you trust the HTML source and need to render scripts or advanced HTML.
+:::
+
+:::tip Preview changes
+The HTML node updates live as you edit. Use this to quickly iterate on your designs.
+:::
+
+:::tip Combine with other widgets
+HTML nodes work great alongside built-in widgets. Use HTML for custom layouts and widgets for standard controls.
+:::
+
+:::tip Template Composition
+Enable Template Passthrough to build reusable HTML components. Chain multiple HTML nodes together to create complex layouts from simple, maintainable pieces.
+:::

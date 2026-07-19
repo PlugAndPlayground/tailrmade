@@ -1,10 +1,11 @@
 .git
 .github
 .env
-.yarn/cache
-node_modules
+**/.yarn/cache
+**/node_modules
 node_modules.partial
 dist
+docusaurus/build
 .cache
 tests/**/screenshots
 tests/**/videos

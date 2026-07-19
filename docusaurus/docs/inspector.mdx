@@ -1,0 +1,135 @@
+# Use the inspector
+
+The inspector allows you to:
+
+- View and edit nodes and their properties
+- View and edit widget's layout properties
+- Edit app settings
+
+## Open the Inspector
+
+- Press `3` to show/hide the inspector panel
+- OR click the inspector icon in the top right corner
+- OR click the inspector icon in the top right on any node
+
+![Open inspector](/img/screenshots/open-inspector-icon.png)
+![Open inspector](/img/screenshots/open-inspector-icon-on-node.png)
+
+## Node list
+
+1. Select the "Graph" tab in the inspector
+2. Unselect any node in the graph
+
+A list of all nodes in your app are shown
+
+- Click on a node to bring it into focus
+- Double-click a node to select it
+
+![Node inspector](/img/screenshots/inspector-graph-list.png)
+
+## Node inspector
+
+1. Select the "Graph" tab in the inspector
+2. Select a node
+
+![Node inspector](/img/screenshots/inspector-graph-node.png)
+
+### Rename a node
+
+1. Click on the node name at the top of the inspector
+2. Type the new name
+
+### Filter node properties
+
+Then node properties are organized into the following sections:
+
+- **COMMON**: Edit the update behavior of the node
+  - Learn more about [Planning the execution logic](/help/docs/update-behaviour)
+- **TRIGGER**: Show and edit trigger sockets
+  - _Visible only if the node has trigger sockets_
+- **IN**: Show and edit input sockets
+- **OUT**: Show and edit output sockets
+- **INFO**: Show the node's description and its config
+
+1. Click on the section title to filter that section
+2. Click again to unfilter
+
+![Filter node properties](/img/screenshots/inspector-node-filter.png)
+
+### Change node properties
+
+The socket inspector allows you to:
+
+- Toggle the socket's visibility on the canvas
+- Add the socket control widget to the user interface
+- Copy the value to the clipboard
+- Change the socket's data type
+- Value editor appropriate for the socket's data type
+
+#### Toggle socket visibility
+
+1. Click the eye icon next to a socket to hide/show it
+
+:::info
+Connected sockets cannot be hidden. Remove the connection first.
+:::
+
+#### Add socket controls to the user interface
+
+1. Click the "Add to user interface" icons
+2. The user interface is opened (if not already) and switched to edit mode
+3. The socket's control widget is added
+
+:::info
+You can also `Shift+Click` on a socket to add it to the user interface
+:::
+
+#### Copy socket value
+
+1. Click the copy icon next to a socket to copy its value to the clipboard
+
+#### Change socket data type
+
+1. Click on the socket's data type label
+2. Select a new data type from the dropdown
+
+Learn more about [Sockets and data types](/help/docs/sockets-data-types)
+
+#### Edit socket value
+
+Depending on the socket's data type, an appropriate value editor is shown.
+
+#### Edit using the floating inspector
+
+1. Click on any socket on the graph to open the floating inspector
+
+Click outside the floating inspector or press `Esc` to close it.
+
+![Floating inspector](/img/screenshots/floating-inspector.gif)
+
+## User interface inspector
+
+1. Select the "User interface" tab in the inspector
+2. Enter edit mode by pressing `E` or clicking the edit icon in the top left toolbar
+3. Select a widget in the user interface
+
+The user interface inspector shows:
+
+- the widget's layout properties
+- the linked node and its properties
+  - shown only for dynamic widgets
+
+Learn more about [Building User Interfaces](/help/docs/build-user-interface)
+
+![User interface inspector](/img/screenshots/inspector-user-interface-selected.png)
+
+## App inspector
+
+1. Select the "App" tab in the inspector
+
+It shows
+
+- the app's information
+- the app's configuration
+
+![App inspector](/img/screenshots/inspector-app.png)

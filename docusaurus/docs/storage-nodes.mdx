@@ -1,0 +1,61 @@
+# Storage & State nodes
+
+_tailrmade_ provides several ways to store and retrieve data. Each storage tier serves a different purpose:
+
+| Tier                          | Persistence                   | Scope           | Sign-in required |
+| ----------------------------- | ----------------------------- | --------------- | ---------------- |
+| **State** (in-memory)         | Until page reload             | Current session | No               |
+| **Browser Storage**           | Until browser data is cleared | Current browser | No               |
+| **Cloud Storage** (Tailrmade) | Permanent                     | Any device      | Yes              |
+
+## Storage
+
+The **Storage** nodes are a unified set of nodes for reading, writing, deleting, and browsing data across browser and cloud backends. All nodes expose a **Storage type** input that lets you switch the underlying backend without rewiring your graph:
+
+| Backend           | Default | Best for                                                                                                |
+| ----------------- | ------- | ------------------------------------------------------------------------------------------------------- |
+| **IndexedDB**     | Yes     | Larger or more structured data, many records, metadata-driven browsing                                  |
+| **Local storage** | No      | Small/simple settings, quick flags, lightweight values (shared with the raw browser `localStorage` API) |
+| **Cloud**         | No      | Signed-in user data that should follow the user across devices                                          |
+
+The **Storage type** defaults to **IndexedDB**. Change it to **Local storage** when you need a small, simple key/value store, or **Cloud** when the data should be stored for the signed-in user.
+
+## Common patterns
+
+All storage tiers share a consistent socket naming convention:
+
+| Socket                      | Direction    | Description                                                 |
+| --------------------------- | ------------ | ----------------------------------------------------------- |
+| **Location**                | Input        | A namespace/category for grouping keys (default: `Default`) |
+| **Key**                     | Input        | The identifier within a location                            |
+| **Value**                   | Input/Output | The data to write or read                                   |
+| **Fallback value**          | Input        | Returned when the key does not exist (Read nodes)           |
+| **Success**                 | Output       | `true` when the operation completed successfully            |
+| **Error**                   | Output       | Error message if the operation failed, empty otherwise      |
+| **Show Toast Notification** | Input        | Optional toast feedback for read, write, delete, and browse |
+
+### Write controls
+
+Write and delete nodes use **manual execution** — they only run when their **Execute** trigger socket fires. This prevents accidental writes during graph loading or upstream changes.
+
+Write nodes include two boolean inputs:
+
+| Input            | Default | Behaviour                                                                  |
+| ---------------- | ------- | -------------------------------------------------------------------------- |
+| `Non-empty only` | `true`  | Skips the write when the value is `null`, `undefined`, `""`, `[]`, or `{}` |
+| `Insert only`    | `false` | Writes only when the key does not already exist                            |
+
+When a write is skipped, the **Error** output contains the reason.
+
+### Execute trigger
+
+Write and delete nodes have an **Execute** trigger socket. Connect any trigger source to it — the node will run its operation when the trigger fires. This matches their manual [update behaviour](/help/docs/update-behaviour).
+
+### Read node updates
+
+**State/Storage Read** follows the node's [update behaviour](/help/docs/update-behaviour):
+
+- With **on change** enabled, the node re-executes not just on socket change but also when the matching stored value changes for its selected **Storage type**, **Location**, and **Key**
+- With **on change** disabled, the node only updates when executed manually or by a trigger socket
+
+If the **Key** input is empty, **Storage Read** treats the whole location as its source and updates when that location changes.

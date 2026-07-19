@@ -1,0 +1,132 @@
+# Build the graph
+
+On the canvas, you create the logic of your application by adding and connecting nodes.
+
+## Adding nodes
+
+- Via the node search menu
+  - Double click anywhere on the canvas
+  - Press `Ctrl/Cmd` + `F`
+- Via dragging files onto the canvas
+  - Learn more about [Importing data](/help/docs/importing-data)
+- Via dragging a connection from an existing node
+- OR by copy/pasting nodes
+
+### Using the node search menu
+
+    - Start typing to search for nodes
+        - OR click on the categories to add a filter
+        - OR scroll through the list to browse nodes
+    - Click on a node to add it to the canvas
+        - OR press `Enter` to add the first result
+        - OR use the arrow keys to navigate the results and press `Enter` to add the selected node
+
+To remove a filter, click on the category again or use the `Backspace` key to delete the last filter.
+To close the menu, press `Esc` or click outside the menu.
+
+![Node search menu](/img/screenshots/node-search-menu-filter.png)
+
+The list is ordered by
+
+- latest added nodes
+- nodes suggested based on the connecting
+  - node
+  - socket type
+- alphabetical order (filtered by category and/or search term)
+
+![Node search menu](/img/screenshots/search-nodes-list.png)
+
+## Connecting nodes
+
+### Connect to socket
+
+1. Click and drag from an output/input socket to an input/output socket
+2. Release the mouse button to create the connection
+
+![Connecting sockets](/img/screenshots/connecting-nodes.gif)
+
+_Some nodes have sockets which are dynamically added/removed when connecting/disconnecting._
+
+### Connect to node
+
+1. Click and drag from an output/input
+2. Release it on a node
+
+This creates a connection to the first fitting socket on that node
+
+![Connect to node](/img/screenshots/connect-to-node.gif)
+
+### Connect to new node
+
+1. Click and drag from an output/input
+2. Release it on an empty area of the canvas
+   - This opens the node search menu to add a new node and automatically connects it
+3. Search for a node and press `Enter`
+4. The new node is added and connected
+
+![Connect to new node](/img/screenshots/connect-to-new-node.gif)
+
+### Move the target of a connection
+
+1. Click and drag the input socket with an existing connection
+2. Release it on another output socket
+
+### Move the source of a connection
+
+1. `Ctrl` + Click and drag the output socket with an existing connection
+2. Release it on another input socket
+
+![Move connection source](/img/screenshots/Reconnecting-connections.gif)
+
+### Remove a connection
+
+1. Click and drag from an existing connection
+2. Release it on an empty area of the canvas
+
+:::info
+
+- Outputs can be connected to multiple inputs
+- Inputs can only be connected to **one** output
+  :::
+
+## Selecting nodes
+
+- Click on a node to select it
+
+### Select multiple nodes
+
+- Click and drag on an empty area of the canvas to create a selection box
+- OR `Shift` + Click a node to add/remove it from the selection
+- OR `Ctrl/Cmd` + `A` to select all nodes
+
+### Selecting parent/child nodes
+
+1. Hover over a node
+2. Click on the
+   - Upstream icon to select all parent nodes
+   - Downstream icon to select all child nodes
+   - OR click on the combined icon in the middle to select all connected nodes (upstream and downstream)
+
+![Selecting related nodes](/img/screenshots/node-selection-updownstream.gif)
+
+### Deselect all nodes
+
+- Click on an empty area of the canvas
+- Press `Esc`
+
+## Aligning nodes
+
+1. Select the nodes you want to align
+2. Click on an alignment option in the bottom left corner of the selection
+
+![Align nodes](/img/screenshots/align-nodes.png)
+
+- **Auto layout**: Automatically arrange selected nodes
+- **Left**: Align left edges
+- **Center**: Align horizontal centers
+- **Right**: Align right edges
+- **Top**: Align top edges
+- **Middle**: Align vertical centers
+- **Bottom**: Align bottom edges
+- **Distribute vertically**: Evenly distribute nodes vertically
+- **Distribute horizontally**: Evenly distribute nodes horizontally

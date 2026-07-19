@@ -1,0 +1,171 @@
+# Self-host tailrmade
+
+You can run tailrmade on your own computer or server without the tailrmade
+cloud services. In self-hosted mode:
+
+- apps and preferences are stored locally in the browser
+- cloud accounts, cloud storage, and cloud sharing are disabled
+- API requests that require CORS bypassing use the local Companion
+
+## Download a self-hosted bundle
+
+Prebuilt self-hosted bundles are available from the
+[Tailrmade bundles shared folder](https://drive.google.com/drive/folders/1bXWq3yv4oyWm28jvUjuJXfb-egjS4Dpx?dmr=1&ec=wgc-drive-%5Bmodule%5D-goto).
+
+1. Open the shared folder.
+2. Download the latest ZIP for your operating system.
+3. Extract the entire ZIP to a permanent folder.
+
+Do not run the executable from inside the ZIP. The extracted files must remain
+together. A complete bundle contains:
+
+```text
+tailrmade/
+  tm-companion.exe
+  .env
+  tm/
+    index.html
+    main.js
+    assets/
+    ...
+```
+
+The executable may not include `.exe` on macOS or Linux.
+
+## Start tailrmade
+
+### Windows
+
+1. Open the extracted folder.
+2. Run `tm-companion.exe`.
+3. If Windows displays a security warning, confirm that you downloaded the
+   file from the Tailrmade shared folder before allowing it to run.
+
+Tailrmade opens automatically at
+[http://127.0.0.1:6655](http://127.0.0.1:6655). You can reopen or quit it from
+the Tailrmade icon in the Windows system tray.
+
+### macOS and Linux
+
+Open a terminal in the extracted folder and run:
+
+```bash
+chmod +x tm-companion
+./tm-companion
+```
+
+Then open [http://127.0.0.1:6655](http://127.0.0.1:6655).
+
+Keep the Companion running while you use Tailrmade.
+
+:::note
+Some nodes load dependencies or contact external APIs at runtime. Those
+features still require internet access even when tailrmade itself is
+self-hosted.
+:::
+
+## How the Companion is used
+
+The [tailrmade Companion](https://github.com/PlugAndPlayground/pnp-companion-2)
+forwards API requests that browsers would otherwise block because of CORS. It
+also supports local API-key substitution and local AI providers.
+
+The downloaded bundle includes the Companion and the Tailrmade frontend. The
+Companion:
+
+- serves Tailrmade at `http://127.0.0.1:6655`
+- forwards API requests that browsers would otherwise block because of CORS
+- substitutes locally stored API keys
+- handles requests to configured local AI providers
+
+Self-hosted Tailrmade automatically uses the local Companion. You do not need
+to change the Companion location.
+
+Confirm the Companion is reachable by opening
+[http://localhost:6655/ping](http://localhost:6655/ping).
+
+## Configure local API keys
+
+Edit the `.env` file beside the Companion executable:
+
+```text
+openai=your_api_key
+weather=your_api_key
+ANTHROPIC_API_KEY=your_api_key
+DEEPSEEK_API_KEY=your_api_key
+GEMINI_API_KEY=your_api_key
+OPENAI_API_KEY=your_api_key
+MOONSHOT_API_KEY=your_api_key
+```
+
+HTTP nodes can reference a value using `$TM_KEY{key_name}`:
+
+```json
+{
+  "Authorization": "Bearer $TM_KEY{openai}"
+}
+```
+
+Restart the Companion after changing `.env`. Do not share this file with other
+people.
+
+## Update tailrmade
+
+1. Download the latest ZIP from the
+   [Tailrmade bundles shared folder](https://drive.google.com/drive/folders/1bXWq3yv4oyWm28jvUjuJXfb-egjS4Dpx?dmr=1&ec=wgc-drive-%5Bmodule%5D-goto).
+2. Quit the running Companion.
+3. Extract the new bundle into a new folder.
+4. Copy your existing `.env` file into the new folder.
+5. Start the new Companion executable.
+
+Keep the previous folder until you have confirmed that the new version works.
+Your locally saved apps remain in the browser profile and are not stored in
+the bundle folder.
+
+:::warning
+Clearing your browser's site data for `127.0.0.1:6655` may remove locally
+saved Tailrmade apps and preferences. Export important apps before clearing
+browser data.
+:::
+
+## Advanced settings
+
+The default port is `6655`. The downloaded Tailrmade frontend expects this
+port, so changing it is not recommended.
+
+Set the `TM_NO_OPEN` environment variable to `1` before starting the Companion
+to prevent it from opening a browser automatically.
+
+## Troubleshooting
+
+### An API request says the Companion is unreachable
+
+- Make sure the Companion is running.
+- Open [http://localhost:6655/ping](http://localhost:6655/ping).
+- Check that another application is not already using port `6655`.
+- Restart the Companion after editing `.env`.
+
+### The Companion starts but tailrmade returns 404
+
+The Companion did not find a frontend package. Make sure a `tm` directory
+containing `index.html` is beside the executable. If it is missing, extract the
+complete ZIP again rather than copying only the executable.
+
+### The browser does not open
+
+Open [http://127.0.0.1:6655](http://127.0.0.1:6655) manually.
+
+### My locally saved apps are missing after an update
+
+Use the same browser and browser profile that you used previously. Local apps
+are stored by the browser for `127.0.0.1:6655`, not in the extracted bundle
+folder.
+
+## Build from source
+
+The Tailrmade source repository is private. Source builds are available only
+to authorized contributors with repository access. Other users should install
+the prebuilt ZIP from the shared folder.
+
+The Companion source remains available at
+[PlugAndPlayground/pnp-companion-2](https://github.com/PlugAndPlayground/pnp-companion-2).
