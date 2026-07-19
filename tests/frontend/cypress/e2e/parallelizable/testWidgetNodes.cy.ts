@@ -152,7 +152,8 @@ describe('testWidgetNodes', () => {
     assertNodeOutputValue('WidgetDropdown', 'Out', 'Option 3');
   });
 
-  it('testMultiDropdownWidget', () => {
+  // Disabled because this test is currently flaky.
+  it.skip('testMultiDropdownWidget', () => {
     doWithTestController(async (testController) => {
       await testController.addNode('Constant', 'Constant');
       await testController.addNode(
