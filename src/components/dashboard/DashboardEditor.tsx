@@ -50,6 +50,11 @@ import {
 import type { UISurfaceNode } from '../../nodes/layout/uiSurface';
 import { SurfaceBreadcrumb } from './SurfaceBreadcrumb';
 import { useDisplayedSurfaceLocked } from './hooks';
+import { DevicePreviewToggle } from './DevicePreviewToggle';
+import {
+  setDevicePreviewActive,
+  useDevicePreviewWidth,
+} from './devicePreviewStore';
 
 // example structure of a dashboard item
 // {
@@ -373,6 +378,13 @@ export const DashboardEditor: React.FC<DashboardEditorProps> = ({
   const autoCreatedSurfaceRef = useRef(false);
   // the displayed surface's Layout JSON socket is wired: editor read-only
   const isSurfaceLocked = useDisplayedSurfaceLocked();
+  // device preview (mobile/tablet/desktop) only constrains the surface while
+  // editing; view/app mode always renders at the real width
+  const devicePreviewWidth = useDevicePreviewWidth();
+  useEffect(() => {
+    setDevicePreviewActive(isEditMode);
+    return () => setDevicePreviewActive(false);
+  }, [isEditMode]);
   // read isEditMode from a ref so the load callbacks stay stable
   const isEditModeRef = useRef(isEditMode);
   useEffect(() => {
@@ -1074,8 +1086,21 @@ export const DashboardEditor: React.FC<DashboardEditorProps> = ({
         >
           {/* mt clears the floating app buttons overlaying the top left */}
           {isEditMode && (
-            <Box sx={{ mt: 6, flexShrink: 0 }}>
-              <SurfaceBreadcrumb surfaceStack={surfaceStack} />
+            <Box
+              sx={{
+                mt: 6,
+                flexShrink: 0,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: 1,
+                pr: 2,
+              }}
+            >
+              <Box sx={{ minWidth: 0, flex: 1 }}>
+                <SurfaceBreadcrumb surfaceStack={surfaceStack} />
+              </Box>
+              <DevicePreviewToggle />
             </Box>
           )}
           {isEditMode && isSurfaceLocked && (
@@ -1109,9 +1134,31 @@ export const DashboardEditor: React.FC<DashboardEditorProps> = ({
               my: isEditMode ? 6 : 0,
             }}
           >
-            <Frame>
-              <Element is={Container} canvas {...rootProps}></Element>
-            </Frame>
+            <Box
+              data-cy="device-preview-frame"
+              sx={
+                devicePreviewWidth !== null
+                  ? {
+                      // exact content width = the previewed viewport width;
+                      // the device bezel (border) sits outside of it
+                      boxSizing: 'content-box',
+                      width: `${devicePreviewWidth}px`,
+                      maxWidth: 'calc(100% - 28px)',
+                      minWidth: 0,
+                      border: '10px solid #111111',
+                      borderRadius: '18px',
+                      boxShadow: '0 0 24px rgba(0, 0, 0, 0.5)',
+                      overflow: 'hidden',
+                    }
+                  : {
+                      width: '100%',
+                    }
+              }
+            >
+              <Frame>
+                <Element is={Container} canvas {...rootProps}></Element>
+              </Frame>
+            </Box>
           </Box>
           {isGraphLoading && !isEditMode && (
             <LoadingState title="Loading user interface" />

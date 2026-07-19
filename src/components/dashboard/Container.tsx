@@ -26,6 +26,10 @@ import {
   useIsDashboardNarrow,
   useParentDirection,
 } from './hooks';
+import {
+  resolveCustomStylesForPreviewWidth,
+  useDevicePreviewWidth,
+} from './devicePreviewStore';
 import { getContainerDashboardIcon } from './dashboardIcons';
 import { RootName, containerName } from '../../utils/constants_shared';
 
@@ -119,6 +123,13 @@ export const ContainerView = (viewProps: ContainerViewProps) => {
   const editModeStyles = useEditModeStyles(isEditMode, flexDirection);
 
   const isMobile = useIsDashboardNarrow();
+  // in device preview, `@media` width conditions in customStyles must
+  // evaluate against the constrained preview width, not the window
+  const devicePreviewWidth = useDevicePreviewWidth();
+  const resolvedCustomStyles = resolveCustomStylesForPreviewWidth(
+    customStyles,
+    devicePreviewWidth,
+  );
   const newDirection = getNewDirection(flexDirection, isMobile, mobileBehavior);
   const style = getContainerLayoutStyle(
     newDirection,
@@ -166,7 +177,7 @@ export const ContainerView = (viewProps: ContainerViewProps) => {
         overflow: 'auto',
         minWidth: minWidth,
         minHeight: minHeight,
-        ...customStyles,
+        ...resolvedCustomStyles,
       }}
     >
       {children}
@@ -198,7 +209,7 @@ export const ContainerView = (viewProps: ContainerViewProps) => {
         flexGrow: shouldFillMainAxis ? 1 : 0,
         flexShrink: shouldFillMainAxis ? 1 : 0,
         ...style,
-        ...customStyles,
+        ...resolvedCustomStyles,
         ...editModeStyles,
       }}
     >

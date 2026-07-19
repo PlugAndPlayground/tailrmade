@@ -11,6 +11,7 @@ import { percentageToWidth } from '../../utils/utils';
 import { getNewDirection } from '../../utils/layoutableHelpers';
 import { useEditor } from '@craftjs/core';
 import { isSurfaceNode } from '../../utils/interfaces';
+import { useDevicePreviewWidth } from './devicePreviewStore';
 
 export function useHoverEvents(
   layoutableElement: Layoutable | null | undefined,
@@ -43,6 +44,11 @@ const NARROW_DASHBOARD_THRESHOLD = 600;
 export function useIsDashboardNarrow(): boolean {
   const overlayStateRef = useRef(InterfaceController.getOverlayState());
 
+  // while the dashboard editor previews a device width, all width-dependent
+  // layout logic must read that constrained width instead of the real drawer
+  // width, so the surface reflows exactly as it would at that viewport
+  const devicePreviewWidth = useDevicePreviewWidth();
+
   const [, forceUpdate] = useReducer((x) => x + 1, 0);
 
   useEffect(() => {
@@ -61,6 +67,10 @@ export function useIsDashboardNarrow(): boolean {
       window.removeEventListener('resize', forceUpdate);
     };
   }, []);
+
+  if (devicePreviewWidth !== null) {
+    return devicePreviewWidth < NARROW_DASHBOARD_THRESHOLD;
+  }
 
   const overlayState = overlayStateRef.current;
   const isFullscreen = overlayState.dashboard?.fullscreen;
