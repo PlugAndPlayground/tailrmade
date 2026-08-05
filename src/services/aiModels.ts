@@ -80,6 +80,7 @@ export const AI_PROVIDERS: AIProviderDefinition[] = [
     supportsAgent: true,
     extractResponseText: extractGeminiResponseText,
     models: [
+      { value: 'gemini-2.5-flash-image', label: 'Nano Banana' },
       { value: 'gemini-3.5-flash', label: 'Gemini 3.5 Flash' },
       { value: 'gemini-3.1-pro-preview', label: 'Gemini 3.1 Pro Preview' },
       { value: 'gemini-2.5-pro', label: 'Gemini 2.5 Pro' },
