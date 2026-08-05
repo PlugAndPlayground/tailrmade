@@ -306,6 +306,9 @@ function buildGemini(request: AIProviderTurnRequest): PreparedAIProviderTurn {
           }
         : {}),
       generationConfig: {
+        ...(request.model.endsWith('-image')
+          ? { responseModalities: ['TEXT', 'IMAGE'] }
+          : {}),
         ...options(request, [
           'model',
           'contents',
