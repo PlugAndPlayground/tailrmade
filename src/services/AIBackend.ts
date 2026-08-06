@@ -1118,11 +1118,8 @@ export class AIBackend {
           payload?.details || payload?.error || 'AI request failed',
         );
       }
-      const turn = parseAIProviderTurn(
-        provider,
-        payload?.data ?? payload,
-        prepared.state,
-      );
+      const responseData = payload?.data ?? payload;
+      const turn = parseAIProviderTurn(provider, responseData, prepared.state);
       if (retainConvo) {
         conversation.push(
           {
@@ -1147,7 +1144,9 @@ export class AIBackend {
       return {
         success: true,
         status: 200,
-        data: { content: [{ type: 'text', text: turn.text }] },
+        data: images?.length
+          ? responseData
+          : { content: [{ type: 'text', text: turn.text }] },
       };
     } catch (error) {
       return this.buildFailedAIResponse(error);
