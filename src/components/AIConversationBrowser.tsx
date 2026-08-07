@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Box,
   Divider,
@@ -17,6 +17,7 @@ import {
   AutoAwesome as AutoAwesomeIcon,
 } from '@mui/icons-material';
 import { AIBackend } from '../services/AIBackend';
+import InterfaceController, { ListenEvent } from '../InterfaceController';
 import {
   AI_AGENT_PROVIDERS,
   getDefaultAIModel,
@@ -75,6 +76,17 @@ const AIConversationBrowser = () => {
     ? preferences.aiLocation
     : EXECUTION_LOCATION_LOCAL;
   const [performActions, setPerformActions] = useState(true);
+
+  useEffect(() => {
+    const syncConversations = () => {
+      setConversations(Object.keys(AIBackend.getInstance().conversations));
+    };
+    const listenerID = InterfaceController.addListener(
+      ListenEvent.newAIMessageArrived,
+      syncConversations,
+    );
+    return () => InterfaceController.removeListener(listenerID);
+  }, []);
 
   const createConversation = () => {
     const newConversationId = `Conversation ${conversations.length + 1}`;

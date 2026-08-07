@@ -44,8 +44,8 @@ const MUTATION_TOOL_NAMES = new Set([
 export { DEFAULT_MODEL, DEFAULT_MODEL_GEMINI } from './aiModels';
 
 export enum AIConversationSender {
-  USER,
-  AI,
+  USER = 'user',
+  AI = 'assistant',
 }
 
 export interface AIConversationMessage {
@@ -194,7 +194,7 @@ export class AIBackend {
     conversation: AIConversationMessage[],
   ): AnthropicConversationMessage[] {
     return conversation.map((entry) => ({
-      role: entry.sender === AIConversationSender.USER ? 'user' : 'assistant',
+      role: entry.sender,
       content: entry.content,
     }));
   }
@@ -285,7 +285,7 @@ export class AIBackend {
   ) {
     return [
       ...conversation.map((entry) => ({
-        role: entry.sender === AIConversationSender.USER ? 'user' : 'assistant',
+        role: entry.sender,
         content: [{ type: 'text', text: entry.content }],
       })),
       {
@@ -1134,6 +1134,10 @@ export class AIBackend {
           },
         );
         this.conversations[conversationID] = conversation;
+        InterfaceController.notifyListeners(
+          ListenEvent.newAIMessageArrived,
+          conversation,
+        );
       }
       const usage = turn.usage;
       this.logAIUsage(

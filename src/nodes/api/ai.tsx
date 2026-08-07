@@ -28,6 +28,7 @@ export const AIModelName = 'Model';
 export const AIOptionsName = 'Options';
 export const AIBase64ImagesName = 'Images';
 export const AIPersistantConversationName = 'Persistant conversation';
+export const AIConversationName = 'Conversation';
 export const responseName = 'Response';
 
 export class AINode extends HTTPNode {
@@ -109,6 +110,7 @@ export class AINode extends HTTPNode {
       ),
       new Socket(SOCKET_TYPE.OUT, outputContentName, new JSONType(), {}, false),
       new Socket(SOCKET_TYPE.OUT, responseName, new StringType()),
+      new Socket(SOCKET_TYPE.OUT, AIConversationName, new JSONType(), []),
     ];
   }
 
@@ -165,14 +167,18 @@ export class AINode extends HTTPNode {
     const provider = inputObject[AIProviderName] as AIProvider;
     const model = normalizeAIModel(provider, inputObject[AIModelName]);
     const options = inputObject[AIOptionsName] || {};
+    const conversationID = `ai-node-${this.id}`;
+    const retainConversation = Boolean(
+      inputObject[AIPersistantConversationName],
+    );
 
     try {
       const result = await AIBackend.getInstance().sendAIMessage(
         provider,
-        `ai-node-${this.id}`,
+        conversationID,
         this.stringifyData(inputObject[AIDataName]),
         model,
-        Boolean(inputObject[AIPersistantConversationName]),
+        retainConversation,
         options,
         inputObject[AIBase64ImagesName],
       );
@@ -191,6 +197,10 @@ export class AINode extends HTTPNode {
         message: error instanceof Error ? error.message : String(error),
       };
       outputObject[responseName] = '';
+    } finally {
+      outputObject[AIConversationName] = retainConversation
+        ? [...AIBackend.getInstance().getConversation(conversationID)]
+        : [];
     }
   }
 
