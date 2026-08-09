@@ -42,6 +42,7 @@ import {
   resetSurfaceEditSession,
   surfaceEditSession,
 } from './surfaceEditSession';
+import { normalizeTreeString } from './surfaceTreeNormalization';
 import {
   getLinkedSourceNodeIds,
   SurfaceSync,
@@ -389,6 +390,17 @@ export const DashboardEditor: React.FC<DashboardEditorProps> = ({
     return canonicalTreeString(tree);
   }, []);
 
+  // true when the editor already displays exactly this tree, so reloading it
+  // would only remount every widget for nothing. Both sides have to be in
+  // craft's own serialization shape for that to be answerable at all - see
+  // normalizeTreeString.
+  const editorAlreadyShows = useCallback(
+    (treeString: string): boolean =>
+      normalizeTreeString(query, treeString) ===
+      surfaceEditSession.lastSyncedTreeString,
+    [query],
+  );
+
   const deserializeTree = useCallback(
     (treeString: string) => {
       // the deserialize replaces every craft node, so a selection referencing
@@ -561,7 +573,7 @@ export const DashboardEditor: React.FC<DashboardEditorProps> = ({
           const treeString = getDisplayTreeString(surface);
           // skip when the editor already holds this state (it usually does,
           // since editor edits flow editor → action → socket)
-          if (treeString !== surfaceEditSession.lastSyncedTreeString) {
+          if (!editorAlreadyShows(treeString)) {
             deserializeTree(treeString);
           }
         },
@@ -582,7 +594,7 @@ export const DashboardEditor: React.FC<DashboardEditorProps> = ({
             return;
           }
           const treeString = getDisplayTreeString(surface);
-          if (treeString !== surfaceEditSession.lastSyncedTreeString) {
+          if (!editorAlreadyShows(treeString)) {
             deserializeTree(treeString);
           }
         },
@@ -598,6 +610,7 @@ export const DashboardEditor: React.FC<DashboardEditorProps> = ({
     deserializeTree,
     getDisplayedSurface,
     getDisplayTreeString,
+    editorAlreadyShows,
   ]);
 
   // toggling edit/view mode flips between the raw tree and the

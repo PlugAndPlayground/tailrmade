@@ -31,6 +31,7 @@ import {
   PNPAction,
 } from './classes/Action';
 import {
+  ALIGNOPTIONS,
   DASHBOARD_DEFAULT,
   LeftDrawerView,
   RightDrawerView,
