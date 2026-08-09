@@ -390,13 +390,11 @@ export const DashboardEditor: React.FC<DashboardEditorProps> = ({
     return canonicalTreeString(tree);
   }, []);
 
-  // true when the editor already displays exactly this tree, so reloading it
-  // would only remount every widget for nothing. Both sides have to be in
-  // craft's own serialization shape for that to be answerable at all - see
-  // normalizeTreeString.
-  const editorAlreadyShows = useCallback(
+  // true when this tree differs from the one currently loaded in the craft editor
+  // guards deserializeTree so an unchanged layout doesn't remount every widget
+  const hasLayoutChanged = useCallback(
     (treeString: string): boolean =>
-      normalizeTreeString(query, treeString) ===
+      normalizeTreeString(query, treeString) !==
       surfaceEditSession.lastSyncedTreeString,
     [query],
   );
@@ -571,9 +569,9 @@ export const DashboardEditor: React.FC<DashboardEditorProps> = ({
             return;
           }
           const treeString = getDisplayTreeString(surface);
-          // skip when the editor already holds this state (it usually does,
-          // since editor edits flow editor → action → socket)
-          if (!editorAlreadyShows(treeString)) {
+          // when the edit was made in the editor itself, this event is just
+          // its own save echoing back - nothing to reload then
+          if (hasLayoutChanged(treeString)) {
             deserializeTree(treeString);
           }
         },
@@ -594,7 +592,7 @@ export const DashboardEditor: React.FC<DashboardEditorProps> = ({
             return;
           }
           const treeString = getDisplayTreeString(surface);
-          if (!editorAlreadyShows(treeString)) {
+          if (hasLayoutChanged(treeString)) {
             deserializeTree(treeString);
           }
         },
@@ -610,7 +608,7 @@ export const DashboardEditor: React.FC<DashboardEditorProps> = ({
     deserializeTree,
     getDisplayedSurface,
     getDisplayTreeString,
-    editorAlreadyShows,
+    hasLayoutChanged,
   ]);
 
   // toggling edit/view mode flips between the raw tree and the
