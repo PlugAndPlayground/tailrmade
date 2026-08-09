@@ -522,10 +522,10 @@ function transformContainerItem(
   if (typeof visibleData === 'boolean') {
     visibleSocket.data = visibleData;
   }
-  linkRetargets.set(
-    retargetKey(sourceNode.id, dashboardVisibilitySocketName),
-    { targetNodeId: ctx.surfaceId, targetSocketName: visibleSocket.name },
-  );
+  linkRetargets.set(retargetKey(sourceNode.id, dashboardVisibilitySocketName), {
+    targetNodeId: ctx.surfaceId,
+    targetSocketName: visibleSocket.name,
+  });
   linkRetargets.set(retargetKey(sourceNode.id, dashboardLayoutInputName), {
     targetNodeId: nestedSurfaceId,
     targetSocketName: dashboardLayoutInputName,
