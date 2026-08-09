@@ -42,6 +42,7 @@ import {
   resetSurfaceEditSession,
   surfaceEditSession,
 } from './surfaceEditSession';
+import { normalizeTreeString } from './surfaceTreeNormalization';
 import {
   getLinkedSourceNodeIds,
   SurfaceSync,
@@ -389,6 +390,15 @@ export const DashboardEditor: React.FC<DashboardEditorProps> = ({
     return canonicalTreeString(tree);
   }, []);
 
+  // true when this tree differs from the one currently loaded in the craft editor
+  // guards deserializeTree so an unchanged layout doesn't remount every widget
+  const hasLayoutChanged = useCallback(
+    (treeString: string): boolean =>
+      normalizeTreeString(query, treeString) !==
+      surfaceEditSession.lastSyncedTreeString,
+    [query],
+  );
+
   const deserializeTree = useCallback(
     (treeString: string) => {
       // the deserialize replaces every craft node, so a selection referencing
@@ -559,9 +569,9 @@ export const DashboardEditor: React.FC<DashboardEditorProps> = ({
             return;
           }
           const treeString = getDisplayTreeString(surface);
-          // skip when the editor already holds this state (it usually does,
-          // since editor edits flow editor → action → socket)
-          if (treeString !== surfaceEditSession.lastSyncedTreeString) {
+          // when the edit was made in the editor itself, this event is just
+          // its own save echoing back - nothing to reload then
+          if (hasLayoutChanged(treeString)) {
             deserializeTree(treeString);
           }
         },
@@ -582,7 +592,7 @@ export const DashboardEditor: React.FC<DashboardEditorProps> = ({
             return;
           }
           const treeString = getDisplayTreeString(surface);
-          if (treeString !== surfaceEditSession.lastSyncedTreeString) {
+          if (hasLayoutChanged(treeString)) {
             deserializeTree(treeString);
           }
         },
@@ -598,6 +608,7 @@ export const DashboardEditor: React.FC<DashboardEditorProps> = ({
     deserializeTree,
     getDisplayedSurface,
     getDisplayTreeString,
+    hasLayoutChanged,
   ]);
 
   // toggling edit/view mode flips between the raw tree and the

@@ -8,6 +8,7 @@ import {
 import {
   containerName,
   dashboardLayoutInputName,
+  dashboardVisibilitySocketName,
   DynamicWidgetName,
   isDefaultPageSocketName,
   RootName,
@@ -106,6 +107,18 @@ type SurfaceBuildCtx = {
     surfaceSocketArray: SerializedSocket[];
   }[];
 };
+
+// where links that pointed at a consumed container/page node's input socket
+// should point after migration: the container's Visible socket lives on as
+// the parent surface's "<element> visible" socket, its Layout socket as the
+// nested surface's own Layout socket. Keyed by nodeId + socketName; links
+// into consumed sockets without an entry (e.g. Collapse Mode) have no
+// post-migration equivalent and are dropped.
+type LinkRetarget = Pick<SerializedLink, 'targetNodeId' | 'targetSocketName'>;
+
+function retargetKey(nodeId: string, socketName: string): string {
+  return `${nodeId}\u0000${socketName}`;
+}
 
 function dedupeSocketName(ctx: SurfaceBuildCtx, preferred: string): string {
   let name = preferred;
@@ -300,13 +313,6 @@ function tryAddElementSocketForItem(
     return;
   }
   const { nodeId, sourceNode } = resolved;
-  const hasReactUIOutput = sourceNode.socketArray.some(
-    (s) =>
-      s.socketType === SOCKET_TYPE.OUT && s.name === REACT_UI_OUTPUT_SOCKET,
-  );
-  if (!hasReactUIOutput) {
-    return;
-  }
   addElementSocketAndLink(
     ctx,
     links,
@@ -381,6 +387,7 @@ function transformContainerItem(
   links: SerializedLink[],
   extraSurfaceNodes: SerializedNode[],
   consumedNodeIds: Set<string>,
+  linkRetargets: Map<string, LinkRetarget>,
 ): void {
   const nestedSurfaceId = hri.random();
   const nestedTree: Record<string, any> = {};
@@ -448,6 +455,7 @@ function transformContainerItem(
     links,
     extraSurfaceNodes,
     consumedNodeIds,
+    linkRetargets,
   );
   // every page that landed directly on this nested surface (i.e. shares this
   // surface as its implicit page group) is now known - reconcile which one,
@@ -504,6 +512,24 @@ function transformContainerItem(
     nestedSurfaceId,
     resolvedSurfaceName ?? sourceNode.type,
   );
+  // the container's own Visible socket is gone after migration - carry its
+  // static value over to the parent surface's element visible socket, and
+  // remember where links into it (e.g. a Switch driving container
+  // visibility) must be rewired to
+  const visibleData = sourceNode.socketArray.find(
+    (s) => s.name === dashboardVisibilitySocketName,
+  )?.data;
+  if (typeof visibleData === 'boolean') {
+    visibleSocket.data = visibleData;
+  }
+  linkRetargets.set(retargetKey(sourceNode.id, dashboardVisibilitySocketName), {
+    targetNodeId: ctx.surfaceId,
+    targetSocketName: visibleSocket.name,
+  });
+  linkRetargets.set(retargetKey(sourceNode.id, dashboardLayoutInputName), {
+    targetNodeId: nestedSurfaceId,
+    targetSocketName: dashboardLayoutInputName,
+  });
   if (isPage) {
     const isDefault =
       sourceNode.socketArray.find((s) => s.name === isDefaultPageSocketName)
@@ -527,6 +553,7 @@ function processChildren(
   links: SerializedLink[],
   extraSurfaceNodes: SerializedNode[],
   consumedNodeIds: Set<string>,
+  linkRetargets: Map<string, LinkRetarget>,
 ): void {
   for (const key of childKeys) {
     const item = tree[key];
@@ -546,6 +573,7 @@ function processChildren(
         links,
         extraSurfaceNodes,
         consumedNodeIds,
+        linkRetargets,
       );
       continue;
     }
@@ -560,6 +588,7 @@ function processChildren(
         links,
         extraSurfaceNodes,
         consumedNodeIds,
+        linkRetargets,
       );
     }
   }
@@ -618,6 +647,7 @@ function migrateLayoutsToSurfaceNode(
   const links: SerializedLink[] = [];
   const extraSurfaceNodes: SerializedNode[] = [];
   const consumedNodeIds = new Set<string>();
+  const linkRetargets = new Map<string, LinkRetarget>();
 
   const rootChildren: string[] = Array.isArray(tree[RootName]?.nodes)
     ? [...tree[RootName].nodes]
@@ -630,6 +660,7 @@ function migrateLayoutsToSurfaceNode(
     links,
     extraSurfaceNodes,
     consumedNodeIds,
+    linkRetargets,
   );
   applyDefaultPageVisibility(ctx);
   applyDefaultRadioGroup(ctx);
@@ -661,11 +692,18 @@ function migrateLayoutsToSurfaceNode(
       ...extraSurfaceNodes,
     ],
     links: [
-      ...graphData.links.filter(
-        (l) =>
-          !consumedNodeIds.has(l.sourceNodeId) &&
-          !consumedNodeIds.has(l.targetNodeId),
-      ),
+      ...graphData.links.flatMap((l) => {
+        if (consumedNodeIds.has(l.sourceNodeId)) {
+          return [];
+        }
+        if (!consumedNodeIds.has(l.targetNodeId)) {
+          return [l];
+        }
+        const retarget = linkRetargets.get(
+          retargetKey(l.targetNodeId, l.targetSocketName),
+        );
+        return retarget ? [{ ...l, ...retarget }] : [];
+      }),
       ...links,
     ],
     graphSettings: {
