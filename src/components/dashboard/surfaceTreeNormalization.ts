@@ -17,11 +17,13 @@
 import { serializeNode } from '@craftjs/core';
 import { canonicalTreeString } from '../../utils/surfaceTree';
 
-// single-entry memo: this runs on every execution of the displayed surface
-// (SurfaceRuntimeChanged), which in interval-driven graphs is continuous with
-// an unchanged tree - keyed on the resolver (stable per Editor instance, and
-// what normalization depends on) rather than the query object, whose identity
-// is not guaranteed across renders
+// Cache of the most recent call. The check "does the editor already show this
+// tree?" runs on every execution of the displayed surface, and in graphs with
+// interval-updating nodes that means several times per second with the exact
+// same tree string - so remember the last result and return it for free.
+// The cache key is the resolver, not the query object: the resolver is what
+// the result actually depends on and is stable for the lifetime of the craft
+// Editor, while the query object may be recreated on every React render.
 let lastResolver: unknown;
 let lastInput: string | undefined;
 let lastOutput: string;
