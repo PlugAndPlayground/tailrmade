@@ -431,9 +431,12 @@ describe('Test dashboard', () => {
     cy.get('[data-cy="toggle-dashboard-btn"]').click({ force: true });
     cy.get('[data-cy="toggle-edit-mode-btn"]').first().click({ force: true });
 
+    // the toolbox is docked open on a wide dashboard and closed on a narrow
+    // one, where it opens as an overlay - either way the header button is
+    // what shows it, so only click it when it is not already showing
     cy.get('body').then(($body) => {
-      if ($body.find('[data-cy="toolbox-toggle-btn"]').length > 0) {
-        cy.get('[data-cy="toolbox-toggle-btn"]').click({ force: true });
+      if ($body.find('[data-cy="vertical-toolbox"]:visible').length === 0) {
+        cy.get('[data-cy="toggle-toolbox-btn"]').click({ force: true });
       }
     });
 

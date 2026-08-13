@@ -32,7 +32,7 @@ import {
 import { LoadingState } from '../Loading';
 import { PlaceholderWidget, PlaceholderWidgetName } from './PlaceholderWidget';
 import '../../utils/style.module.css';
-import { NODE_SOURCE } from '../../utils/constants';
+import { getDashboardBackground, NODE_SOURCE } from '../../utils/constants';
 import {
   emptyLayout,
   rootProps,
@@ -48,9 +48,8 @@ import {
   SurfaceSync,
 } from '../../nodes/layout/surfaceSync';
 import type { UISurfaceNode } from '../../nodes/layout/uiSurface';
-import { SurfaceBreadcrumb } from './SurfaceBreadcrumb';
 import { useDisplayedSurfaceLocked } from './hooks';
-import { DevicePreviewToggle } from './DevicePreviewToggle';
+import { setSurfaceStack } from './surfaceStackStore';
 import {
   setDevicePreviewActive,
   useDevicePreviewWidth,
@@ -349,6 +348,7 @@ function nextSurfaceBreadcrumb(
 interface DashboardEditorProps {
   isVisible: boolean;
   isEditMode: boolean;
+  appView: boolean;
   randomMainColor: string;
   overlayState: IOverlay;
   updateOverlayState: (newState: Partial<IOverlay>) => void;
@@ -357,6 +357,7 @@ interface DashboardEditorProps {
 export const DashboardEditor: React.FC<DashboardEditorProps> = ({
   isVisible,
   isEditMode,
+  appView,
   randomMainColor,
   overlayState,
   updateOverlayState,
@@ -371,20 +372,19 @@ export const DashboardEditor: React.FC<DashboardEditorProps> = ({
   const [isDashboardLocked, setIsDashboardLocked] = useState(
     overlayState.dashboard.locked,
   );
-  // breadcrumb of dived-into surfaces; first entry is the selected surface
-  const [surfaceStack, setSurfaceStack] = useState<string[]>([]);
   // ensures we auto-create a surface for an empty dashboard at most once per
   // graph session (so deleting/undoing the surface does not recreate it)
   const autoCreatedSurfaceRef = useRef(false);
   // the displayed surface's Layout JSON socket is wired: editor read-only
   const isSurfaceLocked = useDisplayedSurfaceLocked();
-  // device preview (mobile/tablet/desktop) only constrains the surface while
-  // editing; view/app mode always renders at the real width
+  // device preview (mobile/tablet/desktop) constrains the surface in edit AND
+  // live mode - it is a property of the dashboard, not of editing. App view
+  // is the real app, so it always renders at the true width.
   const devicePreviewWidth = useDevicePreviewWidth();
   useEffect(() => {
-    setDevicePreviewActive(isEditMode);
+    setDevicePreviewActive(isVisible && !appView);
     return () => setDevicePreviewActive(false);
-  }, [isEditMode]);
+  }, [isVisible, appView]);
   // read isEditMode from a ref so the load callbacks stay stable
   const isEditModeRef = useRef(isEditMode);
   useEffect(() => {
@@ -1047,9 +1047,13 @@ export const DashboardEditor: React.FC<DashboardEditorProps> = ({
       className="page-container"
       data-cy="dashboard"
       sx={{
+        // fills whatever the dashboard column has left below its header,
+        // rather than claiming the full viewport height
+        flex: 1,
+        minWidth: 0,
+        minHeight: 0,
         overflowY: 'auto',
-        maxHeight: '100dvh',
-        background: `${TRgba.fromString(randomMainColor).darken(0.85)}`,
+        background: `${getDashboardBackground(randomMainColor)}`,
         position: 'relative',
       }}
       onDragOver={(e) => e.preventDefault()}
@@ -1060,7 +1064,7 @@ export const DashboardEditor: React.FC<DashboardEditorProps> = ({
           display: 'flex',
           flexDirection: 'row',
           width: '100%',
-          height: '100dvh',
+          height: '100%',
         }}
       >
         {/* Toolbox as a sidebar */}
@@ -1084,25 +1088,6 @@ export const DashboardEditor: React.FC<DashboardEditorProps> = ({
             minWidth: isEditMode ? '400px' : undefined,
           }}
         >
-          {/* mt clears the floating app buttons overlaying the top left */}
-          {isEditMode && (
-            <Box
-              sx={{
-                mt: 6,
-                flexShrink: 0,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                gap: 1,
-                pr: 2,
-              }}
-            >
-              <Box sx={{ minWidth: 0, flex: 1 }}>
-                <SurfaceBreadcrumb surfaceStack={surfaceStack} />
-              </Box>
-              <DevicePreviewToggle />
-            </Box>
-          )}
           {isEditMode && isSurfaceLocked && (
             <Box
               data-cy="surface-locked-banner"
@@ -1125,13 +1110,17 @@ export const DashboardEditor: React.FC<DashboardEditorProps> = ({
               justifyContent: 'center',
               alignItems: 'flex-start',
               width: '100%',
-              // grow to the remaining panel height (after breadcrumb/banner
+              // grow to the remaining panel height (after the locked banner
               // in edit mode) so the ROOT container's height '100%' has a
               // definite parent to resolve against - without this the chain
-              // from the 100dvh panel breaks right here and '100%' silently
-              // behaves like 'auto'
+              // from the dashboard column breaks right here and '100%'
+              // silently behaves like 'auto'
               flex: 1,
-              my: isEditMode ? 6 : 0,
+              minHeight: 0,
+              // breathing room around the device frame while editing; the
+              // dashboard's own header sits above this, so nothing has to be
+              // cleared out of the way any more
+              my: isEditMode && devicePreviewWidth !== null ? 2 : 0,
             }}
           >
             <Box

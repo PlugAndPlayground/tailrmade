@@ -201,9 +201,9 @@ export const LeftsideContainer = (props: { activeView: LeftDrawerView }) => {
         sx={{
           fontFamily: "'Roboto', 'Helvetica', 'Arial', 'sans-serif'",
           height: '100dvh',
+          // the rail is a sibling column of the shell now, so it no longer
+          // needs to be cleared out of the way here
           padding: 0,
-          paddingLeft: '44px',
-          pt: '48px',
         }}
       >
         {props.activeView === LeftDrawerView.GRAPHS && <GraphsContent />}

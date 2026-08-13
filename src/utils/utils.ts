@@ -14,12 +14,14 @@ import {
   DATA_DASHBOARD_EDITABLE,
   DEFAULT_2DVECTOR,
   DEFAULT_3DVECTOR,
+  DRAWER_CONSTANTS,
   GET_STARTED_GRAPH,
   GESTUREMODE,
   IMAGE_TYPES,
   MAX_STRING_LENGTH,
   NODE_HEADER_HEIGHT,
   NODE_PADDING_TOP,
+  SHELL_CONSTANTS,
   SOCKET_TEXTMARGIN_TOP,
   SOCKET_TYPE,
   SOCKET_WIDTH,
@@ -27,7 +29,9 @@ import {
 } from './constants';
 import { GraphDatabase, StoredGraph } from './indexedDB';
 import {
+  DrawerSide,
   IGraphSearch,
+  IOverlay,
   IWarningHandler,
   Layoutable,
   SerializedSelection,
@@ -200,12 +204,66 @@ export function escapeRegExpChars(text: string): string {
 export const roundNumber = (number: number, decimals = 2): number =>
   Math.round(number * 10 ** decimals + Number.EPSILON) / 10 ** decimals; // rounds the number with 3 decimals
 
-export function widthToPercentage(newWidth: number): number {
-  return Math.trunc((newWidth / window.innerWidth) * 100);
+// The dashboard's width is stored as a percentage (and serialized with the
+// graph) so an app opened on a different screen still splits the space the
+// way its author set it up. Since the shell docks its panels side by side,
+// that percentage is of the space the dashboard and the canvas strip SHARE -
+// i.e. what is left after the rail, the menu panel and the inspector - not
+// of the whole window.
+export function getShellAvailableWidth(overlayState: IOverlay): number {
+  const menuPanelWidth = overlayState[DrawerSide.LEFT].visible
+    ? overlayState[DrawerSide.LEFT].width
+    : 0;
+  const inspectorWidth = overlayState[DrawerSide.RIGHT].visible
+    ? overlayState[DrawerSide.RIGHT].width
+    : 0;
+  return Math.max(
+    0,
+    window.innerWidth -
+      SHELL_CONSTANTS.RAIL_WIDTH -
+      menuPanelWidth -
+      inspectorWidth,
+  );
 }
 
-export function percentageToWidth(percentage: number): number {
-  return Math.trunc((percentage / 100) * window.innerWidth);
+export function widthToPercentage(
+  newWidth: number,
+  availableWidth: number,
+): number {
+  if (availableWidth <= 0) {
+    return 0;
+  }
+  return Math.trunc((newWidth / availableWidth) * 100);
+}
+
+function percentageToWidth(percentage: number, availableWidth: number): number {
+  return Math.trunc((percentage / 100) * availableWidth);
+}
+
+// The dashboard column's width in px, with the clamps applied: never below a
+// usable panel width, and never so wide that the canvas strip vanishes.
+// Maximised takes everything the shell has left - the chrome around it stays.
+export function getDashboardWidth(overlayState: IOverlay): number {
+  const availableWidth = getShellAvailableWidth(overlayState);
+  if (overlayState[DrawerSide.DASHBOARD].fullscreen) {
+    return availableWidth;
+  }
+
+  const requestedWidth = percentageToWidth(
+    overlayState[DrawerSide.DASHBOARD].widthPercentage,
+    availableWidth,
+  );
+  // on a window too narrow to honour both clamps the canvas strip wins, so
+  // the graph never becomes unreachable
+  const maxWidth = Math.max(
+    0,
+    availableWidth - SHELL_CONSTANTS.MIN_CANVAS_STRIP_WIDTH,
+  );
+  return limitRange(
+    requestedWidth,
+    Math.min(DRAWER_CONSTANTS.MIN_DRAWER_WIDTH, maxWidth),
+    maxWidth,
+  );
 }
 
 export const limitRange = (

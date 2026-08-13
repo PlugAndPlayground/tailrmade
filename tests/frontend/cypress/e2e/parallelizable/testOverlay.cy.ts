@@ -84,11 +84,21 @@ describe('testOverlays', () => {
     cy.contains('Share app').should('not.exist');
   });
 
-  it('test collapse expand button', () => {
+  it('test app view toggle', () => {
     cy.get('[data-cy="helpButton"]').should('be.visible');
+
+    // the rail's logo enters app view, which hides the rail along with every
+    // other piece of chrome. The columns stay mounted (that is what keeps
+    // widget state alive across the transition), so the rail's buttons are
+    // hidden rather than removed.
     cy.get('[data-cy="toggle-app-button"]').click({ force: true });
-    cy.get('[data-cy="helpButton"]').should('not.exist');
-    cy.get('[data-cy="toggle-app-button"]').click({ force: true });
+    cy.get('[data-cy="helpButton"]').should('not.be.visible');
+
+    // the floating logo is the only way back out
+    cy.get('[data-cy="app-view-exit-button"]').should('be.visible');
+    cy.get('[data-cy="app-view-exit-button"]').click({ force: true });
+
     cy.get('[data-cy="helpButton"]').should('be.visible');
+    cy.get('[data-cy="app-view-exit-button"]').should('not.exist');
   });
 });

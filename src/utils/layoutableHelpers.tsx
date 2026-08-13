@@ -10,7 +10,7 @@ import {
 import { DeferredReactType } from '../nodes/datatypes/deferredHtmlType';
 import { ensureVisible } from '../pixi/utils-pixi';
 import PPGraph from '../classes/GraphClass';
-import { StyledButton } from '../components/GraphOverlay';
+import { StyledButton } from '../components/StyledButton';
 import InterfaceController from '../InterfaceController';
 import {
   DynamicWidgetName,

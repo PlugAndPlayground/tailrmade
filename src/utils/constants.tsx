@@ -14,6 +14,8 @@ export const URL_PARAMETER_NAME = {
   LOADLOCALGRAPH: 'loadLocalGraph',
   LOADREMOTEGRAPH: 'loadRemoteGraph',
   SETSOCKETDATA: 'setSocketData',
+  // opens the app straight into app view (zero chrome, live)
+  APPVIEW: 'appView',
 };
 
 export const GET_STARTED_GRAPH = 'Welcome to Tailrmade';
@@ -47,6 +49,31 @@ export const DRAWER_CONSTANTS = {
   DEFAULT_DASHBOARD_WIDTH_PERCENTAGE: 35,
   MAX_DASHBOARD_WIDTH_PERCENTAGE: 80,
 } as const;
+
+// The docked shell: rail | menu panel | dashboard | canvas strip | inspector
+// are siblings in one flex row, so opening a panel narrows its neighbours
+// instead of covering them. The row itself is pointer-events:none - only the
+// panels take events, which lets the full-screen pixi canvas behind stay
+// interactive through the canvas strip.
+export const SHELL_CONSTANTS = {
+  RAIL_WIDTH: 48,
+  // the dashboard's own header row, so no global bar can cover the app UI
+  DASHBOARD_HEADER_HEIGHT: 48,
+  // the dashboard may never take so much that the canvas disappears
+  // completely - maximising (the header's expand button) is the explicit
+  // way to do that
+  MIN_CANVAS_STRIP_WIDTH: 120,
+} as const;
+
+// The docked panels' backgrounds. They live here rather than in each panel
+// because the rail has no colour of its own - it borrows whichever of these
+// its neighbour is using, and the two columns only read as one surface while
+// both sides agree on the value.
+export const getDrawerBackground = (randomMainColor: string): TRgba =>
+  TRgba.fromString(randomMainColor).darken(0.8);
+
+export const getDashboardBackground = (randomMainColor: string): TRgba =>
+  TRgba.fromString(randomMainColor).darken(0.85);
 
 export const DASHBOARD_DEFAULT = {
   visible: false,

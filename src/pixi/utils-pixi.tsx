@@ -6,9 +6,20 @@ import PPNode from '../classes/NodeClass';
 import PPStorage, { checkForUnsavedChanges } from '../PPStorage';
 import InterfaceController, { ListenEvent } from '../InterfaceController';
 import {
-  CANVAS_BACKGROUND_ALPHA, CANVAS_BACKGROUND_TEXTURE, COMMENT_TEXTSTYLE, GRID_SHADER, MAIN_COLOR, } from '../utils/constants';
+  CANVAS_BACKGROUND_ALPHA,
+  CANVAS_BACKGROUND_TEXTURE,
+  COMMENT_TEXTSTYLE,
+  GRID_SHADER,
+  MAIN_COLOR,
+} from '../utils/constants';
 import {
-  cutOrCopyClipboard, getCurrentCursorPosition, loadGraph, pasteClipboard, roundNumber, } from '../utils/utils';
+  cutOrCopyClipboard,
+  getCurrentCursorPosition,
+  getDashboardWidth,
+  loadGraph,
+  pasteClipboard,
+  roundNumber,
+} from '../utils/utils';
 import { InputParser } from '../utils/inputParser';
 import { SerializedNode } from '../utils/interfaces';
 import { VISIBILITY_ACTION } from '../utils/constants_shared';
@@ -139,9 +150,6 @@ export const getNodesBounds = (nodes: PPNode[]): PIXI.Rectangle => {
 export const calculateOverlayOffsets = (scale?: number): number => {
   const currentGraph = PPGraph.currentGraph;
   const overlayState = InterfaceController.getOverlayState();
-  const dashboardWidthPercentage = overlayState.dashboard.visible
-    ? overlayState.dashboard.widthPercentage
-    : 0;
   const leftDrawerWidth = overlayState.leftSide.visible
     ? overlayState.leftSide.width
     : 0;
@@ -149,8 +157,13 @@ export const calculateOverlayOffsets = (scale?: number): number => {
     ? overlayState.rightSide.width
     : 0;
 
-  const dashboardDrawerOffset =
-    (currentGraph.viewport.screenWidth * (dashboardWidthPercentage / 100)) / 2;
+  // the dashboard's stored percentage is of the shell's available space, not
+  // of the window, so ask for the resolved (and clamped) pixel width rather
+  // than recomputing it from the percentage here
+  const dashboardWidth = overlayState.dashboard.visible
+    ? getDashboardWidth(overlayState)
+    : 0;
+  const dashboardDrawerOffset = dashboardWidth / 2;
 
   const leftDrawerOffset = leftDrawerWidth / 2;
   const rightDrawerOffset = rightDrawerWidth / 2;

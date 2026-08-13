@@ -7,11 +7,12 @@ import {
   Layoutable,
   MobileBehavior,
 } from '../../utils/interfaces';
-import { percentageToWidth } from '../../utils/utils';
+import { getDashboardWidth } from '../../utils/utils';
 import { getNewDirection } from '../../utils/layoutableHelpers';
 import { useEditor } from '@craftjs/core';
 import { isSurfaceNode } from '../../utils/interfaces';
 import { useDevicePreviewWidth } from './devicePreviewStore';
+import { useAppView } from '../appViewStore';
 
 export function useHoverEvents(
   layoutableElement: Layoutable | null | undefined,
@@ -41,13 +42,15 @@ export function useHoverEvents(
 // Same width as MUI's default breakpoint used in useIsSmallScreen
 const NARROW_DASHBOARD_THRESHOLD = 600;
 
-export function useIsDashboardNarrow(): boolean {
+// The dashboard column's REAL width, unaffected by the device preview.
+//
+// Chrome that sits beside the previewed surface rather than inside it (the
+// toolbox) has to size against the panel it lives in: previewing a phone
+// inside a wide panel leaves that chrome just as much room as before. Only
+// the surface itself follows the preview width - see useIsDashboardNarrow.
+export function useDashboardPanelWidth(): number {
   const overlayStateRef = useRef(InterfaceController.getOverlayState());
-
-  // while the dashboard editor previews a device width, all width-dependent
-  // layout logic must read that constrained width instead of the real drawer
-  // width, so the surface reflows exactly as it would at that viewport
-  const devicePreviewWidth = useDevicePreviewWidth();
+  const appView = useAppView();
 
   const [, forceUpdate] = useReducer((x) => x + 1, 0);
 
@@ -68,17 +71,28 @@ export function useIsDashboardNarrow(): boolean {
     };
   }, []);
 
+  // app view drops the rail and every panel and stretches the dashboard column
+  // to 100vw, so the docked share the overlay state describes no longer says
+  // anything about how much room the surface actually has
+  if (appView) {
+    return window.innerWidth;
+  }
+
+  // the resolved column width already accounts for maximising and for the
+  // space the menu panel and inspector take out of the row
+  return getDashboardWidth(overlayStateRef.current);
+}
+
+export function useIsDashboardNarrow(): boolean {
+  // while the dashboard editor previews a device width, all width-dependent
+  // layout logic must read that constrained width instead of the real drawer
+  // width, so the surface reflows exactly as it would at that viewport
+  const devicePreviewWidth = useDevicePreviewWidth();
+  const dashboardWidth = useDashboardPanelWidth();
+
   if (devicePreviewWidth !== null) {
     return devicePreviewWidth < NARROW_DASHBOARD_THRESHOLD;
   }
-
-  const overlayState = overlayStateRef.current;
-  const isFullscreen = overlayState.dashboard?.fullscreen;
-  const dashboardWidthPercentage = isFullscreen
-    ? 100
-    : overlayState.dashboard?.widthPercentage;
-
-  const dashboardWidth = percentageToWidth(dashboardWidthPercentage);
 
   return dashboardWidth < NARROW_DASHBOARD_THRESHOLD;
 }
@@ -179,8 +193,7 @@ export function useParentDirection(parent: string | null) {
 
     return {
       direction: parentNode.data.props.flexDirection as FlexDirection,
-      mobileBehavior: parentNode.data.props
-        .mobileBehavior as MobileBehavior,
+      mobileBehavior: parentNode.data.props.mobileBehavior as MobileBehavior,
     };
   });
 
