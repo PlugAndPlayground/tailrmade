@@ -55,6 +55,7 @@ export interface IDashboardState {
   [DrawerSide.DASHBOARD]: {
     visible: boolean;
     fullscreen: boolean;
+    maximized: boolean;
     widthPercentage: number;
     locked: boolean;
   };

@@ -21,7 +21,6 @@ import {
   DrawerView,
   LeftDrawerView,
   RightDrawerView,
-  URL_PARAMETER_NAME,
 } from '../utils/constants';
 import {
   saveDrawerStateToSession,
@@ -38,18 +37,6 @@ import { DynamicWidget } from './dashboard/DynamicWidget';
 import { DashboardContainer } from './dashboard/DashboardContainer';
 import { PlaceholderWidget } from './dashboard/PlaceholderWidget';
 import { useDisplayedSurfaceLocked } from './dashboard/hooks';
-
-// app view lives in the URL rather than in the saved graph, so a shared link
-// can open straight into the running app
-const setAppViewUrlParameter = (enabled: boolean): void => {
-  const url = new URL(window.location.href);
-  if (enabled) {
-    url.searchParams.set(URL_PARAMETER_NAME.APPVIEW, 'true');
-  } else {
-    url.searchParams.delete(URL_PARAMETER_NAME.APPVIEW);
-  }
-  window.history.replaceState(null, '', url.toString());
-};
 
 type GraphOverlayProps = {
   randomMainColor: string;
@@ -73,14 +60,7 @@ const GraphOverlay: React.FunctionComponent<GraphOverlayProps> = (props) => {
     };
   });
   const [isEditMode, setIsEditMode] = useState(false);
-  // App view: zero chrome, forced Live, the app UI is the whole window. It is
-  // deliberately NOT part of overlayState - that object is serialized with the
-  // graph, and app view belongs to the URL, not to the saved app. It lives in
-  // appViewStore rather than in a useState here because the width hooks deep
-  // inside the dashboard have to subscribe to it too.
   const appView = useAppView();
-  // what the shell looked like before app view, so leaving it puts every
-  // panel back exactly where the user had it
   const preAppViewStateRef = useRef<{
     overlay: IOverlay;
     isEditMode: boolean;
@@ -125,13 +105,10 @@ const GraphOverlay: React.FunctionComponent<GraphOverlayProps> = (props) => {
       rightSide: overlayState.rightSide,
     });
 
-    // Handle ticker stopping/starting based on dashboard state. App view
-    // covers the canvas completely, so it stops the ticker for the same
-    // reason maximising does.
     if (
       (appView ||
-        (overlayState?.dashboard?.fullscreen &&
-          overlayState.dashboard?.visible)) &&
+        (overlayState.dashboard.maximized &&
+          overlayState.dashboard.visible)) &&
       PPGraph.currentGraph.app.ticker.started
     ) {
       PPGraph.currentGraph.app.ticker.stop();
@@ -220,8 +197,6 @@ const GraphOverlay: React.FunctionComponent<GraphOverlayProps> = (props) => {
     setIsDashboardInEditMode(VISIBILITY_ACTION.OPEN);
   }, [setIsDashboardInEditMode, toggleDashboard]);
 
-  // read through refs so toggleAppView stays stable and always sees the
-  // latest shell state without re-subscribing every listener that holds it
   const overlayStateRef = useRef(overlayState);
   const isEditModeRef = useRef(isEditMode);
   useEffect(() => {
@@ -254,17 +229,14 @@ const GraphOverlay: React.FunctionComponent<GraphOverlayProps> = (props) => {
           [DrawerSide.DASHBOARD]: {
             ...state[DrawerSide.DASHBOARD],
             visible: true,
+            fullscreen: true,
           },
         }));
       } else {
-        // put the shell back the way the user had left it. Only the three
-        // visibility flags app view touched are restored - loading a graph
-        // while in app view rewrites the dashboard's own state (widths,
-        // maximised), and that newer state has to survive the way out.
         const snapshot = preAppViewStateRef.current;
-        if (snapshot) {
-          setOverlayState((state) => ({
-            ...state,
+        setOverlayState((state) => ({
+          ...state,
+          ...(snapshot && {
             [DrawerSide.LEFT]: {
               ...state[DrawerSide.LEFT],
               visible: snapshot.overlay[DrawerSide.LEFT].visible,
@@ -273,11 +245,16 @@ const GraphOverlay: React.FunctionComponent<GraphOverlayProps> = (props) => {
               ...state[DrawerSide.RIGHT],
               visible: snapshot.overlay[DrawerSide.RIGHT].visible,
             },
-            [DrawerSide.DASHBOARD]: {
-              ...state[DrawerSide.DASHBOARD],
+          }),
+          [DrawerSide.DASHBOARD]: {
+            ...state[DrawerSide.DASHBOARD],
+            fullscreen: false,
+            ...(snapshot && {
               visible: snapshot.overlay[DrawerSide.DASHBOARD].visible,
-            },
-          }));
+            }),
+          },
+        }));
+        if (snapshot) {
           setIsDashboardInEditMode(
             snapshot.isEditMode
               ? VISIBILITY_ACTION.OPEN
@@ -288,8 +265,6 @@ const GraphOverlay: React.FunctionComponent<GraphOverlayProps> = (props) => {
       }
 
       setAppView(goToAppView);
-      // app links open straight into app view
-      setAppViewUrlParameter(goToAppView);
     },
     [setIsDashboardInEditMode],
   );
@@ -303,17 +278,13 @@ const GraphOverlay: React.FunctionComponent<GraphOverlayProps> = (props) => {
     };
   }, [toggleAppView]);
 
-  // an app link (?appView=true) opens straight into app view
+  const dashboardFullscreen = overlayState[DrawerSide.DASHBOARD].fullscreen;
   useEffect(() => {
-    const urlParams = new URLSearchParams(window.location.search);
-    if (urlParams.get(URL_PARAMETER_NAME.APPVIEW) === 'true') {
-      toggleAppView(VISIBILITY_ACTION.OPEN);
-    }
-    // only on mount - later changes go through toggleAppView itself
-  }, []);
+    toggleAppView(
+      dashboardFullscreen ? VISIBILITY_ACTION.OPEN : VISIBILITY_ACTION.CLOSE,
+    );
+  }, [dashboardFullscreen, toggleAppView]);
 
-  // the store outlives this component, so hand it back its default rather than
-  // leaving a remounted shell in an app view nothing can be restored from
   useEffect(() => () => setAppView(false), []);
 
   useEffect(() => {
@@ -325,21 +296,21 @@ const GraphOverlay: React.FunctionComponent<GraphOverlayProps> = (props) => {
     };
   }, [openDashboardInEditMode, setIsDashboardInEditMode]);
 
-  const toggleFullscreen = useCallback(
+  const toggleMaximized = useCallback(
     (action: VISIBILITY_ACTION) => {
       updateOverlayState({
         dashboard: {
           ...overlayState.dashboard,
-          fullscreen:
+          maximized:
             action === VISIBILITY_ACTION.TOGGLE
-              ? !overlayState.dashboard.fullscreen
+              ? !overlayState.dashboard.maximized
               : action === VISIBILITY_ACTION.OPEN,
         },
       });
     },
     [
       overlayState.dashboard,
-      overlayState.dashboard.fullscreen,
+      overlayState.dashboard.maximized,
       updateOverlayState,
     ],
   );
@@ -455,7 +426,7 @@ const GraphOverlay: React.FunctionComponent<GraphOverlayProps> = (props) => {
       updateOverlayState({
         dashboard: {
           ...overlayState.dashboard,
-          fullscreen: false,
+          maximized: false,
           visible: true,
           widthPercentage: percentage,
         },
@@ -490,7 +461,7 @@ const GraphOverlay: React.FunctionComponent<GraphOverlayProps> = (props) => {
               isEditMode={isEditMode}
               appView={appView}
               toggleAppView={toggleAppView}
-              toggleFullscreen={toggleFullscreen}
+              toggleMaximized={toggleMaximized}
               setDashboardWidthPercentage={updateDrawerWidth}
               setContextMenuPosition={props.setContextMenuPosition}
               setIsGraphContextMenuOpen={props.setIsGraphContextMenuOpen}

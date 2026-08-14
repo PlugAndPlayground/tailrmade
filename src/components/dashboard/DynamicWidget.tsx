@@ -139,7 +139,8 @@ export const DynamicWidgetView = (viewProps: DynamicWidgetViewProps) => {
 
   const handleSelectNode = handleNodeSelection(layoutableElement);
   const overlayState = InterfaceController.getOverlayState();
-  const dashboardFullscreen = overlayState.dashboard.fullscreen;
+  const dashboardFullscreen =
+    overlayState.dashboard.fullscreen || overlayState.dashboard.maximized;
   const showButton = localHover && !dashboardFullscreen && !isEditMode;
 
   const style = getBasicLayoutStyles(width, height, parentDirection);

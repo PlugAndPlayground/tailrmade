@@ -162,8 +162,6 @@ export const Rail: React.FunctionComponent<RailProps> = React.memo((props) => {
           pl: '8px',
           boxSizing: 'border-box',
           background: railBackground?.toString() ?? 'transparent',
-          // matches the neighbouring panel's own open/close animation, so the
-          // rail changes colour with it instead of snapping ahead of it
           transition: 'background 0.225s cubic-bezier(0, 0, 0.2, 1)',
           overflowY: 'auto',
           overflowX: 'hidden',
@@ -180,7 +178,7 @@ export const Rail: React.FunctionComponent<RailProps> = React.memo((props) => {
         <Stack spacing={0.5} alignItems="left">
           {/* the logo is the way into and back out of app view */}
           <Tooltip
-            title={`Open app view (P) - ${getTMBuildTooltip()}`}
+            title={`Open app view (T) - ${getTMBuildTooltip()}`}
             placement="right"
             disableInteractive
           >

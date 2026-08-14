@@ -187,7 +187,8 @@ export const DashboardContainer = (props: Partial<DynamicWidgetProps>) => {
 
   const handleSelectNode = handleNodeSelection(layoutableElement);
   const overlayState = InterfaceController.getOverlayState();
-  const dashboardFullscreen = overlayState.dashboard.fullscreen;
+  const dashboardFullscreen =
+    overlayState.dashboard.fullscreen || overlayState.dashboard.maximized;
   const showButton = localHover && !dashboardFullscreen && !isEditMode;
 
   const isCollapsed = containerState.collapseMode === 'collapse';

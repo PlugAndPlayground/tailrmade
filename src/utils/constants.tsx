@@ -14,8 +14,6 @@ export const URL_PARAMETER_NAME = {
   LOADLOCALGRAPH: 'loadLocalGraph',
   LOADREMOTEGRAPH: 'loadRemoteGraph',
   SETSOCKETDATA: 'setSocketData',
-  // opens the app straight into app view (zero chrome, live)
-  APPVIEW: 'appView',
 };
 
 export const GET_STARTED_GRAPH = 'Welcome to Tailrmade';
@@ -78,6 +76,7 @@ export const getDashboardBackground = (randomMainColor: string): TRgba =>
 export const DASHBOARD_DEFAULT = {
   visible: false,
   fullscreen: false,
+  maximized: false,
   widthPercentage: DRAWER_CONSTANTS.DEFAULT_DASHBOARD_WIDTH_PERCENTAGE,
   locked: false,
 };

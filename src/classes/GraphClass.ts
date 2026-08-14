@@ -1417,6 +1417,10 @@ export default class PPGraph {
     const currentOverlayState = InterfaceController.getOverlayState();
     const overlayWithCurrentDrawerState = {
       ...data.overlay,
+      [DrawerSide.DASHBOARD]: {
+        ...data.overlay[DrawerSide.DASHBOARD],
+        maximized: data.overlay[DrawerSide.DASHBOARD]?.maximized ?? false,
+      },
       [DrawerSide.LEFT]: currentOverlayState.leftSide,
       [DrawerSide.RIGHT]: currentOverlayState.rightSide,
     };

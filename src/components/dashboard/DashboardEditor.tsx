@@ -1152,15 +1152,18 @@ export const DashboardEditor: React.FC<DashboardEditorProps> = ({
           {isGraphLoading && !isEditMode && (
             <LoadingState title="Loading user interface" />
           )}
-          {!isGraphLoading && isEmpty && !isEditMode && <EmptyState />}
+          {!isGraphLoading && isEmpty && !isEditMode && (
+            <EmptyState appView={appView} />
+          )}
         </Box>
       </Box>
     </Box>
   );
 };
 
-export const EmptyState: React.FC = () => (
+export const EmptyState: React.FC<{ appView?: boolean }> = ({ appView = false }) => (
   <Box
+    data-cy="dashboard-empty-state"
     sx={{
       display: 'flex',
       flexDirection: 'column',
@@ -1173,6 +1176,25 @@ export const EmptyState: React.FC = () => (
       lineHeight: 1.5,
     }}
   >
+    {appView ? (
+      <>
+        <Typography variant="h5" gutterBottom>
+          Nothing to show
+        </Typography>
+        <Typography variant="body1" color="text.secondary">
+          This Tailrmade app has no user interface yet.
+          <br />
+          To build one, click the logo on the top left or press <em>T</em>.
+        </Typography>
+      </>
+    ) : (
+      <EmptyStateBuildSteps />
+    )}
+  </Box>
+);
+
+const EmptyStateBuildSteps: React.FC = () => (
+  <>
     <Typography variant="h5" gutterBottom>
       Create user interface
     </Typography>
@@ -1217,7 +1239,7 @@ export const EmptyState: React.FC = () => (
         in the inspector
       </em>
     </Typography>
-  </Box>
+  </>
 );
 
 const CodeSpan = ({ children }) => (

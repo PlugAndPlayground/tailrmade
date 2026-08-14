@@ -540,28 +540,28 @@ export default class InterfaceController {
           case 'KeyM':
             e.preventDefault();
             {
-              const goingFullscreen = !overlayState.dashboard.fullscreen;
+              const goingMaximized = !overlayState.dashboard.maximized;
               this.updateOverlayState({
                 dashboard: {
                   ...overlayState.dashboard,
-                  visible: goingFullscreen
+                  visible: goingMaximized
                     ? true
                     : overlayState.dashboard.visible,
-                  fullscreen: goingFullscreen,
+                  maximized: goingMaximized,
                 },
               });
             }
             break;
           case 'KeyE':
             e.preventDefault();
-            if (overlayState.dashboard.visible) {
+            if (this.isInAppView()) {
+              this.toggleAppView(VISIBILITY_ACTION.CLOSE);
+              this.openDashboardInEditMode();
+            } else if (overlayState.dashboard.visible) {
               this.toggleDashboardInEditMode(VISIBILITY_ACTION.TOGGLE);
             }
             break;
-          // P for preview: where M gives the dashboard the whole row, this
-          // gives it the whole window. Escape leaves app view too, so this is
-          // mainly the way in.
-          case 'KeyP':
+          case 'KeyT':
             e.preventDefault();
             this.toggleAppView(VISIBILITY_ACTION.TOGGLE);
             break;
@@ -585,20 +585,6 @@ export default class InterfaceController {
         await PPStorage.getInstance().saveGraphAction(false);
       }
     } else if (e.key === 'Escape') {
-      // Leaving app view is what Escape means while you are in it - everything
-      // below is canvas and editor chrome that app view does not show, and the
-      // EscapeKeyUsed listeners are all canvas interactions (node edit mode,
-      // hybrid node interaction) that cannot be active there either.
-      //
-      // Typing is the exception: Escape inside an app's own text input belongs
-      // to that input, so it must not throw the user out of the running app.
-      if (this.isInAppView()) {
-        if (!isEventComingFromWithinTextInput(e)) {
-          e.preventDefault();
-          this.toggleAppView(VISIBILITY_ACTION.CLOSE);
-        }
-        return;
-      }
       this.notifyListeners(ListenEvent.EscapeKeyUsed, e);
       this.setIsGraphSearchOpen(false);
       this.setIsNodeSearchVisible(false);

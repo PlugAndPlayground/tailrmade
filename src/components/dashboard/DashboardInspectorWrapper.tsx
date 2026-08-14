@@ -36,7 +36,7 @@ export const DashboardInspectorWrapper = () => {
         }}
       >
         {isEditMode ? (
-          <Tooltip title="Exit user interface (E)" placement="top">
+          <Tooltip title="Exit edit mode (E)" placement="top">
             <Button
               variant="contained"
               color="primary"

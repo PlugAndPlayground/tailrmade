@@ -204,12 +204,6 @@ export function escapeRegExpChars(text: string): string {
 export const roundNumber = (number: number, decimals = 2): number =>
   Math.round(number * 10 ** decimals + Number.EPSILON) / 10 ** decimals; // rounds the number with 3 decimals
 
-// The dashboard's width is stored as a percentage (and serialized with the
-// graph) so an app opened on a different screen still splits the space the
-// way its author set it up. Since the shell docks its panels side by side,
-// that percentage is of the space the dashboard and the canvas strip SHARE -
-// i.e. what is left after the rail, the menu panel and the inspector - not
-// of the whole window.
 export function getShellAvailableWidth(overlayState: IOverlay): number {
   const menuPanelWidth = overlayState[DrawerSide.LEFT].visible
     ? overlayState[DrawerSide.LEFT].width
@@ -240,12 +234,9 @@ function percentageToWidth(percentage: number, availableWidth: number): number {
   return Math.trunc((percentage / 100) * availableWidth);
 }
 
-// The dashboard column's width in px, with the clamps applied: never below a
-// usable panel width, and never so wide that the canvas strip vanishes.
-// Maximised takes everything the shell has left - the chrome around it stays.
 export function getDashboardWidth(overlayState: IOverlay): number {
   const availableWidth = getShellAvailableWidth(overlayState);
-  if (overlayState[DrawerSide.DASHBOARD].fullscreen) {
+  if (overlayState[DrawerSide.DASHBOARD].maximized) {
     return availableWidth;
   }
 
@@ -253,8 +244,6 @@ export function getDashboardWidth(overlayState: IOverlay): number {
     overlayState[DrawerSide.DASHBOARD].widthPercentage,
     availableWidth,
   );
-  // on a window too narrow to honour both clamps the canvas strip wins, so
-  // the graph never becomes unreachable
   const maxWidth = Math.max(
     0,
     availableWidth - SHELL_CONSTANTS.MIN_CANVAS_STRIP_WIDTH,
