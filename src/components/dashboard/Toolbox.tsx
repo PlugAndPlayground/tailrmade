@@ -529,10 +529,6 @@ export const Toolbox: React.FC<ToolboxProps> = ({
             width: TOOLBOX_WIDTH,
             border: 'none',
             overflowX: 'hidden',
-            bgcolor: TRgba.fromString(randomMainColor)
-              .negate()
-              .darken(0.8)
-              .toString(),
             boxShadow: isCollapsed
               ? '4px 0 20px rgba(0,0,0,0.5)'
               : '2px 0 10px rgba(0,0,0,0.2)',

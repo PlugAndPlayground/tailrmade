@@ -47,6 +47,8 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
         gap: 0.5,
         px: 0.5,
         borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
+        containerType: 'inline-size',
+        containerName: 'dashboard-header',
       }}
     >
       <Tooltip
@@ -138,7 +140,14 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
         />
       </Box>
 
-      <Box sx={{ flex: 'none' }}>
+      <Box
+        sx={{
+          flex: 'none',
+          '@container dashboard-header (max-width: 340px)': {
+            display: 'none',
+          },
+        }}
+      >
         <DevicePreviewToggle />
       </Box>
     </Box>

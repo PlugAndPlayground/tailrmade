@@ -557,10 +557,10 @@ export const DashboardEditor: React.FC<DashboardEditorProps> = ({
 
   useEffect(() => {
     const listenIds = [
-      InterfaceController.addListener(
-        ListenEvent.GraphConfigured,
-        resolveInitialSurface,
-      ),
+      InterfaceController.addListener(ListenEvent.GraphConfigured, () => {
+        setIsGraphLoading(false);
+        resolveInitialSurface();
+      }),
       InterfaceController.addListener(
         ListenEvent.DisplayedSurfaceChanged,
         ({ nodeId, source }: { nodeId: string | null; source?: string }) => {
@@ -1125,11 +1125,11 @@ export const DashboardEditor: React.FC<DashboardEditorProps> = ({
           >
             <Box
               data-cy="device-preview-frame"
-              sx={
-                devicePreviewWidth !== null
+              sx={{
+                alignSelf: 'stretch',
+                minHeight: 0,
+                ...(devicePreviewWidth !== null
                   ? {
-                      // exact content width = the previewed viewport width;
-                      // the device bezel (border) sits outside of it
                       boxSizing: 'content-box',
                       width: `${devicePreviewWidth}px`,
                       maxWidth: 'calc(100% - 28px)',
@@ -1137,12 +1137,12 @@ export const DashboardEditor: React.FC<DashboardEditorProps> = ({
                       border: '10px solid #111111',
                       borderRadius: '18px',
                       boxShadow: '0 0 24px rgba(0, 0, 0, 0.5)',
-                      overflow: 'hidden',
+                      overflow: 'auto',
                     }
                   : {
                       width: '100%',
-                    }
-              }
+                    }),
+              }}
             >
               <Frame>
                 <Element is={Container} canvas {...rootProps}></Element>

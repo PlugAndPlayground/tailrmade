@@ -36,9 +36,17 @@ export const SurfaceBreadcrumb: React.FC<{
       data-cy="surface-breadcrumb"
       sx={{
         px: 1,
-        flexShrink: 0,
+        minWidth: 0,
+        overflow: 'hidden',
         whiteSpace: 'nowrap',
-        '& .MuiBreadcrumbs-ol': { flexWrap: 'nowrap' },
+        '& .MuiBreadcrumbs-ol': { flexWrap: 'nowrap', minWidth: 0 },
+        '& .MuiBreadcrumbs-li': { minWidth: 0, overflow: 'hidden' },
+        '& .MuiBreadcrumbs-li > *': {
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          whiteSpace: 'nowrap',
+          display: 'block',
+        },
       }}
     >
       {appName && (

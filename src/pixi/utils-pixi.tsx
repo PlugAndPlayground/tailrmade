@@ -410,6 +410,11 @@ export const createPixiApp = (
     viewport.current.addEventListener('pointerupoutside', pointerUpEvent);
     viewport.current.addEventListener('pointerup', pointerUpEvent);
 
+    const disarmMouseEdges = () =>
+      PPGraph.currentGraph?.viewport?.plugins?.pause('mouse-edges');
+    window.addEventListener('pointerup', disarmMouseEdges, true);
+    window.addEventListener('pointercancel', disarmMouseEdges, true);
+
     // configure viewport
     viewport.current
       .drag({
