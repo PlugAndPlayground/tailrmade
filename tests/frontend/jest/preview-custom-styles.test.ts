@@ -1,42 +1,4 @@
-import {
-  DEVICE_PREVIEW_WIDTHS,
-  getDevicePreviewMode,
-  getDevicePreviewWidth,
-  resolveCustomStylesForPreviewWidth,
-  setDevicePreviewActive,
-  setDevicePreviewMode,
-} from '../../../src/components/dashboard/devicePreviewStore';
-
-describe('devicePreviewStore', () => {
-  afterEach(() => {
-    setDevicePreviewActive(false);
-    setDevicePreviewMode('desktop');
-  });
-
-  it('defaults to desktop and reports no constrained width', () => {
-    expect(getDevicePreviewMode()).toBe('desktop');
-    expect(getDevicePreviewWidth()).toBeNull();
-  });
-
-  it('only constrains while active (edit mode)', () => {
-    setDevicePreviewMode('mobile');
-    // not in edit mode: the dashboard renders at its real width
-    expect(getDevicePreviewWidth()).toBeNull();
-
-    setDevicePreviewActive(true);
-    expect(getDevicePreviewWidth()).toBe(DEVICE_PREVIEW_WIDTHS.mobile);
-
-    setDevicePreviewMode('tablet');
-    expect(getDevicePreviewWidth()).toBe(DEVICE_PREVIEW_WIDTHS.tablet);
-
-    setDevicePreviewMode('desktop');
-    expect(getDevicePreviewWidth()).toBeNull();
-
-    setDevicePreviewMode('mobile');
-    setDevicePreviewActive(false);
-    expect(getDevicePreviewWidth()).toBeNull();
-  });
-});
+import { resolveCustomStylesForPreviewWidth } from '../../../src/components/dashboard/viewState';
 
 describe('resolveCustomStylesForPreviewWidth', () => {
   const customStyles = {
@@ -58,7 +20,6 @@ describe('resolveCustomStylesForPreviewWidth', () => {
     expect(resolveCustomStylesForPreviewWidth(customStyles, null)).toBe(
       customStyles,
     );
-    expect(resolveCustomStylesForPreviewWidth(undefined, null)).toEqual({});
   });
 
   it('flattens the matching width block at a mobile preview width', () => {

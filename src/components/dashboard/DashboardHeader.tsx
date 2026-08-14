@@ -10,8 +10,7 @@ import InterfaceController from '../../InterfaceController';
 import { StyledButton } from '../StyledButton';
 import { SurfaceBreadcrumb } from './SurfaceBreadcrumb';
 import { DevicePreviewToggle } from './DevicePreviewToggle';
-import { useSurfaceStack } from './surfaceStackStore';
-import { toggleToolbox, useToolboxOpen } from './toolboxStore';
+import { toggleToolbox, useSurfaceStack, useToolboxOpen } from './viewState';
 import { SHELL_CONSTANTS } from '../../utils/constants';
 import { VISIBILITY_ACTION } from '../../utils/constants_shared';
 

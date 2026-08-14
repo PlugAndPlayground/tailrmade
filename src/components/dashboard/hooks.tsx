@@ -1,9 +1,17 @@
-import { useEffect, useMemo, useReducer, useRef, useState } from 'react';
+import {
+  useEffect,
+  useMemo,
+  useReducer,
+  useState,
+  useSyncExternalStore,
+} from 'react';
 import { alpha } from '@mui/system';
 import PPGraph from '../../classes/GraphClass';
 import InterfaceController, { ListenEvent } from '../../InterfaceController';
 import {
+  DrawerSide,
   FlexDirection,
+  IOverlay,
   Layoutable,
   MobileBehavior,
 } from '../../utils/interfaces';
@@ -11,8 +19,22 @@ import { getDashboardWidth } from '../../utils/utils';
 import { getNewDirection } from '../../utils/layoutableHelpers';
 import { useEditor } from '@craftjs/core';
 import { isSurfaceNode } from '../../utils/interfaces';
-import { useDevicePreviewWidth } from './devicePreviewStore';
-import { useAppView } from '../appViewStore';
+import { DEVICE_PREVIEW_WIDTHS, useDevicePreviewMode } from './viewState';
+
+const subscribeToOverlayState = (listener: () => void): (() => void) => {
+  const listenerId = InterfaceController.addListener(
+    ListenEvent.OverlayStateChanged,
+    listener,
+  );
+  return () => InterfaceController.removeListener(listenerId);
+};
+
+const getOverlayStateSnapshot = (): IOverlay =>
+  InterfaceController.getOverlayState();
+
+function useOverlayState(): IOverlay {
+  return useSyncExternalStore(subscribeToOverlayState, getOverlayStateSnapshot);
+}
 
 export function useHoverEvents(
   layoutableElement: Layoutable | null | undefined,
@@ -42,59 +64,39 @@ export function useHoverEvents(
 // Same width as MUI's default breakpoint used in useIsSmallScreen
 const NARROW_DASHBOARD_THRESHOLD = 600;
 
-// The dashboard column's REAL width, unaffected by the device preview.
-//
-// Chrome that sits beside the previewed surface rather than inside it (the
-// toolbox) has to size against the panel it lives in: previewing a phone
-// inside a wide panel leaves that chrome just as much room as before. Only
-// the surface itself follows the preview width - see useIsDashboardNarrow.
 export function useDashboardPanelWidth(): number {
-  const overlayStateRef = useRef(InterfaceController.getOverlayState());
-  const appView = useAppView();
+  const overlayState = useOverlayState();
 
+  // the panel width is a function of the overlay state AND the window, and the
+  // window is the one input with no snapshot to subscribe to
   const [, forceUpdate] = useReducer((x) => x + 1, 0);
-
   useEffect(() => {
-    const listenerId = InterfaceController.addListener(
-      ListenEvent.OverlayStateChanged,
-      (newState) => {
-        overlayStateRef.current = newState;
-        forceUpdate();
-      },
-    );
-
     window.addEventListener('resize', forceUpdate);
-
-    return () => {
-      InterfaceController.removeListener(listenerId);
-      window.removeEventListener('resize', forceUpdate);
-    };
+    return () => window.removeEventListener('resize', forceUpdate);
   }, []);
 
-  // app view drops the rail and every panel and stretches the dashboard column
-  // to 100vw, so the docked share the overlay state describes no longer says
-  // anything about how much room the surface actually has
-  if (appView) {
+  if (overlayState[DrawerSide.DASHBOARD].fullscreen) {
     return window.innerWidth;
   }
 
-  // the resolved column width already accounts for maximising and for the
-  // space the menu panel and inspector take out of the row
-  return getDashboardWidth(overlayStateRef.current);
+  return getDashboardWidth(overlayState);
+}
+
+export function useDevicePreviewWidth(): number | null {
+  const mode = useDevicePreviewMode();
+  const dashboard = useOverlayState()[DrawerSide.DASHBOARD];
+
+  if (!dashboard.visible || dashboard.fullscreen) {
+    return null;
+  }
+  return DEVICE_PREVIEW_WIDTHS[mode];
 }
 
 export function useIsDashboardNarrow(): boolean {
-  // while the dashboard editor previews a device width, all width-dependent
-  // layout logic must read that constrained width instead of the real drawer
-  // width, so the surface reflows exactly as it would at that viewport
   const devicePreviewWidth = useDevicePreviewWidth();
   const dashboardWidth = useDashboardPanelWidth();
 
-  if (devicePreviewWidth !== null) {
-    return devicePreviewWidth < NARROW_DASHBOARD_THRESHOLD;
-  }
-
-  return dashboardWidth < NARROW_DASHBOARD_THRESHOLD;
+  return (devicePreviewWidth ?? dashboardWidth) < NARROW_DASHBOARD_THRESHOLD;
 }
 
 export const useEditModeStyles = (

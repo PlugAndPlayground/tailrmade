@@ -26,7 +26,7 @@ import { getAllNodeTypes } from '../../nodes/allNodes';
 import { PlaceholderWidget } from './PlaceholderWidget';
 import { NODE_SOURCE } from '../../utils/constants';
 import { useDashboardPanelWidth } from './hooks';
-import { setToolboxOpen, useToolboxOpen } from './toolboxStore';
+import { setToolboxOpen, useToolboxOpen } from './viewState';
 
 export const draggedWidgetType = 'widget-node';
 

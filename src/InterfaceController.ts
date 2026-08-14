@@ -176,10 +176,10 @@ export default class InterfaceController {
   static toggleShowDashboard: (action: VISIBILITY_ACTION) => void = () => {};
   static toggleDashboardInEditMode: (action: VISIBILITY_ACTION) => void =
     () => {};
-  // App view: zero chrome, forced live, the app UI fills the window. Entered
-  // and left through the rail logo or P; Escape also leaves it.
   static toggleAppView: (action: VISIBILITY_ACTION) => void = () => {};
-  static isInAppView: () => boolean = () => false;
+  static isInAppView(): boolean {
+    return this.getOverlayState().dashboard.fullscreen;
+  }
   static toggleRightSideDrawer: (
     action: VISIBILITY_ACTION,
     view?: RightDrawerView,

@@ -14,7 +14,6 @@ import { surfaceEditSession } from './dashboard/surfaceEditSession';
 import { canonicalTreeString } from '../utils/surfaceTree';
 import InterfaceController, { ListenEvent } from '../InterfaceController';
 import ShellLayout from './ShellLayout';
-import { getAppView, setAppView, useAppView } from './appViewStore';
 import { DrawerSide, IOverlay, isSurfaceNode } from '../utils/interfaces';
 import {
   DASHBOARD_DEFAULT,
@@ -60,11 +59,12 @@ const GraphOverlay: React.FunctionComponent<GraphOverlayProps> = (props) => {
     };
   });
   const [isEditMode, setIsEditMode] = useState(false);
-  const appView = useAppView();
+  const appView = overlayState[DrawerSide.DASHBOARD].fullscreen;
   const preAppViewStateRef = useRef<{
     overlay: IOverlay;
     isEditMode: boolean;
-  } | null>(null);
+  }>({ overlay: overlayState, isEditMode });
+  const appliedAppViewRef = useRef(false);
 
   const setIsDashboardInEditMode = useCallback(
     (action: VISIBILITY_ACTION) => {
@@ -91,6 +91,8 @@ const GraphOverlay: React.FunctionComponent<GraphOverlayProps> = (props) => {
 
   // Handle side effects after state updates
   useEffect(() => {
+    InterfaceController.getOverlayState = () => overlayState;
+
     if (!PPGraph.currentGraph) return;
 
     // Notify listeners about overlay state changes
@@ -177,20 +179,18 @@ const GraphOverlay: React.FunctionComponent<GraphOverlayProps> = (props) => {
     [overlayState.rightSide, updateOverlayState],
   );
 
-  const toggleDashboard = useCallback(
-    (action: VISIBILITY_ACTION) => {
-      updateOverlayState({
-        dashboard: {
-          ...overlayState.dashboard,
-          visible:
-            action === VISIBILITY_ACTION.TOGGLE
-              ? !overlayState.dashboard.visible
-              : action === VISIBILITY_ACTION.OPEN,
-        },
-      });
-    },
-    [overlayState.dashboard, updateOverlayState],
-  );
+  const toggleDashboard = useCallback((action: VISIBILITY_ACTION) => {
+    setOverlayState((state) => ({
+      ...state,
+      [DrawerSide.DASHBOARD]: {
+        ...state[DrawerSide.DASHBOARD],
+        visible:
+          action === VISIBILITY_ACTION.TOGGLE
+            ? !state[DrawerSide.DASHBOARD].visible
+            : action === VISIBILITY_ACTION.OPEN,
+      },
+    }));
+  }, []);
 
   const openDashboardInEditMode = useCallback(() => {
     toggleDashboard(VISIBILITY_ACTION.OPEN);
@@ -206,7 +206,7 @@ const GraphOverlay: React.FunctionComponent<GraphOverlayProps> = (props) => {
 
   const toggleAppView = useCallback(
     (action: VISIBILITY_ACTION) => {
-      const wasInAppView = getAppView();
+      const wasInAppView = appliedAppViewRef.current;
       const goToAppView =
         action === VISIBILITY_ACTION.TOGGLE
           ? !wasInAppView
@@ -236,45 +236,36 @@ const GraphOverlay: React.FunctionComponent<GraphOverlayProps> = (props) => {
         const snapshot = preAppViewStateRef.current;
         setOverlayState((state) => ({
           ...state,
-          ...(snapshot && {
-            [DrawerSide.LEFT]: {
-              ...state[DrawerSide.LEFT],
-              visible: snapshot.overlay[DrawerSide.LEFT].visible,
-            },
-            [DrawerSide.RIGHT]: {
-              ...state[DrawerSide.RIGHT],
-              visible: snapshot.overlay[DrawerSide.RIGHT].visible,
-            },
-          }),
+          [DrawerSide.LEFT]: {
+            ...state[DrawerSide.LEFT],
+            visible: snapshot.overlay[DrawerSide.LEFT].visible,
+          },
+          [DrawerSide.RIGHT]: {
+            ...state[DrawerSide.RIGHT],
+            visible: snapshot.overlay[DrawerSide.RIGHT].visible,
+          },
           [DrawerSide.DASHBOARD]: {
             ...state[DrawerSide.DASHBOARD],
             fullscreen: false,
-            ...(snapshot && {
-              visible: snapshot.overlay[DrawerSide.DASHBOARD].visible,
-            }),
+            visible: snapshot.overlay[DrawerSide.DASHBOARD].visible,
           },
         }));
-        if (snapshot) {
-          setIsDashboardInEditMode(
-            snapshot.isEditMode
-              ? VISIBILITY_ACTION.OPEN
-              : VISIBILITY_ACTION.CLOSE,
-          );
-          preAppViewStateRef.current = null;
-        }
+        setIsDashboardInEditMode(
+          snapshot.isEditMode
+            ? VISIBILITY_ACTION.OPEN
+            : VISIBILITY_ACTION.CLOSE,
+        );
       }
 
-      setAppView(goToAppView);
+      appliedAppViewRef.current = goToAppView;
     },
     [setIsDashboardInEditMode],
   );
 
   useEffect(() => {
     InterfaceController.toggleAppView = toggleAppView;
-    InterfaceController.isInAppView = getAppView;
     return () => {
       InterfaceController.toggleAppView = () => {};
-      InterfaceController.isInAppView = () => false;
     };
   }, [toggleAppView]);
 
@@ -284,8 +275,6 @@ const GraphOverlay: React.FunctionComponent<GraphOverlayProps> = (props) => {
       dashboardFullscreen ? VISIBILITY_ACTION.OPEN : VISIBILITY_ACTION.CLOSE,
     );
   }, [dashboardFullscreen, toggleAppView]);
-
-  useEffect(() => () => setAppView(false), []);
 
   useEffect(() => {
     InterfaceController.toggleDashboardInEditMode = setIsDashboardInEditMode;
@@ -403,7 +392,6 @@ const GraphOverlay: React.FunctionComponent<GraphOverlayProps> = (props) => {
     InterfaceController.toggleRightSideDrawer = toggleRightSideDrawer;
     InterfaceController.setRightDrawerView = setRightDrawerView;
 
-    InterfaceController.getOverlayState = () => overlayState;
     InterfaceController.updateOverlayState = updateOverlayState;
 
     const listenerId = InterfaceController.addListeners(
@@ -413,7 +401,6 @@ const GraphOverlay: React.FunctionComponent<GraphOverlayProps> = (props) => {
 
     return () => InterfaceController.removeListener(listenerId);
   }, [
-    overlayState,
     toggleLeftSideDrawer,
     toggleDashboard,
     toggleRightSideDrawer,

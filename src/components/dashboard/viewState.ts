@@ -1,14 +1,17 @@
-import { useSyncExternalStore } from 'react';
+import { createStore } from '../createStore';
 
-// Device preview for the dashboard editor: constrain the edited surface to a
-// preset viewport width (mobile/tablet) so users can see their app reflow.
+// Per-session view state of the dashboard. None of it belongs in the overlay
+// state, which is serialized into the graph (GraphClass.serialize) - these are
+// properties of this browser session, not of the app being authored.
 //
-// This state is deliberately NOT part of the overlay state:
-// overlayState.dashboard is serialized into the graph (GraphClass.serialize),
-// and the preview mode must only persist per browser session, never with the
-// graph. It lives in this tiny external store so both the editor UI
-// (DevicePreviewToggle, the frame in DashboardEditor) and the width-dependent
-// layout logic (useIsDashboardNarrow in hooks.tsx) follow the same value.
+// It lives outside the component tree because in every case the control that
+// writes it and the component that reads it sit in different branches:
+// DashboardHeader is a sibling of DashboardEditor, not its parent.
+
+// --- device preview -------------------------------------------------------
+// Constrains the edited surface to a preset viewport width so users can see
+// their app reflow. Whether the choice currently applies is derived from the
+// overlay state - see useDevicePreviewWidth in hooks.tsx.
 
 export type DevicePreviewMode = 'mobile' | 'tablet' | 'desktop';
 
@@ -30,61 +33,24 @@ const loadInitialMode = (): DevicePreviewMode => {
     if (isDevicePreviewMode(stored)) {
       return stored;
     }
-  } catch (error) {
+  } catch {
     // sessionStorage unavailable (tests, some embedded contexts) - default
   }
   return 'desktop';
 };
 
-let mode: DevicePreviewMode = loadInitialMode();
-// only true while the dashboard editor is in edit mode - outside of it the
-// dashboard must render at its real width (view/app mode is the real app)
-let active = false;
+const modeStore = createStore<DevicePreviewMode>(loadInitialMode());
 
-const listeners = new Set<() => void>();
-const notify = () => listeners.forEach((listener) => listener());
-const subscribe = (listener: () => void) => {
-  listeners.add(listener);
-  return () => {
-    listeners.delete(listener);
-  };
-};
-
-export const getDevicePreviewMode = (): DevicePreviewMode => mode;
-
-// The width the dashboard surface is currently constrained to, or null when
-// unconstrained (desktop preset, or the editor is not in edit mode).
-export const getDevicePreviewWidth = (): number | null =>
-  active ? DEVICE_PREVIEW_WIDTHS[mode] : null;
+export const useDevicePreviewMode = modeStore.useStore;
 
 export const setDevicePreviewMode = (newMode: DevicePreviewMode): void => {
-  if (newMode === mode) {
-    return;
-  }
-  mode = newMode;
+  modeStore.set(newMode);
   try {
     sessionStorage.setItem(SESSION_KEY, newMode);
-  } catch (error) {
+  } catch {
     // non-fatal - the mode just won't survive a reload
   }
-  notify();
 };
-
-export const setDevicePreviewActive = (newActive: boolean): void => {
-  if (newActive === active) {
-    return;
-  }
-  active = newActive;
-  notify();
-};
-
-export function useDevicePreviewMode(): DevicePreviewMode {
-  return useSyncExternalStore(subscribe, getDevicePreviewMode);
-}
-
-export function useDevicePreviewWidth(): number | null {
-  return useSyncExternalStore(subscribe, getDevicePreviewWidth);
-}
 
 // Container customStyles may hold real `@media (min-width/max-width: Npx)`
 // blocks (the ROOT preset ships some). Browsers evaluate those against the
@@ -96,11 +62,11 @@ export function useDevicePreviewWidth(): number | null {
 const MEDIA_WIDTH_CONDITION = /^\(\s*(min|max)-width\s*:\s*([\d.]+)px\s*\)$/;
 
 export const resolveCustomStylesForPreviewWidth = (
-  customStyles: Record<string, any> | undefined,
+  customStyles: Record<string, any>,
   previewWidth: number | null,
 ): Record<string, any> => {
-  if (!customStyles || previewWidth === null) {
-    return customStyles ?? {};
+  if (previewWidth === null) {
+    return customStyles;
   }
   const result: Record<string, any> = {};
   for (const [key, value] of Object.entries(customStyles)) {
@@ -113,7 +79,7 @@ export const resolveCustomStylesForPreviewWidth = (
       .slice('@media'.length)
       .split(/\band\b/)
       .map((condition) => condition.trim());
-    let recognized = conditions.length > 0;
+    let recognized = true;
     let matches = true;
     for (const condition of conditions) {
       const match = MEDIA_WIDTH_CONDITION.exec(condition);
@@ -136,3 +102,35 @@ export const resolveCustomStylesForPreviewWidth = (
   }
   return result;
 };
+
+// --- toolbox --------------------------------------------------------------
+// Means "show the toolbox" in BOTH layouts: an in-flow sidebar while the panel
+// is wide enough, an overlay drawer once it is not. Toolbox resets it whenever
+// the panel crosses that breakpoint.
+//
+// It starts closed because that reset runs in an effect, one commit after the
+// first render: starting open would flash the overlay toolbox across the
+// surface on a narrow panel, where starting closed only costs a wide panel one
+// frame with no sidebar - which renders nothing at all rather than the wrong
+// thing.
+
+const toolboxOpenStore = createStore(false);
+
+export const setToolboxOpen = toolboxOpenStore.set;
+export const useToolboxOpen = toolboxOpenStore.useStore;
+
+export const toggleToolbox = (): void => toolboxOpenStore.set((open) => !open);
+
+// --- surface stack --------------------------------------------------------
+// The dive path of nested UI surfaces (first entry = the top-level selected
+// surface, last = the one currently displayed). Maintained by DashboardEditor,
+// which owns the surface load listeners, and rendered by DashboardHeader's
+// breadcrumb.
+
+const sameStack = (a: string[], b: string[]): boolean =>
+  a.length === b.length && a.every((id, index) => id === b[index]);
+
+const surfaceStackStore = createStore<string[]>([], sameStack);
+
+export const setSurfaceStack = surfaceStackStore.set;
+export const useSurfaceStack = surfaceStackStore.useStore;

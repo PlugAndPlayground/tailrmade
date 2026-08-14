@@ -22,14 +22,12 @@ import {
   getNewDirection,
 } from '../../utils/layoutableHelpers';
 import {
+  useDevicePreviewWidth,
   useEditModeStyles,
   useIsDashboardNarrow,
   useParentDirection,
 } from './hooks';
-import {
-  resolveCustomStylesForPreviewWidth,
-  useDevicePreviewWidth,
-} from './devicePreviewStore';
+import { resolveCustomStylesForPreviewWidth } from './viewState';
 import { getContainerDashboardIcon } from './dashboardIcons';
 import { RootName, containerName } from '../../utils/constants_shared';
 

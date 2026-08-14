@@ -48,12 +48,8 @@ import {
   SurfaceSync,
 } from '../../nodes/layout/surfaceSync';
 import type { UISurfaceNode } from '../../nodes/layout/uiSurface';
-import { useDisplayedSurfaceLocked } from './hooks';
-import { setSurfaceStack } from './surfaceStackStore';
-import {
-  setDevicePreviewActive,
-  useDevicePreviewWidth,
-} from './devicePreviewStore';
+import { useDevicePreviewWidth, useDisplayedSurfaceLocked } from './hooks';
+import { setSurfaceStack } from './viewState';
 
 // example structure of a dashboard item
 // {
@@ -372,28 +368,15 @@ export const DashboardEditor: React.FC<DashboardEditorProps> = ({
   const [isDashboardLocked, setIsDashboardLocked] = useState(
     overlayState.dashboard.locked,
   );
-  // ensures we auto-create a surface for an empty dashboard at most once per
-  // graph session (so deleting/undoing the surface does not recreate it)
   const autoCreatedSurfaceRef = useRef(false);
-  // the displayed surface's Layout JSON socket is wired: editor read-only
   const isSurfaceLocked = useDisplayedSurfaceLocked();
-  // device preview (mobile/tablet/desktop) constrains the surface in edit AND
-  // live mode - it is a property of the dashboard, not of editing. App view
-  // is the real app, so it always renders at the true width.
   const devicePreviewWidth = useDevicePreviewWidth();
-  useEffect(() => {
-    setDevicePreviewActive(isVisible && !appView);
-    return () => setDevicePreviewActive(false);
-  }, [isVisible, appView]);
-  // read isEditMode from a ref so the load callbacks stay stable
+  const isDevicePreview = devicePreviewWidth !== null;
   const isEditModeRef = useRef(isEditMode);
   useEffect(() => {
     isEditModeRef.current = isEditMode;
   }, [isEditMode]);
 
-  // The dashboard shows the raw craft tree while EDITING (so you can see and
-  // edit hidden widgets and the static layout), but the runtime-overridden
-  // tree in VIEW/app mode (so wired "visible"/"layout" sockets take effect).
   const getDisplayTreeString = useCallback((surface: UISurfaceNode): string => {
     const rawTree = surface.getSurfaceTree();
     const tree = isEditModeRef.current
@@ -1110,17 +1093,9 @@ export const DashboardEditor: React.FC<DashboardEditorProps> = ({
               justifyContent: 'center',
               alignItems: 'flex-start',
               width: '100%',
-              // grow to the remaining panel height (after the locked banner
-              // in edit mode) so the ROOT container's height '100%' has a
-              // definite parent to resolve against - without this the chain
-              // from the dashboard column breaks right here and '100%'
-              // silently behaves like 'auto'
               flex: 1,
               minHeight: 0,
-              // breathing room around the device frame while editing; the
-              // dashboard's own header sits above this, so nothing has to be
-              // cleared out of the way any more
-              my: isEditMode && devicePreviewWidth !== null ? 2 : 0,
+              my: isEditMode && isDevicePreview ? 2 : 0,
             }}
           >
             <Box
@@ -1128,7 +1103,7 @@ export const DashboardEditor: React.FC<DashboardEditorProps> = ({
               sx={{
                 alignSelf: 'stretch',
                 minHeight: 0,
-                ...(devicePreviewWidth !== null
+                ...(isDevicePreview
                   ? {
                       boxSizing: 'content-box',
                       width: `${devicePreviewWidth}px`,

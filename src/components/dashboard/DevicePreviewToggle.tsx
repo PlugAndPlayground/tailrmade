@@ -8,7 +8,7 @@ import {
   DevicePreviewMode,
   setDevicePreviewMode,
   useDevicePreviewMode,
-} from './devicePreviewStore';
+} from './viewState';
 
 const PRESETS: {
   mode: DevicePreviewMode;
