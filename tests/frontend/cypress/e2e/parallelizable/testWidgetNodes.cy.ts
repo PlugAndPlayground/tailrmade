@@ -60,7 +60,11 @@ const exitEditModeAndShowNode = (nodeId: string) => {
   // disabled), so wait for the DOM to catch up here instead of asserting on
   // the button icon alone
   cy.get(`[data-cy="widget of NODE_${nodeId}"]`).should(($widget) => {
-    expect($widget.find('.Mui-disabled').length).to.eq(0);
+    // MUI's tab scroll buttons carry Mui-disabled whenever there is nothing
+    // to scroll to, which has nothing to do with the widget being disabled
+    expect(
+      $widget.find('.Mui-disabled').not('.MuiTabs-scrollButtons').length,
+    ).to.eq(0);
   });
   doWithTestController((testController) => {
     testController.zoomToFitNodesById([nodeId]);
@@ -421,10 +425,10 @@ describe('testWidgetNodes', () => {
     addToDashboard(tabsId);
     exitEditModeAndShowNode(tabsId);
 
-    cy.get(`[data-cy="widget of NODE_${tabsId}"] .MuiTab-root`)
-      .filter(':visible')
-      .eq(2)
-      .click({ force: true });
+    // three tabs need more width than the dashboard panel has, so the last
+    // one is scrolled out of the panel's clipped area - address the widget's
+    // own tab instead of picking by visible position
+    cy.get(`[data-cy="${tabsId}-dashboard-tab-2"]`).click({ force: true });
 
     shouldWithTestController((testController) => {
       expect(testController.getNodeOutputValue(tabsId, 'Out')).to.eq('Tab 3');

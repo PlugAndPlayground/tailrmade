@@ -132,35 +132,10 @@ export class Label extends PPNode implements Layoutable {
       props[fontWeightSocketName],
     );
 
-    const isEditable = props.isEditMode && props.inDashboard;
-
-    const handleKeyDown = async (event) => {
-      if (event.key === 'Enter' && !event.shiftKey) {
-        event.preventDefault();
-        const newText = event.target.innerText;
-        // Update the node's input data
-        await props.node.setInputData(inputSocketName, newText);
-        // Execute the node to update outputs
-        await props.node.executeOptimizedChain();
-        // Remove focus to complete the edit
-        event.target.blur();
-      }
-    };
-
-    const handleBlur = async (event) => {
-      const newText = event.target.innerText;
-      // Update the node's input data
-      await props.node.setInputData(inputSocketName, newText);
-      // Execute the node to update outputs
-      await props.node.executeOptimizedChain();
-    };
-
+    // the text is edited on the canvas (see startEditing below), never here -
+    // in the dashboard the widget only displays what the node outputs
     return (
       <div
-        contentEditable={isEditable}
-        suppressContentEditableWarning={true}
-        onKeyDown={handleKeyDown}
-        onBlur={handleBlur}
         style={{
           display: 'inline-block',
           fontSize: `${fontSize}px`,
@@ -182,10 +157,9 @@ export class Label extends PPNode implements Layoutable {
           userSelect: props.disabled ? 'none' : 'text',
           whiteSpace: 'pre-wrap',
           textAlign: textAlign,
-          outline: isEditable ? '1px dashed rgba(255,255,255,0.3)' : 'none',
-          cursor: isEditable ? 'text' : 'default',
+          outline: 'none',
+          cursor: 'default',
         }}
-        {...{ [DATA_DASHBOARD_EDITABLE]: isEditable ? 'true' : undefined }}
       >
         {text}
       </div>

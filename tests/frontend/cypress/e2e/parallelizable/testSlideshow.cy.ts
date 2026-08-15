@@ -44,9 +44,11 @@ describe('testSlideshow', () => {
     });
     cy.get('[data-cy="interface-settings-tab"]').click({ force: true });
 
-    cy.contains('Slideshow generator').should('be.visible');
+    // the closed toolbox drawer lists the node too, so scope the lookup -
+    // an unscoped cy.contains finds that hidden entry first
     cy.get('[data-cy="layers-panel"]')
       .contains('Slideshow generator')
+      .should('be.visible')
       .click({ force: true });
     cy.get('[data-cy="exit-dashboard-editor-btn"]').should('be.visible');
     getVisibleWidget(widgetSelector).click({ force: true });
