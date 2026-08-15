@@ -392,10 +392,13 @@ const prepareLoadedGraph = () => {
   cy.get('body')
     .contains('startup_complete', { timeout: 90000 })
     .should('exist');
-  // waiting for toggle-app-button here guarantees that all toggles are ready
-  cy.get('[data-cy="toggle-app-button"]', { timeout: PNP_TIMEOUT }).should(
-    'be.visible',
-  );
+  // The shell shows one of two logo buttons depending on the view the graph
+  // opens in: the rail's toggle in build view, the exit button in app view
+  // (apps saved with the dashboard fullscreen open straight into app view).
+  // Either one means the shell is mounted and all toggles are ready.
+  cy.get('[data-cy="toggle-app-button"], [data-cy="app-view-exit-button"]', {
+    timeout: PNP_TIMEOUT,
+  }).should('be.visible');
 };
 
 export const reloadGraph = () => {
