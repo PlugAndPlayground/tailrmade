@@ -28,7 +28,6 @@ import { StyledButton } from './StyledButton';
 import { BackendGateway } from '../services/BackendGateway';
 import { CLOUD_MODE } from '../services/shared-types';
 import { TRgba } from '../utils/color';
-import { getTMBuildTooltip } from '../buildInfo';
 import { TMIconNoShadow } from '../utils/icons';
 import { useIsSmallScreen } from '../utils/utils';
 import { IOverlay } from '../utils/interfaces';
@@ -178,7 +177,7 @@ export const Rail: React.FunctionComponent<RailProps> = React.memo((props) => {
         <Stack spacing={0.5} alignItems="left">
           {/* the logo is the way into and back out of app view */}
           <Tooltip
-            title={`Open app view (T) - ${getTMBuildTooltip()}`}
+            title="Open app view (T)"
             placement="right"
             disableInteractive
           >
