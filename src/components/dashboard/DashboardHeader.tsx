@@ -59,6 +59,7 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
               : 'Maximise user interface (M)'
           }
           placement="bottom-start"
+          disableInteractive
         >
           <IconButton
             data-cy={
@@ -86,6 +87,7 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
             isEditMode ? 'View user interface (E)' : 'Edit user interface (E)'
           }
           placement="bottom-start"
+          disableInteractive
         >
           <StyledButton
             data-cy="toggle-edit-mode-btn"
@@ -106,6 +108,7 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
           <Tooltip
             title={isToolboxOpen ? 'Hide widgets' : 'Show widgets'}
             placement="bottom-start"
+            disableInteractive
           >
             <StyledButton
               data-cy="toggle-toolbox-btn"
