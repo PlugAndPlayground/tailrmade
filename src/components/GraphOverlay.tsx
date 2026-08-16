@@ -109,8 +109,7 @@ const GraphOverlay: React.FunctionComponent<GraphOverlayProps> = (props) => {
 
     if (
       (appView ||
-        (overlayState.dashboard.maximized &&
-          overlayState.dashboard.visible)) &&
+        (overlayState.dashboard.maximized && overlayState.dashboard.visible)) &&
       PPGraph.currentGraph.app.ticker.started
     ) {
       PPGraph.currentGraph.app.ticker.stop();
@@ -228,7 +227,6 @@ const GraphOverlay: React.FunctionComponent<GraphOverlayProps> = (props) => {
           [DrawerSide.RIGHT]: { ...state[DrawerSide.RIGHT], visible: false },
           [DrawerSide.DASHBOARD]: {
             ...state[DrawerSide.DASHBOARD],
-            visible: true,
             fullscreen: true,
           },
         }));
@@ -247,7 +245,6 @@ const GraphOverlay: React.FunctionComponent<GraphOverlayProps> = (props) => {
           [DrawerSide.DASHBOARD]: {
             ...state[DrawerSide.DASHBOARD],
             fullscreen: false,
-            visible: snapshot.overlay[DrawerSide.DASHBOARD].visible,
           },
         }));
         setIsDashboardInEditMode(
