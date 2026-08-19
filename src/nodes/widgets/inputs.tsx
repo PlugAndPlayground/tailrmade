@@ -3,9 +3,14 @@ import { Box, FormControl, TextField, ThemeProvider } from '@mui/material';
 import {
   WidgetHybridBase,
   WidgetPaper,
+  getMuiSize,
+  getSizeSocket,
+  getSizeSx,
+  getSizeTokens,
   initialValueName,
   labelName,
   outName,
+  sizeName,
 } from './abstract';
 import Socket from '../../classes/SocketClass';
 import { StringType } from '../datatypes/stringType';
@@ -104,6 +109,7 @@ export class WidgetTextField extends WidgetHybridBase {
         false,
       ),
       new Socket(SOCKET_TYPE.IN, requiredName, new BooleanType(), false, false),
+      getSizeSocket(),
       new Socket(SOCKET_TYPE.OUT, outName, new StringType()),
     ];
   }
@@ -192,8 +198,8 @@ export class WidgetTextField extends WidgetHybridBase {
     const helperText = props[helperTextName];
     const isInteractive = !(props.inDashboard && props.disabled);
 
-    // Calculate dynamic sizing
-    const fontSize = '16px';
+    const size = props[sizeName];
+    const fontSize = `${getSizeTokens(size).fontSize}px`;
     return (
       <ThemeProvider theme={customTheme}>
         <WidgetPaper node={node} inDashboard={props.inDashboard}>
@@ -205,6 +211,7 @@ export class WidgetTextField extends WidgetHybridBase {
                 placeholder={placeholder}
                 helperText={helperText}
                 variant="filled"
+                size={getMuiSize(size)}
                 type={type}
                 multiline={multiline}
                 rows={multiline ? rows : undefined}
@@ -227,12 +234,7 @@ export class WidgetTextField extends WidgetHybridBase {
                 }}
                 sx={{
                   pointerEvents: props.disabled ? 'none' : undefined,
-                  '& .MuiInputLabel-root': {
-                    fontSize: fontSize,
-                  },
-                  '& .MuiFormHelperText-root': {
-                    fontSize: `calc(${fontSize} * 0.8)`,
-                  },
+                  ...getSizeSx(size),
                 }}
               />
             </FormControl>

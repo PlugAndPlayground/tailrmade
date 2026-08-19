@@ -14,9 +14,13 @@ import Socket from '../../classes/SocketClass';
 import {
   WidgetHybridBase,
   WidgetPaper,
+  getMuiSize,
+  getSizeSocket,
+  getSizeTokens,
   initialValueName,
   labelName,
   outName,
+  sizeName,
 } from './abstract';
 import { TRgba } from '../../utils/color';
 import { WidgetContentProps } from '../../utils/interfaces';
@@ -63,6 +67,7 @@ export class WidgetColorPicker extends WidgetHybridBase {
         pickerDefaultName,
         false,
       ),
+      getSizeSocket(),
       new Socket(SOCKET_TYPE.OUT, outName, new ColorType()),
     ];
   }
@@ -128,6 +133,7 @@ export class WidgetColorPicker extends WidgetHybridBase {
     const ref = useRef<HTMLDivElement | null>(null);
     const [colorPicker, showColorPicker] = useState(false);
     const initialColor = TRgba.fromObject(props[initialValueName]);
+    const tokens = getSizeTokens(props[sizeName]);
 
     return (
       <ThemeProvider theme={customTheme}>
@@ -135,15 +141,18 @@ export class WidgetColorPicker extends WidgetHybridBase {
           <Button
             disabled={props.disabled}
             variant="contained"
+            size={getMuiSize(props[sizeName])}
             onClick={() => {
               showColorPicker(!colorPicker);
             }}
             sx={{
               margin: 'auto',
-              fontSize: props.inDashboard ? '16px' : `${node.nodeHeight / 6}px`,
+              fontSize: props.inDashboard
+                ? `${tokens.fontSize}px`
+                : `${(node.nodeHeight / 6) * tokens.scale}px`,
               lineHeight: props.inDashboard
-                ? '24px'
-                : `${node.nodeHeight / 5}px`,
+                ? `${24 * tokens.scale}px`
+                : `${(node.nodeHeight / 5) * tokens.scale}px`,
               border: 0,
               bgcolor: initialColor.hexa(),
               color: initialColor.getContrastTextColor().hex(),
@@ -166,8 +175,8 @@ export class WidgetColorPicker extends WidgetHybridBase {
               sx={{
                 pl: 0.5,
                 fontSize: props.inDashboard
-                  ? '24px'
-                  : `${node.nodeHeight / 6}px`,
+                  ? `${tokens.iconSize}px`
+                  : `${(node.nodeHeight / 6) * tokens.scale}px`,
               }}
             />
           </Button>

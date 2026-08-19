@@ -11,10 +11,14 @@ import Socket from '../../classes/SocketClass';
 import {
   defaultOptions,
   fallbackValueName,
+  getMuiSize,
+  getSizeSocket,
+  getSizeSx,
   labelName,
   optionsName,
   outName,
   selectedOptionName,
+  sizeName,
   stringifyIfNeeded,
   WidgetPaper,
 } from './abstract';
@@ -39,8 +43,12 @@ const disabledName = 'Disabled';
 // Defaults
 const autocompleteDefaultLabel = 'Autocomplete';
 
-// Shared popper slot props to ensure dropdown width matches input
-const autocompletePopperSlotProps = {
+// Shared slot props to ensure dropdown width matches input. The option list
+// renders in a portal, so it also has to carry the size styling itself
+const getAutocompleteSlotProps = (size: unknown) => ({
+  paper: {
+    sx: getSizeSx(size),
+  },
   popper: {
     placement: 'bottom-start' as const,
     style: { width: 'auto' },
@@ -59,7 +67,7 @@ const autocompletePopperSlotProps = {
       },
     ],
   },
-};
+});
 
 // Base abstract class for shared autocomplete functionality
 abstract class WidgetAutocompleteBase extends WidgetSelectableBase {
@@ -120,6 +128,7 @@ abstract class WidgetAutocompleteBase extends WidgetSelectableBase {
         false,
       ),
       new Socket(SOCKET_TYPE.IN, disabledName, new BooleanType(), false, false),
+      getSizeSocket(),
     ];
   }
 
@@ -133,6 +142,7 @@ abstract class WidgetAutocompleteBase extends WidgetSelectableBase {
     const noOptionsText = props[noOptionsTextName];
     const isDisabled = props[disabledName] || props.disabled;
     const placeholder = props[placeholderName];
+    const size = props[sizeName];
 
     const currentValue = node.formatSelected(props[selectedOptionName]);
 
@@ -140,9 +150,13 @@ abstract class WidgetAutocompleteBase extends WidgetSelectableBase {
       return (
         <ThemeProvider theme={customTheme}>
           <WidgetPaper node={node} inDashboard={props.inDashboard}>
-            <FormControl variant="filled" sx={{ width: '100%' }}>
+            <FormControl
+              variant="filled"
+              sx={{ width: '100%', ...getSizeSx(size) }}
+            >
               <Autocomplete
                 autoHighlight
+                size={getMuiSize(size)}
                 freeSolo={freeSolo}
                 options={options}
                 value={
@@ -168,7 +182,7 @@ abstract class WidgetAutocompleteBase extends WidgetSelectableBase {
                     placeholder={placeholder}
                   />
                 )}
-                slotProps={autocompletePopperSlotProps}
+                slotProps={getAutocompleteSlotProps(size)}
               />
             </FormControl>
           </WidgetPaper>
@@ -188,6 +202,7 @@ abstract class WidgetAutocompleteBase extends WidgetSelectableBase {
             <Autocomplete
               multiple
               autoHighlight
+              size={getMuiSize(size)}
               freeSolo={freeSolo}
               options={options}
               value={multiValue}
@@ -226,7 +241,7 @@ abstract class WidgetAutocompleteBase extends WidgetSelectableBase {
                   }
                 />
               )}
-              slotProps={autocompletePopperSlotProps}
+              slotProps={getAutocompleteSlotProps(size)}
             />
           </FormControl>
         </WidgetPaper>

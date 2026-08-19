@@ -3,9 +3,12 @@ import { Box, Tab, Tabs, ThemeProvider } from '@mui/material';
 import {
   WidgetHybridBase,
   WidgetPaper,
+  getSizeSocket,
+  getSizeTokens,
   labelName,
   outName,
   outIndexName,
+  sizeName,
 } from './abstract';
 import Socket from '../../classes/SocketClass';
 import { ArrayType } from '../datatypes/arrayType';
@@ -61,6 +64,7 @@ export class WidgetTabs extends WidgetHybridBase {
         true,
         false,
       ),
+      getSizeSocket(),
       new Socket(SOCKET_TYPE.OUT, outName, new StringType(), undefined, false),
       new Socket(SOCKET_TYPE.OUT, outIndexName, new NumberType()),
     ];
@@ -138,9 +142,10 @@ export class WidgetTabs extends WidgetHybridBase {
     );
 
     const scrollable = props[scrollableName];
+    const tokens = getSizeTokens(props[sizeName]);
     const fontSize = props.inDashboard
-      ? '14px'
-      : `${Math.max(12, node.nodeHeight / 10)}px`;
+      ? `${14 * tokens.scale}px`
+      : `${Math.max(12, node.nodeHeight / 10) * tokens.scale}px`;
 
     return (
       <ThemeProvider theme={customTheme}>
@@ -165,6 +170,10 @@ export class WidgetTabs extends WidgetHybridBase {
               aria-label="tabs widget"
               sx={{
                 pointerEvents: props.disabled ? 'none' : undefined,
+                minHeight: `${tokens.tabHeight}px`,
+                '& .MuiSvgIcon-root': {
+                  fontSize: `${tokens.iconSize}px`,
+                },
               }}
             >
               {options.map((option, index) => (
@@ -175,9 +184,10 @@ export class WidgetTabs extends WidgetHybridBase {
                   disabled={props.disabled}
                   sx={{
                     fontSize: fontSize,
-                    minWidth: !scrollable ? 0 : 90,
+                    minWidth: !scrollable ? 0 : 90 * tokens.scale,
+                    minHeight: `${tokens.tabHeight}px`,
                     flex: !scrollable ? 1 : 'auto',
-                    padding: '6px 12px',
+                    padding: `${6 * tokens.scale}px ${12 * tokens.scale}px`,
                     '&.Mui-selected': {
                       backgroundColor: `${TRgba.fromString(props.randomMainColor).negate().setAlpha(0.1)}`,
                       borderTopLeftRadius: 4,

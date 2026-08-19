@@ -1,6 +1,12 @@
 import React from 'react';
 import { Box, ThemeProvider, Typography } from '@mui/material';
-import { WidgetHybridBase, WidgetPaper } from './abstract';
+import {
+  WidgetHybridBase,
+  WidgetPaper,
+  getSizeSocket,
+  getSizeTokens,
+  sizeName,
+} from './abstract';
 import Socket from '../../classes/SocketClass';
 import { BooleanType } from '../datatypes/booleanType';
 import { ColorType } from '../datatypes/colorType';
@@ -46,6 +52,7 @@ export class WidgetDiode extends WidgetHybridBase {
         false,
       ),
       new Socket(SOCKET_TYPE.IN, labelName, new StringType(), 'Diode', false),
+      getSizeSocket(),
     ];
   }
 
@@ -82,10 +89,12 @@ export class WidgetDiode extends WidgetHybridBase {
     const diodeColor = TRgba.fromObject(props[diodeColorName]);
     const glowStrength = 5;
 
-    const size = Math.min(
-      props.inDashboard ? 40 : node.nodeWidth * 0.5,
-      props.inDashboard ? 40 : node.nodeHeight * 0.5,
-    );
+    const tokens = getSizeTokens(props[sizeName]);
+    const size =
+      Math.min(
+        props.inDashboard ? 40 : node.nodeWidth * 0.5,
+        props.inDashboard ? 40 : node.nodeHeight * 0.5,
+      ) * tokens.scale;
 
     // Create darker version of the color for off state or border
     const darkerColor = diodeColor.multiply(0.3);
@@ -136,8 +145,8 @@ export class WidgetDiode extends WidgetHybridBase {
                 variant="subtitle2"
                 sx={{
                   fontSize: props.inDashboard
-                    ? '16px'
-                    : `${node.nodeHeight / 10}px`,
+                    ? `${tokens.fontSize}px`
+                    : `${(node.nodeHeight / 10) * tokens.scale}px`,
                   mt: 1,
                   textAlign: 'center',
                 }}

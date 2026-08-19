@@ -12,10 +12,15 @@ import Socket from '../../classes/SocketClass';
 import {
   defaultOptions,
   fallbackValueName,
+  getMuiSize,
+  getSizeSocket,
+  getSizeSx,
+  getSizeTokens,
   labelName,
   optionsName,
   outName,
   selectedOptionName,
+  sizeName,
   stringifyIfNeeded,
   WidgetPaper,
 } from './abstract';
@@ -75,11 +80,13 @@ abstract class WidgetDropdownBase extends WidgetSelectableBase {
         dropDownDefaultName,
         false,
       ),
+      getSizeSocket(),
     ];
   }
 
   public getWidgetContent(props: WidgetContentProps): React.ReactElement {
     const node = props.node as WidgetDropdownBase;
+    const size = props[sizeName];
 
     const renderMenuItems = () => {
       if (!Array.isArray(props[optionsName])) return null;
@@ -106,8 +113,10 @@ abstract class WidgetDropdownBase extends WidgetSelectableBase {
         <WidgetPaper node={node} inDashboard={props.inDashboard}>
           <FormControl
             variant="filled"
+            size={getMuiSize(size)}
             sx={{
               pointerEvents: props.disabled ? 'none' : undefined,
+              ...getSizeSx(size),
             }}
           >
             <InputLabel>{props[labelName]}</InputLabel>
@@ -122,7 +131,7 @@ abstract class WidgetDropdownBase extends WidgetSelectableBase {
               renderValue={(selected) =>
                 Array.isArray(selected) ? selected.join(', ') : selected
               }
-              MenuProps={getMenuProps()}
+              MenuProps={getMenuProps(size)}
             >
               {renderMenuItems()}
             </Select>
@@ -194,14 +203,24 @@ export class WidgetMultiDropdown extends WidgetDropdownBase {
   }
 }
 
-// Utility function for menu props
-const getMenuProps = () => {
+// Utility function for menu props. The menu renders in a portal, so it has to
+// carry the size styling itself instead of inheriting it from the FormControl
+const getMenuProps = (size: unknown) => {
   const ITEM_HEIGHT = 48;
   const ITEM_PADDING_TOP = 8;
   return {
     PaperProps: {
       style: {
         maxHeight: ITEM_HEIGHT * 9.5 + ITEM_PADDING_TOP,
+      },
+      sx: {
+        ...getSizeSx(size),
+        '& .MuiMenuItem-root': {
+          fontSize: `${getSizeTokens(size).fontSize}px`,
+        },
+        '& .MuiTypography-root': {
+          fontSize: `${getSizeTokens(size).fontSize}px`,
+        },
       },
     },
   };

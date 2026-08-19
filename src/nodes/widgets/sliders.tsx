@@ -1,6 +1,15 @@
 import React from 'react';
 import { Slider, ThemeProvider, Typography, Box } from '@mui/material';
-import { WidgetHybridBase, WidgetPaper, labelName, outName } from './abstract';
+import {
+  WidgetHybridBase,
+  WidgetPaper,
+  getMuiSize,
+  getSizeSocket,
+  getSizeTokens,
+  labelName,
+  outName,
+  sizeName,
+} from './abstract';
 import Socket from '../../classes/SocketClass';
 import { StringType } from '../datatypes/stringType';
 import { BooleanType } from '../datatypes/booleanType';
@@ -43,6 +52,7 @@ export class WidgetSlider extends WidgetHybridBase {
       new Socket(SOCKET_TYPE.IN, maxValueName, new NumberType(), 100, false),
       new Socket(SOCKET_TYPE.IN, roundName, new BooleanType(), false, false),
       new Socket(SOCKET_TYPE.IN, labelName, new StringType(), 'Slider', false),
+      getSizeSocket(),
       new Socket(SOCKET_TYPE.OUT, outName, new NumberType()),
     ];
   }
@@ -139,6 +149,12 @@ export class WidgetSlider extends WidgetHybridBase {
     const max = props[maxValueName];
     const value = props[initialValueName];
     const shouldRound = props[roundName];
+    const tokens = getSizeTokens(props[sizeName]);
+    // the slider has no fixed control height to hit - it just scales the height
+    // it already had, so M keeps its current look
+    const sliderHeight = props.inDashboard
+      ? 32 * tokens.scale
+      : (node.nodeHeight / 3) * tokens.scale;
 
     // Format the value displayed based on rounding setting
     const displayValue = shouldRound
@@ -160,8 +176,8 @@ export class WidgetSlider extends WidgetHybridBase {
               gutterBottom
               sx={{
                 fontSize: props.inDashboard
-                  ? '16px'
-                  : `${node.nodeHeight / 8}px`,
+                  ? `${tokens.fontSize}px`
+                  : `${(node.nodeHeight / 8) * tokens.scale}px`,
                 fontWeight: 500,
                 textAlign: 'center',
               }}
@@ -172,6 +188,7 @@ export class WidgetSlider extends WidgetHybridBase {
             </Typography>
             <Slider
               disabled={props.disabled}
+              size={getMuiSize(props[sizeName])}
               aria-labelledby={`slider-label-${node.id}`}
               value={value}
               min={min}
@@ -183,14 +200,14 @@ export class WidgetSlider extends WidgetHybridBase {
                 width: '100%',
                 padding: 0,
                 pointerEvents: props.disabled ? 'none' : undefined,
-                height: props.inDashboard ? '32px' : node.nodeHeight / 3,
+                height: sliderHeight,
                 '& .MuiSlider-track': {
                   border: 'none',
                 },
                 borderRadius: 2,
                 '& .MuiSlider-thumb': {
-                  height: props.inDashboard ? '32px' : node.nodeHeight / 3,
-                  width: 16,
+                  height: sliderHeight,
+                  width: 16 * tokens.scale,
                   backgroundColor: 'transparent',
                   borderRadius: 0,
                   '&:focus, &:hover, &.Mui-active, &.Mui-focusVisible': {

@@ -19,6 +19,9 @@ import {
   initialValueName,
   variantName,
   sizeName,
+  getMuiSize,
+  getSizeSocket,
+  getSizeTokens,
   offValueName,
   onValueName,
   colorName,
@@ -118,6 +121,7 @@ export class WidgetButton extends WidgetHybridBase {
         false,
       ),
       new Socket(SOCKET_TYPE.IN, disabledName, new BooleanType(), false, false),
+      getSizeSocket(),
       new Socket(SOCKET_TYPE.OUT, outName, new AnyType()),
     ];
   }
@@ -197,6 +201,7 @@ export class WidgetButton extends WidgetHybridBase {
   getWidgetContent(props: HybridWidgetContentProps): React.ReactElement {
     const node = props.node;
     const isDisabled = props.disabled || props[disabledName];
+    const tokens = getSizeTokens(props[sizeName]);
 
     return (
       <ThemeProvider theme={customTheme}>
@@ -205,14 +210,17 @@ export class WidgetButton extends WidgetHybridBase {
             data-cy={'button-' + props[labelName]}
             variant={props[variantName]}
             color={props[colorName]}
-            size={props[sizeName]}
+            size={getMuiSize(props[sizeName])}
             disabled={isDisabled}
             disableRipple
             sx={{
               margin: 'auto',
+              minHeight: props.inDashboard
+                ? `${tokens.controlHeight}px`
+                : undefined,
               lineHeight: props.inDashboard
-                ? '36px'
-                : `${node.nodeHeight / 5}px`,
+                ? `${36 * tokens.scale}px`
+                : `${(node.nodeHeight / 5) * tokens.scale}px`,
               width: '100%',
               height: '100%',
               pointerEvents: isDisabled ? 'none' : undefined,
@@ -235,8 +243,8 @@ export class WidgetButton extends WidgetHybridBase {
             <Typography
               sx={{
                 fontSize: props.inDashboard
-                  ? '16px'
-                  : `${node.nodeHeight / 6}px`,
+                  ? `${tokens.fontSize}px`
+                  : `${(node.nodeHeight / 6) * tokens.scale}px`,
                 overflow: 'hidden',
                 textOverflow: 'ellipsis',
                 whiteSpace: 'nowrap',
@@ -311,6 +319,7 @@ export class WidgetButtonGroup extends WidgetHybridBase {
         false,
         false,
       ),
+      getSizeSocket(),
       new Socket(SOCKET_TYPE.OUT, outName, new StringType(), undefined, false),
       new Socket(SOCKET_TYPE.OUT, outIndexName, new NumberType()),
     ];
@@ -400,13 +409,10 @@ export class WidgetButtonGroup extends WidgetHybridBase {
     const isVertical = props[orientationName];
 
     // Calculate dynamic font sizes based on node dimensions
+    const tokens = getSizeTokens(props[sizeName]);
     const fontSize = props.inDashboard
-      ? '14px'
-      : `${Math.max(12, node.nodeHeight / 12)}px`;
-
-    const headerFontSize = props.inDashboard
-      ? '16px'
-      : `${Math.max(14, node.nodeHeight / 10)}px`;
+      ? `${14 * tokens.scale}px`
+      : `${Math.max(12, node.nodeHeight / 12) * tokens.scale}px`;
 
     return (
       <ThemeProvider theme={customTheme}>
@@ -451,6 +457,7 @@ export class WidgetButtonGroup extends WidgetHybridBase {
                           selectedIndex === index ? 'contained' : 'outlined'
                         }
                         color={color}
+                        size={getMuiSize(props[sizeName])}
                         onClick={() =>
                           void (node as WidgetButtonGroup).handleButtonClick(
                             index,
@@ -459,6 +466,9 @@ export class WidgetButtonGroup extends WidgetHybridBase {
                         disabled={props.disabled}
                         sx={{
                           fontSize: fontSize,
+                          minHeight: props.inDashboard
+                            ? `${tokens.controlHeight}px`
+                            : undefined,
                           flex: isVertical ? '0 0 auto' : '1 1 0',
                           minWidth: isVertical ? '90%' : '30%',
                           ...(selectedIndex === index && {
@@ -522,6 +532,7 @@ export class WidgetButtonGroup extends WidgetHybridBase {
                 <ButtonGroup
                   variant={variant}
                   color={color}
+                  size={getMuiSize(props[sizeName])}
                   orientation={isVertical ? 'vertical' : 'horizontal'}
                   sx={{
                     justifyContent: 'center',
@@ -543,6 +554,9 @@ export class WidgetButtonGroup extends WidgetHybridBase {
                       }
                       sx={{
                         fontSize: fontSize,
+                        minHeight: props.inDashboard
+                          ? `${tokens.controlHeight}px`
+                          : undefined,
                         py: 1.5,
                         textTransform: 'none',
                       }}
@@ -590,6 +604,7 @@ export class WidgetSwitch extends WidgetHybridBase {
         switchDefaultName,
         false,
       ),
+      getSizeSocket(),
       new Socket(SOCKET_TYPE.OUT, outName, new BooleanType()),
     ];
   }
@@ -668,6 +683,7 @@ export class WidgetSwitch extends WidgetHybridBase {
 
   getWidgetContent(props: HybridWidgetContentProps): React.ReactElement {
     const node = props.node;
+    const tokens = getSizeTokens(props[sizeName]);
 
     const handleChange = (event: React.ChangeEvent<HTMLInputElement>) => {
       const checked = event.target.checked;
@@ -696,8 +712,8 @@ export class WidgetSwitch extends WidgetHybridBase {
                 onChange={handleChange}
                 sx={{
                   transform: props.inDashboard
-                    ? 'scale(1.4)'
-                    : `scale(${node.nodeHeight / 60})`,
+                    ? `scale(${1.4 * tokens.scale})`
+                    : `scale(${(node.nodeHeight / 60) * tokens.scale})`,
                   pointerEvents: props.disabled ? 'none' : undefined,
                 }}
               />
@@ -705,8 +721,8 @@ export class WidgetSwitch extends WidgetHybridBase {
                 sx={{
                   mt: props.inDashboard ? '0' : `${node.nodeHeight / 24}px`,
                   fontSize: props.inDashboard
-                    ? '16px'
-                    : `${node.nodeHeight / 6}px`,
+                    ? `${tokens.fontSize}px`
+                    : `${(node.nodeHeight / 6) * tokens.scale}px`,
                 }}
               >
                 {props[labelName]}

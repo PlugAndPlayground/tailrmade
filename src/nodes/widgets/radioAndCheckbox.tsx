@@ -12,11 +12,15 @@ import {
 import {
   WidgetHybridBase,
   WidgetPaper,
+  getMuiSize,
+  getSizeSocket,
+  getSizeTokens,
   labelName,
   outName,
   defaultOptions,
   fallbackValueName,
   selectedOptionName,
+  sizeName,
 } from './abstract';
 import Socket from '../../classes/SocketClass';
 import { ArrayType } from '../datatypes/arrayType';
@@ -84,6 +88,7 @@ export class WidgetRadio extends WidgetHybridBase {
         radioDefaultLabel,
         false,
       ),
+      getSizeSocket(),
       new Socket(SOCKET_TYPE.OUT, outName, new StringType()),
     ];
   }
@@ -156,9 +161,10 @@ export class WidgetRadio extends WidgetHybridBase {
     const options = props[optionsName];
     const selectedValue = props[selectedOptionName];
 
+    const tokens = getSizeTokens(props[sizeName]);
     const fontSize = props.inDashboard
-      ? '16px'
-      : `${Math.max(12, node.nodeHeight / 10)}px`;
+      ? `${tokens.fontSize}px`
+      : `${Math.max(12, node.nodeHeight / 10) * tokens.scale}px`;
 
     return (
       <ThemeProvider theme={customTheme}>
@@ -180,7 +186,7 @@ export class WidgetRadio extends WidgetHybridBase {
               <Typography
                 variant="subtitle1"
                 sx={{
-                  fontSize: '16px',
+                  fontSize: `${tokens.fontSize}px`,
                   mb: 1,
                   textAlign: 'center',
                 }}
@@ -214,6 +220,7 @@ export class WidgetRadio extends WidgetHybridBase {
                     value={option}
                     control={
                       <Radio
+                        size={getMuiSize(props[sizeName])}
                         sx={{
                           '& .MuiSvgIcon-root': {
                             fontSize: fontSize,
@@ -286,6 +293,7 @@ export class WidgetCheckbox extends WidgetHybridBase {
         checkboxDefaultLabel,
         false,
       ),
+      getSizeSocket(),
       new Socket(SOCKET_TYPE.OUT, outName, new ArrayType()),
     ];
   }
@@ -374,9 +382,10 @@ export class WidgetCheckbox extends WidgetHybridBase {
     const selectedOptions = props[selectedOptionsName];
 
     // Calculate dynamic font size based on node dimensions
+    const tokens = getSizeTokens(props[sizeName]);
     const fontSize = props.inDashboard
-      ? '16px'
-      : `${Math.max(12, node.nodeHeight / 10)}px`;
+      ? `${tokens.fontSize}px`
+      : `${Math.max(12, node.nodeHeight / 10) * tokens.scale}px`;
 
     return (
       <ThemeProvider theme={customTheme}>
@@ -401,7 +410,7 @@ export class WidgetCheckbox extends WidgetHybridBase {
               <Typography
                 variant="subtitle1"
                 sx={{
-                  fontSize: '16px',
+                  fontSize: `${tokens.fontSize}px`,
                   mb: 1,
                   textAlign: 'center',
                 }}
@@ -436,6 +445,7 @@ export class WidgetCheckbox extends WidgetHybridBase {
                         checked={selectedOptions.includes(option)}
                         onChange={(node as WidgetCheckbox).handleCheckboxChange}
                         value={option}
+                        size={getMuiSize(props[sizeName])}
                         sx={{
                           '& .MuiSvgIcon-root': {
                             fontSize: fontSize,
