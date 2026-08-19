@@ -661,7 +661,7 @@ export const FileBrowserWidget: React.FunctionComponent<FileTypeProps> = (
     void onOpen();
   }, [onOpen]);
 
-  const renderMenuItem = ({ id, name, size }, isSelectedItem = false) => (
+  const renderMenuItem = ({ id, name, size }) => (
     <MenuItem
       key={id}
       value={id}
@@ -677,27 +677,39 @@ export const FileBrowserWidget: React.FunctionComponent<FileTypeProps> = (
       }}
     >
       <ListItemText>{name}</ListItemText>
-      {!isSelectedItem && (
-        <ListItemSecondaryAction sx={{ display: 'flex', alignItems: 'center' }}>
-          <Typography variant="body2" color="text.secondary" sx={{ mr: 1 }}>
-            {prettyBytes(size)}
-          </Typography>
-          {hoveredItem === id && menuOpen && (
-            <IconButton
-              edge="end"
-              aria-label="delete"
-              onClick={(e) => {
-                e.stopPropagation();
-                void handleDelete(id);
-              }}
-              size="small"
-            >
-              <DeleteIcon />
-            </IconButton>
-          )}
-        </ListItemSecondaryAction>
-      )}
+      <ListItemSecondaryAction sx={{ display: 'flex', alignItems: 'center' }}>
+        <Typography variant="body2" color="text.secondary" sx={{ mr: 1 }}>
+          {prettyBytes(size)}
+        </Typography>
+        {hoveredItem === id && menuOpen && (
+          <IconButton
+            edge="end"
+            aria-label="delete"
+            onClick={(e) => {
+              e.stopPropagation();
+              void handleDelete(id);
+            }}
+            size="small"
+          >
+            <DeleteIcon />
+          </IconButton>
+        )}
+      </ListItemSecondaryAction>
     </MenuItem>
+  );
+
+  // the selected value is rendered outside of the menu list, so it must not
+  // use MenuItem (it requires MenuListContext and would throw)
+  const renderSelectedValue = ({ name }) => (
+    <Box
+      sx={{
+        overflow: 'hidden',
+        textOverflow: 'ellipsis',
+        whiteSpace: 'nowrap',
+      }}
+    >
+      {name}
+    </Box>
   );
 
   return (
@@ -722,7 +734,7 @@ export const FileBrowserWidget: React.FunctionComponent<FileTypeProps> = (
               (option) => option.id === selected,
             );
             return selectedOption ? (
-              renderMenuItem(selectedOption, true)
+              renderSelectedValue(selectedOption)
             ) : (
               <em>None</em>
             );
