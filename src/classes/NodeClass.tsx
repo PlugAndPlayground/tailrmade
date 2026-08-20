@@ -1019,7 +1019,20 @@ export default class PPNode extends PIXI.Container implements IWarningHandler {
   protected getHitArea(): PNPHitArea {
     let rect = new PIXI.Rectangle(0, 0, this.nodeWidth, this.nodeHeight);
     rect = PPNode.boundsToSelectionBounds(rect);
-    return new PNPHitArea((x, y) => rect.contains(x, y));
+    return new PNPHitArea(
+      (x, y) => rect.contains(x, y) || this.isPointNearVisibleSocket(x, y),
+    );
+  }
+
+  // x/y in node local space; needed so that the zoom invariant socket hit
+  // areas are not pruned by the node's own hit area when they extend beyond
+  // the node bounds (PIXI prunes children outside a parent's hitArea)
+  protected isPointNearVisibleSocket(x: number, y: number): boolean {
+    return this.getAllSockets().some(
+      (socket) =>
+        socket.visible &&
+        socket.isWithinZoomInvariantHitRadius(x - socket.x, y - socket.y),
+    );
   }
 
   public getForegroundDimensions(): { width: number; height: number } {

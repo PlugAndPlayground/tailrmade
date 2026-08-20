@@ -459,7 +459,11 @@ export class Macro extends PPNode {
     const rightBlock = PPNode.boundsToSelectionBounds(this.getRightBlock());
 
     const toReturn = new PNPHitArea((x, y) => {
-      return leftBlock.contains(x, y) || rightBlock.contains(x, y);
+      return (
+        leftBlock.contains(x, y) ||
+        rightBlock.contains(x, y) ||
+        this.isPointNearVisibleSocket(x, y)
+      );
     });
     return toReturn;
   }

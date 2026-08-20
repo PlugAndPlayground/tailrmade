@@ -179,6 +179,12 @@ export const SOCKET_COLOR_HEX: string = TRgba.fromString(COLOR[0])
   .hex();
 export const SOCKET_HEIGHT = 24;
 export const SOCKET_WIDTH = 12;
+// minimum size (diameter, in screen pixels) of a socket's pointer target,
+// independent of zoom level - sockets never get harder to hit when zoomed out
+export const SOCKET_MIN_HITBOX_SCREEN_SIZE = 24;
+// while dragging a connection, snap to the nearest compatible socket
+// within this radius (in screen pixels)
+export const SOCKET_SNAP_SCREEN_RADIUS = 48;
 export const SOCKET_CORNERRADIUS = 4;
 export const SOCKET_TEXTMARGIN = 8;
 export const SOCKET_TEXTMARGIN_TOP = 4;

@@ -3,7 +3,12 @@ import { Viewport } from 'pixi-viewport';
 import { hri } from 'human-readable-ids';
 import { v4 as uuid } from 'uuid';
 
-import { NODE_SOURCE, NODE_WIDTH, SOCKET_TYPE } from '../utils/constants';
+import {
+  NODE_SOURCE,
+  NODE_WIDTH,
+  SOCKET_SNAP_SCREEN_RADIUS,
+  SOCKET_TYPE,
+} from '../utils/constants';
 import { GRAPH_DATA_VERSION } from '../utils/graphMigrations';
 import {
   CustomArgs,
@@ -69,6 +74,8 @@ export default class PPGraph {
   lastSelectedSocketWasOutput = false;
   overrideNodeCursorPosition: undefined | PIXI.Point = undefined;
   overInputRef: undefined | PPSocket;
+  // nearest compatible socket within snap range while dragging a connection
+  snapTargetSocket: undefined | PPSocket;
   pointerEvent: PIXI.FederatedPointerEvent | undefined = undefined; // lets try to get rid of this undefined
   dragSourcePoint: PIXI.Point | undefined;
   dragLastPoint: PIXI.Point;
@@ -297,7 +304,10 @@ export default class PPGraph {
     document.body.style.cursor = 'default';
 
     if (!this.overInputRef && this.selectedSocket) {
-      if (!this.overrideNodeCursorPosition) {
+      if (this.snapTargetSocket) {
+        // released within snap range of a compatible socket - connect to it
+        void this.socketMouseUp(this.snapTargetSocket, event);
+      } else if (!this.overrideNodeCursorPosition) {
         this.overrideNodeCursorPosition = this.viewport.toWorld(event.global);
         if (this.lastSelectedSocketWasOutput || this.selectedSocket.isInput()) {
           InterfaceController.openNodeSearch(new PIXI.Point(event.x, event.y));
@@ -367,8 +377,85 @@ export default class PPGraph {
       }
     }
 
+    // Magnetic snapping: find the nearest compatible socket in screen space
+    this.updateSnapTarget(event);
+
     // Draw the connection line
     this.drawConnectionLine(event);
+  }
+
+  // returns true if the candidate socket could be connected to the currently
+  // dragged socket - mirrors the rules in socketMouseUp
+  private canConnectWhileDragging(candidate: PPSocket): boolean {
+    const source = this.selectedSocket;
+    if (!source || candidate === source) {
+      return false;
+    }
+    // avoid the wire constantly snapping to neighboring sockets on the
+    // node we are dragging from
+    if (candidate.getNode() === source.getNode()) {
+      return false;
+    }
+    return (
+      (source.isInput() && candidate.isOutput()) ||
+      (source.isOutput() && candidate.isInput()) ||
+      candidate.socketType === SOCKET_TYPE.GHOST
+    );
+  }
+
+  private findSnapTarget(event: PIXI.FederatedPointerEvent): PPSocket | undefined {
+    const pointer = event.global;
+    const scale = this.viewportScaleX;
+    const snapRadius = SOCKET_SNAP_SCREEN_RADIUS;
+    let best: PPSocket | undefined = undefined;
+    let bestDistSquared = snapRadius * snapRadius;
+
+    Object.values(this.nodes).forEach((node) => {
+      // cheap prune: skip nodes whose (screen space) bounds incl. snap radius
+      // cannot contain the pointer
+      const nodePos = node.getGlobalPosition();
+      if (
+        pointer.x < nodePos.x - snapRadius ||
+        pointer.y < nodePos.y - snapRadius ||
+        pointer.x > nodePos.x + node.nodeWidth * scale + snapRadius ||
+        pointer.y > nodePos.y + node.nodeHeight * scale + snapRadius
+      ) {
+        return;
+      }
+      node.getAllSockets().forEach((socket) => {
+        if (!socket.visible || !this.canConnectWhileDragging(socket)) {
+          return;
+        }
+        const center = socket.screenPointSocketCenter();
+        const dx = pointer.x - center.x;
+        const dy = pointer.y - center.y;
+        const distSquared = dx * dx + dy * dy;
+        if (distSquared < bestDistSquared) {
+          bestDistSquared = distSquared;
+          best = socket;
+        }
+      });
+    });
+    return best;
+  }
+
+  private updateSnapTarget(event: PIXI.FederatedPointerEvent): void {
+    // a directly hovered socket always wins over snapping and while the node
+    // search is open the wire is pinned to overrideNodeCursorPosition
+    const snappingDisabled =
+      this.overrideNodeCursorPosition !== undefined ||
+      (this.overInputRef && this.overInputRef !== this.selectedSocket);
+    const newTarget = snappingDisabled ? undefined : this.findSnapTarget(event);
+    if (newTarget !== this.snapTargetSocket) {
+      this.snapTargetSocket?.hideSnapHighlight();
+      newTarget?.showSnapHighlight();
+      this.snapTargetSocket = newTarget;
+    }
+  }
+
+  private clearSnapTarget(): void {
+    this.snapTargetSocket?.hideSnapHighlight();
+    this.snapTargetSocket = undefined;
   }
 
   // Separate drawing logic to reduce complexity in the onViewportMove method
@@ -379,6 +466,8 @@ export default class PPGraph {
     let targetPoint: PIXI.Point;
     if (this.overInputRef && this.overInputRef !== this.selectedSocket) {
       targetPoint = this.getSocketCenter(this.overInputRef);
+    } else if (this.snapTargetSocket) {
+      targetPoint = this.getSocketCenter(this.snapTargetSocket);
     } else if (this.overrideNodeCursorPosition) {
       targetPoint = this.overrideNodeCursorPosition;
     } else {
@@ -960,6 +1049,7 @@ export default class PPGraph {
 
   stopConnecting() {
     this.clearTempConnection();
+    this.clearSnapTarget();
     this.overrideNodeCursorPosition = undefined;
     this.selectedSocket = undefined;
   }

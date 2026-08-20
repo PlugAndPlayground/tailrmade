@@ -27,6 +27,7 @@ import {
   SOCKET_TEXTMARGIN_TOP,
   SOCKET_TEXTMARGIN,
   SOCKET_TYPE,
+  SOCKET_MIN_HITBOX_SCREEN_SIZE,
   SOCKET_WIDTH,
   TEXT_RESOLUTION,
   TOOLTIP_DISTANCE,
@@ -48,6 +49,7 @@ import {
   parseValueAndAttachWarnings,
 } from '../utils/utils';
 import { NodeExecutionWarning, PNPStatus, PNPSuccess } from './ErrorClass';
+import { PNPHitArea } from './selection/PNPHitArea';
 import { getOverflowForSize } from '../utils/layoutableHelpers';
 
 export default class Socket
@@ -56,6 +58,9 @@ export default class Socket
 {
   onNodeAdded(node: PPNode): void {
     this.eventMode = 'static';
+    // hit area is evaluated lazily on every hit test, so it stays a minimum
+    // screen size regardless of the current zoom level
+    this.hitArea = new PNPHitArea((x, y) => this.hitAreaContains(x, y));
     this.addEventListener('pointerover', this.onPointerOver.bind(this));
     this.addEventListener('pointerout', this.onPointerOut.bind(this));
     this.addEventListener('pointerup', this.onPointerUp);
@@ -672,6 +677,41 @@ export default class Socket
   }
 
   // SETUP
+
+  // world-space radius around the socket center which is guaranteed to be
+  // at least SOCKET_MIN_HITBOX_SCREEN_SIZE (in screen pixels) when zoomed out,
+  // while never being smaller than the drawn socket itself
+  getZoomInvariantHitRadius(): number {
+    const scale = PPGraph.currentGraph?.viewportScaleX || 1;
+    return Math.max(SOCKET_WIDTH, SOCKET_MIN_HITBOX_SCREEN_SIZE / scale) / 2;
+  }
+
+  // x/y are in this socket container's local space
+  isWithinZoomInvariantHitRadius(x: number, y: number): boolean {
+    const center = this.getSocketLocation();
+    const radius = this.getZoomInvariantHitRadius();
+    const dx = x - center.x;
+    const dy = y - center.y;
+    return dx * dx + dy * dy <= radius * radius;
+  }
+
+  private hitAreaContains(x: number, y: number): boolean {
+    if (this.isWithinZoomInvariantHitRadius(x, y)) {
+      return true;
+    }
+    // keep the label and other children (meta text, value specific graphics)
+    // hittable as before
+    return this.getLocalBounds().rectangle.contains(x, y);
+  }
+
+  // visual feedback while a dragged connection is snapping to this socket
+  public showSnapHighlight(): void {
+    (this._SocketRef as PIXI.Graphics).tint = TRgba.white().hexNumber();
+  }
+
+  public hideSnapHighlight(): void {
+    (this._SocketRef as PIXI.Graphics).tint = 0xffffff;
+  }
 
   pointerOverSocketMoving() {
     const currPos = getCurrentCursorPosition();
