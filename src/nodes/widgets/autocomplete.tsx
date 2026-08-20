@@ -5,7 +5,6 @@ import {
   Chip,
   FormControl,
   TextField,
-  ThemeProvider,
 } from '@mui/material';
 import Socket from '../../classes/SocketClass';
 import {
@@ -23,7 +22,7 @@ import {
   WidgetPaper,
 } from './abstract';
 import { WidgetSelectableBase } from './selectable-base';
-import { SOCKET_TYPE, customTheme } from '../../utils/constants';
+import { SOCKET_TYPE } from '../../utils/constants';
 import { ArrayType } from '../datatypes/arrayType';
 import { StringType } from '../datatypes/stringType';
 import { BooleanType } from '../datatypes/booleanType';
@@ -148,45 +147,43 @@ abstract class WidgetAutocompleteBase extends WidgetSelectableBase {
 
     if (node.isSingle()) {
       return (
-        <ThemeProvider theme={customTheme}>
-          <WidgetPaper node={node} inDashboard={props.inDashboard}>
-            <FormControl
-              variant="filled"
-              sx={{ width: '100%', ...getSizeSx(size) }}
-            >
-              <Autocomplete
-                autoHighlight
-                size={getMuiSize(size)}
-                freeSolo={freeSolo}
-                options={options}
-                value={
-                  typeof currentValue === 'string' && currentValue !== ''
-                    ? currentValue
-                    : null
+        <WidgetPaper node={node} inDashboard={props.inDashboard}>
+          <FormControl
+            variant="filled"
+            sx={{ width: '100%', ...getSizeSx(size) }}
+          >
+            <Autocomplete
+              autoHighlight
+              size={getMuiSize(size)}
+              freeSolo={freeSolo}
+              options={options}
+              value={
+                typeof currentValue === 'string' && currentValue !== ''
+                  ? currentValue
+                  : null
+              }
+              disabled={isDisabled}
+              noOptionsText={noOptionsText}
+              onChange={(_event, newValue) => {
+                void node.handleOnChange(newValue ?? '');
+              }}
+              onInputChange={(_event, newInputValue, reason) => {
+                if (freeSolo && reason === 'input') {
+                  void node.handleOnChange(newInputValue);
                 }
-                disabled={isDisabled}
-                noOptionsText={noOptionsText}
-                onChange={(_event, newValue) => {
-                  void node.handleOnChange(newValue ?? '');
-                }}
-                onInputChange={(_event, newInputValue, reason) => {
-                  if (freeSolo && reason === 'input') {
-                    void node.handleOnChange(newInputValue);
-                  }
-                }}
-                renderInput={(params) => (
-                  <TextField
-                    {...params}
-                    variant="filled"
-                    label={props[labelName]}
-                    placeholder={placeholder}
-                  />
-                )}
-                slotProps={getAutocompleteSlotProps(size)}
-              />
-            </FormControl>
-          </WidgetPaper>
-        </ThemeProvider>
+              }}
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  variant="filled"
+                  label={props[labelName]}
+                  placeholder={placeholder}
+                />
+              )}
+              slotProps={getAutocompleteSlotProps(size)}
+            />
+          </FormControl>
+        </WidgetPaper>
       );
     }
 
@@ -196,56 +193,50 @@ abstract class WidgetAutocompleteBase extends WidgetSelectableBase {
       : [];
 
     return (
-      <ThemeProvider theme={customTheme}>
-        <WidgetPaper node={node} inDashboard={props.inDashboard}>
-          <FormControl variant="filled" sx={{ width: '100%' }}>
-            <Autocomplete
-              multiple
-              autoHighlight
-              size={getMuiSize(size)}
-              freeSolo={freeSolo}
-              options={options}
-              value={multiValue}
-              disabled={isDisabled}
-              disableCloseOnSelect
-              noOptionsText={noOptionsText}
-              onChange={(_event, newValue) => {
-                void node.handleOnChange(newValue);
-              }}
-              renderOption={(optionProps, option, { selected }) => (
-                <li {...optionProps}>
-                  <Checkbox checked={selected} sx={{ mr: 1 }} />
-                  {option}
-                </li>
-              )}
-              renderValue={(value, getItemProps) =>
-                value.map((option, index) => {
-                  const { key, ...itemProps } = getItemProps({ index });
-                  return (
-                    <Chip
-                      label={option}
-                      size="small"
-                      {...itemProps}
-                      key={key}
-                    />
-                  );
-                })
-              }
-              renderInput={(params) => (
-                <TextField
-                  {...params}
-                  variant="filled"
-                  label={props[labelName]}
-                  placeholder={
-                    multiValue.length === 0 ? placeholder : undefined
-                  }
-                />
-              )}
-              slotProps={getAutocompleteSlotProps(size)}
-            />
-          </FormControl>
-        </WidgetPaper>
-      </ThemeProvider>
+      <WidgetPaper node={node} inDashboard={props.inDashboard}>
+        <FormControl
+          variant="filled"
+          sx={{ width: '100%', ...getSizeSx(size) }}
+        >
+          <Autocomplete
+            multiple
+            autoHighlight
+            size={getMuiSize(size)}
+            freeSolo={freeSolo}
+            options={options}
+            value={multiValue}
+            disabled={isDisabled}
+            disableCloseOnSelect
+            noOptionsText={noOptionsText}
+            onChange={(_event, newValue) => {
+              void node.handleOnChange(newValue);
+            }}
+            renderOption={(optionProps, option, { selected }) => (
+              <li {...optionProps}>
+                <Checkbox checked={selected} sx={{ mr: 1 }} />
+                {option}
+              </li>
+            )}
+            renderValue={(value, getItemProps) =>
+              value.map((option, index) => {
+                const { key, ...itemProps } = getItemProps({ index });
+                return (
+                  <Chip label={option} size="small" {...itemProps} key={key} />
+                );
+              })
+            }
+            renderInput={(params) => (
+              <TextField
+                {...params}
+                variant="filled"
+                label={props[labelName]}
+                placeholder={multiValue.length === 0 ? placeholder : undefined}
+              />
+            )}
+            slotProps={getAutocompleteSlotProps(size)}
+          />
+        </FormControl>
+      </WidgetPaper>
     );
   }
 }

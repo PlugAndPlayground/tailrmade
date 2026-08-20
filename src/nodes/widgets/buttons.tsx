@@ -6,7 +6,6 @@ import {
   FormControl,
   Stack,
   Switch,
-  ThemeProvider,
   Typography,
 } from '@mui/material';
 import {
@@ -36,11 +35,7 @@ import { StringType } from '../datatypes/stringType';
 import { EnumType, EnumStructure } from '../datatypes/enumType';
 import { BooleanType } from '../datatypes/booleanType';
 import { BackPropagation } from '../../interfaces';
-import {
-  DEFAULT_UPDATE_FREQUENCY,
-  SOCKET_TYPE,
-  customTheme,
-} from '../../utils/constants';
+import { DEFAULT_UPDATE_FREQUENCY, SOCKET_TYPE } from '../../utils/constants';
 import {
   ActionHandler,
   BakedAction,
@@ -204,59 +199,57 @@ export class WidgetButton extends WidgetHybridBase {
     const tokens = getSizeTokens(props[sizeName]);
 
     return (
-      <ThemeProvider theme={customTheme}>
-        <WidgetPaper node={node} inDashboard={props.inDashboard}>
-          <Button
-            data-cy={'button-' + props[labelName]}
-            variant={props[variantName]}
-            color={props[colorName]}
-            size={getMuiSize(props[sizeName])}
-            disabled={isDisabled}
-            disableRipple
+      <WidgetPaper node={node} inDashboard={props.inDashboard}>
+        <Button
+          data-cy={'button-' + props[labelName]}
+          variant={props[variantName]}
+          color={props[colorName]}
+          size={getMuiSize(props[sizeName])}
+          disabled={isDisabled}
+          disableRipple
+          sx={{
+            margin: 'auto',
+            minHeight: props.inDashboard
+              ? `${tokens.controlHeight}px`
+              : undefined,
+            lineHeight: props.inDashboard
+              ? `${36 * tokens.scale}px`
+              : `${(node.nodeHeight / 5) * tokens.scale}px`,
+            width: '100%',
+            height: '100%',
+            pointerEvents: isDisabled ? 'none' : undefined,
+            py: 1.5,
+            '&.Mui-disabled': {
+              opacity: 0.6,
+              color: 'text.secondary',
+              backgroundColor: (theme) =>
+                props[variantName] === 'contained'
+                  ? 'rgba(80, 80, 80, 0.3)'
+                  : 'transparent',
+              border:
+                props[variantName] === 'outlined'
+                  ? '1px solid rgba(120, 120, 120, 0.5)'
+                  : 'none',
+            },
+          }}
+          onClick={() => (node as WidgetButton).handleOnClick()}
+        >
+          <Typography
             sx={{
-              margin: 'auto',
-              minHeight: props.inDashboard
-                ? `${tokens.controlHeight}px`
-                : undefined,
-              lineHeight: props.inDashboard
-                ? `${36 * tokens.scale}px`
-                : `${(node.nodeHeight / 5) * tokens.scale}px`,
-              width: '100%',
-              height: '100%',
-              pointerEvents: isDisabled ? 'none' : undefined,
-              py: 1.5,
-              '&.Mui-disabled': {
-                opacity: 0.6,
-                color: 'text.secondary',
-                backgroundColor: (theme) =>
-                  props[variantName] === 'contained'
-                    ? 'rgba(80, 80, 80, 0.3)'
-                    : 'transparent',
-                border:
-                  props[variantName] === 'outlined'
-                    ? '1px solid rgba(120, 120, 120, 0.5)'
-                    : 'none',
-              },
+              fontSize: props.inDashboard
+                ? `${tokens.fontSize}px`
+                : `${(node.nodeHeight / 6) * tokens.scale}px`,
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+              maxWidth: '100%',
+              textTransform: 'none',
             }}
-            onClick={() => (node as WidgetButton).handleOnClick()}
           >
-            <Typography
-              sx={{
-                fontSize: props.inDashboard
-                  ? `${tokens.fontSize}px`
-                  : `${(node.nodeHeight / 6) * tokens.scale}px`,
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                whiteSpace: 'nowrap',
-                maxWidth: '100%',
-                textTransform: 'none',
-              }}
-            >
-              {props[labelName]}
-            </Typography>
-          </Button>
-        </WidgetPaper>
-      </ThemeProvider>
+            {props[labelName]}
+          </Typography>
+        </Button>
+      </WidgetPaper>
     );
   }
 }
@@ -415,161 +408,157 @@ export class WidgetButtonGroup extends WidgetHybridBase {
       : `${Math.max(12, node.nodeHeight / 12) * tokens.scale}px`;
 
     return (
-      <ThemeProvider theme={customTheme}>
-        <WidgetPaper node={node} inDashboard={props.inDashboard}>
+      <WidgetPaper node={node} inDashboard={props.inDashboard}>
+        <Box
+          sx={{
+            width: '100%',
+            height: '100%',
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'center',
+          }}
+        >
           <Box
             sx={{
-              width: '100%',
-              height: '100%',
               display: 'flex',
               flexDirection: 'column',
-              justifyContent: 'center',
+              alignItems: 'center',
+              width: '100%',
+              flex: 1,
             }}
           >
-            <Box
-              sx={{
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                width: '100%',
-                flex: 1,
-              }}
-            >
-              {isToggleMode ? (
-                // Toggle Button Group
-                <Box
-                  sx={{
-                    width: '100%',
-                    display: 'flex',
-                    flexDirection: isVertical ? 'column' : 'row',
-                    justifyContent: 'center',
-                    pointerEvents: props.disabled ? 'none' : undefined,
-                  }}
-                >
-                  {options.map((option, index) => {
-                    const isFirst = index === 0;
-                    const isLast = index === options.length - 1;
+            {isToggleMode ? (
+              // Toggle Button Group
+              <Box
+                sx={{
+                  width: '100%',
+                  display: 'flex',
+                  flexDirection: isVertical ? 'column' : 'row',
+                  justifyContent: 'center',
+                  pointerEvents: props.disabled ? 'none' : undefined,
+                }}
+              >
+                {options.map((option, index) => {
+                  const isFirst = index === 0;
+                  const isLast = index === options.length - 1;
 
-                    return (
-                      <Button
-                        key={index}
-                        variant={
-                          selectedIndex === index ? 'contained' : 'outlined'
-                        }
-                        color={color}
-                        size={getMuiSize(props[sizeName])}
-                        onClick={() =>
-                          void (node as WidgetButtonGroup).handleButtonClick(
-                            index,
-                          )
-                        }
-                        disabled={props.disabled}
-                        sx={{
-                          fontSize: fontSize,
-                          minHeight: props.inDashboard
-                            ? `${tokens.controlHeight}px`
-                            : undefined,
-                          flex: isVertical ? '0 0 auto' : '1 1 0',
-                          minWidth: isVertical ? '90%' : '30%',
-                          ...(selectedIndex === index && {
-                            boxShadow: 2,
-                          }),
-                          py: 1.5,
-                          textTransform: 'none',
-                          borderRadius: 0,
-                          ...(isVertical
-                            ? {
-                                ...(isFirst && {
-                                  borderTopLeftRadius: 4,
-                                  borderTopRightRadius: 4,
-                                }),
-                                ...(isLast && {
-                                  borderBottomLeftRadius: 4,
-                                  borderBottomRightRadius: 4,
-                                }),
-                              }
-                            : {
-                                ...(isFirst && {
-                                  borderTopLeftRadius: 4,
-                                  borderBottomLeftRadius: 4,
-                                }),
-                                ...(isLast && {
-                                  borderTopRightRadius: 4,
-                                  borderBottomRightRadius: 4,
-                                }),
-                              }),
-                          m: 0,
-                          ...(isFirst
-                            ? {}
-                            : isVertical
-                              ? { mt: '-1px' }
-                              : { ml: '-1px' }),
-                          ...(selectedIndex === index && {
-                            position: 'relative',
-                            zIndex: 1,
-                          }),
-                          '&.Mui-disabled': {
-                            opacity: 0.7,
-                            color: 'text.secondary',
-                            backgroundColor: (theme) =>
-                              props[variantName] === 'contained'
-                                ? 'rgba(0, 0, 0, 0.12)'
-                                : 'transparent',
-                            border:
-                              props[variantName] === 'outlined'
-                                ? '1px solid rgba(0, 0, 0, 0.23)'
-                                : 'none',
-                          },
-                        }}
-                      >
-                        {option}
-                      </Button>
-                    );
-                  })}
-                </Box>
-              ) : (
-                // Regular Button Group
-                <ButtonGroup
-                  variant={variant}
-                  color={color}
-                  size={getMuiSize(props[sizeName])}
-                  orientation={isVertical ? 'vertical' : 'horizontal'}
-                  sx={{
-                    justifyContent: 'center',
-                    pointerEvents: props.disabled ? 'none' : undefined,
-                    width: '100%',
-                    '& .MuiButtonGroup-grouped': {
-                      flex: 1,
-                    },
-                  }}
-                  disabled={props.disabled}
-                >
-                  {options.map((option, index) => (
+                  return (
                     <Button
                       key={index}
+                      variant={
+                        selectedIndex === index ? 'contained' : 'outlined'
+                      }
+                      color={color}
+                      size={getMuiSize(props[sizeName])}
                       onClick={() =>
                         void (node as WidgetButtonGroup).handleButtonClick(
                           index,
                         )
                       }
+                      disabled={props.disabled}
                       sx={{
                         fontSize: fontSize,
                         minHeight: props.inDashboard
                           ? `${tokens.controlHeight}px`
                           : undefined,
+                        flex: isVertical ? '0 0 auto' : '1 1 0',
+                        minWidth: isVertical ? '90%' : '30%',
+                        ...(selectedIndex === index && {
+                          boxShadow: 2,
+                        }),
                         py: 1.5,
                         textTransform: 'none',
+                        borderRadius: 0,
+                        ...(isVertical
+                          ? {
+                              ...(isFirst && {
+                                borderTopLeftRadius: 4,
+                                borderTopRightRadius: 4,
+                              }),
+                              ...(isLast && {
+                                borderBottomLeftRadius: 4,
+                                borderBottomRightRadius: 4,
+                              }),
+                            }
+                          : {
+                              ...(isFirst && {
+                                borderTopLeftRadius: 4,
+                                borderBottomLeftRadius: 4,
+                              }),
+                              ...(isLast && {
+                                borderTopRightRadius: 4,
+                                borderBottomRightRadius: 4,
+                              }),
+                            }),
+                        m: 0,
+                        ...(isFirst
+                          ? {}
+                          : isVertical
+                            ? { mt: '-1px' }
+                            : { ml: '-1px' }),
+                        ...(selectedIndex === index && {
+                          position: 'relative',
+                          zIndex: 1,
+                        }),
+                        '&.Mui-disabled': {
+                          opacity: 0.7,
+                          color: 'text.secondary',
+                          backgroundColor: (theme) =>
+                            props[variantName] === 'contained'
+                              ? 'rgba(0, 0, 0, 0.12)'
+                              : 'transparent',
+                          border:
+                            props[variantName] === 'outlined'
+                              ? '1px solid rgba(0, 0, 0, 0.23)'
+                              : 'none',
+                        },
                       }}
                     >
                       {option}
                     </Button>
-                  ))}
-                </ButtonGroup>
-              )}
-            </Box>
+                  );
+                })}
+              </Box>
+            ) : (
+              // Regular Button Group
+              <ButtonGroup
+                variant={variant}
+                color={color}
+                size={getMuiSize(props[sizeName])}
+                orientation={isVertical ? 'vertical' : 'horizontal'}
+                sx={{
+                  justifyContent: 'center',
+                  pointerEvents: props.disabled ? 'none' : undefined,
+                  width: '100%',
+                  '& .MuiButtonGroup-grouped': {
+                    flex: 1,
+                  },
+                }}
+                disabled={props.disabled}
+              >
+                {options.map((option, index) => (
+                  <Button
+                    key={index}
+                    onClick={() =>
+                      void (node as WidgetButtonGroup).handleButtonClick(index)
+                    }
+                    sx={{
+                      fontSize: fontSize,
+                      minHeight: props.inDashboard
+                        ? `${tokens.controlHeight}px`
+                        : undefined,
+                      py: 1.5,
+                      textTransform: 'none',
+                    }}
+                  >
+                    {option}
+                  </Button>
+                ))}
+              </ButtonGroup>
+            )}
           </Box>
-        </WidgetPaper>
-      </ThemeProvider>
+        </Box>
+      </WidgetPaper>
     );
   }
 }
@@ -691,46 +680,44 @@ export class WidgetSwitch extends WidgetHybridBase {
     };
 
     return (
-      <ThemeProvider theme={customTheme}>
-        <WidgetPaper node={node} inDashboard={props.inDashboard}>
-          <FormControl component="fieldset" sx={{ margin: 'auto' }}>
-            <Stack
-              direction="row"
-              alignItems="center"
-              spacing={1}
+      <WidgetPaper node={node} inDashboard={props.inDashboard}>
+        <FormControl component="fieldset" sx={{ margin: 'auto' }}>
+          <Stack
+            direction="row"
+            alignItems="center"
+            spacing={1}
+            sx={{
+              minWidth: 'min-content',
+              flexWrap: 'wrap',
+              justifyContent: 'center',
+            }}
+          >
+            <Switch
+              disabled={props.disabled}
+              size="medium"
+              checked={props[initialValueName]}
+              color="primary"
+              onChange={handleChange}
               sx={{
-                minWidth: 'min-content',
-                flexWrap: 'wrap',
-                justifyContent: 'center',
+                transform: props.inDashboard
+                  ? `scale(${1.4 * tokens.scale})`
+                  : `scale(${(node.nodeHeight / 60) * tokens.scale})`,
+                pointerEvents: props.disabled ? 'none' : undefined,
+              }}
+            />
+            <Typography
+              sx={{
+                mt: props.inDashboard ? '0' : `${node.nodeHeight / 24}px`,
+                fontSize: props.inDashboard
+                  ? `${tokens.fontSize}px`
+                  : `${(node.nodeHeight / 6) * tokens.scale}px`,
               }}
             >
-              <Switch
-                disabled={props.disabled}
-                size="medium"
-                checked={props[initialValueName]}
-                color="primary"
-                onChange={handleChange}
-                sx={{
-                  transform: props.inDashboard
-                    ? `scale(${1.4 * tokens.scale})`
-                    : `scale(${(node.nodeHeight / 60) * tokens.scale})`,
-                  pointerEvents: props.disabled ? 'none' : undefined,
-                }}
-              />
-              <Typography
-                sx={{
-                  mt: props.inDashboard ? '0' : `${node.nodeHeight / 24}px`,
-                  fontSize: props.inDashboard
-                    ? `${tokens.fontSize}px`
-                    : `${(node.nodeHeight / 6) * tokens.scale}px`,
-                }}
-              >
-                {props[labelName]}
-              </Typography>
-            </Stack>
-          </FormControl>
-        </WidgetPaper>
-      </ThemeProvider>
+              {props[labelName]}
+            </Typography>
+          </Stack>
+        </FormControl>
+      </WidgetPaper>
     );
   }
 }

@@ -2,7 +2,7 @@ import * as PIXI from 'pixi.js';
 import React, { useEffect, useState } from 'react';
 import { TRgba } from '../utils/color';
 import { createRoot, Root } from 'react-dom/client';
-import { Box } from '@mui/material';
+import { Box, ThemeProvider } from '@mui/material';
 import PPGraph from './GraphClass';
 import PPNode from './NodeClass';
 import UpdateBehaviourClass from './UpdateBehaviourClass';
@@ -26,6 +26,7 @@ import {
   NODE_SOURCE,
   MAIN_COLOR,
   UNSET_VALUE,
+  customTheme,
 } from '../utils/constants';
 import { DEFAULT_DASHBOARD_ICON } from '../components/dashboard/dashboardIcons';
 import {
@@ -409,17 +410,19 @@ export default abstract class HybridNode2 extends PPNode implements Layoutable {
       const interactionState = this.getInteractionRenderState();
       this.lastInteractionRenderState = interactionState;
       this.root.render(
-        <CanvasHybridNodeContent
-          node={this}
-          widgetInputProps={props}
-          selected={interactionState.selected}
-          isOnlySelected={interactionState.isOnlySelected}
-          isInteractionEnabled={interactionState.isInteractionEnabled}
-          randomMainColor={MAIN_COLOR}
-          dataCyId={`${this.id}-canvas`}
-          width={widgetProps.width}
-          height={widgetProps.height}
-        />,
+        <ThemeProvider theme={customTheme}>
+          <CanvasHybridNodeContent
+            node={this}
+            widgetInputProps={props}
+            selected={interactionState.selected}
+            isOnlySelected={interactionState.isOnlySelected}
+            isInteractionEnabled={interactionState.isInteractionEnabled}
+            randomMainColor={MAIN_COLOR}
+            dataCyId={`${this.id}-canvas`}
+            width={widgetProps.width}
+            height={widgetProps.height}
+          />
+        </ThemeProvider>,
       );
       this.hasRendered = true;
     }

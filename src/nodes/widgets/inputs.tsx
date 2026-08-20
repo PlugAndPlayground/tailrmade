@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Box, FormControl, TextField, ThemeProvider } from '@mui/material';
+import { Box, FormControl, TextField } from '@mui/material';
 import {
   WidgetHybridBase,
   WidgetPaper,
@@ -18,7 +18,7 @@ import { BooleanType } from '../datatypes/booleanType';
 import { NumberType } from '../datatypes/numberType';
 import { EnumType, EnumStructure } from '../datatypes/enumType';
 import { BackPropagation } from '../../interfaces';
-import { SOCKET_TYPE, customTheme } from '../../utils/constants';
+import { SOCKET_TYPE } from '../../utils/constants';
 import {
   ActionHandler,
   BakedAction,
@@ -201,46 +201,44 @@ export class WidgetTextField extends WidgetHybridBase {
     const size = props[sizeName];
     const fontSize = `${getSizeTokens(size).fontSize}px`;
     return (
-      <ThemeProvider theme={customTheme}>
-        <WidgetPaper node={node} inDashboard={props.inDashboard}>
-          <Box sx={{ width: '100%' }}>
-            <FormControl fullWidth>
-              <TextField
-                value={internalValue}
-                label={props[labelName]}
-                placeholder={placeholder}
-                helperText={helperText}
-                variant="filled"
-                size={getMuiSize(size)}
-                type={type}
-                multiline={multiline}
-                rows={multiline ? rows : undefined}
-                inputProps={{
-                  maxLength: maxLength > 0 ? maxLength : undefined,
-                  sx: { fontSize },
-                  readOnly: !isInteractive,
-                }}
-                required={required}
-                disabled={props.disabled}
-                onFocus={() => setIsFocused(true)}
-                onChange={(e) => {
-                  setInternalValue(e.target.value);
-                  // still update graph so outputs react immediately
-                  void node.handleOnChange(e);
-                }}
-                onBlur={() => {
-                  setIsFocused(false);
-                  void node.handleOnBlur();
-                }}
-                sx={{
-                  pointerEvents: props.disabled ? 'none' : undefined,
-                  ...getSizeSx(size),
-                }}
-              />
-            </FormControl>
-          </Box>
-        </WidgetPaper>
-      </ThemeProvider>
+      <WidgetPaper node={node} inDashboard={props.inDashboard}>
+        <Box sx={{ width: '100%' }}>
+          <FormControl fullWidth>
+            <TextField
+              value={internalValue}
+              label={props[labelName]}
+              placeholder={placeholder}
+              helperText={helperText}
+              variant="filled"
+              size={getMuiSize(size)}
+              type={type}
+              multiline={multiline}
+              rows={multiline ? rows : undefined}
+              inputProps={{
+                maxLength: maxLength > 0 ? maxLength : undefined,
+                sx: { fontSize },
+                readOnly: !isInteractive,
+              }}
+              required={required}
+              disabled={props.disabled}
+              onFocus={() => setIsFocused(true)}
+              onChange={(e) => {
+                setInternalValue(e.target.value);
+                // still update graph so outputs react immediately
+                void node.handleOnChange(e);
+              }}
+              onBlur={() => {
+                setIsFocused(false);
+                void node.handleOnBlur();
+              }}
+              sx={{
+                pointerEvents: props.disabled ? 'none' : undefined,
+                ...getSizeSx(size),
+              }}
+            />
+          </FormControl>
+        </Box>
+      </WidgetPaper>
     );
   }
 }

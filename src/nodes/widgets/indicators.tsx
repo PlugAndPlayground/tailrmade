@@ -1,5 +1,5 @@
 import React from 'react';
-import { Box, ThemeProvider, Typography } from '@mui/material';
+import { Box, Typography } from '@mui/material';
 import {
   WidgetHybridBase,
   WidgetPaper,
@@ -11,7 +11,7 @@ import Socket from '../../classes/SocketClass';
 import { BooleanType } from '../datatypes/booleanType';
 import { ColorType } from '../datatypes/colorType';
 import { StringType } from '../datatypes/stringType';
-import { SOCKET_TYPE, customTheme } from '../../utils/constants';
+import { SOCKET_TYPE } from '../../utils/constants';
 import { TRgba } from '../../utils/color';
 import { WidgetContentProps } from '../../utils/interfaces';
 import { BackPropagation } from '../../interfaces';
@@ -101,62 +101,60 @@ export class WidgetDiode extends WidgetHybridBase {
     darkerColor.a = diodeColor.a * 0.4;
 
     return (
-      <ThemeProvider theme={customTheme}>
-        <WidgetPaper
-          node={node as WidgetDiode}
-          inDashboard={props.inDashboard}
-          hasBackground={false}
+      <WidgetPaper
+        node={node as WidgetDiode}
+        inDashboard={props.inDashboard}
+        hasBackground={false}
+      >
+        <Box
+          sx={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            width: '100%',
+            height: '100%',
+          }}
         >
           <Box
             sx={{
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              justifyContent: 'center',
-              width: '100%',
-              height: '100%',
-            }}
-          >
-            <Box
-              sx={{
-                width: size,
-                height: size,
-                borderRadius: '50%',
-                // Replace the backgroundColor with gradient backgrounds
-                background: isOn
-                  ? `radial-gradient(circle at 35% 35%, 
+              width: size,
+              height: size,
+              borderRadius: '50%',
+              // Replace the backgroundColor with gradient backgrounds
+              background: isOn
+                ? `radial-gradient(circle at 35% 35%, 
           ${diodeColor.lighten(0.5).hexa()}, 
           ${diodeColor.hexa()} 45%, 
           ${diodeColor.darken(0.2).hexa()} 80%)`
-                  : `radial-gradient(circle at 35% 35%, 
+                : `radial-gradient(circle at 35% 35%, 
           ${darkerColor.lighten(0.3).hexa()}, 
           ${darkerColor.hexa()} 45%, 
           ${darkerColor.darken(0.1).hexa()} 80%)`,
-                border: `${size * 0.05}px solid ${darkerColor.hexa()}`,
-                boxShadow: isOn
-                  ? `0 0 ${glowStrength}px ${glowStrength / 2}px ${diodeColor.hexa()},
+              border: `${size * 0.05}px solid ${darkerColor.hexa()}`,
+              boxShadow: isOn
+                ? `0 0 ${glowStrength}px ${glowStrength / 2}px ${diodeColor.hexa()},
          inset 0 0 ${size * 0.1}px rgba(0,0,0,0.3)` // Inner shadow for depth
-                  : `inset 0 0 ${size * 0.1}px rgba(0,0,0,0.3)`, // Inner shadow for depth
-                transition: isOn ? 'none' : 'box-shadow 0.3s ease',
+                : `inset 0 0 ${size * 0.1}px rgba(0,0,0,0.3)`, // Inner shadow for depth
+              transition: isOn ? 'none' : 'box-shadow 0.3s ease',
+            }}
+          />
+          {props[labelName] && (
+            <Typography
+              variant="subtitle2"
+              sx={{
+                fontSize: props.inDashboard
+                  ? `${tokens.fontSize}px`
+                  : `${(node.nodeHeight / 10) * tokens.scale}px`,
+                mt: 1,
+                textAlign: 'center',
               }}
-            />
-            {props[labelName] && (
-              <Typography
-                variant="subtitle2"
-                sx={{
-                  fontSize: props.inDashboard
-                    ? `${tokens.fontSize}px`
-                    : `${(node.nodeHeight / 10) * tokens.scale}px`,
-                  mt: 1,
-                  textAlign: 'center',
-                }}
-              >
-                {props[labelName]}
-              </Typography>
-            )}
-          </Box>
-        </WidgetPaper>
-      </ThemeProvider>
+            >
+              {props[labelName]}
+            </Typography>
+          )}
+        </Box>
+      </WidgetPaper>
     );
   }
 }

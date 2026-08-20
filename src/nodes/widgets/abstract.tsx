@@ -64,16 +64,26 @@ export const colorOptions: EnumStructure = [
   },
 ];
 
-export type WidgetSize = 'XS' | 'S' | 'M' | 'L';
+export type WidgetSize = 'XS' | 'S' | 'M' | 'L' | 'XL';
+
+// What a Size socket can hold. 'Inherit' is not a size of its own - it means
+// "take the size from the surroundings" and will resolve widget -> Container ->
+// surface -> theme once the density token layer lands. Until then getSizeTokens
+// falls through to defaultSize, so an inheriting widget renders exactly like M.
+export type WidgetSizeSetting = WidgetSize | 'Inherit';
 
 export const sizeOptions: EnumStructure = [
+  { text: 'Inherit' },
   { text: 'XS' },
   { text: 'S' },
   { text: 'M' },
   { text: 'L' },
+  { text: 'XL' },
 ];
 
 export const defaultSize: WidgetSize = 'M';
+
+export const defaultSizeSetting: WidgetSizeSetting = 'Inherit';
 
 type SizeTokens = {
   // MUI only knows 'small' and 'medium', so XS/S and M/L share a MUI size and
@@ -134,6 +144,16 @@ const sizeTokens: Record<WidgetSize, SizeTokens> = {
     tabHeight: 58,
     inputPadding: { top: 30, bottom: 10 },
   },
+  XL: {
+    muiSize: 'medium',
+    scale: 1.4375,
+    fontSize: 23,
+    helperFontSize: 18,
+    iconSize: 36,
+    controlHeight: 80,
+    tabHeight: 70,
+    inputPadding: { top: 35, bottom: 12 },
+  },
 };
 
 export const getSizeTokens = (size: unknown): SizeTokens =>
@@ -143,7 +163,34 @@ export const getMuiSize = (size: unknown): 'small' | 'medium' =>
   getSizeTokens(size).muiSize;
 
 /**
- * Shared sx for the MUI input-like widgets, so the XS/S/M/L scale stays
+ * Autocomplete builds its filled-input height out of its OWN padding rather
+ * than the input's, so the generic inputPadding rule cannot drive it. MUI puts
+ * paddingTop on the input root and a fixed padding on the input itself:
+ *
+ *   height = rootPaddingTop + inputPaddingY * 2 + lineHeight + rootPaddingBottom
+ *
+ * Keeping MUI's inner values and solving for rootPaddingTop reproduces MUI's
+ * own 19px at size M exactly, and lands every other step on its controlHeight.
+ */
+const INPUT_LINE_HEIGHT_EM = 1.4375;
+// @mui/material/Autocomplete: `& .MuiFilledInput-root` input padding, and the
+// root paddingBottom (only the small variant sets one)
+const AUTOCOMPLETE_INPUT_PADDING_Y = { small: 2.5, medium: 7 };
+const AUTOCOMPLETE_ROOT_PADDING_BOTTOM = { small: 1, medium: 0 };
+
+const getAutocompleteRootPaddingTop = (t: SizeTokens): number =>
+  Math.max(
+    Math.round(
+      t.controlHeight -
+        t.fontSize * INPUT_LINE_HEIGHT_EM -
+        AUTOCOMPLETE_INPUT_PADDING_Y[t.muiSize] * 2 -
+        AUTOCOMPLETE_ROOT_PADDING_BOTTOM[t.muiSize],
+    ),
+    0,
+  );
+
+/**
+ * Shared sx for the MUI input-like widgets, so the XS/S/M/L/XL scale stays
  * consistent across all of them. Meant to be spread onto the outermost MUI
  * element of a widget (TextField, FormControl, Autocomplete, ...).
  */
@@ -171,30 +218,42 @@ export const getSizeSx = (size: unknown) => {
       height: `${Math.round(t.controlHeight * 0.43)}px`,
       fontSize: `${t.helperFontSize}px`,
     },
-    // XS and L have no MUI equivalent, so their control height has to come from
-    // padding. Autocomplete keeps its own padding on the input (on top of the
-    // padding its root already has), so it is excluded and gets its height from
-    // the minHeight above instead
+    // XS, L and XL have no MUI equivalent, so their control height has to come
+    // from padding. Autocomplete keeps its own padding on the input (on top of
+    // the padding its root already has) and is driven by the rule below
+    // instead, so it is excluded here
     ...(t.inputPadding && {
       '& .MuiFilledInput-input:not(.MuiAutocomplete-input)': {
         paddingTop: `${t.inputPadding.top}px`,
         paddingBottom: `${t.inputPadding.bottom}px`,
       },
     }),
+    // Reached through .MuiAutocomplete-root on purpose: MUI styles this same
+    // element as `<autocomplete class> .MuiFilledInput-root`, which ties with a
+    // plain `& .MuiFilledInput-root` on specificity and then wins on stylesheet
+    // order. The extra class puts this rule ahead of it.
+    '& .MuiAutocomplete-root .MuiFilledInput-root': {
+      paddingTop: `${getAutocompleteRootPaddingTop(t)}px`,
+    },
   };
 };
 
 /**
- * The Size input every widget shares. Existing nodes pick this up on load with
- * its default (M), since sockets are built from getDefaultIO before the
- * serialized data is mapped onto them.
+ * The Size input every widget shares. New nodes default to 'Inherit'; nodes
+ * serialized with an explicit size keep it, since sockets are built from
+ * getDefaultIO before the serialized data is mapped onto them.
+ *
+ * The default is 'Inherit' from the start on purpose: once a graph is saved
+ * with an explicit 'M' there is no way to tell "the user picked M" from "M was
+ * the default", and those nodes could never be opted into an inherited density
+ * afterwards.
  */
 export const getSizeSocket = (): Socket =>
   new Socket(
     SOCKET_TYPE.IN,
     sizeName,
     new EnumType(sizeOptions, undefined, true),
-    defaultSize,
+    defaultSizeSetting,
     false,
   );
 

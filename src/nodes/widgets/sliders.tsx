@@ -1,5 +1,5 @@
 import React from 'react';
-import { Slider, ThemeProvider, Typography, Box } from '@mui/material';
+import { Slider, Typography, Box } from '@mui/material';
 import {
   WidgetHybridBase,
   WidgetPaper,
@@ -15,7 +15,7 @@ import { StringType } from '../datatypes/stringType';
 import { BooleanType } from '../datatypes/booleanType';
 import { NumberType } from '../datatypes/numberType';
 import { BackPropagation } from '../../interfaces';
-import { SOCKET_TYPE, customTheme } from '../../utils/constants';
+import { SOCKET_TYPE } from '../../utils/constants';
 import {
   ActionHandler,
   BakedAction,
@@ -162,67 +162,65 @@ export class WidgetSlider extends WidgetHybridBase {
       : Number(value.toFixed(2));
 
     return (
-      <ThemeProvider theme={customTheme}>
-        <WidgetPaper node={node} inDashboard={props.inDashboard}>
-          <Box
+      <WidgetPaper node={node} inDashboard={props.inDashboard}>
+        <Box
+          sx={{
+            width: '100%',
+            boxSizing: 'border-box',
+            overflow: 'hidden',
+          }}
+        >
+          <Typography
+            id={`slider-label-${node.id}`}
+            gutterBottom
             sx={{
-              width: '100%',
-              boxSizing: 'border-box',
-              overflow: 'hidden',
+              fontSize: props.inDashboard
+                ? `${tokens.fontSize}px`
+                : `${(node.nodeHeight / 8) * tokens.scale}px`,
+              fontWeight: 500,
+              textAlign: 'center',
             }}
           >
-            <Typography
-              id={`slider-label-${node.id}`}
-              gutterBottom
-              sx={{
-                fontSize: props.inDashboard
-                  ? `${tokens.fontSize}px`
-                  : `${(node.nodeHeight / 8) * tokens.scale}px`,
-                fontWeight: 500,
-                textAlign: 'center',
-              }}
-            >
-              {props[labelName]}
-              {`${props[labelName] !== '' ? ': ' : ''} `}
-              {displayValue}
-            </Typography>
-            <Slider
-              disabled={props.disabled}
-              size={getMuiSize(props[sizeName])}
-              aria-labelledby={`slider-label-${node.id}`}
-              value={value}
-              min={min}
-              max={max}
-              step={shouldRound ? 1 : 0.01}
-              onChange={node.handleOnChange}
-              valueLabelDisplay="off"
-              sx={{
-                width: '100%',
-                padding: 0,
-                pointerEvents: props.disabled ? 'none' : undefined,
+            {props[labelName]}
+            {`${props[labelName] !== '' ? ': ' : ''} `}
+            {displayValue}
+          </Typography>
+          <Slider
+            disabled={props.disabled}
+            size={getMuiSize(props[sizeName])}
+            aria-labelledby={`slider-label-${node.id}`}
+            value={value}
+            min={min}
+            max={max}
+            step={shouldRound ? 1 : 0.01}
+            onChange={node.handleOnChange}
+            valueLabelDisplay="off"
+            sx={{
+              width: '100%',
+              padding: 0,
+              pointerEvents: props.disabled ? 'none' : undefined,
+              height: sliderHeight,
+              '& .MuiSlider-track': {
+                border: 'none',
+              },
+              borderRadius: 2,
+              '& .MuiSlider-thumb': {
                 height: sliderHeight,
-                '& .MuiSlider-track': {
-                  border: 'none',
+                width: 16 * tokens.scale,
+                backgroundColor: 'transparent',
+                borderRadius: 0,
+                '&:focus, &:hover, &.Mui-active, &.Mui-focusVisible': {
+                  boxShadow: 'inherit',
                 },
-                borderRadius: 2,
-                '& .MuiSlider-thumb': {
-                  height: sliderHeight,
-                  width: 16 * tokens.scale,
-                  backgroundColor: 'transparent',
-                  borderRadius: 0,
-                  '&:focus, &:hover, &.Mui-active, &.Mui-focusVisible': {
-                    boxShadow: 'inherit',
-                  },
 
-                  '&::before': {
-                    display: 'none',
-                  },
+                '&::before': {
+                  display: 'none',
                 },
-              }}
-            />
-          </Box>
-        </WidgetPaper>
-      </ThemeProvider>
+              },
+            }}
+          />
+        </Box>
+      </WidgetPaper>
     );
   }
 

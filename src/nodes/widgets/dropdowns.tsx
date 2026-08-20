@@ -6,7 +6,6 @@ import {
   ListItemText,
   MenuItem,
   Select,
-  ThemeProvider,
 } from '@mui/material';
 import Socket from '../../classes/SocketClass';
 import {
@@ -25,7 +24,7 @@ import {
   WidgetPaper,
 } from './abstract';
 import { WidgetSelectableBase } from './selectable-base';
-import { SOCKET_TYPE, customTheme } from '../../utils/constants';
+import { SOCKET_TYPE } from '../../utils/constants';
 import { ArrayType } from '../datatypes/arrayType';
 import { StringType } from '../datatypes/stringType';
 import { WidgetContentProps } from '../../utils/interfaces';
@@ -109,35 +108,33 @@ abstract class WidgetDropdownBase extends WidgetSelectableBase {
     };
 
     return (
-      <ThemeProvider theme={customTheme}>
-        <WidgetPaper node={node} inDashboard={props.inDashboard}>
-          <FormControl
+      <WidgetPaper node={node} inDashboard={props.inDashboard}>
+        <FormControl
+          variant="filled"
+          size={getMuiSize(size)}
+          sx={{
+            pointerEvents: props.disabled ? 'none' : undefined,
+            ...getSizeSx(size),
+          }}
+        >
+          <InputLabel>{props[labelName]}</InputLabel>
+          <Select
             variant="filled"
-            size={getMuiSize(size)}
-            sx={{
-              pointerEvents: props.disabled ? 'none' : undefined,
-              ...getSizeSx(size),
+            disabled={props.disabled}
+            multiple={!node.isSingle()}
+            value={node.formatSelected(props[selectedOptionName])}
+            onChange={(event) => {
+              void node.handleOnChange(event);
             }}
+            renderValue={(selected) =>
+              Array.isArray(selected) ? selected.join(', ') : selected
+            }
+            MenuProps={getMenuProps(size)}
           >
-            <InputLabel>{props[labelName]}</InputLabel>
-            <Select
-              variant="filled"
-              disabled={props.disabled}
-              multiple={!node.isSingle()}
-              value={node.formatSelected(props[selectedOptionName])}
-              onChange={(event) => {
-                void node.handleOnChange(event);
-              }}
-              renderValue={(selected) =>
-                Array.isArray(selected) ? selected.join(', ') : selected
-              }
-              MenuProps={getMenuProps(size)}
-            >
-              {renderMenuItems()}
-            </Select>
-          </FormControl>
-        </WidgetPaper>
-      </ThemeProvider>
+            {renderMenuItems()}
+          </Select>
+        </FormControl>
+      </WidgetPaper>
     );
   }
 }

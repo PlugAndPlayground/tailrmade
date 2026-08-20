@@ -1,5 +1,5 @@
 import React from 'react';
-import { Box, Tab, Tabs, ThemeProvider } from '@mui/material';
+import { Box, Tab, Tabs } from '@mui/material';
 import {
   WidgetHybridBase,
   WidgetPaper,
@@ -16,7 +16,7 @@ import { NumberType } from '../datatypes/numberType';
 import { StringType } from '../datatypes/stringType';
 import { BooleanType } from '../datatypes/booleanType';
 import { BackPropagation } from '../../interfaces';
-import { SOCKET_TYPE, customTheme } from '../../utils/constants';
+import { SOCKET_TYPE } from '../../utils/constants';
 import { TRgba } from '../../utils/color';
 import { WidgetContentProps } from '../../utils/interfaces';
 import {
@@ -148,63 +148,61 @@ export class WidgetTabs extends WidgetHybridBase {
       : `${Math.max(12, node.nodeHeight / 10) * tokens.scale}px`;
 
     return (
-      <ThemeProvider theme={customTheme}>
-        <WidgetPaper node={node} inDashboard={props.inDashboard}>
-          <Box
+      <WidgetPaper node={node} inDashboard={props.inDashboard}>
+        <Box
+          sx={{
+            width: '100%',
+            display: 'flex',
+            flexDirection: 'column',
+          }}
+        >
+          <Tabs
+            data-cy={`${props.dataCyId}-tabs`}
+            value={selectedIndex}
+            onChange={node.handleOnChange}
+            variant={scrollable ? 'scrollable' : 'standard'}
+            scrollButtons={scrollable ? 'auto' : false}
+            centered={!scrollable}
+            allowScrollButtonsMobile={scrollable}
+            textColor="secondary"
+            indicatorColor="secondary"
+            aria-label="tabs widget"
             sx={{
-              width: '100%',
-              display: 'flex',
-              flexDirection: 'column',
+              pointerEvents: props.disabled ? 'none' : undefined,
+              minHeight: `${tokens.tabHeight}px`,
+              '& .MuiSvgIcon-root': {
+                fontSize: `${tokens.iconSize}px`,
+              },
             }}
           >
-            <Tabs
-              data-cy={`${props.dataCyId}-tabs`}
-              value={selectedIndex}
-              onChange={node.handleOnChange}
-              variant={scrollable ? 'scrollable' : 'standard'}
-              scrollButtons={scrollable ? 'auto' : false}
-              centered={!scrollable}
-              allowScrollButtonsMobile={scrollable}
-              textColor="secondary"
-              indicatorColor="secondary"
-              aria-label="tabs widget"
-              sx={{
-                pointerEvents: props.disabled ? 'none' : undefined,
-                minHeight: `${tokens.tabHeight}px`,
-                '& .MuiSvgIcon-root': {
-                  fontSize: `${tokens.iconSize}px`,
-                },
-              }}
-            >
-              {options.map((option, index) => (
-                <Tab
-                  key={index}
-                  data-cy={`${props.dataCyId}-tab-${index}`}
-                  label={option}
-                  disabled={props.disabled}
-                  sx={{
-                    fontSize: fontSize,
-                    minWidth: !scrollable ? 0 : 90 * tokens.scale,
-                    minHeight: `${tokens.tabHeight}px`,
-                    flex: !scrollable ? 1 : 'auto',
-                    padding: `${6 * tokens.scale}px ${12 * tokens.scale}px`,
-                    '&.Mui-selected': {
-                      backgroundColor: `${TRgba.fromString(props.randomMainColor).negate().setAlpha(0.1)}`,
-                      borderTopLeftRadius: 4,
-                      borderTopRightRadius: 4,
-                    },
-                    '&:hover': {
-                      backgroundColor: `${TRgba.fromString(props.randomMainColor).negate().setAlpha(0.05)}`,
-                      opacity: 1,
-                    },
-                    textTransform: 'none',
-                  }}
-                />
-              ))}
-            </Tabs>
-          </Box>
-        </WidgetPaper>
-      </ThemeProvider>
+            {options.map((option, index) => (
+              <Tab
+                key={index}
+                data-cy={`${props.dataCyId}-tab-${index}`}
+                label={option}
+                disabled={props.disabled}
+                sx={{
+                  fontSize: fontSize,
+                  minWidth: !scrollable ? 0 : 90 * tokens.scale,
+                  minHeight: `${tokens.tabHeight}px`,
+                  flex: !scrollable ? 1 : 'auto',
+                  padding: `${6 * tokens.scale}px ${12 * tokens.scale}px`,
+                  '&.Mui-selected': {
+                    backgroundColor: `${TRgba.fromString(props.randomMainColor).negate().setAlpha(0.1)}`,
+                    borderTopLeftRadius: 4,
+                    borderTopRightRadius: 4,
+                  },
+                  '&:hover': {
+                    backgroundColor: `${TRgba.fromString(props.randomMainColor).negate().setAlpha(0.05)}`,
+                    opacity: 1,
+                  },
+                  textTransform: 'none',
+                }}
+              />
+            ))}
+          </Tabs>
+        </Box>
+      </WidgetPaper>
     );
   }
 }

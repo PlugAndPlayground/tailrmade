@@ -6,7 +6,6 @@ import {
   FormControlLabel,
   Radio,
   RadioGroup,
-  ThemeProvider,
   Typography,
 } from '@mui/material';
 import {
@@ -28,7 +27,7 @@ import { NumberType } from '../datatypes/numberType';
 import { StringType } from '../datatypes/stringType';
 import { BooleanType } from '../datatypes/booleanType';
 import { BackPropagation } from '../../interfaces';
-import { SOCKET_TYPE, customTheme } from '../../utils/constants';
+import { SOCKET_TYPE } from '../../utils/constants';
 import {
   ActionHandler,
   BakedAction,
@@ -167,86 +166,84 @@ export class WidgetRadio extends WidgetHybridBase {
       : `${Math.max(12, node.nodeHeight / 10) * tokens.scale}px`;
 
     return (
-      <ThemeProvider theme={customTheme}>
-        <WidgetPaper node={node as WidgetRadio} inDashboard={props.inDashboard}>
-          <FormControl
-            component="fieldset"
-            disabled={props.disabled}
-            sx={{
-              margin: 'auto',
-              width: '100%',
-              height: '100%',
-              userSelect: 'none',
-              padding: 1,
-              display: 'flex',
-              flexDirection: 'column',
-            }}
-          >
-            {props[labelName] && (
-              <Typography
-                variant="subtitle1"
-                sx={{
-                  fontSize: `${tokens.fontSize}px`,
-                  mb: 1,
-                  textAlign: 'center',
-                }}
-              >
-                {props[labelName]}
-              </Typography>
-            )}
-
-            <Box
+      <WidgetPaper node={node as WidgetRadio} inDashboard={props.inDashboard}>
+        <FormControl
+          component="fieldset"
+          disabled={props.disabled}
+          sx={{
+            margin: 'auto',
+            width: '100%',
+            height: '100%',
+            userSelect: 'none',
+            padding: 1,
+            display: 'flex',
+            flexDirection: 'column',
+          }}
+        >
+          {props[labelName] && (
+            <Typography
+              variant="subtitle1"
               sx={{
-                flex: 1,
-                overflowY: 'auto',
-                overflowX: 'hidden',
-                maxHeight: props.inDashboard
-                  ? 'calc(100vh - 100px)'
-                  : `${Math.max(100, node.nodeHeight - 80)}px`,
+                fontSize: `${tokens.fontSize}px`,
+                mb: 1,
+                textAlign: 'center',
               }}
             >
-              <RadioGroup
-                value={selectedValue}
-                onChange={(node as WidgetRadio).handleOnChange}
-                row={props[rowLayoutName]}
-                sx={{
-                  pointerEvents: props.disabled ? 'none' : undefined,
-                  flexWrap: props[rowLayoutName] ? 'wrap' : 'nowrap',
-                }}
-              >
-                {options.map((option, index) => (
-                  <FormControlLabel
-                    key={index}
-                    value={option}
-                    control={
-                      <Radio
-                        size={getMuiSize(props[sizeName])}
-                        sx={{
-                          '& .MuiSvgIcon-root': {
-                            fontSize: fontSize,
-                          },
-                        }}
-                      />
-                    }
-                    label={
-                      <Typography sx={{ fontSize: fontSize }}>
-                        {typeof option === 'string'
-                          ? option
-                          : JSON.stringify(option)}
-                      </Typography>
-                    }
-                    sx={{
-                      mx: props[rowLayoutName] ? 0.5 : 0,
-                      width: props[rowLayoutName] ? 'auto' : '100%',
-                      boxSizing: 'border-box',
-                    }}
-                  />
-                ))}
-              </RadioGroup>
-            </Box>
-          </FormControl>
-        </WidgetPaper>
-      </ThemeProvider>
+              {props[labelName]}
+            </Typography>
+          )}
+
+          <Box
+            sx={{
+              flex: 1,
+              overflowY: 'auto',
+              overflowX: 'hidden',
+              maxHeight: props.inDashboard
+                ? 'calc(100vh - 100px)'
+                : `${Math.max(100, node.nodeHeight - 80)}px`,
+            }}
+          >
+            <RadioGroup
+              value={selectedValue}
+              onChange={(node as WidgetRadio).handleOnChange}
+              row={props[rowLayoutName]}
+              sx={{
+                pointerEvents: props.disabled ? 'none' : undefined,
+                flexWrap: props[rowLayoutName] ? 'wrap' : 'nowrap',
+              }}
+            >
+              {options.map((option, index) => (
+                <FormControlLabel
+                  key={index}
+                  value={option}
+                  control={
+                    <Radio
+                      size={getMuiSize(props[sizeName])}
+                      sx={{
+                        '& .MuiSvgIcon-root': {
+                          fontSize: fontSize,
+                        },
+                      }}
+                    />
+                  }
+                  label={
+                    <Typography sx={{ fontSize: fontSize }}>
+                      {typeof option === 'string'
+                        ? option
+                        : JSON.stringify(option)}
+                    </Typography>
+                  }
+                  sx={{
+                    mx: props[rowLayoutName] ? 0.5 : 0,
+                    width: props[rowLayoutName] ? 'auto' : '100%',
+                    boxSizing: 'border-box',
+                  }}
+                />
+              ))}
+            </RadioGroup>
+          </Box>
+        </FormControl>
+      </WidgetPaper>
     );
   }
 }
@@ -388,88 +385,86 @@ export class WidgetCheckbox extends WidgetHybridBase {
       : `${Math.max(12, node.nodeHeight / 10) * tokens.scale}px`;
 
     return (
-      <ThemeProvider theme={customTheme}>
-        <WidgetPaper
-          node={node as WidgetCheckbox}
-          inDashboard={props.inDashboard}
+      <WidgetPaper
+        node={node as WidgetCheckbox}
+        inDashboard={props.inDashboard}
+      >
+        <FormControl
+          component="fieldset"
+          disabled={props.disabled}
+          sx={{
+            margin: 'auto',
+            width: '100%',
+            height: '100%',
+            userSelect: 'none',
+            padding: 1,
+            display: 'flex',
+            flexDirection: 'column',
+          }}
         >
-          <FormControl
-            component="fieldset"
-            disabled={props.disabled}
-            sx={{
-              margin: 'auto',
-              width: '100%',
-              height: '100%',
-              userSelect: 'none',
-              padding: 1,
-              display: 'flex',
-              flexDirection: 'column',
-            }}
-          >
-            {props[labelName] && (
-              <Typography
-                variant="subtitle1"
-                sx={{
-                  fontSize: `${tokens.fontSize}px`,
-                  mb: 1,
-                  textAlign: 'center',
-                }}
-              >
-                {props[labelName]}
-              </Typography>
-            )}
-
-            <Box
+          {props[labelName] && (
+            <Typography
+              variant="subtitle1"
               sx={{
-                flex: 1,
-                overflowY: 'auto',
-                overflowX: 'hidden',
-                maxHeight: props.inDashboard
-                  ? 'calc(100vh - 100px)'
-                  : `${Math.max(100, node.nodeHeight - 80)}px`,
+                fontSize: `${tokens.fontSize}px`,
+                mb: 1,
+                textAlign: 'center',
               }}
             >
-              <Box
-                sx={{
-                  display: 'flex',
-                  flexDirection: props[rowLayoutName] ? 'row' : 'column',
-                  flexWrap: 'wrap',
-                  pointerEvents: props.disabled ? 'none' : undefined,
-                }}
-              >
-                {options.map((option, index) => (
-                  <FormControlLabel
-                    key={index}
-                    control={
-                      <Checkbox
-                        checked={selectedOptions.includes(option)}
-                        onChange={(node as WidgetCheckbox).handleCheckboxChange}
-                        value={option}
-                        size={getMuiSize(props[sizeName])}
-                        sx={{
-                          '& .MuiSvgIcon-root': {
-                            fontSize: fontSize,
-                          },
-                        }}
-                      />
-                    }
-                    label={
-                      <Typography sx={{ fontSize: fontSize }}>
-                        {option}
-                      </Typography>
-                    }
-                    sx={{
-                      mx: props[rowLayoutName] ? 0.5 : 0,
-                      width: props[rowLayoutName] ? 'auto' : '100%',
-                      boxSizing: 'border-box',
-                    }}
-                  />
-                ))}
-              </Box>
+              {props[labelName]}
+            </Typography>
+          )}
+
+          <Box
+            sx={{
+              flex: 1,
+              overflowY: 'auto',
+              overflowX: 'hidden',
+              maxHeight: props.inDashboard
+                ? 'calc(100vh - 100px)'
+                : `${Math.max(100, node.nodeHeight - 80)}px`,
+            }}
+          >
+            <Box
+              sx={{
+                display: 'flex',
+                flexDirection: props[rowLayoutName] ? 'row' : 'column',
+                flexWrap: 'wrap',
+                pointerEvents: props.disabled ? 'none' : undefined,
+              }}
+            >
+              {options.map((option, index) => (
+                <FormControlLabel
+                  key={index}
+                  control={
+                    <Checkbox
+                      checked={selectedOptions.includes(option)}
+                      onChange={(node as WidgetCheckbox).handleCheckboxChange}
+                      value={option}
+                      size={getMuiSize(props[sizeName])}
+                      sx={{
+                        '& .MuiSvgIcon-root': {
+                          fontSize: fontSize,
+                        },
+                      }}
+                    />
+                  }
+                  label={
+                    <Typography sx={{ fontSize: fontSize }}>
+                      {option}
+                    </Typography>
+                  }
+                  sx={{
+                    mx: props[rowLayoutName] ? 0.5 : 0,
+                    width: props[rowLayoutName] ? 'auto' : '100%',
+                    boxSizing: 'border-box',
+                  }}
+                />
+              ))}
             </Box>
-          </FormControl>
-        </WidgetPaper>
-      </ThemeProvider>
+          </Box>
+        </FormControl>
+      </WidgetPaper>
     );
   }
 }
