@@ -25,6 +25,8 @@ import {
   COLOR_DARK,
   COLOR_MAIN,
   COLOR_WHITE_TEXT,
+  SOCKET_FOCUS_SCALE,
+  SOCKET_FOCUS_SCREEN_DISTANCE,
   SOCKET_SNAP_HIGHLIGHT_SCREEN_WIDTH,
   SOCKET_TEXTMARGIN_TOP,
   SOCKET_TEXTMARGIN,
@@ -119,7 +121,8 @@ export default class Socket
   // data is derived from execute function
 
   _SocketRef: PIXI.Graphics;
-  _SnapHighlightRef: PIXI.Graphics | undefined;
+  _FocusRingRef: PIXI.Graphics | undefined;
+  private _isFocused = false;
   _TextRef: PIXI.Text;
   _ErrorBox: PIXI.Graphics;
   _MetaText: PIXI.Text;
@@ -719,21 +722,22 @@ export default class Socket
     return x >= 0 && x <= SOCKET_WIDTH && y >= 0 && y <= SOCKET_WIDTH;
   }
 
-  // Visual feedback while a dragged connection is snapping to this socket:
-  // a ring the size of the zoom invariant hit area, so it also shows how big
+  // Visual feedback for the focused socket - the one the pointer would act
+  // on, whether it is directly hovered or merely snapped to while dragging.
+  // A ring the size of the zoom invariant hit area, so it also shows how big
   // the pointer target actually is. Deliberately not the hover tint - that
   // shares state with onPointerOver/onPointerOut and would be clobbered by
   // them mid drag.
-  public showSnapHighlight(): void {
+  public showFocusHighlight(): void {
     if (this.destroyed) {
       return;
     }
-    if (!this._SnapHighlightRef) {
-      this._SnapHighlightRef = new PIXI.Graphics();
-      this._SnapHighlightRef.name = 'SnapHighlight';
-      this._SnapHighlightRef.eventMode = 'none';
+    if (!this._FocusRingRef) {
+      this._FocusRingRef = new PIXI.Graphics();
+      this._FocusRingRef.name = 'FocusRing';
+      this._FocusRingRef.eventMode = 'none';
     }
-    const highlight = this._SnapHighlightRef;
+    const highlight = this._FocusRingRef;
     const center = this.getSocketLocation();
     const radius = this.getZoomInvariantHitRadius();
     const scale = PPGraph.currentGraph?.viewportScaleX || 1;
@@ -753,41 +757,73 @@ export default class Socket
     if (highlight.parent !== this) {
       this.addChild(highlight);
     }
+    // the focused socket also takes the peak of the proximity magnifier, so
+    // focus looks the same whether it was reached by hovering or by snapping
+    this.setFocusScale(SOCKET_FOCUS_SCALE);
+    this._isFocused = true;
   }
 
-  public hideSnapHighlight(): void {
-    if (!this._SnapHighlightRef) {
+  public hideFocusHighlight(): void {
+    this._isFocused = false;
+    this.setFocusScale(1);
+    if (!this._FocusRingRef) {
       return;
     }
-    this._SnapHighlightRef.clear();
-    this._SnapHighlightRef.visible = false;
-    if (this._SnapHighlightRef.parent === this) {
-      this.removeChild(this._SnapHighlightRef);
+    this._FocusRingRef.clear();
+    this._FocusRingRef.visible = false;
+    if (this._FocusRingRef.parent === this) {
+      this.removeChild(this._FocusRingRef);
+    }
+  }
+
+  public isFocused(): boolean {
+    return this._isFocused;
+  }
+
+  // shared by the focus highlight and the proximity magnifier so there is
+  // only one place that knows which parts of a socket scale together
+  private setFocusScale(scale: number): void {
+    if (this.destroyed) {
+      return;
+    }
+    this._SocketRef.scale = new PIXI.Point(scale, scale);
+    this._ValueSpecificGraphics.scale = new PIXI.Point(scale, scale);
+    if (this._TextRef) {
+      const textScale = Math.sqrt(scale);
+      this._TextRef.scale = new PIXI.Point(textScale, textScale);
     }
   }
 
   pointerOverSocketMoving() {
+    // the focused socket is already held at the peak scale, and while a
+    // connection is being dragged focus owns the feedback entirely - letting
+    // the ramp run too is what made the socket sometimes grow and sometimes
+    // show a ring for no apparent reason
+    if (this._isFocused) {
+      // the viewport can pan or zoom under a stationary hover
+      PPGraph.currentGraph?.socketNameOverlay.showFor(this);
+      return;
+    }
+    if (PPGraph.currentGraph?.selectedSocket) {
+      return;
+    }
+    const scale = PPGraph.currentGraph?.viewportScaleX || 1;
     const currPos = getCurrentCursorPosition();
     const center = PPGraph.currentGraph.getSocketCenter(this);
-    const dist = Math.sqrt(
-      Math.pow(currPos.y - center.y, 2) +
-        0.05 * Math.pow(currPos.x - center.x, 2),
-    );
-    const maxDist = 15;
+    // measured in screen pixels: in world units the ramp shrank away as soon
+    // as you zoomed out, which is when the magnifier is needed most
+    const dist =
+      Math.sqrt(
+        Math.pow(currPos.y - center.y, 2) +
+          0.05 * Math.pow(currPos.x - center.x, 2),
+      ) * scale;
+    const maxDist = SOCKET_FOCUS_SCREEN_DISTANCE;
     const scaleOutside =
-      Math.pow(Math.max(0, (maxDist - dist) / maxDist), 1) * 1.3 + 1;
+      Math.pow(Math.max(0, (maxDist - dist) / maxDist), 1) *
+        (SOCKET_FOCUS_SCALE - 1) +
+      1;
 
-    this._SocketRef.scale = new PIXI.Point(scaleOutside, scaleOutside);
-    this._ValueSpecificGraphics.scale = new PIXI.Point(
-      scaleOutside,
-      scaleOutside,
-    );
-    if (this._TextRef) {
-      this._TextRef.scale = new PIXI.Point(
-        Math.sqrt(scaleOutside),
-        Math.sqrt(scaleOutside),
-      );
-    }
+    this.setFocusScale(scaleOutside);
   }
 
   onPointerOver(): void {
