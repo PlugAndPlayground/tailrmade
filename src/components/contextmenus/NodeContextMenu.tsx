@@ -41,22 +41,6 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import AddIcon from '@mui/icons-material/Add';
 import { extractSelectionToMacro } from '../../actions/graphActions';
 
-function constructListOptions(options: any): any {
-  return Object.keys(options).map((key) => {
-    return (
-      <div key={key}>
-        {' '}
-        <MenuItem onClick={options[key]}>
-          <ListItemIcon>
-            <AddIcon fontSize="small" />
-          </ListItemIcon>
-          <ListItemText>{key}</ListItemText>
-        </MenuItem>
-      </div>
-    );
-  });
-}
-
 const AlignOptionMenuItem = (props) => {
   return (
     <MenuItem
