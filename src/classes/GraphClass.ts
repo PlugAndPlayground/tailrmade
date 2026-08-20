@@ -11,6 +11,15 @@ import {
 } from '../utils/constants';
 import { GRAPH_DATA_VERSION } from '../utils/graphMigrations';
 import {
+  SnapCandidate,
+  SnapSocketInfo,
+  SocketSnapDirection,
+  canSnapToSocket,
+  findNearestSnapCandidate,
+  isPointerNearNodeBounds,
+  isSnappingSuppressed,
+} from '../utils/socketSnapping';
+import {
   CustomArgs,
   SerializedGraph,
   SerializedLink,
@@ -384,6 +393,15 @@ export default class PPGraph {
     this.drawConnectionLine(event);
   }
 
+  // describes a socket for the pure snapping rules in utils/socketSnapping
+  private static toSnapInfo(socket: PPSocket): SnapSocketInfo {
+    let direction: SocketSnapDirection = 'ghost';
+    if (socket.socketType !== SOCKET_TYPE.GHOST) {
+      direction = socket.isInput() ? 'input' : 'output';
+    }
+    return { nodeId: socket.getNode()?.id, direction };
+  }
+
   // returns true if the candidate socket could be connected to the currently
   // dragged socket - mirrors the rules in socketMouseUp
   private canConnectWhileDragging(candidate: PPSocket): boolean {
@@ -391,66 +409,75 @@ export default class PPGraph {
     if (!source || candidate === source) {
       return false;
     }
-    // avoid the wire constantly snapping to neighboring sockets on the
-    // node we are dragging from
-    if (candidate.getNode() === source.getNode()) {
-      return false;
-    }
-    return (
-      (source.isInput() && candidate.isOutput()) ||
-      (source.isOutput() && candidate.isInput()) ||
-      candidate.socketType === SOCKET_TYPE.GHOST
+    return canSnapToSocket(
+      PPGraph.toSnapInfo(source),
+      PPGraph.toSnapInfo(candidate),
     );
   }
 
-  private findSnapTarget(event: PIXI.FederatedPointerEvent): PPSocket | undefined {
+  private findSnapTarget(
+    event: PIXI.FederatedPointerEvent,
+  ): PPSocket | undefined {
+    const source = this.selectedSocket;
+    if (!source) {
+      return undefined;
+    }
     const pointer = event.global;
     const scale = this.viewportScaleX;
-    const snapRadius = SOCKET_SNAP_SCREEN_RADIUS;
-    let best: PPSocket | undefined = undefined;
-    let bestDistSquared = snapRadius * snapRadius;
+    const candidates: SnapCandidate<PPSocket>[] = [];
 
     Object.values(this.nodes).forEach((node) => {
-      // cheap prune: skip nodes whose (screen space) bounds incl. snap radius
-      // cannot contain the pointer
       const nodePos = node.getGlobalPosition();
-      if (
-        pointer.x < nodePos.x - snapRadius ||
-        pointer.y < nodePos.y - snapRadius ||
-        pointer.x > nodePos.x + node.nodeWidth * scale + snapRadius ||
-        pointer.y > nodePos.y + node.nodeHeight * scale + snapRadius
-      ) {
+      const withinReach = isPointerNearNodeBounds(
+        pointer,
+        {
+          x: nodePos.x,
+          y: nodePos.y,
+          width: node.nodeWidth * scale,
+          height: node.nodeHeight * scale,
+        },
+        SOCKET_SNAP_SCREEN_RADIUS,
+      );
+      if (!withinReach) {
         return;
       }
       node.getAllSockets().forEach((socket) => {
-        if (!socket.visible || !this.canConnectWhileDragging(socket)) {
+        if (!socket.visible) {
           return;
         }
-        const center = socket.screenPointSocketCenter();
-        const dx = pointer.x - center.x;
-        const dy = pointer.y - center.y;
-        const distSquared = dx * dx + dy * dy;
-        if (distSquared < bestDistSquared) {
-          bestDistSquared = distSquared;
-          best = socket;
-        }
+        candidates.push({
+          ref: socket,
+          center: socket.screenPointSocketCenter(),
+          ...PPGraph.toSnapInfo(socket),
+        });
       });
     });
-    return best;
+
+    return findNearestSnapCandidate(
+      pointer,
+      PPGraph.toSnapInfo(source),
+      candidates,
+      SOCKET_SNAP_SCREEN_RADIUS,
+    );
   }
 
   private updateSnapTarget(event: PIXI.FederatedPointerEvent): void {
     // a directly hovered socket always wins over snapping and while the node
     // search is open the wire is pinned to overrideNodeCursorPosition
-    const snappingDisabled =
-      this.overrideNodeCursorPosition !== undefined ||
-      (this.overInputRef && this.overInputRef !== this.selectedSocket);
+    const snappingDisabled = isSnappingSuppressed({
+      hasPinnedCursorPosition: this.overrideNodeCursorPosition !== undefined,
+      hoversOtherSocket:
+        this.overInputRef !== undefined &&
+        this.overInputRef !== this.selectedSocket,
+    });
     const newTarget = snappingDisabled ? undefined : this.findSnapTarget(event);
     if (newTarget !== this.snapTargetSocket) {
       this.snapTargetSocket?.hideSnapHighlight();
-      newTarget?.showSnapHighlight();
       this.snapTargetSocket = newTarget;
     }
+    // reapplied on every move so the highlight keeps its screen size while
+    // zooming mid drag, and survives a socket redraw (which drops children)
+    newTarget?.showSnapHighlight();
   }
 
   private clearSnapTarget(): void {

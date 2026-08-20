@@ -23,7 +23,9 @@ import { Tooltipable } from '../components/Tooltip';
 import InterfaceController, { ListenEvent } from '../InterfaceController';
 import {
   COLOR_DARK,
+  COLOR_MAIN,
   COLOR_WHITE_TEXT,
+  SOCKET_SNAP_HIGHLIGHT_SCREEN_WIDTH,
   SOCKET_TEXTMARGIN_TOP,
   SOCKET_TEXTMARGIN,
   SOCKET_TYPE,
@@ -112,6 +114,7 @@ export default class Socket
   // data is derived from execute function
 
   _SocketRef: PIXI.Graphics;
+  _SnapHighlightRef: PIXI.Graphics | undefined;
   _TextRef: PIXI.Text;
   _ErrorBox: PIXI.Graphics;
   _MetaText: PIXI.Text;
@@ -704,13 +707,51 @@ export default class Socket
     return this.getLocalBounds().rectangle.contains(x, y);
   }
 
-  // visual feedback while a dragged connection is snapping to this socket
+  // Visual feedback while a dragged connection is snapping to this socket:
+  // a ring the size of the zoom invariant hit area, so it also shows how big
+  // the pointer target actually is. Deliberately not the hover tint - that
+  // shares state with onPointerOver/onPointerOut and would be clobbered by
+  // them mid drag.
   public showSnapHighlight(): void {
-    (this._SocketRef as PIXI.Graphics).tint = TRgba.white().hexNumber();
+    if (this.destroyed) {
+      return;
+    }
+    if (!this._SnapHighlightRef) {
+      this._SnapHighlightRef = new PIXI.Graphics();
+      this._SnapHighlightRef.name = 'SnapHighlight';
+      this._SnapHighlightRef.eventMode = 'none';
+    }
+    const highlight = this._SnapHighlightRef;
+    const center = this.getSocketLocation();
+    const radius = this.getZoomInvariantHitRadius();
+    const scale = PPGraph.currentGraph?.viewportScaleX || 1;
+    const color = TRgba.fromString(COLOR_MAIN);
+
+    highlight.clear();
+    highlight
+      .circle(center.x, center.y, radius)
+      .fill({ color: color.hexNumber(), alpha: 0.2 })
+      .stroke({
+        // constant stroke weight on screen, like the rest of the highlight
+        width: SOCKET_SNAP_HIGHLIGHT_SCREEN_WIDTH / scale,
+        color: color.hexNumber(),
+        alpha: 0.9,
+      });
+    highlight.visible = true;
+    if (highlight.parent !== this) {
+      this.addChild(highlight);
+    }
   }
 
   public hideSnapHighlight(): void {
-    (this._SocketRef as PIXI.Graphics).tint = 0xffffff;
+    if (!this._SnapHighlightRef) {
+      return;
+    }
+    this._SnapHighlightRef.clear();
+    this._SnapHighlightRef.visible = false;
+    if (this._SnapHighlightRef.parent === this) {
+      this.removeChild(this._SnapHighlightRef);
+    }
   }
 
   pointerOverSocketMoving() {

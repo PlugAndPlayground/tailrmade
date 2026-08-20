@@ -185,6 +185,8 @@ export const SOCKET_MIN_HITBOX_SCREEN_SIZE = 24;
 // while dragging a connection, snap to the nearest compatible socket
 // within this radius (in screen pixels)
 export const SOCKET_SNAP_SCREEN_RADIUS = 48;
+// stroke weight (in screen pixels) of the ring drawn around a snap target
+export const SOCKET_SNAP_HIGHLIGHT_SCREEN_WIDTH = 2;
 export const SOCKET_CORNERRADIUS = 4;
 export const SOCKET_TEXTMARGIN = 8;
 export const SOCKET_TEXTMARGIN_TOP = 4;
