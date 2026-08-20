@@ -60,9 +60,6 @@ export default class Socket
 {
   onNodeAdded(node: PPNode): void {
     this.eventMode = 'static';
-    // hit area is evaluated lazily on every hit test, so it stays a minimum
-    // screen size regardless of the current zoom level
-    this.hitArea = new PNPHitArea((x, y) => this.hitAreaContains(x, y));
     this.addEventListener('pointerover', this.onPointerOver.bind(this));
     this.addEventListener('pointerout', this.onPointerOut.bind(this));
     this.addEventListener('pointerup', this.onPointerUp);
@@ -86,6 +83,14 @@ export default class Socket
     this._SocketRef = new PIXI.Graphics();
     this._SocketRef.name = 'SocketRef';
     this._SocketRef.eventMode = 'static';
+    // evaluated lazily on every hit test, so the pointer target keeps a
+    // minimum screen size at any zoom without needing a redraw. It sits on
+    // the drawn socket rather than on the socket container: a container
+    // hitArea would also claim the empty gap between the socket and its
+    // label, stealing pointerdowns that belong to the node underneath.
+    this._SocketRef.hitArea = new PNPHitArea((x, y) =>
+      this.socketRefHitAreaContains(x, y),
+    );
     this._ValueSpecificGraphics = new PIXI.Graphics();
 
     this._TextRef.eventMode = 'static';
@@ -698,13 +703,20 @@ export default class Socket
     return dx * dx + dy * dy <= radius * radius;
   }
 
-  private hitAreaContains(x: number, y: number): boolean {
-    if (this.isWithinZoomInvariantHitRadius(x, y)) {
+  // x/y are in _SocketRef's local space, where the drawn socket occupies
+  // (0, 0, SOCKET_WIDTH, SOCKET_WIDTH). Label, meta text and value specific
+  // graphics keep their own hit testing as siblings.
+  private socketRefHitAreaContains(x: number, y: number): boolean {
+    const half = SOCKET_WIDTH / 2;
+    const radius = this.getZoomInvariantHitRadius();
+    const dx = x - half;
+    const dy = y - half;
+    if (dx * dx + dy * dy <= radius * radius) {
       return true;
     }
-    // keep the label and other children (meta text, value specific graphics)
-    // hittable as before
-    return this.getLocalBounds().rectangle.contains(x, y);
+    // the drawn socket is a rounded rect, whose corners poke out of a circle
+    // of radius SOCKET_WIDTH / 2 - never shrink below what is visible
+    return x >= 0 && x <= SOCKET_WIDTH && y >= 0 && y <= SOCKET_WIDTH;
   }
 
   // Visual feedback while a dragged connection is snapping to this socket:
