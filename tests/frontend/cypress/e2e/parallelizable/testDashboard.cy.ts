@@ -318,7 +318,7 @@ describe('Test dashboard', () => {
     assertWidgetOrder();
   });
 
-  it('Maximizes and saves the dashboard', () => {
+  const addDashboardContent = () => {
     const hybridNodeId = 'orange-stingray-61';
     const socketNodeId = 'red-bull-42';
 
@@ -329,24 +329,30 @@ describe('Test dashboard', () => {
 
     shiftClickSocket(socketNodeId, 'String');
     addToDashboard(hybridNodeId);
-
     cy.get('[data-cy="dashboard"]').should('be.visible');
+  };
+
+  it('Maximizes, saves, and reopens still maximized with the editor intact', () => {
+    addDashboardContent();
+
     cy.get('[data-cy="maximise-dashboard-btn"]').first().click({ force: true });
     cy.get('[data-cy="shrink-dashboard-btn"]').first().should('be.visible');
+    // maximising happens INSIDE the editor, so its chrome stays put
+    cy.get('[data-cy="shell-rail"]').should('be.visible');
+    cy.get('[data-cy="toggle-edit-mode-btn"]').first().should('be.visible');
 
     saveGraph();
     openExistingGraph();
 
     cy.get('[data-cy="dashboard"]').should('be.visible');
-    cy.get('[data-cy="toggle-app-button"]').should('be.visible');
-    cy.get('[data-cy="toggle-dashboard-btn"]').should('not.exist');
-    cy.get('[data-cy="toggle-edit-mode-btn"]').should('not.exist');
+    cy.get('[data-cy="shrink-dashboard-btn"]').first().should('be.visible');
+    cy.get('[data-cy="shell-rail"]').should('be.visible');
+    cy.get('[data-cy="toggle-dashboard-btn"]').should('be.visible');
+    // maximised is not app view - no exit logo
+    cy.get('[data-cy="app-view-exit-button"]').should('not.exist');
 
-    cy.get('[data-cy="toggle-app-button"]').click({ force: true });
-    cy.get('[data-cy="shrink-dashboard-btn"]')
-      .first()
-      .should('be.visible')
-      .click({ force: true });
+    // shrinking back is persisted too
+    cy.get('[data-cy="shrink-dashboard-btn"]').first().click({ force: true });
     cy.get('[data-cy="maximise-dashboard-btn"]').first().should('be.visible');
 
     saveGraph();
@@ -356,6 +362,41 @@ describe('Test dashboard', () => {
     cy.get('[data-cy="maximise-dashboard-btn"]').first().should('be.visible');
     cy.get('[data-cy="toggle-dashboard-btn"]').should('be.visible');
     cy.get('[data-cy="toggle-edit-mode-btn"]').first().should('be.visible');
+  });
+
+  it('Saves in app view and reopens as the app', () => {
+    addDashboardContent();
+
+    cy.get('[data-cy="toggle-app-button"]').click({ force: true });
+
+    // app view is zero chrome: the rail is unmounted, not just hidden, so no
+    // editor control exists in the running app's DOM
+    cy.get('[data-cy="app-view-exit-button"]').should('be.visible');
+    cy.get('[data-cy="shell-rail"]').should('not.exist');
+    cy.get('[data-cy="toggle-dashboard-btn"]').should('not.exist');
+    cy.get('[data-cy="toggle-edit-mode-btn"]').should('not.exist');
+
+    saveGraph();
+    openExistingGraph();
+
+    // an app saved in app view opens as the app
+    cy.get('[data-cy="dashboard"]').should('be.visible');
+    cy.get('[data-cy="app-view-exit-button"]').should('be.visible');
+    cy.get('[data-cy="shell-rail"]').should('not.exist');
+    cy.get('[data-cy="toggle-dashboard-btn"]').should('not.exist');
+    cy.get('[data-cy="toggle-edit-mode-btn"]').should('not.exist');
+
+    // the exit logo is the only way back into the editor
+    cy.get('[data-cy="app-view-exit-button"]').click({ force: true });
+    cy.get('[data-cy="shell-rail"]').should('be.visible');
+    cy.get('[data-cy="toggle-edit-mode-btn"]').first().should('be.visible');
+
+    saveGraph();
+    openExistingGraph();
+
+    cy.get('[data-cy="dashboard"]').should('be.visible');
+    cy.get('[data-cy="app-view-exit-button"]').should('not.exist');
+    cy.get('[data-cy="toggle-dashboard-btn"]').should('be.visible');
   });
 
   it('Clears the dashboard', () => {
@@ -431,9 +472,12 @@ describe('Test dashboard', () => {
     cy.get('[data-cy="toggle-dashboard-btn"]').click({ force: true });
     cy.get('[data-cy="toggle-edit-mode-btn"]').first().click({ force: true });
 
+    // the toolbox is docked open on a wide dashboard and closed on a narrow
+    // one, where it opens as an overlay - either way the header button is
+    // what shows it, so only click it when it is not already showing
     cy.get('body').then(($body) => {
-      if ($body.find('[data-cy="toolbox-toggle-btn"]').length > 0) {
-        cy.get('[data-cy="toolbox-toggle-btn"]').click({ force: true });
+      if ($body.find('[data-cy="vertical-toolbox"]:visible').length === 0) {
+        cy.get('[data-cy="toggle-toolbox-btn"]').click({ force: true });
       }
     });
 

@@ -176,6 +176,10 @@ export default class InterfaceController {
   static toggleShowDashboard: (action: VISIBILITY_ACTION) => void = () => {};
   static toggleDashboardInEditMode: (action: VISIBILITY_ACTION) => void =
     () => {};
+  static toggleAppView: (action: VISIBILITY_ACTION) => void = () => {};
+  static isInAppView(): boolean {
+    return this.getOverlayState().dashboard.fullscreen;
+  }
   static toggleRightSideDrawer: (
     action: VISIBILITY_ACTION,
     view?: RightDrawerView,
@@ -536,23 +540,30 @@ export default class InterfaceController {
           case 'KeyM':
             e.preventDefault();
             {
-              const goingFullscreen = !overlayState.dashboard.fullscreen;
+              const goingMaximized = !overlayState.dashboard.maximized;
               this.updateOverlayState({
                 dashboard: {
                   ...overlayState.dashboard,
-                  visible: goingFullscreen
+                  visible: goingMaximized
                     ? true
                     : overlayState.dashboard.visible,
-                  fullscreen: goingFullscreen,
+                  maximized: goingMaximized,
                 },
               });
             }
             break;
           case 'KeyE':
             e.preventDefault();
-            if (overlayState.dashboard.visible) {
+            if (this.isInAppView()) {
+              this.toggleAppView(VISIBILITY_ACTION.CLOSE);
+              this.openDashboardInEditMode();
+            } else if (overlayState.dashboard.visible) {
               this.toggleDashboardInEditMode(VISIBILITY_ACTION.TOGGLE);
             }
+            break;
+          case 'KeyT':
+            e.preventDefault();
+            this.toggleAppView(VISIBILITY_ACTION.TOGGLE);
             break;
           case 'KeyL':
             e.preventDefault();

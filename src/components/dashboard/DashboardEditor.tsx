@@ -32,7 +32,7 @@ import {
 import { LoadingState } from '../Loading';
 import { PlaceholderWidget, PlaceholderWidgetName } from './PlaceholderWidget';
 import '../../utils/style.module.css';
-import { NODE_SOURCE } from '../../utils/constants';
+import { getDashboardBackground, NODE_SOURCE } from '../../utils/constants';
 import {
   emptyLayout,
   rootProps,
@@ -48,8 +48,8 @@ import {
   SurfaceSync,
 } from '../../nodes/layout/surfaceSync';
 import type { UISurfaceNode } from '../../nodes/layout/uiSurface';
-import { SurfaceBreadcrumb } from './SurfaceBreadcrumb';
-import { useDisplayedSurfaceLocked } from './hooks';
+import { useDevicePreviewWidth, useDisplayedSurfaceLocked } from './hooks';
+import { setSurfaceStack } from './viewState';
 
 // example structure of a dashboard item
 // {
@@ -344,6 +344,7 @@ function nextSurfaceBreadcrumb(
 interface DashboardEditorProps {
   isVisible: boolean;
   isEditMode: boolean;
+  appView: boolean;
   randomMainColor: string;
   overlayState: IOverlay;
   updateOverlayState: (newState: Partial<IOverlay>) => void;
@@ -352,6 +353,7 @@ interface DashboardEditorProps {
 export const DashboardEditor: React.FC<DashboardEditorProps> = ({
   isVisible,
   isEditMode,
+  appView,
   randomMainColor,
   overlayState,
   updateOverlayState,
@@ -366,22 +368,15 @@ export const DashboardEditor: React.FC<DashboardEditorProps> = ({
   const [isDashboardLocked, setIsDashboardLocked] = useState(
     overlayState.dashboard.locked,
   );
-  // breadcrumb of dived-into surfaces; first entry is the selected surface
-  const [surfaceStack, setSurfaceStack] = useState<string[]>([]);
-  // ensures we auto-create a surface for an empty dashboard at most once per
-  // graph session (so deleting/undoing the surface does not recreate it)
   const autoCreatedSurfaceRef = useRef(false);
-  // the displayed surface's Layout JSON socket is wired: editor read-only
   const isSurfaceLocked = useDisplayedSurfaceLocked();
-  // read isEditMode from a ref so the load callbacks stay stable
+  const devicePreviewWidth = useDevicePreviewWidth();
+  const isDevicePreview = devicePreviewWidth !== null;
   const isEditModeRef = useRef(isEditMode);
   useEffect(() => {
     isEditModeRef.current = isEditMode;
   }, [isEditMode]);
 
-  // The dashboard shows the raw craft tree while EDITING (so you can see and
-  // edit hidden widgets and the static layout), but the runtime-overridden
-  // tree in VIEW/app mode (so wired "visible"/"layout" sockets take effect).
   const getDisplayTreeString = useCallback((surface: UISurfaceNode): string => {
     const rawTree = surface.getSurfaceTree();
     const tree = isEditModeRef.current
@@ -545,10 +540,10 @@ export const DashboardEditor: React.FC<DashboardEditorProps> = ({
 
   useEffect(() => {
     const listenIds = [
-      InterfaceController.addListener(
-        ListenEvent.GraphConfigured,
-        resolveInitialSurface,
-      ),
+      InterfaceController.addListener(ListenEvent.GraphConfigured, () => {
+        setIsGraphLoading(false);
+        resolveInitialSurface();
+      }),
       InterfaceController.addListener(
         ListenEvent.DisplayedSurfaceChanged,
         ({ nodeId, source }: { nodeId: string | null; source?: string }) => {
@@ -1035,9 +1030,13 @@ export const DashboardEditor: React.FC<DashboardEditorProps> = ({
       className="page-container"
       data-cy="dashboard"
       sx={{
+        // fills whatever the dashboard column has left below its header,
+        // rather than claiming the full viewport height
+        flex: 1,
+        minWidth: 0,
+        minHeight: 0,
         overflowY: 'auto',
-        maxHeight: '100dvh',
-        background: `${TRgba.fromString(randomMainColor).darken(0.85)}`,
+        background: `${getDashboardBackground(randomMainColor)}`,
         position: 'relative',
       }}
       onDragOver={(e) => e.preventDefault()}
@@ -1048,7 +1047,7 @@ export const DashboardEditor: React.FC<DashboardEditorProps> = ({
           display: 'flex',
           flexDirection: 'row',
           width: '100%',
-          height: '100dvh',
+          height: '100%',
         }}
       >
         {/* Toolbox as a sidebar */}
@@ -1072,12 +1071,6 @@ export const DashboardEditor: React.FC<DashboardEditorProps> = ({
             minWidth: isEditMode ? '400px' : undefined,
           }}
         >
-          {/* mt clears the floating app buttons overlaying the top left */}
-          {isEditMode && (
-            <Box sx={{ mt: 6, flexShrink: 0 }}>
-              <SurfaceBreadcrumb surfaceStack={surfaceStack} />
-            </Box>
-          )}
           {isEditMode && isSurfaceLocked && (
             <Box
               data-cy="surface-locked-banner"
@@ -1100,31 +1093,52 @@ export const DashboardEditor: React.FC<DashboardEditorProps> = ({
               justifyContent: 'center',
               alignItems: 'flex-start',
               width: '100%',
-              // grow to the remaining panel height (after breadcrumb/banner
-              // in edit mode) so the ROOT container's height '100%' has a
-              // definite parent to resolve against - without this the chain
-              // from the 100dvh panel breaks right here and '100%' silently
-              // behaves like 'auto'
               flex: 1,
-              my: isEditMode ? 6 : 0,
+              minHeight: 0,
+              my: isEditMode && isDevicePreview ? 2 : 0,
             }}
           >
-            <Frame>
-              <Element is={Container} canvas {...rootProps}></Element>
-            </Frame>
+            <Box
+              data-cy="device-preview-frame"
+              sx={{
+                alignSelf: 'stretch',
+                minHeight: 0,
+                ...(isDevicePreview
+                  ? {
+                      boxSizing: 'content-box',
+                      width: `${devicePreviewWidth}px`,
+                      maxWidth: 'calc(100% - 28px)',
+                      minWidth: 0,
+                      border: '10px solid #111111',
+                      borderRadius: '18px',
+                      boxShadow: '0 0 24px rgba(0, 0, 0, 0.5)',
+                      overflow: 'auto',
+                    }
+                  : {
+                      width: '100%',
+                    }),
+              }}
+            >
+              <Frame>
+                <Element is={Container} canvas {...rootProps}></Element>
+              </Frame>
+            </Box>
           </Box>
           {isGraphLoading && !isEditMode && (
             <LoadingState title="Loading user interface" />
           )}
-          {!isGraphLoading && isEmpty && !isEditMode && <EmptyState />}
+          {!isGraphLoading && isEmpty && !isEditMode && (
+            <EmptyState appView={appView} />
+          )}
         </Box>
       </Box>
     </Box>
   );
 };
 
-export const EmptyState: React.FC = () => (
+export const EmptyState: React.FC<{ appView?: boolean }> = ({ appView = false }) => (
   <Box
+    data-cy="dashboard-empty-state"
     sx={{
       display: 'flex',
       flexDirection: 'column',
@@ -1137,6 +1151,25 @@ export const EmptyState: React.FC = () => (
       lineHeight: 1.5,
     }}
   >
+    {appView ? (
+      <>
+        <Typography variant="h5" gutterBottom>
+          Nothing to show
+        </Typography>
+        <Typography variant="body1" color="text.secondary">
+          This Tailrmade app has no user interface yet.
+          <br />
+          To build one, click the logo on the top left or press <em>T</em>.
+        </Typography>
+      </>
+    ) : (
+      <EmptyStateBuildSteps />
+    )}
+  </Box>
+);
+
+const EmptyStateBuildSteps: React.FC = () => (
+  <>
     <Typography variant="h5" gutterBottom>
       Create user interface
     </Typography>
@@ -1181,7 +1214,7 @@ export const EmptyState: React.FC = () => (
         in the inspector
       </em>
     </Typography>
-  </Box>
+  </>
 );
 
 const CodeSpan = ({ children }) => (
