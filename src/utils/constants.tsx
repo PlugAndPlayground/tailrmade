@@ -195,7 +195,7 @@ export const SOCKET_FOCUS_SCREEN_DISTANCE = 15;
 // the screen space label naming the focused socket
 export const SOCKET_NAME_OVERLAY_FONTSIZE = 13;
 export const SOCKET_NAME_OVERLAY_PADDING = 5;
-export const SOCKET_NAME_OVERLAY_OFFSET = 14;
+export const SOCKET_NAME_OVERLAY_OFFSET = 20;
 export const SOCKET_CORNERRADIUS = 4;
 export const SOCKET_TEXTMARGIN = 8;
 export const SOCKET_TEXTMARGIN_TOP = 4;

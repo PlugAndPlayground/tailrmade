@@ -15,6 +15,9 @@ export default class SocketNameOverlay {
   private element: HTMLDivElement | undefined;
   private nodeNameElement: HTMLSpanElement | undefined;
   private socketNameElement: HTMLSpanElement | undefined;
+  private typeNameElement: HTMLSpanElement | undefined;
+  private typeSwatchElement: HTMLSpanElement | undefined;
+  private typeTextElement: HTMLSpanElement | undefined;
   private currentLabel = '';
   private currentWidth = 0;
   private isVisible = false;
@@ -35,9 +38,17 @@ export default class SocketNameOverlay {
     this.nodeNameElement.className = styles.socketNameOverlayNodeName;
     this.socketNameElement = document.createElement('span');
     this.socketNameElement.className = styles.socketNameOverlaySocketName;
+    this.typeNameElement = document.createElement('span');
+    this.typeNameElement.className = styles.socketNameOverlayTypeName;
+    this.typeSwatchElement = document.createElement('span');
+    this.typeSwatchElement.className = styles.socketNameOverlaySwatch;
+    this.typeTextElement = document.createElement('span');
+    this.typeNameElement.appendChild(this.typeSwatchElement);
+    this.typeNameElement.appendChild(this.typeTextElement);
 
     element.appendChild(this.nodeNameElement);
     element.appendChild(this.socketNameElement);
+    element.appendChild(this.typeNameElement);
     this.element = parent.appendChild(element);
     return this.element;
   }
@@ -48,15 +59,31 @@ export default class SocketNameOverlay {
       return;
     }
     const element = this.ensureElement();
-    if (!element || !this.nodeNameElement || !this.socketNameElement) {
+    if (
+      !element ||
+      !this.nodeNameElement ||
+      !this.socketNameElement ||
+      !this.typeSwatchElement ||
+      !this.typeTextElement
+    ) {
       return;
     }
     const nodeName = socket.getNode()?.getName() ?? '';
-    const label = `${nodeName} ${socket.name}`;
+    const typeName = socket.dataType?.getName() ?? '';
+    const label = `${nodeName} ${socket.name} ${typeName}`;
     if (label !== this.currentLabel) {
       this.currentLabel = label;
       this.nodeNameElement.textContent = nodeName;
       this.socketNameElement.textContent = socket.name;
+      this.typeTextElement.textContent = typeName;
+      // The datatype colour goes on the swatch, exactly as the socket is
+      // drawn, and the text stays neutral. Datatype colours are picked to
+      // sit on the canvas rather than on a near black pill, so several of
+      // them (FileType, ImageResourceMapType) are unreadable as text here -
+      // as a swatch any colour works, and none of them get distorted.
+      this.typeSwatchElement.style.backgroundColor = socket.dataType
+        .getColor()
+        .hex();
       // measured only when the text changes, not on every pointer move
       element.style.display = 'block';
       this.currentWidth = element.offsetWidth;
@@ -80,6 +107,9 @@ export default class SocketNameOverlay {
     this.element = undefined;
     this.nodeNameElement = undefined;
     this.socketNameElement = undefined;
+    this.typeNameElement = undefined;
+    this.typeSwatchElement = undefined;
+    this.typeTextElement = undefined;
     this.currentLabel = '';
     this.isVisible = false;
   }
