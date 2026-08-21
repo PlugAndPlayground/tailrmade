@@ -155,8 +155,8 @@ export default class PPGraph {
     this.overlayContainer = new PIXI.Container();
     this.overlayContainer.name = 'OverlayContainer';
     this.app.stage.addChild(this.overlayContainer);
+    // html layer, not a child of overlayContainer - see SocketNameOverlay
     this.socketNameOverlay = new SocketNameOverlay();
-    this.overlayContainer.addChild(this.socketNameOverlay);
     this.initEmptyCanvasIndicator();
 
     this.graphConfiguredAndReady = false;

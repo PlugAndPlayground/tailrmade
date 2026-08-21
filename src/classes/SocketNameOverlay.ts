@@ -1,53 +1,45 @@
-import * as PIXI from 'pixi.js';
 import PPSocket from './SocketClass';
-import { TRgba } from '../utils/color';
-import {
-  COLOR_DARK,
-  COLOR_WHITE_TEXT,
-  SOCKET_NAME_OVERLAY_FONTSIZE,
-  SOCKET_NAME_OVERLAY_OFFSET,
-  SOCKET_NAME_OVERLAY_PADDING,
-  TEXT_RESOLUTION,
-} from '../utils/constants';
+import * as styles from '../utils/style.module.css';
+import { SOCKET_NAME_OVERLAY_OFFSET } from '../utils/constants';
 
 // Screen space label naming the socket the pointer is about to act on.
-// It lives in the graph's overlayContainer (stage level, so it keeps its
-// size no matter how far the viewport is zoomed out) because that is
-// exactly when the node's own label becomes unreadable - and hybrid nodes
-// (getShowLabels() === false) never draw a socket label at all.
-export default class SocketNameOverlay extends PIXI.Container {
-  private _background: PIXI.Graphics;
-  private _text: PIXI.Text;
-  private _boxWidth = 0;
-  private _boxHeight = 0;
+//
+// It is rendered on the html layer rather than into the pixi overlay
+// container: hybrid nodes append their own html to #container, which paints
+// over the entire canvas, so a canvas drawn label is clipped by any hybrid
+// node it happens to overlap. Positioning is exact because pixi screen
+// coordinates and #container css pixels are the same coordinate space - the
+// same identity mapping HybridNode2 already uses to keep its html glued to
+// the canvas (see pixiToContainerNumber).
+export default class SocketNameOverlay {
+  private element: HTMLDivElement | undefined;
+  private nodeNameElement: HTMLSpanElement | undefined;
+  private socketNameElement: HTMLSpanElement | undefined;
+  private currentLabel = '';
+  private currentWidth = 0;
+  private isVisible = false;
 
-  constructor() {
-    super();
-    this.name = 'SocketNameOverlay';
-    this.eventMode = 'none';
-    this.visible = false;
+  private ensureElement(): HTMLDivElement | undefined {
+    if (this.element) {
+      return this.element;
+    }
+    const parent = document.getElementById('container');
+    if (!parent) {
+      return undefined;
+    }
+    const element = document.createElement('div');
+    element.id = 'socket-name-overlay';
+    element.className = styles.socketNameOverlay;
 
-    this._background = new PIXI.Graphics();
-    this._text = new PIXI.Text({
-      text: '',
-      style: new PIXI.TextStyle({
-        fontSize: SOCKET_NAME_OVERLAY_FONTSIZE,
-        fill: COLOR_WHITE_TEXT,
-      }),
-      resolution: TEXT_RESOLUTION,
-    });
-    this._text.x = SOCKET_NAME_OVERLAY_PADDING;
-    this._text.y = SOCKET_NAME_OVERLAY_PADDING;
+    this.nodeNameElement = document.createElement('span');
+    this.nodeNameElement.className = styles.socketNameOverlayNodeName;
+    this.socketNameElement = document.createElement('span');
+    this.socketNameElement.className = styles.socketNameOverlaySocketName;
 
-    this.addChild(this._background);
-    this.addChild(this._text);
-  }
-
-  // the node name is included because at the zoom levels this overlay is
-  // meant for, the node header is just as unreadable as the socket label
-  static getLabel(socket: PPSocket): string {
-    const nodeName = socket.getNode()?.getName();
-    return nodeName ? `${nodeName} · ${socket.name}` : socket.name;
+    element.appendChild(this.nodeNameElement);
+    element.appendChild(this.socketNameElement);
+    this.element = parent.appendChild(element);
+    return this.element;
   }
 
   showFor(socket: PPSocket): void {
@@ -55,42 +47,60 @@ export default class SocketNameOverlay extends PIXI.Container {
       this.hide();
       return;
     }
-    const label = SocketNameOverlay.getLabel(socket);
-    if (this._text.text !== label) {
-      this._text.text = label;
-      this.redrawBackground();
+    const element = this.ensureElement();
+    if (!element || !this.nodeNameElement || !this.socketNameElement) {
+      return;
     }
-    this.positionNextTo(socket);
-    this.visible = true;
+    const nodeName = socket.getNode()?.getName() ?? '';
+    const label = `${nodeName} ${socket.name}`;
+    if (label !== this.currentLabel) {
+      this.currentLabel = label;
+      this.nodeNameElement.textContent = nodeName;
+      this.socketNameElement.textContent = socket.name;
+      // measured only when the text changes, not on every pointer move
+      element.style.display = 'block';
+      this.currentWidth = element.offsetWidth;
+    }
+    if (!this.isVisible) {
+      element.style.display = 'block';
+      this.isVisible = true;
+    }
+    this.positionNextTo(socket, element);
   }
 
   hide(): void {
-    this.visible = false;
+    if (this.element && this.isVisible) {
+      this.element.style.display = 'none';
+      this.isVisible = false;
+    }
   }
 
-  private redrawBackground(): void {
-    this._boxWidth = this._text.width + SOCKET_NAME_OVERLAY_PADDING * 2;
-    this._boxHeight = this._text.height + SOCKET_NAME_OVERLAY_PADDING * 2;
-    this._background
-      .clear()
-      .roundRect(0, 0, this._boxWidth, this._boxHeight, 4)
-      .fill({ color: TRgba.fromString(COLOR_DARK).hexNumber(), alpha: 0.85 });
+  destroy(): void {
+    this.element?.remove();
+    this.element = undefined;
+    this.nodeNameElement = undefined;
+    this.socketNameElement = undefined;
+    this.currentLabel = '';
+    this.isVisible = false;
   }
 
   // placed on the outward side of the node - inputs sit on the left edge so
   // the label goes further left, outputs on the right edge so it goes right.
   // That keeps it off the node it belongs to, and it is clamped so it stays
   // on screen at the canvas edges
-  private positionNextTo(socket: PPSocket): void {
+  private positionNextTo(socket: PPSocket, element: HTMLDivElement): void {
     const center = socket.screenPointSocketCenter();
-    const x = socket.isInput()
-      ? center.x - SOCKET_NAME_OVERLAY_OFFSET - this._boxWidth
+    const rawX = socket.isInput()
+      ? center.x - SOCKET_NAME_OVERLAY_OFFSET - this.currentWidth
       : center.x + SOCKET_NAME_OVERLAY_OFFSET;
-    const y = center.y - this._boxHeight / 2;
-
-    this.position.set(
-      Math.max(4, Math.min(window.innerWidth - this._boxWidth - 4, x)),
-      Math.max(4, Math.min(window.innerHeight - this._boxHeight - 4, y)),
+    const x = Math.max(
+      4,
+      Math.min(window.innerWidth - this.currentWidth - 4, rawX),
     );
+    const y = Math.round(center.y);
+    // translateY(-50%) centres it vertically without measuring the height
+    element.style.left = `${Math.round(x)}px`;
+    element.style.top = `${y}px`;
+    element.style.transform = 'translateY(-50%)';
   }
 }
