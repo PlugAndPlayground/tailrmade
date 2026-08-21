@@ -25,7 +25,10 @@ const SocialIcons = (props) => {
       sx={{
         display: 'flex',
         gap: 0.5,
-        '--svg-fill-color': TRgba.fromString(props.randomMainColor).hex(),
+        // these buttons are transparent, so the icon colour has to follow
+        // whatever the rail is sitting on - see Rail's iconColor
+        '--svg-fill-color':
+          props.iconColor ?? TRgba.fromString(props.randomMainColor).hex(),
       }}
     >
       <StyledSocialButton

@@ -1,6 +1,6 @@
-import React, { useState, useCallback, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { TRgba } from '../utils/color';
-import { Box, Drawer, IconButton, Tooltip } from '@mui/material';
+import { Box, IconButton, Tooltip } from '@mui/material';
 import TuneIcon from '@mui/icons-material/Tune';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import InterfaceController, { ListenEvent } from '../InterfaceController';
@@ -10,10 +10,13 @@ import { RightSideContainer } from '../containers/RightSideContainer';
 import { useIsSmallScreen } from '../utils/utils';
 import {
   DRAWER_CONSTANTS,
-  DrawerView,
+  getDrawerBackground,
   LeftDrawerView,
   RightDrawerView,
+  SHELL_CONSTANTS,
 } from '../utils/constants';
+import { DrawerSide, IOverlay } from '../utils/interfaces';
+import { useDragResize } from './useDragResize';
 import PPGraph from '../classes/GraphClass';
 import * as styles from '../utils/style.module.css';
 
@@ -35,127 +38,57 @@ export const ResizeHandle = ({ isLeft, onPointerDown }) => {
 // Types
 interface LeftRightDrawerProps {
   isLeft: boolean;
-  drawerWidth: number;
-  setDrawerWidth: (width: number) => void;
-  toggle: boolean;
-  // the active sub-view for this drawer, read from overlay state
-  activeView?: DrawerView;
+  // app view hides every panel; kept mounted so nothing remounts on the way
+  // back out
+  hidden: boolean;
+  overlayState: IOverlay;
+  updateOverlayState: (newState: Partial<IOverlay>) => void;
   randomMainColor: string;
 }
 
-// Main Component
+// A docked column of the shell: the menu panel (left) or the inspector
+// (right). Both narrow their neighbours rather than overlaying them - only
+// on small screens do they still take over the whole width, as before.
 const LeftRightDrawer: React.FC<LeftRightDrawerProps> = ({
   isLeft,
-  drawerWidth,
-  setDrawerWidth,
-  toggle,
-  activeView,
+  hidden,
+  overlayState,
+  updateOverlayState,
   randomMainColor,
 }) => {
   // State
   const [nodeFilter, setNodeFilter] = useState<string | null>(null);
   const [graphFilter, setGraphFilter] = useState('nodes');
   const [graphFilterText, setGraphFilterText] = useState('');
-  const [isOpen, setIsOpen] = useState(false);
-  const [isResizing, setIsResizing] = useState(false);
   const [selectedNodes, setSelectedNodes] = useState(
     PPGraph?.currentGraph?.selection?.selectedNodes || [],
   );
 
-  // Refs
-  const drawerRef = useRef<HTMLDivElement>(null);
-  const animationFrameRef = useRef<number>();
-
   // Hooks
   const smallScreen = useIsSmallScreen();
 
-  const resizeHandler = useRef({
-    isResizing: false,
-    startWidth: 0,
-    startX: 0,
-  });
+  const side = isLeft ? DrawerSide.LEFT : DrawerSide.RIGHT;
+  const drawerWidth = overlayState[side].width;
+  const activeView = overlayState[side].activeView;
+  const isOpen = overlayState[side].visible;
 
-  const handlePointerMove = useCallback(
-    (e: PointerEvent) => {
-      if (!resizeHandler.current.isResizing) return;
-
-      // Cancel previous animation frame if it exists
-      if (animationFrameRef.current) {
-        cancelAnimationFrame(animationFrameRef.current);
-      }
-
-      // Request new animation frame
-      animationFrameRef.current = requestAnimationFrame(() => {
-        const delta = isLeft
-          ? e.clientX - resizeHandler.current.startX
-          : resizeHandler.current.startX - e.clientX;
-
-        const newWidth = Math.min(
-          Math.max(
-            resizeHandler.current.startWidth + delta,
-            DRAWER_CONSTANTS.MIN_DRAWER_WIDTH,
-          ),
-          DRAWER_CONSTANTS.MAX_DRAWER_WIDTH,
-        );
-
-        const truncatedWidth = Math.floor(newWidth);
-        setDrawerWidth(truncatedWidth);
+  const handleMouseDown = useDragResize({
+    isLeft,
+    getStartWidth: () => drawerWidth,
+    onWidth: (width) => {
+      const newWidth = Math.min(
+        Math.max(width, DRAWER_CONSTANTS.MIN_DRAWER_WIDTH),
+        DRAWER_CONSTANTS.MAX_DRAWER_WIDTH,
+      );
+      updateOverlayState({
+        [side]: {
+          ...overlayState[side],
+          visible: true,
+          width: Math.floor(newWidth),
+        },
       });
     },
-    [isLeft, setDrawerWidth],
-  );
-
-  const handlePointerUp = useCallback(
-    (e: PointerEvent) => {
-      if (!resizeHandler.current.isResizing) return;
-
-      resizeHandler.current.isResizing = false;
-      setIsResizing(false);
-
-      window.removeEventListener('pointermove', handlePointerMove);
-      window.removeEventListener('pointerup', handlePointerUp);
-    },
-    [handlePointerMove, setDrawerWidth, drawerWidth],
-  );
-
-  const handleMouseDown = useCallback(
-    (e: React.PointerEvent) => {
-      e.preventDefault();
-      e.stopPropagation();
-
-      resizeHandler.current = {
-        isResizing: true,
-        startWidth: drawerWidth,
-        startX: e.clientX,
-      };
-
-      setIsResizing(true);
-
-      window.addEventListener('pointermove', handlePointerMove);
-      window.addEventListener('pointerup', handlePointerUp);
-    },
-    [handlePointerMove, handlePointerUp, drawerWidth],
-  );
-
-  // Use cleanup effect for safety
-  useEffect(() => {
-    return () => {
-      if (animationFrameRef.current) {
-        cancelAnimationFrame(animationFrameRef.current);
-      }
-      document.removeEventListener('pointermove', handlePointerMove);
-      document.removeEventListener('pointerup', handlePointerUp);
-      document.removeEventListener('pointercancel', handlePointerUp);
-    };
-  }, [handlePointerMove, handlePointerUp]);
-
-  useEffect(() => {
-    if (toggle) {
-      setIsOpen(true);
-    } else {
-      setIsOpen(false);
-    }
-  }, [toggle]);
+  });
 
   useEffect(() => {
     const listenerId = InterfaceController.addListener(
@@ -182,7 +115,9 @@ const LeftRightDrawer: React.FC<LeftRightDrawerProps> = ({
     return (
       <RightSideContainer
         randomMainColor={randomMainColor}
-        rightDrawerView={(activeView as RightDrawerView) ?? RightDrawerView.GRAPH}
+        rightDrawerView={
+          (activeView as RightDrawerView) ?? RightDrawerView.GRAPH
+        }
         setRightDrawerView={(view) =>
           InterfaceController.setRightDrawerView(view)
         }
@@ -197,37 +132,60 @@ const LeftRightDrawer: React.FC<LeftRightDrawerProps> = ({
     );
   };
 
-  const backgroundColor = TRgba.fromString(randomMainColor).darken(0.8);
+  const backgroundColor = getDrawerBackground(randomMainColor);
+
+  // small screens keep the pre-dock behaviour: the panel covers everything
+  // instead of taking a share of the row
+  const overlayOnSmallScreen = smallScreen && isOpen;
+
   return (
     <>
-      <Drawer
-        anchor={isLeft ? 'left' : 'right'}
-        variant="persistent"
-        hideBackdrop={true}
-        open={isOpen}
-        ModalProps={{
-          keepMounted: true,
-        }}
-        slotProps={{
-          paper: {
-            elevation: 0,
-            style: {
-              zIndex: isLeft ? 10 : 4,
-              width: smallScreen ? '100%' : drawerWidth,
-              border: 0,
-              background: backgroundColor.toString(),
-              height: '100dvh',
-              paddingLeft: !isLeft && smallScreen ? '40px' : undefined,
-            },
-            ref: drawerRef,
-          },
+      <Box
+        data-cy={isLeft ? 'menu-panel-column' : 'inspector-column'}
+        sx={{
+          display: hidden ? 'none' : 'block',
+          flex: 'none',
+          width: isOpen ? (smallScreen ? '100%' : `${drawerWidth}px`) : 0,
+          height: '100dvh',
+          position: overlayOnSmallScreen ? 'absolute' : 'relative',
+          ...(overlayOnSmallScreen
+            ? { top: 0, left: 0, right: 0, zIndex: 10 }
+            : {}),
+          // While the panel is docked the rail is its neighbour and takes its
+          // own width out of the row. Overlaying, the panel spans the whole
+          // row and the rail (zIndex 30) draws on top of it, so the content
+          // has to be pushed clear of it by hand.
+          boxSizing: 'border-box',
+          paddingLeft: overlayOnSmallScreen
+            ? `${SHELL_CONSTANTS.RAIL_WIDTH}px`
+            : 0,
+          background: isOpen ? backgroundColor.toString() : 'transparent',
+          overflow: 'hidden',
+          pointerEvents: isOpen ? 'auto' : 'none',
+          transition: 'width 0.225s cubic-bezier(0, 0, 0.2, 1)',
         }}
       >
-        <ResizeHandle isLeft={isLeft} onPointerDown={handleMouseDown} />
-        {isOpen && renderDrawerContent()}
-      </Drawer>
+        {isOpen && (
+          <>
+            <ResizeHandle isLeft={isLeft} onPointerDown={handleMouseDown} />
+            {/* pinned to the panel's own width so the content does not reflow
+                while the column animates open or closed */}
+            <Box
+              sx={{
+                width: smallScreen ? '100%' : `${drawerWidth}px`,
+                height: '100%',
+                display: 'flex',
+                flexDirection: 'column',
+                overflow: 'hidden',
+              }}
+            >
+              {renderDrawerContent()}
+            </Box>
+          </>
+        )}
+      </Box>
 
-      {!isLeft && !smallScreen && (
+      {!isLeft && !smallScreen && !hidden && (
         <Tooltip title="Open inspector (3)" placement="top-end">
           <IconButton
             data-cy="right-drawer-toggle-btn"
@@ -246,12 +204,13 @@ const LeftRightDrawer: React.FC<LeftRightDrawerProps> = ({
               backgroundColor: backgroundColor.toString(),
               borderRadius: '4px 0 0 4px',
               boxShadow: '0px 2px 4px rgba(0,0,0,0.2)',
+              pointerEvents: 'auto',
               '&:hover': {
                 backgroundColor: TRgba.fromString(randomMainColor)
                   .darken(0.7)
                   .toString(),
               },
-              transition: 'right 0.225s cubic-bezier(0, 0, 0.2, 1)', // transform 225ms cubic-bezier(0, 0, 0.2, 1)
+              transition: 'right 0.225s cubic-bezier(0, 0, 0.2, 1)',
             }}
             size="small"
           >
@@ -263,10 +222,4 @@ const LeftRightDrawer: React.FC<LeftRightDrawerProps> = ({
   );
 };
 
-export default React.memo(LeftRightDrawer, (prevProps, nextProps) => {
-  return (
-    prevProps.drawerWidth === nextProps.drawerWidth &&
-    prevProps.toggle === nextProps.toggle &&
-    prevProps.activeView === nextProps.activeView
-  );
-});
+export default React.memo(LeftRightDrawer);

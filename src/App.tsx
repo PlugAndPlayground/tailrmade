@@ -26,6 +26,7 @@ import PPNode from './classes/NodeClass';
 import InterfaceController, { ListenEvent } from './InterfaceController';
 import PPSelection from './classes/selection/SelectionClass';
 import TestController from './TestController';
+import { getTMBuildLabel } from './buildInfo';
 
 import { BackendGateway } from './services/BackendGateway';
 import GraphContextMenu from './components/contextmenus/GraphContextMenu';
@@ -63,6 +64,8 @@ for (let staticMethod in OriginalResizeObserver) {
 }
 
 ///////////////////////////////
+
+console.log(getTMBuildLabel());
 
 fetch('/buildInfo')
   .then((response) => response.json())

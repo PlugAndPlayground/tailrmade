@@ -4,8 +4,27 @@ import {
   closeBothDrawers,
   controlOrMetaKey,
   doWithTestController,
+  exitDashboardEditMode,
+  getStableScreenCoordinates,
   openNewGraph,
+  shouldWithTestController,
+  waitForStableRect,
 } from '../helpers';
+
+// the canvas editor is a single element shared by Label and Text, named
+// after the socket it edits
+const canvasEditorSelector = '#Label-Input';
+
+// double-clicking the node on the canvas opens its text editor there
+const editOnCanvas = (nodeId: string, text: string) => {
+  getStableScreenCoordinates((testController) =>
+    testController.getNodeCenterById(nodeId),
+  ).then(([x, y]) => {
+    cy.get('#pixi-container').dblclick(x, y);
+  });
+
+  cy.get(canvasEditorSelector).should('be.visible').type(`{selectall}${text}`);
+};
 
 describe('testText', () => {
   before(() => {
@@ -46,26 +65,27 @@ describe('testText', () => {
         .should('be.visible')
         .and('contain.text', initialText);
 
-      cy.get(`${widgetSelector} div[contenteditable="true"]`)
-        .first()
-        .should('be.visible')
-        .click({ force: true })
-        .type('{selectall}')
-        .type(editedText)
-        .type('{enter}');
+      // the text is edited on the canvas only - the dashboard widget just
+      // displays what the node outputs
+      cy.get(`${widgetSelector} [contenteditable="true"]`).should('not.exist');
 
+      // adding opened the dashboard in edit mode; leave it and let the panel
+      // settle, then bring the node back into the uncovered part of the canvas
+      exitDashboardEditMode();
+      waitForStableRect('[data-cy="dashboard"]');
       doWithTestController((testController) => {
+        testController.zoomToFitNodesById([id]);
+      });
+
+      editOnCanvas(id, editedText);
+
+      shouldWithTestController((testController) => {
         expect(testController.getNodeOutputValue(id, 'Output')).to.eq(
           editedText,
         );
       });
 
-      cy.get('[data-cy="toggle-edit-mode-btn"]').first().click({ force: true });
-
-      cy.get(`${widgetSelector} div[contenteditable="false"]`)
-        .first()
-        .should('be.visible')
-        .and('contain.text', editedText);
+      cy.get(widgetSelector).should('contain.text', editedText);
     });
   });
 
@@ -80,14 +100,7 @@ describe('testText', () => {
       await testController.executeNodeByID(id);
     });
 
-    doWithTestController((testController) => {
-      const [x, y] = testController.getNodeCenterById(id);
-      cy.get('#pixi-container').dblclick(x, y);
-    });
-
-    cy.get('#Label-Input')
-      .should('be.visible')
-      .type(`{selectall}${editedText}`);
+    editOnCanvas(id, editedText);
 
     doWithTestController((testController) => {
       expect(testController.getNodeInputValue(id, 'Input')).to.eq(editedText);

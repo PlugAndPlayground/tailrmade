@@ -35,6 +35,7 @@ import FlowLogic from './FlowLogic';
 import InterfaceController, { ListenEvent } from '../InterfaceController';
 import { DynamicImport } from '../utils/dynamicImport';
 import {
+  DASHBOARD_DEFAULT,
   MAX_LATEST_NODES_IN_SEARCH,
   ONCLICK_DOUBLECLICK,
 } from '../utils/constants';
@@ -1415,8 +1416,14 @@ export default class PPGraph {
 
     // Get dashboard state from storedGraph and combine with current left and right state
     const currentOverlayState = InterfaceController.getOverlayState();
+    const storedDashboard = data.overlay?.[DrawerSide.DASHBOARD];
     const overlayWithCurrentDrawerState = {
       ...data.overlay,
+      [DrawerSide.DASHBOARD]: {
+        ...DASHBOARD_DEFAULT,
+        ...storedDashboard,
+        maximized: storedDashboard?.maximized ?? false,
+      },
       [DrawerSide.LEFT]: currentOverlayState.leftSide,
       [DrawerSide.RIGHT]: currentOverlayState.rightSide,
     };

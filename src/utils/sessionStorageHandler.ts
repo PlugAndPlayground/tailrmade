@@ -1,5 +1,5 @@
 import { IDrawerState } from './interfaces';
-import { LeftDrawerView, RightDrawerView } from './constants';
+import { DRAWER_CONSTANTS, LeftDrawerView, RightDrawerView } from './constants';
 
 const DRAWER_STATE_KEY = 'tm-drawer-state';
 
@@ -49,7 +49,9 @@ export function getDefaultDrawerState(): IDrawerState {
   return {
     leftSide: {
       visible: false,
-      width: 320,
+      // the menu panel opens narrow (it holds lists, not editors) but stays
+      // resizable; MIN_DRAWER_WIDTH is its floor
+      width: DRAWER_CONSTANTS.MIN_DRAWER_WIDTH,
       activeView: LeftDrawerView.GRAPHS,
     },
     rightSide: {
