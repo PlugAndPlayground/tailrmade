@@ -200,6 +200,14 @@ export default class PPGraph {
       this.onPointerRightClicked.bind(this),
     );
     this.viewport.addEventListener('click', this.onPointerClick.bind(this));
+
+    // the label is positioned in screen space, so a pan or zoom under a
+    // stationary pointer would leave it behind
+    this.viewport.addEventListener('moved', () => {
+      if (this.focusedSocket && !this.focusedSocket.destroyed) {
+        this.socketNameOverlay.showFor(this.focusedSocket, true);
+      }
+    });
     this.viewport.addEventListener('pointermove', (event) =>
       this.onViewportMove(event),
     );
@@ -502,9 +510,12 @@ export default class PPGraph {
     }
     if (socket && !socket.destroyed) {
       // reapplied rather than set once, so the ring and the label keep their
-      // screen size while zooming mid drag and survive a socket redraw
+      // screen size while zooming mid drag and survive a socket redraw. The
+      // ring is never delayed - it confirms which socket the pointer owns -
+      // while the label waits for the pointer to settle, unless a connection
+      // is already being dragged, where the target matters immediately
       socket.showFocusHighlight();
-      this.socketNameOverlay.showFor(socket);
+      this.socketNameOverlay.showFor(socket, Boolean(this.selectedSocket));
     } else {
       this.socketNameOverlay.hide();
     }
@@ -626,6 +637,11 @@ export default class PPGraph {
     }
     this.stopConnecting();
     if (source && socket !== this.selectedSocket && !connected) {
+      // clicking a socket is deliberate, so skip the dwell: the inspector
+      // positions itself against the label, and without this a quick click
+      // would open it before the label existed and fall back to placing
+      // itself somewhere else entirely
+      this.socketNameOverlay.showFor(socket, true);
       InterfaceController.notifyListeners(ListenEvent.ToggleTooltipInspector, {
         event,
       });

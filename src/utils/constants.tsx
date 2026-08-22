@@ -194,6 +194,12 @@ export const SOCKET_NAME_OVERLAY_OFFSET = 20;
 // shift expands a fanned out connection count into a list, capped so a
 // heavily fanned socket cannot grow the label past the viewport
 export const SOCKET_NAME_OVERLAY_MAX_LISTED_CONNECTIONS = 10;
+// the pointer has to settle on a socket for this long before the label
+// appears, so passing over sockets on the way to a drag stays quiet
+export const SOCKET_NAME_OVERLAY_DWELL_MS = 400;
+// ...but once it has appeared, it stays eager for this long after hiding, so
+// scanning along a row of sockets does not pay the dwell again each time
+export const SOCKET_NAME_OVERLAY_WARM_MS = 1000;
 export const SOCKET_CORNERRADIUS = 4;
 export const SOCKET_TEXTMARGIN = 8;
 export const SOCKET_TEXTMARGIN_TOP = 4;

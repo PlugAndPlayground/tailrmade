@@ -3,8 +3,10 @@ import PPNode from './NodeClass';
 import PPSocket from './SocketClass';
 import * as styles from '../utils/style.module.css';
 import {
+  SOCKET_NAME_OVERLAY_DWELL_MS,
   SOCKET_NAME_OVERLAY_MAX_LISTED_CONNECTIONS,
   SOCKET_NAME_OVERLAY_OFFSET,
+  SOCKET_NAME_OVERLAY_WARM_MS,
   SOCKET_TYPE,
 } from '../utils/constants';
 
@@ -43,6 +45,8 @@ export default class SocketNameOverlay {
   private isDetailed = false;
   private currentSocket: PPSocket | undefined;
   private detailKeyListener: ((event: KeyboardEvent) => void) | undefined;
+  private dwellTimer: ReturnType<typeof setTimeout> | undefined;
+  private eagerUntil = 0;
 
   constructor() {
     // shift is read from the event rather than tracked as a pressed/released
@@ -147,11 +151,37 @@ export default class SocketNameOverlay {
     return { direction, rows: listed, more: rows.length - listed.length };
   }
 
-  showFor(socket: PPSocket): void {
+  // The label waits for the pointer to settle before appearing, so that
+  // crossing a socket on the way to a click-and-drag does not flash it up.
+  // Once it is up, moving to another socket is instant - scanning a row is
+  // the other thing this label is for - and it stays instant for a grace
+  // period after hiding, so a brief gap between sockets does not re-arm the
+  // wait. `immediate` skips the wait outright, which is what a live drag
+  // wants: the pointer is already committed.
+  showFor(socket: PPSocket, immediate = false): void {
     if (!socket || socket.destroyed) {
       this.hide();
       return;
     }
+    if (immediate || this.isVisible || Date.now() < this.eagerUntil) {
+      this.clearDwell();
+      this.render(socket);
+      return;
+    }
+    // keep the latest socket, but do not restart the clock: the pointer is
+    // still settling within the same run of sockets
+    this.currentSocket = socket;
+    if (this.dwellTimer === undefined) {
+      this.dwellTimer = setTimeout(() => {
+        this.dwellTimer = undefined;
+        if (this.currentSocket) {
+          this.render(this.currentSocket);
+        }
+      }, SOCKET_NAME_OVERLAY_DWELL_MS);
+    }
+  }
+
+  private render(socket: PPSocket): void {
     const element = this.ensureElement();
     if (
       !element ||
@@ -225,15 +255,38 @@ export default class SocketNameOverlay {
     this.positionNextTo(socket, element);
   }
 
+  // The on-screen box, for anything that wants to sit with the label rather
+  // than compute its own placement - the click-to-open inspector aligns to
+  // this so the two read as one stack. Undefined while it is not showing.
+  getFrameRect(): DOMRect | undefined {
+    if (!this.element || !this.isVisible) {
+      return undefined;
+    }
+    return this.element.getBoundingClientRect();
+  }
+
   hide(): void {
     this.currentSocket = undefined;
+    this.clearDwell();
     if (this.element && this.isVisible) {
       this.element.style.display = 'none';
       this.isVisible = false;
+      // it was actually up, so stay eager for a moment - the gap between two
+      // sockets should not cost the dwell again. A label that never made it
+      // past the wait leaves no warmth behind
+      this.eagerUntil = Date.now() + SOCKET_NAME_OVERLAY_WARM_MS;
+    }
+  }
+
+  private clearDwell(): void {
+    if (this.dwellTimer !== undefined) {
+      clearTimeout(this.dwellTimer);
+      this.dwellTimer = undefined;
     }
   }
 
   destroy(): void {
+    this.clearDwell();
     if (this.detailKeyListener) {
       window.removeEventListener('keydown', this.detailKeyListener);
       window.removeEventListener('keyup', this.detailKeyListener);

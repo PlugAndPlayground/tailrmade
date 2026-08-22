@@ -653,6 +653,26 @@ export default class Socket
   }
 
   getTooltipPosition(): PIXI.Point {
+    // hang it off the hover label when there is one: clicking a socket means
+    // hovering it, so the label is almost always up, and stacking the two
+    // beats two boxes placed by different rules. Aligned on the outward edge
+    // so both grow away from the node
+    const labelRect = PPGraph.currentGraph?.socketNameOverlay?.getFrameRect();
+    if (labelRect) {
+      // the label already sits on the outward side of the node, so match the
+      // edge it grew from: a label to the left of the socket grows further
+      // left, and the wider inspector under it has to do the same or it
+      // reaches back across the node
+      const labelIsLeftOfSocket = labelRect.right <= this.getGlobalPosition().x;
+      const alignedLeft = labelIsLeftOfSocket
+        ? labelRect.right - TOOLTIP_WIDTH
+        : labelRect.left;
+      return new PIXI.Point(
+        Math.max(0, Math.min(window.innerWidth - TOOLTIP_WIDTH, alignedLeft)),
+        labelRect.bottom + TOOLTIP_DISTANCE / 2,
+      );
+    }
+
     const scale = PPGraph.currentGraph.viewportScaleX;
     const absPos = this.getGlobalPosition();
     const nodeWidthScaled = this.getNode()._BackgroundGraphicsRef.width * scale;
