@@ -23,9 +23,7 @@ import { Tooltipable } from '../components/Tooltip';
 import InterfaceController, { ListenEvent } from '../InterfaceController';
 import {
   COLOR_DARK,
-  COLOR_MAIN,
   COLOR_WHITE_TEXT,
-  SOCKET_SNAP_HIGHLIGHT_SCREEN_WIDTH,
   SOCKET_TEXTMARGIN_TOP,
   SOCKET_TEXTMARGIN,
   SOCKET_TYPE,
@@ -118,8 +116,6 @@ export default class Socket
   // data is derived from execute function
 
   _SocketRef: PIXI.Graphics;
-  _FocusRingRef: PIXI.Graphics | undefined;
-  private _isFocused = false;
   _TextRef: PIXI.Text;
   _ErrorBox: PIXI.Graphics;
   _MetaText: PIXI.Text;
@@ -653,39 +649,17 @@ export default class Socket
   }
 
   getTooltipPosition(): PIXI.Point {
-    // hang it off the hover label when there is one: clicking a socket means
-    // hovering it, so the label is almost always up, and stacking the two
-    // beats two boxes placed by different rules. Aligned on the outward edge
-    // so both grow away from the node
-    const labelRect = PPGraph.currentGraph?.socketNameOverlay?.getFrameRect();
-    if (labelRect) {
-      // the label already sits on the outward side of the node, so match the
-      // edge it grew from: a label to the left of the socket grows further
-      // left, and the wider inspector under it has to do the same or it
-      // reaches back across the node
-      const labelIsLeftOfSocket = labelRect.right <= this.getGlobalPosition().x;
-      const alignedLeft = labelIsLeftOfSocket
-        ? labelRect.right - TOOLTIP_WIDTH
-        : labelRect.left;
-      return new PIXI.Point(
-        Math.max(0, Math.min(window.innerWidth - TOOLTIP_WIDTH, alignedLeft)),
-        labelRect.bottom + TOOLTIP_DISTANCE / 2,
-      );
-    }
-
-    const scale = PPGraph.currentGraph.viewportScaleX;
-    const absPos = this.getGlobalPosition();
-    const nodeWidthScaled = this.getNode()._BackgroundGraphicsRef.width * scale;
-    const pos = new PIXI.Point(0, absPos.y + TOOLTIP_DISTANCE * scale * 2);
-    if (this.isInput()) {
-      pos.x = Math.max(0, absPos.x + SOCKET_WIDTH * scale * 1.5);
-    } else {
-      pos.x = Math.max(
-        0,
-        absPos.x + nodeWidthScaled - TOOLTIP_WIDTH - SOCKET_WIDTH * scale * 0.5,
-      );
-    }
-    return pos;
+    // Placed by the rule that positions the hover label, so the two stack and
+    // grow away from the node together. Taking the rule rather than the
+    // label's measured box means a click that beats the label onto the screen
+    // still opens the inspector where it belongs.
+    const overlay = PPGraph.currentGraph.socketNameOverlay;
+    const anchor = overlay.anchorFor(this, TOOLTIP_WIDTH);
+    // sit under the label when it is up, under the socket when it is not
+    const bottom =
+      overlay.getFrameRect()?.bottom ??
+      anchor.centerY + Socket.screenHitRadius();
+    return new PIXI.Point(anchor.left, bottom + TOOLTIP_DISTANCE / 2);
   }
 
   // getGlobalPosition already returns stage (screen) coordinates; applying
@@ -706,18 +680,23 @@ export default class Socket
 
   // SETUP
 
-  // world-space radius around the socket center which is guaranteed to be
-  // at least SOCKET_MIN_HITBOX_SCREEN_SIZE (in screen pixels) when zoomed out,
-  // while never being smaller than the drawn socket itself
-  getZoomInvariantHitRadius(): number {
-    const scale = PPGraph.currentGraph?.viewportScaleX || 1;
-    return Math.max(SOCKET_WIDTH, SOCKET_MIN_HITBOX_SCREEN_SIZE / scale) / 2;
+  // Half the size of a socket's pointer target on screen: at least
+  // SOCKET_MIN_HITBOX_SCREEN_SIZE across when zoomed out, and never smaller
+  // than the drawn socket. The same for every socket, hence static.
+  static screenHitRadius(): number {
+    const scale = PPGraph.currentGraph.viewportScaleX;
+    return Math.max(SOCKET_WIDTH * scale, SOCKET_MIN_HITBOX_SCREEN_SIZE) / 2;
+  }
+
+  // the same radius in world units, for hit tests done in local space
+  static worldHitRadius(): number {
+    return Socket.screenHitRadius() / PPGraph.currentGraph.viewportScaleX;
   }
 
   // x/y are in this socket container's local space
   isWithinZoomInvariantHitRadius(x: number, y: number): boolean {
     const center = this.getSocketLocation();
-    const radius = this.getZoomInvariantHitRadius();
+    const radius = Socket.worldHitRadius();
     const dx = x - center.x;
     const dy = y - center.y;
     return dx * dx + dy * dy <= radius * radius;
@@ -728,16 +707,12 @@ export default class Socket
   // graphics keep their own hit testing as siblings.
   private socketRefHitAreaContains(x: number, y: number): boolean {
     const half = SOCKET_WIDTH / 2;
-    // _SocketRef is scaled up while this socket is focused or near the
-    // pointer, and a hitArea is measured in the object's own local space -
-    // so without dividing that scale back out, focusing a socket inflates
-    // its pointer target and lets it swallow its neighbours' targets. That
-    // made hovering directional: ties between overlapping sockets go to
-    // whichever is later in the child list (the lower one), so walking down
-    // a column handed over correctly while walking up stayed stuck and
-    // skipped every other socket.
-    const drawScale = this._SocketRef?.scale?.x || 1;
-    const radius = this.getZoomInvariantHitRadius() / drawScale;
+    // The radius must stay the same for every socket. It used to be divided
+    // by _SocketRef.scale, because a hitArea is measured in the object's own
+    // local space and the socket under the pointer was magnified - which let
+    // it swallow its neighbours' targets and made hovering directional. That
+    // magnification is gone, so nothing scales _SocketRef any more.
+    const radius = Socket.worldHitRadius();
     const dx = x - half;
     const dy = y - half;
     if (dx * dx + dy * dy <= radius * radius) {
@@ -746,60 +721,6 @@ export default class Socket
     // the drawn socket is a rounded rect, whose corners poke out of a circle
     // of radius SOCKET_WIDTH / 2 - never shrink below what is visible
     return x >= 0 && x <= SOCKET_WIDTH && y >= 0 && y <= SOCKET_WIDTH;
-  }
-
-  // Visual feedback for the focused socket - the one the pointer would act
-  // on, whether it is directly hovered or merely snapped to while dragging.
-  // A ring the size of the zoom invariant hit area, so it also shows how big
-  // the pointer target actually is. Deliberately not the hover tint - that
-  // shares state with onPointerOver/onPointerOut and would be clobbered by
-  // them mid drag.
-  public showFocusHighlight(): void {
-    if (this.destroyed) {
-      return;
-    }
-    if (!this._FocusRingRef) {
-      this._FocusRingRef = new PIXI.Graphics();
-      this._FocusRingRef.name = 'FocusRing';
-      this._FocusRingRef.eventMode = 'none';
-    }
-    const highlight = this._FocusRingRef;
-    const center = this.getSocketLocation();
-    const radius = this.getZoomInvariantHitRadius();
-    const scale = PPGraph.currentGraph?.viewportScaleX || 1;
-    const color = TRgba.fromString(COLOR_MAIN);
-
-    highlight.clear();
-    highlight
-      .circle(center.x, center.y, radius)
-      .fill({ color: color.hexNumber(), alpha: 0.2 })
-      .stroke({
-        // constant stroke weight on screen, like the rest of the highlight
-        width: SOCKET_SNAP_HIGHLIGHT_SCREEN_WIDTH / scale,
-        color: color.hexNumber(),
-        alpha: 0.9,
-      });
-    highlight.visible = true;
-    if (highlight.parent !== this) {
-      this.addChild(highlight);
-    }
-    this._isFocused = true;
-  }
-
-  public hideFocusHighlight(): void {
-    this._isFocused = false;
-    if (!this._FocusRingRef) {
-      return;
-    }
-    this._FocusRingRef.clear();
-    this._FocusRingRef.visible = false;
-    if (this._FocusRingRef.parent === this) {
-      this.removeChild(this._FocusRingRef);
-    }
-  }
-
-  public isFocused(): boolean {
-    return this._isFocused;
   }
 
   onPointerOver(): void {
@@ -843,7 +764,7 @@ export default class Socket
   }
 
   destroy(options: PIXI.DestroyOptions): void {
-    PPGraph.currentGraph.socketHoverOut(this);
+    PPGraph.currentGraph.forgetSocket(this);
     super.destroy(options);
   }
 }

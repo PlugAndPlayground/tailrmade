@@ -159,10 +159,6 @@ export default class SocketNameOverlay {
   // wait. `immediate` skips the wait outright, which is what a live drag
   // wants: the pointer is already committed.
   showFor(socket: PPSocket, immediate = false): void {
-    if (!socket || socket.destroyed) {
-      this.hide();
-      return;
-    }
     if (immediate || this.isVisible || Date.now() < this.eagerUntil) {
       this.clearDwell();
       this.render(socket);
@@ -397,23 +393,33 @@ export default class SocketNameOverlay {
     return socketX <= node.nodeWidth / 2;
   }
 
-  // placed on the outward side of the node - a socket on the left edge gets
-  // its label further left, one on the right edge further right. That keeps
-  // it off the node it belongs to, and it is clamped so it stays on screen
-  // at the canvas edges
-  private positionNextTo(socket: PPSocket, element: HTMLDivElement): void {
+  // Where a box of this width belongs for this socket: on the outward side
+  // of the node, so a socket on the left edge gets it further left and one on
+  // the right edge further right. That keeps it off the node it belongs to,
+  // and it is clamped so it stays on screen at the canvas edges.
+  //
+  // Geometry only - it answers the same whether or not the label happens to
+  // be showing, which is what lets the socket inspector place itself by this
+  // same rule instead of measuring the label and hoping it is up.
+  anchorFor(
+    socket: PPSocket,
+    width: number,
+  ): { left: number; centerY: number } {
     const center = socket.screenPointSocketCenter();
     const rawX = SocketNameOverlay.sitsOnLeftEdge(socket)
-      ? center.x - SOCKET_NAME_OVERLAY_OFFSET - this.currentWidth
+      ? center.x - SOCKET_NAME_OVERLAY_OFFSET - width
       : center.x + SOCKET_NAME_OVERLAY_OFFSET;
-    const x = Math.max(
-      4,
-      Math.min(window.innerWidth - this.currentWidth - 4, rawX),
-    );
-    const y = Math.round(center.y);
+    return {
+      left: Math.max(4, Math.min(window.innerWidth - width - 4, rawX)),
+      centerY: center.y,
+    };
+  }
+
+  private positionNextTo(socket: PPSocket, element: HTMLDivElement): void {
+    const { left, centerY } = this.anchorFor(socket, this.currentWidth);
     // translateY(-50%) centres it vertically without measuring the height
-    element.style.left = `${Math.round(x)}px`;
-    element.style.top = `${y}px`;
+    element.style.left = `${Math.round(left)}px`;
+    element.style.top = `${Math.round(centerY)}px`;
     element.style.transform = 'translateY(-50%)';
   }
 }

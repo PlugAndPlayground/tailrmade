@@ -1019,9 +1019,22 @@ export default class PPNode extends PIXI.Container implements IWarningHandler {
   protected getHitArea(): PNPHitArea {
     let rect = new PIXI.Rectangle(0, 0, this.nodeWidth, this.nodeHeight);
     rect = PPNode.boundsToSelectionBounds(rect);
-    return new PNPHitArea(
-      (x, y) => rect.contains(x, y) || this.isPointNearVisibleSocket(x, y),
-    );
+    return new PNPHitArea((x, y) => {
+      if (rect.contains(x, y)) {
+        return true;
+      }
+      // Pixi hit tests every node on every pointer move, so the socket scan
+      // has to be unreachable for nodes the pointer is nowhere near. Sockets
+      // never reach further than one hit radius past the node bounds.
+      const reach = Socket.worldHitRadius();
+      return (
+        x >= rect.x - reach &&
+        x <= rect.right + reach &&
+        y >= rect.y - reach &&
+        y <= rect.bottom + reach &&
+        this.isPointNearVisibleSocket(x, y)
+      );
+    });
   }
 
   // x/y in node local space; needed so that the zoom invariant socket hit
