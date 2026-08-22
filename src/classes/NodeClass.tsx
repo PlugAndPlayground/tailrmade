@@ -1661,9 +1661,13 @@ ${Math.round(bounds.minX)}, ${Math.round(
     PPGraph.currentGraph.viewport.plugins.pause('mouse-edges');
 
     const source = PPGraph.currentGraph.selectedSocket;
-    const hoveredOver = PPGraph.currentGraph.overInputRef;
-    if (hoveredOver) {
-      hoveredOver.onPointerUp(event);
+    // whichever socket the focus ring is on - hovered directly, or snapped to
+    // from just off it. Releasing has to land where the ring says it will:
+    // reading overInputRef alone meant a release a few pixels below a socket
+    // fell through to this node's preferred socket instead
+    const focused = PPGraph.currentGraph.focusedSocket;
+    if (focused) {
+      focused.onPointerUp(event);
       return;
     }
     if (source && this !== source.getNode()) {

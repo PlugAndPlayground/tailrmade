@@ -5,7 +5,12 @@ import * as PIXI from 'pixi.js';
 import PPNode from '../classes/NodeClass';
 import PPSocket from '../classes/SocketClass';
 import { TRgba } from './color';
-import { COLOR_MAIN, SOCKET_TYPE } from './constants';
+import {
+  COLOR_MAIN,
+  SOCKET_CORNERRADIUS,
+  SOCKET_TYPE,
+  SOCKET_WIDTH,
+} from './constants';
 import {
   SnapCandidate,
   SnapPoint,
@@ -17,6 +22,11 @@ import {
 
 const SNAP_SCREEN_RADIUS = 48;
 const HIGHLIGHT_SCREEN_WIDTH = 2;
+// a socket that already carries a link fills in, so hovering shows there is
+// something to pick up. Denser rather than a second colour - every other
+// colour on a socket is its datatype's
+const FILL_ALPHA = 0.2;
+const FILL_ALPHA_CONNECTED = 0.7;
 
 // describes a socket for the pure snapping rules in socketSnapping
 export function toSnapInfo(socket: PPSocket): SnapSocketInfo {
@@ -83,8 +93,15 @@ export function drawFocusRing(
   }
   const center = socket.screenPointSocketCenter();
   const color = TRgba.fromString(COLOR_MAIN).hexNumber();
+  const size = PPSocket.screenHitRadius() * 2;
+  const radius = socket.dataType.roundedCorners()
+    ? size * (SOCKET_CORNERRADIUS / SOCKET_WIDTH)
+    : 0;
   ring
-    .circle(center.x, center.y, PPSocket.screenHitRadius())
-    .fill({ color, alpha: 0.2 })
+    .roundRect(center.x - size / 2, center.y - size / 2, size, size, radius)
+    .fill({
+      color,
+      alpha: socket.hasLink() ? FILL_ALPHA_CONNECTED : FILL_ALPHA,
+    })
     .stroke({ width: HIGHLIGHT_SCREEN_WIDTH, color, alpha: 0.9 });
 }
