@@ -480,10 +480,11 @@ export default class PPGraph {
       toY, // destination point
     );
 
+    const TEMP_CONNECTION_SCREEN_WIDTH = 4;
     const selectedDataType = this.selectedSocket.dataType;
     this.tempConnection.stroke({
-      width: 2,
-      color: selectedDataType.getColor().multiply(0.9).hexNumber(),
+      width: TEMP_CONNECTION_SCREEN_WIDTH / this.viewportScaleX,
+      color: selectedDataType.getColor().hexNumber(),
       alpha: selectedDataType.getConnectionAlpha(),
     });
 
