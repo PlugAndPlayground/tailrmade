@@ -218,7 +218,10 @@ export class WidgetButton extends WidgetHybridBase {
             width: '100%',
             height: '100%',
             pointerEvents: isDisabled ? 'none' : undefined,
-            py: 1.5,
+            // in the dashboard minHeight (controlHeight) owns the height, so
+            // any fixed padding here can only overshoot it - at XS the 24px
+            // this used to add made the control 42px instead of its 36px token
+            py: props.inDashboard ? 0 : 1.5,
             '&.Mui-disabled': {
               opacity: 0.6,
               color: 'text.secondary',
@@ -404,7 +407,7 @@ export class WidgetButtonGroup extends WidgetHybridBase {
     // Calculate dynamic font sizes based on node dimensions
     const tokens = getSizeTokens(props[sizeName]);
     const fontSize = props.inDashboard
-      ? `${14 * tokens.scale}px`
+      ? `${tokens.fontSize}px`
       : `${Math.max(12, node.nodeHeight / 12) * tokens.scale}px`;
 
     return (
@@ -466,8 +469,11 @@ export class WidgetButtonGroup extends WidgetHybridBase {
                         ...(selectedIndex === index && {
                           boxShadow: 2,
                         }),
-                        py: 1.5,
+                        py: props.inDashboard ? 0 : 1.5,
                         textTransform: 'none',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap',
                         borderRadius: 0,
                         ...(isVertical
                           ? {
@@ -547,8 +553,11 @@ export class WidgetButtonGroup extends WidgetHybridBase {
                       minHeight: props.inDashboard
                         ? `${tokens.controlHeight}px`
                         : undefined,
-                      py: 1.5,
+                      py: props.inDashboard ? 0 : 1.5,
                       textTransform: 'none',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap',
                     }}
                   >
                     {option}

@@ -1,5 +1,12 @@
 import React, { useRef, useState } from 'react';
-import { Button, ClickAwayListener, Fade, Paper, Popper } from '@mui/material';
+import {
+  Button,
+  ClickAwayListener,
+  Fade,
+  Paper,
+  Popper,
+  Typography,
+} from '@mui/material';
 import ColorizeIcon from '@mui/icons-material/Colorize';
 import { Sketch } from '@uiw/react-color';
 import throttle from 'lodash/throttle';
@@ -134,12 +141,16 @@ export class WidgetColorPicker extends WidgetHybridBase {
           }}
           sx={{
             margin: 'auto',
-            fontSize: props.inDashboard
-              ? `${tokens.fontSize}px`
-              : `${(node.nodeHeight / 6) * tokens.scale}px`,
+            // keep the same dashboard height as the other button-like widgets
+            // (see WidgetButton) so the picker fills its widget box instead of
+            // sitting at MUI's natural button height
+            minHeight: props.inDashboard
+              ? `${tokens.controlHeight}px`
+              : undefined,
             lineHeight: props.inDashboard
-              ? `${24 * tokens.scale}px`
+              ? `${36 * tokens.scale}px`
               : `${(node.nodeHeight / 5) * tokens.scale}px`,
+            py: props.inDashboard ? 0 : undefined,
             border: 0,
             bgcolor: initialColor.hexa(),
             color: initialColor.getContrastTextColor().hex(),
@@ -157,10 +168,24 @@ export class WidgetColorPicker extends WidgetHybridBase {
             pointerEvents: props.disabled ? 'none' : undefined,
           }}
         >
-          {props[labelName]}
+          <Typography
+            sx={{
+              fontSize: props.inDashboard
+                ? `${tokens.fontSize}px`
+                : `${(node.nodeHeight / 6) * tokens.scale}px`,
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+              maxWidth: '100%',
+              textTransform: 'none',
+            }}
+          >
+            {props[labelName]}
+          </Typography>
           <ColorizeIcon
             sx={{
               pl: 0.5,
+              flexShrink: 0,
               fontSize: props.inDashboard
                 ? `${tokens.iconSize}px`
                 : `${(node.nodeHeight / 6) * tokens.scale}px`,

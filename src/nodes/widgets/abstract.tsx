@@ -12,7 +12,7 @@ export const defaultProps: WidgetProps = {
   width: '100%',
   height: 'auto',
   minWidth: '48px',
-  minHeight: '48px',
+  minHeight: '36px',
 };
 
 export const initialValueName = 'Initial Value';
@@ -65,13 +65,7 @@ export const colorOptions: EnumStructure = [
 ];
 
 export type WidgetSize = 'XS' | 'S' | 'M' | 'L' | 'XL';
-
-// What a Size socket can hold. 'Inherit' is not a size of its own - it means
-// "take the size from the surroundings" and will resolve widget -> Container ->
-// surface -> theme once the density token layer lands. Until then getSizeTokens
-// falls through to defaultSize, so an inheriting widget renders exactly like M.
 export type WidgetSizeSetting = WidgetSize | 'Inherit';
-
 export const sizeOptions: EnumStructure = [
   { text: 'Inherit' },
   { text: 'XS' },
@@ -82,7 +76,6 @@ export const sizeOptions: EnumStructure = [
 ];
 
 export const defaultSize: WidgetSize = 'M';
-
 export const defaultSizeSetting: WidgetSizeSetting = 'Inherit';
 
 type SizeTokens = {
@@ -103,8 +96,6 @@ type SizeTokens = {
   inputPadding?: { top: number; bottom: number };
 };
 
-// M reproduces the MUI defaults (and the hardcoded 16px the widgets used
-// before), so existing nodes keep the exact look they had
 const sizeTokens: Record<WidgetSize, SizeTokens> = {
   XS: {
     muiSize: 'small',
@@ -162,22 +153,10 @@ export const getSizeTokens = (size: unknown): SizeTokens =>
 export const getMuiSize = (size: unknown): 'small' | 'medium' =>
   getSizeTokens(size).muiSize;
 
-/**
- * Autocomplete builds its filled-input height out of its OWN padding rather
- * than the input's, so the generic inputPadding rule cannot drive it. MUI puts
- * paddingTop on the input root and a fixed padding on the input itself:
- *
- *   height = rootPaddingTop + inputPaddingY * 2 + lineHeight + rootPaddingBottom
- *
- * Keeping MUI's inner values and solving for rootPaddingTop reproduces MUI's
- * own 19px at size M exactly, and lands every other step on its controlHeight.
- */
+// Autocomplete component needs special handling
 const INPUT_LINE_HEIGHT_EM = 1.4375;
-// @mui/material/Autocomplete: `& .MuiFilledInput-root` input padding, and the
-// root paddingBottom (only the small variant sets one)
 const AUTOCOMPLETE_INPUT_PADDING_Y = { small: 2.5, medium: 7 };
 const AUTOCOMPLETE_ROOT_PADDING_BOTTOM = { small: 1, medium: 0 };
-
 const getAutocompleteRootPaddingTop = (t: SizeTokens): number =>
   Math.max(
     Math.round(
@@ -218,36 +197,18 @@ export const getSizeSx = (size: unknown) => {
       height: `${Math.round(t.controlHeight * 0.43)}px`,
       fontSize: `${t.helperFontSize}px`,
     },
-    // XS, L and XL have no MUI equivalent, so their control height has to come
-    // from padding. Autocomplete keeps its own padding on the input (on top of
-    // the padding its root already has) and is driven by the rule below
-    // instead, so it is excluded here
     ...(t.inputPadding && {
       '& .MuiFilledInput-input:not(.MuiAutocomplete-input)': {
         paddingTop: `${t.inputPadding.top}px`,
         paddingBottom: `${t.inputPadding.bottom}px`,
       },
     }),
-    // Reached through .MuiAutocomplete-root on purpose: MUI styles this same
-    // element as `<autocomplete class> .MuiFilledInput-root`, which ties with a
-    // plain `& .MuiFilledInput-root` on specificity and then wins on stylesheet
-    // order. The extra class puts this rule ahead of it.
     '& .MuiAutocomplete-root .MuiFilledInput-root': {
       paddingTop: `${getAutocompleteRootPaddingTop(t)}px`,
     },
   };
 };
 
-/**
- * The Size input every widget shares. New nodes default to 'Inherit'; nodes
- * serialized with an explicit size keep it, since sockets are built from
- * getDefaultIO before the serialized data is mapped onto them.
- *
- * The default is 'Inherit' from the start on purpose: once a graph is saved
- * with an explicit 'M' there is no way to tell "the user picked M" from "M was
- * the default", and those nodes could never be opted into an inherited density
- * afterwards.
- */
 export const getSizeSocket = (): Socket =>
   new Socket(
     SOCKET_TYPE.IN,
