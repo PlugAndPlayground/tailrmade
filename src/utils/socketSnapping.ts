@@ -1,6 +1,4 @@
 // Pure geometry/compatibility helpers behind magnetic socket snapping.
-// Kept free of PIXI and PPGraph so the rules can be unit tested directly;
-// GraphClass supplies the screen space coordinates and owns the PIXI objects.
 
 export type SocketSnapDirection = 'input' | 'output' | 'ghost';
 
@@ -26,10 +24,6 @@ export type SnapCandidate<T> = SnapSocketInfo & {
   center: SnapPoint;
 };
 
-// mirrors the connect rules in PPGraph.socketMouseUp, with one addition:
-// sockets on the source node are excluded so the wire does not constantly
-// snap to the neighbors of the socket being dragged from (a direct hit on
-// them still connects as before)
 export function canSnapToSocket(
   source: SnapSocketInfo,
   candidate: SnapSocketInfo,
@@ -61,8 +55,6 @@ export function isSnappingSuppressed(state: SnapSuppressionState): boolean {
   return state.hasPinnedCursorPosition || state.hoversOtherSocket;
 }
 
-// cheap prune so only nodes that can possibly hold a snappable socket
-// iterate their sockets - bounds and radius are both in screen pixels
 export function isPointerNearNodeBounds(
   pointer: SnapPoint,
   bounds: SnapBounds,
@@ -76,9 +68,6 @@ export function isPointerNearNodeBounds(
   );
 }
 
-// nearest compatible candidate strictly inside snapRadius, or undefined.
-// all coordinates are screen pixels, which is what makes the snap distance
-// feel identical at every zoom level
 export function findNearestSnapCandidate<T>(
   pointer: SnapPoint,
   source: SnapSocketInfo,

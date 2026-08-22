@@ -144,16 +144,12 @@
   border-radius: 0 !important;
 }
 
-/* screen space label naming the focused socket - lives on the html layer so
-   it is not clipped by the html of a hybrid node, which paints over the
-   whole pixi canvas. All spacing here steps in 2s */
 .socketNameOverlay {
   position: absolute;
-  z-index: 1050;
+  /* just above the socket inspector (1120 in components/Tooltip.tsx) */
+  z-index: 1130;
   pointer-events: none;
   display: none;
-  /* the connections band is flush to the pill edges, so it has to be clipped.
-     Padding lives on the two zones instead of here */
   overflow: hidden;
   background: rgba(12, 12, 12, 0.88);
   color: #f4faf9;
@@ -163,13 +159,12 @@
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
 }
 
-/* Which side the rail and the wide padding sit on. The rail always hugs the
-   edge nearest the socket, so it reads as a tether: a socket on the node's
-   left edge puts its label to the left, and the rail on that label's right.
-   Both variants total 22px of horizontal padding, so the measured width does
-   not change when the side does */
 .socketNameOverlayZone {
   display: block;
+}
+
+.socketNameOverlaySocketLeft {
+  text-align: right;
 }
 
 .socketNameOverlaySocketLeft .socketNameOverlayZone {
@@ -180,10 +175,6 @@
   padding: 6px 8px 6px 14px;
 }
 
-/* carries the datatype colour, drawn like the socket itself. A 6px bar holds
-   the colour at ~12x the area of the old 8px swatch, so it survives being
-   zoomed away from, and the hairline on its inward side keeps very dark
-   datatype colours separated from the pill without altering them */
 .socketNameOverlayRail {
   position: absolute;
   top: 0;
@@ -201,8 +192,6 @@
   border-right: 1px solid rgba(255, 255, 255, 0.22);
 }
 
-/* the ghost socket has no datatype to show, so the rail goes dashed and no
-   inline colour is written to it */
 .socketNameOverlayRailGhost {
   background: repeating-linear-gradient(
     180deg,
@@ -212,7 +201,6 @@
   border-color: rgba(255, 255, 255, 0.14);
 }
 
-/* the socket itself */
 .socketNameOverlaySocketName {
   display: block;
   font-size: 16px;
@@ -220,8 +208,6 @@
   letter-spacing: -0.01em;
 }
 
-/* the quiet line under it: the socket's datatype, or the owning node while
-   shift is held */
 .socketNameOverlaySubtitle {
   display: block;
   margin-top: 2px;
@@ -229,14 +215,10 @@
   opacity: 0.6;
 }
 
-/* what the socket is wired to. A zone change groups it without spending a
-   rule, and it frames the expanded list so ten rows read as a list */
 .socketNameOverlayConnections {
   background: rgba(255, 255, 255, 0.07);
 }
 
-/* the count, stated once for the whole list. A single connection says nothing
-   here - the row alone is unambiguous */
 .socketNameOverlayDirection {
   display: block;
   font-size: 10px;

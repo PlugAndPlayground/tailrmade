@@ -1,4 +1,6 @@
-import SocketNameOverlay from '../../../src/classes/SocketNameOverlay';
+import SocketNameOverlay, {
+  MAX_LISTED_CONNECTIONS as CAP,
+} from '../../../src/classes/SocketNameOverlay';
 
 // getConnectionSummary only touches links, isInput() and the node names on the
 // far end, so it can be driven with plain stand-ins rather than a pixi stage
@@ -12,8 +14,6 @@ const link = (nodeName: string, socketName: string) => {
 
 const socketWith = (isInput: boolean, links: unknown[]) =>
   ({ isInput: () => isInput, links }) as any;
-
-const CAP = 10;
 
 describe('SocketNameOverlay.getConnectionSummary', () => {
   it('says nothing at all for an unconnected socket', () => {

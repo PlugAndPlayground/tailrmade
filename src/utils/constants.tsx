@@ -179,27 +179,6 @@ export const SOCKET_COLOR_HEX: string = TRgba.fromString(COLOR[0])
   .hex();
 export const SOCKET_HEIGHT = 24;
 export const SOCKET_WIDTH = 12;
-// minimum size (diameter, in screen pixels) of a socket's pointer target,
-// independent of zoom level - sockets never get harder to hit when zoomed out
-export const SOCKET_MIN_HITBOX_SCREEN_SIZE = 24;
-// while dragging a connection, snap to the nearest compatible socket
-// within this radius (in screen pixels)
-export const SOCKET_SNAP_SCREEN_RADIUS = 48;
-// stroke weight (in screen pixels) of the ring drawn around a focused socket
-export const SOCKET_SNAP_HIGHLIGHT_SCREEN_WIDTH = 2;
-// the screen space label naming the focused socket
-export const SOCKET_NAME_OVERLAY_FONTSIZE = 13;
-export const SOCKET_NAME_OVERLAY_PADDING = 5;
-export const SOCKET_NAME_OVERLAY_OFFSET = 20;
-// shift expands a fanned out connection count into a list, capped so a
-// heavily fanned socket cannot grow the label past the viewport
-export const SOCKET_NAME_OVERLAY_MAX_LISTED_CONNECTIONS = 10;
-// the pointer has to settle on a socket for this long before the label
-// appears, so passing over sockets on the way to a drag stays quiet
-export const SOCKET_NAME_OVERLAY_DWELL_MS = 400;
-// ...but once it has appeared, it stays eager for this long after hiding, so
-// scanning along a row of sockets does not pay the dwell again each time
-export const SOCKET_NAME_OVERLAY_WARM_MS = 1000;
 export const SOCKET_CORNERRADIUS = 4;
 export const SOCKET_TEXTMARGIN = 8;
 export const SOCKET_TEXTMARGIN_TOP = 4;

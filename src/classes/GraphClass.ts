@@ -3,25 +3,11 @@ import { Viewport } from 'pixi-viewport';
 import { hri } from 'human-readable-ids';
 import { v4 as uuid } from 'uuid';
 
-import { TRgba } from '../utils/color';
-import {
-  COLOR_MAIN,
-  NODE_SOURCE,
-  NODE_WIDTH,
-  SOCKET_SNAP_HIGHLIGHT_SCREEN_WIDTH,
-  SOCKET_SNAP_SCREEN_RADIUS,
-  SOCKET_TYPE,
-} from '../utils/constants';
+import { NODE_SOURCE, NODE_WIDTH, SOCKET_TYPE } from '../utils/constants';
 import { GRAPH_DATA_VERSION } from '../utils/graphMigrations';
 import SocketNameOverlay from './SocketNameOverlay';
-import {
-  SnapCandidate,
-  SnapSocketInfo,
-  SocketSnapDirection,
-  findNearestSnapCandidate,
-  isPointerNearNodeBounds,
-  isSnappingSuppressed,
-} from '../utils/socketSnapping';
+import { isSnappingSuppressed } from '../utils/socketSnapping';
+import { drawFocusRing, findSnapTarget } from '../utils/socketFocus';
 import {
   CustomArgs,
   SerializedGraph,
@@ -154,14 +140,12 @@ export default class PPGraph {
     this.overlayContainer = new PIXI.Container();
     this.overlayContainer.name = 'OverlayContainer';
     this.app.stage.addChild(this.overlayContainer);
-    // One ring, moved to whichever socket has focus. On the stage level
-    // overlay rather than parented to the socket, so it is drawn straight in
-    // screen pixels and cannot be swept away by the socket's own redraw
+    // Ring, moved to whichever socket has focus
     this.focusRing = new PIXI.Graphics();
     this.focusRing.name = 'SocketFocusRing';
     this.focusRing.eventMode = 'none';
     this.overlayContainer.addChild(this.focusRing);
-    // html layer, not a child of overlayContainer - see SocketNameOverlay
+    // html layer, not a child of overlayContainer
     this.socketNameOverlay = new SocketNameOverlay();
     this.initEmptyCanvasIndicator();
 
@@ -207,8 +191,6 @@ export default class PPGraph {
     );
     this.viewport.addEventListener('click', this.onPointerClick.bind(this));
 
-    // ring and label are both positioned in screen space, so a pan or zoom
-    // under a stationary pointer would leave them behind
     this.viewport.addEventListener('moved', () => this.applyFocus());
     this.viewport.addEventListener('pointermove', (event) =>
       this.onViewportMove(event),
@@ -411,61 +393,6 @@ export default class PPGraph {
     this.drawConnectionLine(event);
   }
 
-  // describes a socket for the pure snapping rules in utils/socketSnapping
-  private static toSnapInfo(socket: PPSocket): SnapSocketInfo {
-    let direction: SocketSnapDirection = 'ghost';
-    if (socket.socketType !== SOCKET_TYPE.GHOST) {
-      direction = socket.isInput() ? 'input' : 'output';
-    }
-    return { nodeId: socket.getNode().id, direction };
-  }
-
-  private findSnapTarget(
-    event: PIXI.FederatedPointerEvent,
-  ): PPSocket | undefined {
-    const source = this.selectedSocket;
-    if (!source) {
-      return undefined;
-    }
-    const pointer = event.global;
-    const scale = this.viewportScaleX;
-    const candidates: SnapCandidate<PPSocket>[] = [];
-
-    Object.values(this.nodes).forEach((node) => {
-      const nodePos = node.getGlobalPosition();
-      const withinReach = isPointerNearNodeBounds(
-        pointer,
-        {
-          x: nodePos.x,
-          y: nodePos.y,
-          width: node.nodeWidth * scale,
-          height: node.nodeHeight * scale,
-        },
-        SOCKET_SNAP_SCREEN_RADIUS,
-      );
-      if (!withinReach) {
-        return;
-      }
-      node.getAllSockets().forEach((socket) => {
-        if (!socket.visible) {
-          return;
-        }
-        candidates.push({
-          ref: socket,
-          center: socket.screenPointSocketCenter(),
-          ...PPGraph.toSnapInfo(socket),
-        });
-      });
-    });
-
-    return findNearestSnapCandidate(
-      pointer,
-      PPGraph.toSnapInfo(source),
-      candidates,
-      SOCKET_SNAP_SCREEN_RADIUS,
-    );
-  }
-
   private updateSnapTarget(event: PIXI.FederatedPointerEvent): void {
     // a directly hovered socket always wins over snapping and while the node
     // search is open the wire is pinned to overrideNodeCursorPosition
@@ -475,9 +402,15 @@ export default class PPGraph {
         this.overInputRef !== undefined &&
         this.overInputRef !== this.selectedSocket,
     });
-    this.snapTargetSocket = snappingDisabled
-      ? undefined
-      : this.findSnapTarget(event);
+    this.snapTargetSocket =
+      snappingDisabled || !this.selectedSocket
+        ? undefined
+        : findSnapTarget(
+            event.global,
+            this.selectedSocket,
+            this.nodes,
+            this.viewportScaleX,
+          );
     this.applyFocus();
   }
 
@@ -487,9 +420,7 @@ export default class PPGraph {
     this.applyFocus();
   }
 
-  // The socket the pointer would act on - directly hovered, or snapped to by
-  // the dragged wire. Derived rather than stored so it cannot drift out of
-  // step with the two references it is made of.
+  // The socket the pointer would act on, either the one under the pointer or the one snapped to.
   get focusedSocket(): undefined | PPSocket {
     const hovered =
       this.overInputRef === this.selectedSocket ? undefined : this.overInputRef;
@@ -497,37 +428,15 @@ export default class PPGraph {
   }
 
   // The one place that turns socket focus on and off, so a socket reached by
-  // hovering and one reached by snapping always look the same. The ring is
-  // never delayed - it confirms which socket the pointer owns - while the
-  // label waits for the pointer to settle, unless a connection is already
-  // being dragged, where the target matters immediately.
+  // hovering and one reached by snapping always look the same.
   private applyFocus(): void {
     const socket = this.focusedSocket;
-    this.drawFocusRing(socket);
+    drawFocusRing(this.focusRing, socket);
     if (socket) {
       this.socketNameOverlay.showFor(socket, Boolean(this.selectedSocket));
     } else {
       this.socketNameOverlay.hide();
     }
-  }
-
-  // A ring the size of the socket's pointer target, so it also shows how big
-  // that target actually is. Drawn in screen pixels, which is what makes it
-  // hold its size across zoom levels without any scale division. Deliberately
-  // not the hover tint - that shares state with onPointerOver/onPointerOut
-  // and would be clobbered by them mid drag.
-  private drawFocusRing(socket: undefined | PPSocket): void {
-    this.focusRing.clear();
-    this.focusRing.visible = socket !== undefined;
-    if (!socket) {
-      return;
-    }
-    const center = socket.screenPointSocketCenter();
-    const color = TRgba.fromString(COLOR_MAIN).hexNumber();
-    this.focusRing
-      .circle(center.x, center.y, PPSocket.screenHitRadius())
-      .fill({ color, alpha: 0.2 })
-      .stroke({ width: SOCKET_SNAP_HIGHLIGHT_SCREEN_WIDTH, color, alpha: 0.9 });
   }
 
   // Separate drawing logic to reduce complexity in the onViewportMove method
@@ -598,11 +507,11 @@ export default class PPGraph {
     this.applyFocus();
   }
 
-  // Called from Socket.destroy - every reference the pointer feedback holds
-  // has to go with it. snapTargetSocket especially: it is only recomputed on
-  // pointermove, so a socket destroyed mid drag would otherwise still be the
-  // one connected to on pointerup.
+  // Called from Socket.destroy
   forgetSocket(socket: PPSocket): void {
+    // the socket inspector lives on the react side and holds its own
+    // reference, so it has to be told rather than discovered
+    InterfaceController.closeTooltipIfShowing(socket);
     if (socket === this.snapTargetSocket) {
       this.snapTargetSocket = undefined;
     }
@@ -656,10 +565,6 @@ export default class PPGraph {
     }
     this.stopConnecting();
     if (source && socket !== this.selectedSocket && !connected) {
-      // clicking a socket is deliberate, so skip the dwell and name it at
-      // once. The inspector places itself by the label's rule rather than its
-      // measured box, so this is presentation only - it no longer decides
-      // where the inspector lands
       this.socketNameOverlay.showFor(socket, true);
       InterfaceController.notifyListeners(ListenEvent.ToggleTooltipInspector, {
         event,

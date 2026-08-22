@@ -64,11 +64,6 @@ export const Tooltip = (props) => {
     const toggleInputValue = (open) => (prev) => open ?? !prev;
 
     if (open === false) {
-      // A pointerdown on the object that owns the tooltip must not clear it.
-      // The pointerup that follows toggles against this state, so clearing it
-      // here is what made a second click on the same socket reopen the
-      // inspector instead of closing it. Anything else - a click elsewhere,
-      // or Escape, which carries no position - still closes.
       if (objectUnderEvent(event) === tooltipRef.current) {
         return;
       }
@@ -93,6 +88,14 @@ export const Tooltip = (props) => {
       tooltipInspectorToggled,
     );
 
+    // Close when the object that owns the tooltip is destroyed
+    InterfaceController.closeTooltipIfShowing = (object: Tooltipable) => {
+      if (object === tooltipRef.current) {
+        setShowTooltip(false);
+        setTooltipObject(undefined);
+      }
+    };
+
     return () => InterfaceController.removeListener(id);
   }, []);
 
@@ -102,9 +105,6 @@ export const Tooltip = (props) => {
         <ClickAwayListener
           onClickAway={(event) => {
             if (showTooltip && !props.isContextMenuOpen) {
-              // pressing the object that owns the tooltip is a toggle, and
-              // the pointerup completes it - closing here first would let
-              // that toggle reopen the inspector on every click
               if (objectUnderEvent(event) === tooltipRef.current) {
                 return;
               }
@@ -121,9 +121,6 @@ export const Tooltip = (props) => {
               position: 'absolute',
               p: 1,
               width: TOOLTIP_WIDTH,
-              // frame only, matched to the socket hover label it hangs off:
-              // square corners and the same drop shadow, so the two read as
-              // one stack. The widgets inside keep their own styling
               borderRadius: 0,
               boxShadow: '0 2px 8px rgba(0, 0, 0, 0.35)',
               left: Math.min(window.innerWidth - TOOLTIP_WIDTH, pos.x),

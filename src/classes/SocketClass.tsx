@@ -27,7 +27,6 @@ import {
   SOCKET_TEXTMARGIN_TOP,
   SOCKET_TEXTMARGIN,
   SOCKET_TYPE,
-  SOCKET_MIN_HITBOX_SCREEN_SIZE,
   SOCKET_WIDTH,
   TEXT_RESOLUTION,
   TOOLTIP_DISTANCE,
@@ -80,11 +79,6 @@ export default class Socket
     this._SocketRef = new PIXI.Graphics();
     this._SocketRef.name = 'SocketRef';
     this._SocketRef.eventMode = 'static';
-    // evaluated lazily on every hit test, so the pointer target keeps a
-    // minimum screen size at any zoom without needing a redraw. It sits on
-    // the drawn socket rather than on the socket container: a container
-    // hitArea would also claim the empty gap between the socket and its
-    // label, stealing pointerdowns that belong to the node underneath.
     this._SocketRef.hitArea = new PNPHitArea((x, y) =>
       this.socketRefHitAreaContains(x, y),
     );
@@ -649,10 +643,6 @@ export default class Socket
   }
 
   getTooltipPosition(): PIXI.Point {
-    // Placed by the rule that positions the hover label, so the two stack and
-    // grow away from the node together. Taking the rule rather than the
-    // label's measured box means a click that beats the label onto the screen
-    // still opens the inspector where it belongs.
     const overlay = PPGraph.currentGraph.socketNameOverlay;
     const anchor = overlay.anchorFor(this, TOOLTIP_WIDTH);
     // sit under the label when it is up, under the socket when it is not
@@ -680,20 +670,16 @@ export default class Socket
 
   // SETUP
 
-  // Half the size of a socket's pointer target on screen: at least
-  // SOCKET_MIN_HITBOX_SCREEN_SIZE across when zoomed out, and never smaller
-  // than the drawn socket. The same for every socket, hence static.
   static screenHitRadius(): number {
+    const MIN_HITBOX_SCREEN_SIZE = 24;
     const scale = PPGraph.currentGraph.viewportScaleX;
-    return Math.max(SOCKET_WIDTH * scale, SOCKET_MIN_HITBOX_SCREEN_SIZE) / 2;
+    return Math.max(SOCKET_WIDTH * scale, MIN_HITBOX_SCREEN_SIZE) / 2;
   }
 
-  // the same radius in world units, for hit tests done in local space
   static worldHitRadius(): number {
     return Socket.screenHitRadius() / PPGraph.currentGraph.viewportScaleX;
   }
 
-  // x/y are in this socket container's local space
   isWithinZoomInvariantHitRadius(x: number, y: number): boolean {
     const center = this.getSocketLocation();
     const radius = Socket.worldHitRadius();
@@ -702,24 +688,14 @@ export default class Socket
     return dx * dx + dy * dy <= radius * radius;
   }
 
-  // x/y are in _SocketRef's local space, where the drawn socket occupies
-  // (0, 0, SOCKET_WIDTH, SOCKET_WIDTH). Label, meta text and value specific
-  // graphics keep their own hit testing as siblings.
   private socketRefHitAreaContains(x: number, y: number): boolean {
     const half = SOCKET_WIDTH / 2;
-    // The radius must stay the same for every socket. It used to be divided
-    // by _SocketRef.scale, because a hitArea is measured in the object's own
-    // local space and the socket under the pointer was magnified - which let
-    // it swallow its neighbours' targets and made hovering directional. That
-    // magnification is gone, so nothing scales _SocketRef any more.
     const radius = Socket.worldHitRadius();
     const dx = x - half;
     const dy = y - half;
     if (dx * dx + dy * dy <= radius * radius) {
       return true;
     }
-    // the drawn socket is a rounded rect, whose corners poke out of a circle
-    // of radius SOCKET_WIDTH / 2 - never shrink below what is visible
     return x >= 0 && x <= SOCKET_WIDTH && y >= 0 && y <= SOCKET_WIDTH;
   }
 

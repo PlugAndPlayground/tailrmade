@@ -2,13 +2,20 @@ import PPLink from './LinkClass';
 import PPNode from './NodeClass';
 import PPSocket from './SocketClass';
 import * as styles from '../utils/style.module.css';
-import {
-  SOCKET_NAME_OVERLAY_DWELL_MS,
-  SOCKET_NAME_OVERLAY_MAX_LISTED_CONNECTIONS,
-  SOCKET_NAME_OVERLAY_OFFSET,
-  SOCKET_NAME_OVERLAY_WARM_MS,
-  SOCKET_TYPE,
-} from '../utils/constants';
+import { SOCKET_TYPE } from '../utils/constants';
+
+// how far off the socket the label sits, in screen pixels
+const OFFSET = 20;
+// shift expands a fanned out connection count into a list, capped so a
+// heavily fanned socket cannot grow the label past the viewport. Exported for
+// the test, which would otherwise repeat the number
+export const MAX_LISTED_CONNECTIONS = 20;
+// the pointer has to settle on a socket for this long before the label
+// appears, so passing over sockets on the way to a drag stays quiet
+const DWELL_MS = 400;
+// ...but once it has appeared, it stays eager for this long after hiding, so
+// scanning along a row of sockets does not pay the dwell again each time
+const WARM_MS = 1000;
 
 type ConnectionRow = { node: string; socket: string };
 
@@ -147,7 +154,7 @@ export default class SocketNameOverlay {
     if (!detailed) {
       return { direction, rows: [], more: 0 };
     }
-    const listed = rows.slice(0, SOCKET_NAME_OVERLAY_MAX_LISTED_CONNECTIONS);
+    const listed = rows.slice(0, MAX_LISTED_CONNECTIONS);
     return { direction, rows: listed, more: rows.length - listed.length };
   }
 
@@ -173,7 +180,7 @@ export default class SocketNameOverlay {
         if (this.currentSocket) {
           this.render(this.currentSocket);
         }
-      }, SOCKET_NAME_OVERLAY_DWELL_MS);
+      }, DWELL_MS);
     }
   }
 
@@ -270,7 +277,7 @@ export default class SocketNameOverlay {
       // it was actually up, so stay eager for a moment - the gap between two
       // sockets should not cost the dwell again. A label that never made it
       // past the wait leaves no warmth behind
-      this.eagerUntil = Date.now() + SOCKET_NAME_OVERLAY_WARM_MS;
+      this.eagerUntil = Date.now() + WARM_MS;
     }
   }
 
@@ -407,8 +414,8 @@ export default class SocketNameOverlay {
   ): { left: number; centerY: number } {
     const center = socket.screenPointSocketCenter();
     const rawX = SocketNameOverlay.sitsOnLeftEdge(socket)
-      ? center.x - SOCKET_NAME_OVERLAY_OFFSET - width
-      : center.x + SOCKET_NAME_OVERLAY_OFFSET;
+      ? center.x - OFFSET - width
+      : center.x + OFFSET;
     return {
       left: Math.max(4, Math.min(window.innerWidth - width - 4, rawX)),
       centerY: center.y,
