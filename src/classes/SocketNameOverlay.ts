@@ -1,6 +1,20 @@
+import PPLink from './LinkClass';
+import PPNode from './NodeClass';
 import PPSocket from './SocketClass';
 import * as styles from '../utils/style.module.css';
-import { SOCKET_NAME_OVERLAY_OFFSET } from '../utils/constants';
+import {
+  SOCKET_NAME_OVERLAY_MAX_LISTED_CONNECTIONS,
+  SOCKET_NAME_OVERLAY_OFFSET,
+  SOCKET_TYPE,
+} from '../utils/constants';
+
+type ConnectionRow = { node: string; socket: string };
+
+type ConnectionSummary = {
+  direction: string;
+  rows: ConnectionRow[];
+  more: number;
+};
 
 // Screen space label naming the socket the pointer is about to act on.
 //
@@ -11,46 +25,126 @@ import { SOCKET_NAME_OVERLAY_OFFSET } from '../utils/constants';
 // coordinates and #container css pixels are the same coordinate space - the
 // same identity mapping HybridNode2 already uses to keep its html glued to
 // the canvas (see pixiToContainerNumber).
+//
+// Layout: a rail carrying the datatype colour down the edge nearest the
+// socket, the socket's own name, a quiet second line qualifying it, and a
+// band for what it is wired to. Holding shift switches to the detailed
+// reading - the owning node instead of the socket's datatype, and a fanned
+// out connection count expanded into the actual list.
 export default class SocketNameOverlay {
   private element: HTMLDivElement | undefined;
-  private nodeNameElement: HTMLSpanElement | undefined;
+  private railElement: HTMLSpanElement | undefined;
   private socketNameElement: HTMLSpanElement | undefined;
-  private typeNameElement: HTMLSpanElement | undefined;
-  private typeSwatchElement: HTMLSpanElement | undefined;
-  private typeTextElement: HTMLSpanElement | undefined;
+  private subtitleElement: HTMLSpanElement | undefined;
+  private connectionsElement: HTMLSpanElement | undefined;
   private currentLabel = '';
   private currentWidth = 0;
   private isVisible = false;
+  private isDetailed = false;
+  private currentSocket: PPSocket | undefined;
+  private detailKeyListener: ((event: KeyboardEvent) => void) | undefined;
 
-  private ensureElement(): HTMLDivElement | undefined {
-    if (this.element) {
-      return this.element;
+  constructor() {
+    // shift is read from the event rather than tracked as a pressed/released
+    // pair, so a shift release that happens while the window is unfocused
+    // cannot leave the label stuck in its expanded state
+    this.detailKeyListener = (event: KeyboardEvent) => {
+      const detailed = event.shiftKey;
+      if (detailed === this.isDetailed) {
+        return;
+      }
+      this.isDetailed = detailed;
+      if (this.isVisible && this.currentSocket) {
+        this.showFor(this.currentSocket);
+      }
+    };
+    window.addEventListener('keydown', this.detailKeyListener);
+    window.addEventListener('keyup', this.detailKeyListener);
+  }
+
+  // The quiet second line. By default it qualifies the socket - its datatype
+  // is what you are deciding about mid drag. Shift trades that for the node
+  // it belongs to: node.name is what the header shows and what a rename
+  // writes to, while getName() is overridden per node class to return the
+  // class display name, so the pair reads 'what I called it' then 'what kind
+  // it is' - and on a node nobody renamed those are simply the same word.
+  static getSubtitle(
+    socket: PPSocket,
+    detailed: boolean,
+    typeName: string,
+  ): string {
+    if (!detailed) {
+      return typeName;
     }
-    const parent = document.getElementById('container');
-    if (!parent) {
-      return undefined;
+    const node = socket.getNode();
+    if (!node) {
+      return typeName;
     }
-    const element = document.createElement('div');
-    element.id = 'socket-name-overlay';
-    element.className = styles.socketNameOverlay;
+    const name = node.nodeName || node.getName();
+    // the class display name ('Constant'), not the registry key ('constant')
+    const kind = node.getName() || node.type;
+    return name === kind ? name : `${name} • ${kind}`;
+  }
 
-    this.nodeNameElement = document.createElement('span');
-    this.nodeNameElement.className = styles.socketNameOverlayNodeName;
-    this.socketNameElement = document.createElement('span');
-    this.socketNameElement.className = styles.socketNameOverlaySocketName;
-    this.typeNameElement = document.createElement('span');
-    this.typeNameElement.className = styles.socketNameOverlayTypeName;
-    this.typeSwatchElement = document.createElement('span');
-    this.typeSwatchElement.className = styles.socketNameOverlaySwatch;
-    this.typeTextElement = document.createElement('span');
-    this.typeNameElement.appendChild(this.typeSwatchElement);
-    this.typeNameElement.appendChild(this.typeTextElement);
+  // the far end of a link is an identity, so it is always named rather than
+  // typed - and named the same way, or a renamed node would show up here
+  // under its class name
+  private static describeNode(node: PPNode | undefined): string {
+    return node?.nodeName || node?.getName() || '';
+  }
 
-    element.appendChild(this.nodeNameElement);
-    element.appendChild(this.socketNameElement);
-    element.appendChild(this.typeNameElement);
-    this.element = parent.appendChild(element);
-    return this.element;
+  // the ghost socket - the add-input affordance on dynamic input nodes -
+  // carries an empty name, which would render as a blank heading
+  static getSocketTitle(socket: PPSocket): string {
+    if (socket.name) {
+      return socket.name;
+    }
+    return socket.socketType === SOCKET_TYPE.GHOST ? 'Add input' : '';
+  }
+
+  // What the socket is wired to, from its own point of view - following a
+  // wire by eye is exactly what is impossible at the zoom levels this label
+  // exists for. A single connection is just its row: which way it runs is
+  // already carried by the socket's own name and by the side the label sits
+  // on. A fan out gets one count line, so no row pays for a marker. Outputs
+  // fan out, where a count reads better than a list that grows the box, so
+  // the list is behind shift.
+  //
+  // Rows are not grouped by node - a fan out where two links land on one node
+  // is rare enough that a comma list is not worth a second render path - but
+  // they are sorted by node, so when it does happen the repeats land adjacent
+  // and collapse by eye.
+  static getConnectionSummary(
+    socket: PPSocket,
+    detailed: boolean,
+  ): ConnectionSummary {
+    const links = socket.links ?? [];
+    const empty: ConnectionSummary = { direction: '', rows: [], more: 0 };
+    if (links.length === 0) {
+      return empty;
+    }
+    const isIncoming = socket.isInput();
+    const rows = links
+      .map((link: PPLink) => {
+        const other = isIncoming ? link.getSource() : link.getTarget();
+        return {
+          node: SocketNameOverlay.describeNode(other.getNode()),
+          socket: other.name,
+        };
+      })
+      .sort(
+        (a, b) =>
+          a.node.localeCompare(b.node) || a.socket.localeCompare(b.socket),
+      );
+    if (rows.length === 1) {
+      return { direction: '', rows, more: 0 };
+    }
+    const direction = `${rows.length} connections`;
+    if (!detailed) {
+      return { direction, rows: [], more: 0 };
+    }
+    const listed = rows.slice(0, SOCKET_NAME_OVERLAY_MAX_LISTED_CONNECTIONS);
+    return { direction, rows: listed, more: rows.length - listed.length };
   }
 
   showFor(socket: PPSocket): void {
@@ -61,30 +155,66 @@ export default class SocketNameOverlay {
     const element = this.ensureElement();
     if (
       !element ||
-      !this.nodeNameElement ||
+      !this.railElement ||
       !this.socketNameElement ||
-      !this.typeSwatchElement ||
-      !this.typeTextElement
+      !this.subtitleElement ||
+      !this.connectionsElement
     ) {
       return;
     }
-    const nodeName = socket.getNode()?.getName() ?? '';
-    const typeName = socket.dataType?.getName() ?? '';
-    const label = `${nodeName} ${socket.name} ${typeName}`;
+    this.currentSocket = socket;
+    const socketName = SocketNameOverlay.getSocketTitle(socket);
+    const isGhostSocket = socket.socketType === SOCKET_TYPE.GHOST;
+    // the ghost socket has no datatype, and no name either - getSocketTitle
+    // already supplies 'Add input'
+    const typeName = isGhostSocket
+      ? 'any type'
+      : (socket.dataType?.getName() ?? '');
+    const subtitle = SocketNameOverlay.getSubtitle(
+      socket,
+      this.isDetailed,
+      typeName,
+    );
+    const onLeftEdge = SocketNameOverlay.sitsOnLeftEdge(socket);
+    const summary = SocketNameOverlay.getConnectionSummary(
+      socket,
+      this.isDetailed,
+    );
+    const label = [
+      socketName,
+      subtitle,
+      onLeftEdge ? 'L' : 'R',
+      summary.direction,
+      summary.more,
+      ...summary.rows.map((row) => `${row.node}/${row.socket}`),
+    ].join('|');
+
     if (label !== this.currentLabel) {
       this.currentLabel = label;
-      this.nodeNameElement.textContent = nodeName;
-      this.socketNameElement.textContent = socket.name;
-      this.typeTextElement.textContent = typeName;
-      // The datatype colour goes on the swatch, exactly as the socket is
-      // drawn, and the text stays neutral. Datatype colours are picked to
-      // sit on the canvas rather than on a near black pill, so several of
-      // them (FileType, ImageResourceMapType) are unreadable as text here -
-      // as a swatch any colour works, and none of them get distorted.
-      this.typeSwatchElement.style.backgroundColor = socket.dataType
-        .getColor()
-        .hex();
-      // measured only when the text changes, not on every pointer move
+      // the rail hugs the edge nearest the socket, so a label to the left of
+      // a left edge socket carries its rail on the right
+      element.className = `${styles.socketNameOverlay} ${
+        onLeftEdge
+          ? styles.socketNameOverlaySocketLeft
+          : styles.socketNameOverlaySocketRight
+      }`;
+      this.socketNameElement.textContent = socketName;
+      this.subtitleElement.textContent = subtitle;
+      // The datatype colour goes on the rail, exactly as the socket is drawn,
+      // and the text stays neutral. Datatype colours are picked to sit on the
+      // canvas rather than on a near black pill, so several of them
+      // (FileType, ImageResourceMapType) are unreadable as text here - as a
+      // rail any colour works, and none of them get distorted
+      this.railElement.className = isGhostSocket
+        ? `${styles.socketNameOverlayRail} ${styles.socketNameOverlayRailGhost}`
+        : styles.socketNameOverlayRail;
+      this.railElement.style.backgroundColor = isGhostSocket
+        ? ''
+        : socket.dataType.getColor().hex();
+      this.renderConnections(summary);
+      // measured only when the content changes, not on every pointer move.
+      // Both side variants pad to the same total, so the flip does not
+      // invalidate this
       element.style.display = 'block';
       this.currentWidth = element.offsetWidth;
     }
@@ -96,6 +226,7 @@ export default class SocketNameOverlay {
   }
 
   hide(): void {
+    this.currentSocket = undefined;
     if (this.element && this.isVisible) {
       this.element.style.display = 'none';
       this.isVisible = false;
@@ -103,24 +234,123 @@ export default class SocketNameOverlay {
   }
 
   destroy(): void {
+    if (this.detailKeyListener) {
+      window.removeEventListener('keydown', this.detailKeyListener);
+      window.removeEventListener('keyup', this.detailKeyListener);
+      this.detailKeyListener = undefined;
+    }
     this.element?.remove();
     this.element = undefined;
-    this.nodeNameElement = undefined;
+    this.railElement = undefined;
     this.socketNameElement = undefined;
-    this.typeNameElement = undefined;
-    this.typeSwatchElement = undefined;
-    this.typeTextElement = undefined;
+    this.subtitleElement = undefined;
+    this.connectionsElement = undefined;
+    this.currentSocket = undefined;
     this.currentLabel = '';
     this.isVisible = false;
   }
 
-  // placed on the outward side of the node - inputs sit on the left edge so
-  // the label goes further left, outputs on the right edge so it goes right.
-  // That keeps it off the node it belongs to, and it is clamped so it stays
-  // on screen at the canvas edges
+  private ensureElement(): HTMLDivElement | undefined {
+    if (this.element) {
+      return this.element;
+    }
+    const parent = document.getElementById('container');
+    if (!parent) {
+      return undefined;
+    }
+    const element = document.createElement('div');
+    element.id = 'socket-name-overlay';
+    // showFor rewrites this with the side variant, but the first paint has to
+    // be styled too
+    element.className = styles.socketNameOverlay;
+
+    // the datatype colour, drawn on the edge nearest the socket
+    this.railElement = document.createElement('span');
+    this.railElement.className = styles.socketNameOverlayRail;
+    element.appendChild(this.railElement);
+
+    // identity: the socket, then the quiet line that shift swaps out
+    const identity = document.createElement('span');
+    identity.className = `${styles.socketNameOverlayZone}`;
+    this.socketNameElement = document.createElement('span');
+    this.socketNameElement.className = styles.socketNameOverlaySocketName;
+    this.subtitleElement = document.createElement('span');
+    this.subtitleElement.className = styles.socketNameOverlaySubtitle;
+    identity.appendChild(this.socketNameElement);
+    identity.appendChild(this.subtitleElement);
+
+    // what it is wired to, in its own band
+    this.connectionsElement = document.createElement('span');
+    this.connectionsElement.className = `${styles.socketNameOverlayZone} ${styles.socketNameOverlayConnections}`;
+
+    element.appendChild(identity);
+    element.appendChild(this.connectionsElement);
+    this.element = parent.appendChild(element);
+    return this.element;
+  }
+
+  private renderConnections(summary: ConnectionSummary): void {
+    const container = this.connectionsElement;
+    if (!container) {
+      return;
+    }
+    container.textContent = '';
+    // an unconnected socket says nothing rather than 'not connected', and the
+    // band goes with it. A single connection has no count line, so the rows
+    // decide this as well
+    const hasContent = summary.rows.length > 0 || Boolean(summary.direction);
+    container.style.display = hasContent ? 'block' : 'none';
+    if (!hasContent) {
+      return;
+    }
+    if (summary.direction) {
+      const direction = document.createElement('span');
+      direction.className = styles.socketNameOverlayDirection;
+      direction.textContent = summary.direction;
+      container.appendChild(direction);
+    }
+    summary.rows.forEach((row) => {
+      const line = document.createElement('span');
+      line.className = styles.socketNameOverlayConnection;
+      const node = document.createElement('span');
+      node.textContent = row.node;
+      const socket = document.createElement('span');
+      socket.className = styles.socketNameOverlayConnectionSocket;
+      socket.textContent = row.socket;
+      line.appendChild(node);
+      line.appendChild(socket);
+      container.appendChild(line);
+    });
+    if (summary.more > 0) {
+      const more = document.createElement('span');
+      more.className = styles.socketNameOverlayMore;
+      more.textContent = `+${summary.more} more`;
+      container.appendChild(more);
+    }
+  }
+
+  // Which side of its node the socket physically sits on, decided from its
+  // position rather than from isInput(). A GHOST socket (the add-input
+  // affordance on dynamic input nodes) draws itself at the input x position
+  // but reports isInput() === false, and macro nodes lay sockets out in
+  // their own left and right blocks - geometry is right in every case.
+  private static sitsOnLeftEdge(socket: PPSocket): boolean {
+    const node = socket.getNode();
+    if (!node) {
+      return socket.isInput();
+    }
+    // node local, so no viewport scale or global lookup is involved
+    const socketX = socket.x + socket.getSocketLocation().x;
+    return socketX <= node.nodeWidth / 2;
+  }
+
+  // placed on the outward side of the node - a socket on the left edge gets
+  // its label further left, one on the right edge further right. That keeps
+  // it off the node it belongs to, and it is clamped so it stays on screen
+  // at the canvas edges
   private positionNextTo(socket: PPSocket, element: HTMLDivElement): void {
     const center = socket.screenPointSocketCenter();
-    const rawX = socket.isInput()
+    const rawX = SocketNameOverlay.sitsOnLeftEdge(socket)
       ? center.x - SOCKET_NAME_OVERLAY_OFFSET - this.currentWidth
       : center.x + SOCKET_NAME_OVERLAY_OFFSET;
     const x = Math.max(

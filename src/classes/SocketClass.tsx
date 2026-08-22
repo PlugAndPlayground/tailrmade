@@ -25,8 +25,6 @@ import {
   COLOR_DARK,
   COLOR_MAIN,
   COLOR_WHITE_TEXT,
-  SOCKET_FOCUS_SCALE,
-  SOCKET_FOCUS_SCREEN_DISTANCE,
   SOCKET_SNAP_HIGHLIGHT_SCREEN_WIDTH,
   SOCKET_TEXTMARGIN_TOP,
   SOCKET_TEXTMARGIN,
@@ -49,7 +47,6 @@ import {
   clearDocumentSelection,
   constructSocketId,
   convertToViewableString,
-  getCurrentCursorPosition,
   parseValueAndAttachWarnings,
 } from '../utils/utils';
 import { NodeExecutionWarning, PNPStatus, PNPSuccess } from './ErrorClass';
@@ -711,7 +708,16 @@ export default class Socket
   // graphics keep their own hit testing as siblings.
   private socketRefHitAreaContains(x: number, y: number): boolean {
     const half = SOCKET_WIDTH / 2;
-    const radius = this.getZoomInvariantHitRadius();
+    // _SocketRef is scaled up while this socket is focused or near the
+    // pointer, and a hitArea is measured in the object's own local space -
+    // so without dividing that scale back out, focusing a socket inflates
+    // its pointer target and lets it swallow its neighbours' targets. That
+    // made hovering directional: ties between overlapping sockets go to
+    // whichever is later in the child list (the lower one), so walking down
+    // a column handed over correctly while walking up stayed stuck and
+    // skipped every other socket.
+    const drawScale = this._SocketRef?.scale?.x || 1;
+    const radius = this.getZoomInvariantHitRadius() / drawScale;
     const dx = x - half;
     const dy = y - half;
     if (dx * dx + dy * dy <= radius * radius) {
@@ -757,15 +763,11 @@ export default class Socket
     if (highlight.parent !== this) {
       this.addChild(highlight);
     }
-    // the focused socket also takes the peak of the proximity magnifier, so
-    // focus looks the same whether it was reached by hovering or by snapping
-    this.setFocusScale(SOCKET_FOCUS_SCALE);
     this._isFocused = true;
   }
 
   public hideFocusHighlight(): void {
     this._isFocused = false;
-    this.setFocusScale(1);
     if (!this._FocusRingRef) {
       return;
     }
@@ -778,52 +780,6 @@ export default class Socket
 
   public isFocused(): boolean {
     return this._isFocused;
-  }
-
-  // shared by the focus highlight and the proximity magnifier so there is
-  // only one place that knows which parts of a socket scale together
-  private setFocusScale(scale: number): void {
-    if (this.destroyed) {
-      return;
-    }
-    this._SocketRef.scale = new PIXI.Point(scale, scale);
-    this._ValueSpecificGraphics.scale = new PIXI.Point(scale, scale);
-    if (this._TextRef) {
-      const textScale = Math.sqrt(scale);
-      this._TextRef.scale = new PIXI.Point(textScale, textScale);
-    }
-  }
-
-  pointerOverSocketMoving() {
-    // the focused socket is already held at the peak scale, and while a
-    // connection is being dragged focus owns the feedback entirely - letting
-    // the ramp run too is what made the socket sometimes grow and sometimes
-    // show a ring for no apparent reason
-    if (this._isFocused) {
-      // the viewport can pan or zoom under a stationary hover
-      PPGraph.currentGraph?.socketNameOverlay.showFor(this);
-      return;
-    }
-    if (PPGraph.currentGraph?.selectedSocket) {
-      return;
-    }
-    const scale = PPGraph.currentGraph?.viewportScaleX || 1;
-    const currPos = getCurrentCursorPosition();
-    const center = PPGraph.currentGraph.getSocketCenter(this);
-    // measured in screen pixels: in world units the ramp shrank away as soon
-    // as you zoomed out, which is when the magnifier is needed most
-    const dist =
-      Math.sqrt(
-        Math.pow(currPos.y - center.y, 2) +
-          0.05 * Math.pow(currPos.x - center.x, 2),
-      ) * scale;
-    const maxDist = SOCKET_FOCUS_SCREEN_DISTANCE;
-    const scaleOutside =
-      Math.pow(Math.max(0, (maxDist - dist) / maxDist), 1) *
-        (SOCKET_FOCUS_SCALE - 1) +
-      1;
-
-    this.setFocusScale(scaleOutside);
   }
 
   onPointerOver(): void {
@@ -864,17 +820,6 @@ export default class Socket
   public onPointerUp(event: PIXI.FederatedPointerEvent): void {
     void PPGraph.currentGraph.socketMouseUp(this, event);
     event.stopPropagation();
-  }
-
-  public nodeHoveredOver() {}
-
-  public nodeHoveredOut() {
-    // scale might have been touched by us in pointeroversocketmoving
-    this._SocketRef.scale = new PIXI.Point(1, 1);
-    this._ValueSpecificGraphics.scale = new PIXI.Point(1, 1);
-    if (this._TextRef) {
-      this._TextRef.scale = new PIXI.Point(1, 1);
-    }
   }
 
   destroy(options: PIXI.DestroyOptions): void {

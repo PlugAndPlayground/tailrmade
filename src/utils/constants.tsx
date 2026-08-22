@@ -187,15 +187,13 @@ export const SOCKET_MIN_HITBOX_SCREEN_SIZE = 24;
 export const SOCKET_SNAP_SCREEN_RADIUS = 48;
 // stroke weight (in screen pixels) of the ring drawn around a focused socket
 export const SOCKET_SNAP_HIGHLIGHT_SCREEN_WIDTH = 2;
-// how much the focused socket is magnified - matches the peak of the
-// proximity ramp in Socket.pointerOverSocketMoving so the two agree
-export const SOCKET_FOCUS_SCALE = 2.3;
-// screen space distance at which the proximity magnifier starts responding
-export const SOCKET_FOCUS_SCREEN_DISTANCE = 15;
 // the screen space label naming the focused socket
 export const SOCKET_NAME_OVERLAY_FONTSIZE = 13;
 export const SOCKET_NAME_OVERLAY_PADDING = 5;
 export const SOCKET_NAME_OVERLAY_OFFSET = 20;
+// shift expands a fanned out connection count into a list, capped so a
+// heavily fanned socket cannot grow the label past the viewport
+export const SOCKET_NAME_OVERLAY_MAX_LISTED_CONNECTIONS = 10;
 export const SOCKET_CORNERRADIUS = 4;
 export const SOCKET_TEXTMARGIN = 8;
 export const SOCKET_TEXTMARGIN_TOP = 4;

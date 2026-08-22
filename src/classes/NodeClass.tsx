@@ -1703,10 +1703,6 @@ ${Math.round(bounds.minX)}, ${Math.round(
     this.onNodeRemoved();
   }
 
-  pointerOverMoving(): void {
-    this.getAllSockets().forEach((socket) => socket.pointerOverSocketMoving());
-  }
-
   OFFSET_TRANSLATION_ITERATION = 0.02;
   BLUR_CHANGE_ITERATION = 0.05;
   MAX_HOVER_CHANGE_ITERATIONS = 10;
@@ -1792,22 +1788,18 @@ ${Math.round(bounds.minX)}, ${Math.round(
     this.cursor = 'move'; // Show move cursor on hover
     this.updateBehaviour.graphics.redrawAnythingChanging();
     this.nodeSelectionHeader.redrawAnythingChanging(true);
-    this.addEventListener('pointermove', this.pointerOverMoving);
     this.selectionFilterIn();
 
-    this.getAllSockets().forEach((socket) => socket.nodeHoveredOver());
     this.drawUserComment();
   }
 
   onPointerOut(): void {
     this.isHovering = false;
     this.cursor = 'auto'; // Reset cursor
-    this.removeEventListener('pointermove', this.pointerOverMoving);
     this.updateBehaviour.graphics.redrawAnythingChanging();
     this.nodeSelectionHeader.redrawAnythingChanging(false);
     this.selectionFilterOut();
 
-    this.getAllSockets().forEach((socket) => socket.nodeHoveredOut());
     this.drawUserComment();
   }
 

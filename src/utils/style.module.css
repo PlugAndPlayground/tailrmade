@@ -146,14 +146,15 @@
 
 /* screen space label naming the focused socket - lives on the html layer so
    it is not clipped by the html of a hybrid node, which paints over the
-   whole pixi canvas */
+   whole pixi canvas. All spacing here steps in 2s */
 .socketNameOverlay {
   position: absolute;
   z-index: 1050;
   pointer-events: none;
   display: none;
-  padding: 4px 8px;
-  border-radius: 4px;
+  /* the connections band is flush to the pill edges, so it has to be clipped.
+     Padding lives on the two zones instead of here */
+  overflow: hidden;
   background: rgba(12, 12, 12, 0.88);
   color: #f4faf9;
   font-family: Arial, Helvetica, sans-serif;
@@ -162,34 +163,111 @@
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
 }
 
-.socketNameOverlayNodeName {
+/* Which side the rail and the wide padding sit on. The rail always hugs the
+   edge nearest the socket, so it reads as a tether: a socket on the node's
+   left edge puts its label to the left, and the rail on that label's right.
+   Both variants total 22px of horizontal padding, so the measured width does
+   not change when the side does */
+.socketNameOverlayZone {
   display: block;
-  font-size: 12px;
-  opacity: 0.75;
-  font-weight: 300;
 }
 
+.socketNameOverlaySocketLeft .socketNameOverlayZone {
+  padding: 6px 14px 6px 8px;
+}
+
+.socketNameOverlaySocketRight .socketNameOverlayZone {
+  padding: 6px 8px 6px 14px;
+}
+
+/* carries the datatype colour, drawn like the socket itself. A 6px bar holds
+   the colour at ~12x the area of the old 8px swatch, so it survives being
+   zoomed away from, and the hairline on its inward side keeps very dark
+   datatype colours separated from the pill without altering them */
+.socketNameOverlayRail {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 6px;
+}
+
+.socketNameOverlaySocketLeft .socketNameOverlayRail {
+  right: 0;
+  border-left: 1px solid rgba(255, 255, 255, 0.22);
+}
+
+.socketNameOverlaySocketRight .socketNameOverlayRail {
+  left: 0;
+  border-right: 1px solid rgba(255, 255, 255, 0.22);
+}
+
+/* the ghost socket has no datatype to show, so the rail goes dashed and no
+   inline colour is written to it */
+.socketNameOverlayRailGhost {
+  background: repeating-linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.5) 0 4px,
+    transparent 4px 8px
+  );
+  border-color: rgba(255, 255, 255, 0.14);
+}
+
+/* the socket itself */
 .socketNameOverlaySocketName {
   display: block;
   font-size: 16px;
   font-weight: 600;
+  letter-spacing: -0.01em;
 }
 
-.socketNameOverlayTypeName {
-  display: flex;
-  align-items: center;
-  gap: 5px;
+/* the quiet line under it: the socket's datatype, or the owning node while
+   shift is held */
+.socketNameOverlaySubtitle {
+  display: block;
+  margin-top: 2px;
   font-size: 12px;
-  font-weight: 400;
+  opacity: 0.6;
+}
+
+/* what the socket is wired to. A zone change groups it without spending a
+   rule, and it frames the expanded list so ten rows read as a list */
+.socketNameOverlayConnections {
+  background: rgba(255, 255, 255, 0.07);
+}
+
+/* the count, stated once for the whole list. A single connection says nothing
+   here - the row alone is unambiguous */
+.socketNameOverlayDirection {
+  display: block;
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  opacity: 0.45;
+}
+
+.socketNameOverlayConnection {
+  display: block;
+  font-size: 12px;
   opacity: 0.9;
 }
 
-/* carries the datatype colour, drawn like the socket itself. The ring keeps
-   very dark datatype colours visible against the pill without altering them */
-.socketNameOverlaySwatch {
-  flex: 0 0 auto;
-  width: 8px;
-  height: 8px;
-  border-radius: 2px;
-  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.25);
+.socketNameOverlayDirection + .socketNameOverlayConnection {
+  margin-top: 2px;
+}
+
+.socketNameOverlayConnectionSocket {
+  opacity: 0.55;
+}
+
+.socketNameOverlayConnectionSocket::before {
+  content: '\00b7';
+  margin: 0 4px;
+  opacity: 0.7;
+}
+
+.socketNameOverlayMore {
+  display: block;
+  margin-top: 2px;
+  font-size: 10px;
+  opacity: 0.4;
 }
