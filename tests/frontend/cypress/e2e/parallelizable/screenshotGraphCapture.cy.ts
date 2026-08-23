@@ -1,7 +1,5 @@
 import { doWithTestController, openNewGraph } from '../helpers';
 
-type Capturer = { capture: () => Promise<void> };
-
 // The graph sources are the compositing path: pixi renders the world space
 // frame into a texture and html2canvas-pro rasterises the hybrid node overlays,
 // and the two have to land on the same output pixels.
@@ -22,7 +20,7 @@ describe('Screenshot node, graph capture', () => {
     cy.get('#Container-graph-widget').should('exist');
 
     doWithTestController(async (tc) => {
-      await (tc.getNodeByID('shot') as unknown as Capturer).capture();
+      await tc.executeNodeByID('shot');
 
       const details = tc.getNodeOutputValue('shot', 'Details');
       expect(details.source).to.equal('Graph');
@@ -55,7 +53,7 @@ describe('Screenshot node, graph capture', () => {
         .getGraph()
         .selection.getBoundsFromNodes([tc.getNodeByID('sel-widget')]);
 
-      await (tc.getNodeByID('shot') as unknown as Capturer).capture();
+      await tc.executeNodeByID('shot');
 
       const details = tc.getNodeOutputValue('shot', 'Details');
       expect(details.source).to.equal('Node selection');
@@ -79,7 +77,7 @@ describe('Screenshot node, graph capture', () => {
     cy.get('#Container-bg-widget').should('exist');
 
     doWithTestController(async (tc) => {
-      await (tc.getNodeByID('shot') as unknown as Capturer).capture();
+      await tc.executeNodeByID('shot');
     });
 
     cy.window().then((win) =>
@@ -148,6 +146,129 @@ describe('Screenshot node, graph capture', () => {
         tc.getNodeOutputValue('pref-shot', 'Image'),
         'clicking the button captured',
       ).to.match(/^data:image\/png;base64,/);
+    });
+  });
+
+  // capturing is a deliberate act: the node runs on its trigger and on the
+  // header's execute button, never because an input happened to change - which
+  // for the screen source would mean an unprompted share dialog
+  it('does not capture when an input changes', () => {
+    doWithTestController(async (tc) => {
+      await tc.addNode('Screenshot', 'quiet-shot', 100, 100);
+      tc.setNodeInputValue('quiet-shot', 'Source', 'Graph');
+
+      const behaviour = (
+        tc.getNodeByID('quiet-shot') as unknown as {
+          updateBehaviour: {
+            load: boolean;
+            update: boolean;
+            interval: boolean;
+          };
+        }
+      ).updateBehaviour;
+      expect(behaviour.load, 'does not run on load').to.equal(false);
+      expect(behaviour.update, 'does not run on input change').to.equal(false);
+      expect(behaviour.interval, 'does not run on a timer').to.equal(false);
+    });
+
+    doWithTestController((tc) => {
+      const before = tc.getNodeOutputValue('quiet-shot', 'Image');
+      tc.setNodeInputValue('quiet-shot', 'Scale', 2);
+      cy.wait(1000);
+      doWithTestController((inner) => {
+        expect(
+          inner.getNodeOutputValue('quiet-shot', 'Image'),
+          'changing Scale left the output untouched',
+        ).to.equal(before);
+      });
+    });
+
+    // ...but executing it, which is what the header button does, captures
+    doWithTestController(async (tc) => {
+      await tc.executeNodeByID('quiet-shot');
+      expect(tc.getNodeOutputValue('quiet-shot', 'Image')).to.match(
+        /^data:image\/png;base64,/,
+      );
+      expect(tc.getNodeOutputValue('quiet-shot', 'Details').source).to.equal(
+        'Graph',
+      );
+    });
+  });
+
+  // The permission prompt is per stream, not per frame, so the stream is held
+  // and reused. getDisplayMedia is stubbed with a live canvas stream because a
+  // real one cannot be granted from a test.
+  it('announces screen sharing once, then reuses the stream silently', () => {
+    cy.window().then((win) => {
+      const canvas = win.document.createElement('canvas');
+      canvas.width = 120;
+      canvas.height = 80;
+      const context = canvas.getContext('2d');
+      // a canvas stream only produces frames while the canvas is repainted
+      win.setInterval(() => {
+        context.fillStyle =
+          context.fillStyle === '#cc3333' ? '#33cc33' : '#cc3333';
+        context.fillRect(0, 0, 120, 80);
+      }, 60);
+
+      (win as unknown as { shareCalls: number }).shareCalls = 0;
+      Object.defineProperty(win.navigator, 'userActivation', {
+        configurable: true,
+        value: { isActive: true, hasBeenActive: true },
+      });
+      (
+        win.navigator.mediaDevices as unknown as {
+          getDisplayMedia: () => Promise<MediaStream>;
+        }
+      ).getDisplayMedia = () => {
+        (win as unknown as { shareCalls: number }).shareCalls += 1;
+        return Promise.resolve(
+          (
+            canvas as unknown as { captureStream: (fps: number) => MediaStream }
+          ).captureStream(30),
+        );
+      };
+    });
+
+    doWithTestController(async (tc) => {
+      await tc.addNode('Screenshot', 'share-shot', 100, 100);
+      tc.setNodeInputValue('share-shot', 'Source', 'Screen sharing');
+      await tc.executeNodeByID('share-shot');
+
+      expect(tc.getNodeOutputValue('share-shot', 'Image')).to.match(
+        /^data:image\/png;base64,/,
+      );
+      expect(tc.getNodeOutputValue('share-shot', 'Details').source).to.equal(
+        'Screen sharing',
+      );
+    });
+
+    // the user is told what just happened and how to end it
+    cy.get('body').contains('Screen sharing started');
+    cy.get('body').contains('Stop screen sharing');
+
+    doWithTestController(async (tc) => {
+      await tc.executeNodeByID('share-shot');
+    });
+    cy.window().then((win) => {
+      expect(
+        (win as unknown as { shareCalls: number }).shareCalls,
+        'the second capture reused the stream instead of asking again',
+      ).to.equal(1);
+    });
+
+    // stopping releases it, so the next capture asks once more
+    doWithTestController(async (tc) => {
+      (
+        tc.getNodeByID('share-shot') as unknown as { stopSharing: () => void }
+      ).stopSharing();
+      await tc.executeNodeByID('share-shot');
+    });
+    cy.window().then((win) => {
+      expect(
+        (win as unknown as { shareCalls: number }).shareCalls,
+        'a stopped share is requested again',
+      ).to.equal(2);
     });
   });
 });

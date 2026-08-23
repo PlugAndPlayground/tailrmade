@@ -12,6 +12,7 @@ import {
 import { SurfaceSync } from '../nodes/layout/surfaceSync';
 import { surfaceEditSession } from './dashboard/surfaceEditSession';
 import { canonicalTreeString } from '../utils/surfaceTree';
+import { nextDrawerVisibility } from '../utils/drawerVisibility';
 import InterfaceController, { ListenEvent } from '../InterfaceController';
 import ShellLayout from './ShellLayout';
 import { DrawerSide, IOverlay, isSurfaceNode } from '../utils/interfaces';
@@ -135,20 +136,17 @@ const GraphOverlay: React.FunctionComponent<GraphOverlayProps> = (props) => {
         return;
       }
 
-      // Close if the requested view is already showing
-      const shouldClose =
-        content != null &&
-        content === overlayState[side].activeView &&
-        overlayState[side].visible;
+      const drawer = overlayState[side];
 
       updateOverlayState({
         [side]: {
-          ...overlayState[side],
-          visible: shouldClose
-            ? false
-            : action === VISIBILITY_ACTION.TOGGLE
-              ? !overlayState[side].visible
-              : action === VISIBILITY_ACTION.OPEN,
+          ...drawer,
+          visible: nextDrawerVisibility({
+            action,
+            isVisible: drawer.visible,
+            requestedView: content,
+            activeView: drawer.activeView,
+          }),
           ...(content != null && { activeView: content }),
         },
       });

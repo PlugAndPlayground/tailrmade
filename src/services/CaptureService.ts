@@ -32,7 +32,7 @@ export const CAPTURE_SOURCES = [
   'User interface',
   'Graph',
   'Node selection',
-  'Screen',
+  'Screen sharing',
   'ReactUI',
 ] as const;
 
@@ -501,6 +501,16 @@ const getScreenStream = async (): Promise<MediaStream> => {
     }
   });
   screenStream = stream;
+
+  // only on a new stream: the whole point of holding it is that the reuses are
+  // silent, so this must not fire again on every capture
+  InterfaceController.showSnackBar(
+    'Screen sharing started. Further captures will not ask again. ' +
+      'To end it, trigger "Stop screen sharing" on the Screenshot node, ' +
+      "or use your browser's own stop sharing control.",
+    { variant: 'info', autoHideDuration: 10000 },
+  );
+
   return stream;
 };
 
@@ -519,7 +529,17 @@ const captureScreenCanvas = async (): Promise<HTMLCanvasElement> => {
     video.srcObject = stream;
     video.muted = true;
     video.playsInline = true;
-    await video.play();
+    // a stream that never delivers a frame would leave play() pending forever,
+    // and this runs inside the node's execution, so it must not hang there
+    await Promise.race([
+      video.play(),
+      new Promise<never>((_, reject) =>
+        window.setTimeout(
+          () => reject(new Error('The shared screen delivered no video.')),
+          5000,
+        ),
+      ),
+    ]);
     await nextVideoFrame(video);
 
     const canvas = document.createElement('canvas');
@@ -609,7 +629,7 @@ const canvasForSource = (
       return captureGraphCanvas(options.bounds, scale);
     case 'Node selection':
       return captureSelectionCanvas(scale);
-    case 'Screen':
+    case 'Screen sharing':
       return captureScreenCanvas();
     case 'ReactUI':
       if (options.render === undefined) {

@@ -1,7 +1,7 @@
 import React from 'react';
-import PPGraph from '../../classes/GraphClass';
 import PPNode from '../../classes/NodeClass';
 import Socket from '../../classes/SocketClass';
+import UpdateBehaviourClass from '../../classes/UpdateBehaviourClass';
 import InterfaceController from '../../InterfaceController';
 import { NodeExecutionError, PNPSuccess } from '../../classes/ErrorClass';
 import { TRgba } from '../../utils/color';
@@ -53,6 +53,10 @@ export class Screenshot extends PPNode {
     return ['Media'].concat(super.getTags());
   }
 
+  public getUpdateBehaviour(): UpdateBehaviourClass {
+    return new UpdateBehaviourClass(false, false, false, 1000, this);
+  }
+
   public getColor(): TRgba {
     return TRgba.fromString(NODE_TYPE_COLOR.INPUT);
   }
@@ -62,7 +66,7 @@ export class Screenshot extends PPNode {
       new Socket(
         SOCKET_TYPE.TRIGGER,
         captureName,
-        new TriggerType(TRIGGER_TYPE_OPTIONS[0].text, 'capture'),
+        new TriggerType(TRIGGER_TYPE_OPTIONS[0].text),
         undefined,
       ),
       new Socket(
@@ -99,72 +103,68 @@ export class Screenshot extends PPNode {
     ];
   }
 
-  /**
-   * A hybrid node only produces its ReactUI output while something is linked to
-   * it, so a freshly connected widget has not written one yet and the socket
-   * still holds the default. Running the source once fills it in.
-   */
-  private async refreshReactUIInput(): Promise<void> {
-    const sourceNode = this.getInputSocketByName(reactUIName)
-      ?.links?.[0]?.getSource()
-      ?.getNode();
-    await sourceNode?.executeOptimizedChain();
-  }
+  private static readonly reactUIProps = {
+    index: 0,
+    randomMainColor: MAIN_COLOR,
+    disabled: false,
+    width: '100%',
+    height: '100%',
+  } as DashboardWidgetProps;
 
+  /**
+   * A node only writes its ReactUI output once it has executed with something
+   * linked to it, so a freshly connected widget still holds the socket's
+   * default. The real payload carries the id of the node it came from, and
+   * when it is missing the linked node can be asked to draw itself directly -
+   * which beats executing it from in here, since that would re-enter this
+   * node's own execution.
+   */
   private getReactUIRenderer(): (() => React.ReactNode) | undefined {
     const deferred = this.getInputData(
       reactUIName,
     ) as DeferredReactTypeInterface;
-    if (typeof deferred?.renderFunction !== 'function') {
-      return undefined;
+    if (deferred?.nodeId !== undefined) {
+      return () => deferred.renderFunction(Screenshot.reactUIProps);
     }
-    return () =>
-      deferred.renderFunction({
-        index: 0,
-        randomMainColor: MAIN_COLOR,
-        disabled: false,
-        width: '100%',
-        height: '100%',
-      } as DashboardWidgetProps);
+
+    const sourceNode = this.getInputSocketByName(reactUIName)
+      ?.links?.[0]?.getSource()
+      ?.getNode() as unknown as {
+      getDashboardWrapper?: (props: DashboardWidgetProps) => React.ReactNode;
+    };
+    const drawSource = sourceNode?.getDashboardWrapper;
+    if (typeof drawSource === 'function') {
+      return () => drawSource.call(sourceNode, Screenshot.reactUIProps);
+    }
+    return undefined;
   }
 
-  capture = async (): Promise<void> => {
-    const source = this.getInputData(sourceName) as CaptureSource;
+  protected async onExecute(
+    inputObject: Record<string, unknown>,
+    outputObject: Record<string, unknown>,
+  ): Promise<void> {
+    const source = inputObject[sourceName] as CaptureSource;
     try {
-      if (source === 'ReactUI') {
-        await this.refreshReactUIInput();
-      }
       const result = await capture(source, {
-        scale: this.getInputData(scaleName),
+        scale: inputObject[scaleName] as number,
         render: this.getReactUIRenderer(),
-        renderWidth: this.getInputData(widgetWidthName),
-        renderHeight: this.getInputData(widgetHeightName),
+        renderWidth: inputObject[widgetWidthName] as number,
+        renderHeight: inputObject[widgetHeightName] as number,
       });
       this.setStatus(new PNPSuccess());
-      this.setOutputData(imageOutputName, result.dataURL);
-      this.setOutputData(detailsOutputName, {
+      outputObject[imageOutputName] = result.dataURL;
+      outputObject[detailsOutputName] = {
         width: result.width,
         height: result.height,
         source: result.source,
         timestamp: result.timestamp,
-      });
-      await this.executeChildren();
+      };
     } catch (error) {
       const message = `${source} capture failed. ${(error as Error).message}`;
-      // a snackbar is gone in three seconds, and a capture that quietly does
-      // nothing is the hardest kind of failure to chase down, so leave the
-      // reason on the node too
       this.setStatus(new NodeExecutionError(message));
       InterfaceController.showSnackBar(message, { variant: 'error' });
     }
-  };
-
-  // capturing is what the trigger is for, executing the node should not open a
-  // screen share prompt or re-render the whole canvas as a side effect
-  protected async onExecute(
-    _input: unknown,
-    _output: Record<string, unknown>,
-  ): Promise<void> {}
+  }
 
   stopSharing = (): void => {
     stopScreenCapture();

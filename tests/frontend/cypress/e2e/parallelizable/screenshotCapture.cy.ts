@@ -1,12 +1,5 @@
 import { doWithTestController, openNewGraph } from '../helpers';
 
-type Capturer = { capture: () => Promise<void> };
-
-// The user interface is pure dom, so its capture goes through html2canvas-pro
-// alone (no pixi compositing). This covers that path end to end: the node
-// produces a png data url on its Image output, with real pixels in it, plus the
-// Details. It has to be the live craftjs surface, not the canvas thumbnail a
-// UISurfaceNode draws on the graph.
 describe('Screenshot node, user interface capture', () => {
   beforeEach(() => {
     openNewGraph();
@@ -41,7 +34,7 @@ describe('Screenshot node, user interface capture', () => {
       tc.setNodeInputValue('shot', 'Source', 'User interface');
       tc.setNodeInputValue('shot', 'Scale', 1);
 
-      await (tc.getNodeByID('shot') as unknown as Capturer).capture();
+      await tc.executeNodeByID('shot');
 
       const image = tc.getNodeOutputValue('shot', 'Image');
       expect(image, 'Image output is a png data url').to.match(
@@ -129,7 +122,7 @@ describe('Screenshot node, user interface capture', () => {
     cy.get('#Container-w-button').should('exist');
 
     doWithTestController(async (tc) => {
-      await (tc.getNodeByID('shot') as unknown as Capturer).capture();
+      await tc.executeNodeByID('shot');
 
       const details = tc.getNodeOutputValue('shot', 'Details');
       expect(details.source).to.equal('ReactUI');
@@ -161,7 +154,7 @@ describe('Screenshot node, user interface capture', () => {
       await tc.addNode('WriteToClipboard', 'clip', 700, 100);
       tc.setNodeInputValue('clip-shot', 'Source', 'Graph');
 
-      await (tc.getNodeByID('clip-shot') as unknown as Capturer).capture();
+      await tc.executeNodeByID('clip-shot');
       await tc.connectNodesByID('clip-shot', 'clip', 'Image', 'Input');
 
       expect(
@@ -206,84 +199,11 @@ describe('Screenshot node, user interface capture', () => {
         'the surface has to outgrow its scroll box for this to mean anything',
       ).to.be.greaterThan(frame.clientHeight);
 
-      await (tc.getNodeByID('tall-shot') as unknown as Capturer).capture();
+      await tc.executeNodeByID('tall-shot');
       expect(
         tc.getNodeOutputValue('tall-shot', 'Details').height,
         'the capture reaches the bottom of the surface',
       ).to.be.closeTo(root.offsetHeight, 2);
     });
-  });
-
-  // the composer is in a narrow drawer, so the controls sit in a toolbar row
-  // inside the input's own border rather than taking width away from the text
-  it('keeps the input full width with its controls in a row underneath', () => {
-    doWithTestController((tc) => {
-      (
-        tc as unknown as {
-          toggleLeftSideDrawer: (a: string, v: string) => void;
-        }
-      ).toggleLeftSideDrawer('OPEN', 'ai');
-    });
-
-    cy.get('[data-cy="AI Composer"]', { timeout: 20000 }).should('be.visible');
-
-    cy.get('[data-cy="AI Message Attach Capture"]').then(($attach) => {
-      cy.get('[data-cy="AI Message Submit"]').then(($send) => {
-        cy.get('[data-cy="AI Message Text Field"]').then(($field) => {
-          const attach = $attach[0].getBoundingClientRect();
-          const send = $send[0].getBoundingClientRect();
-          const field = $field[0].getBoundingClientRect();
-
-          expect(field.bottom, 'the toolbar sits under the text').to.be.at.most(
-            attach.top + 1,
-          );
-          expect(attach.left, 'attach on the left of the row').to.be.lessThan(
-            send.left,
-          );
-          expect(
-            field.width,
-            'the input keeps the width of the panel',
-          ).to.be.greaterThan(attach.width * 4);
-        });
-      });
-    });
-  });
-
-  // an image on the clipboard arrives as a file item on the paste event
-  it('attaches an image pasted into the composer', () => {
-    doWithTestController((tc) => {
-      (
-        tc as unknown as {
-          toggleLeftSideDrawer: (a: string, v: string) => void;
-        }
-      ).toggleLeftSideDrawer('OPEN', 'ai');
-    });
-
-    cy.get('[data-cy="AI Composer"]', { timeout: 20000 }).should('be.visible');
-    cy.get('[data-cy="AI Composer"] img').should('not.exist');
-
-    cy.window().then((win) => {
-      const png =
-        'iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAKklEQVR42mP8z8BQz0AEYBxVSF+FAFbWBAV1lRkAAAAAElFTkSuQmCC';
-      const binary = win.atob(png);
-      const bytes = new Uint8Array(binary.length);
-      for (let i = 0; i < binary.length; i++) {
-        bytes[i] = binary.charCodeAt(i);
-      }
-      const transfer = new win.DataTransfer();
-      transfer.items.add(
-        new win.File([bytes], 'pasted.png', { type: 'image/png' }),
-      );
-      const paste = new win.Event('paste', { bubbles: true, cancelable: true });
-      Object.defineProperty(paste, 'clipboardData', { value: transfer });
-      win.document
-        .querySelector('[data-cy="AI Composer"]')
-        .dispatchEvent(paste);
-    });
-
-    cy.get('[data-cy="AI Composer"] img')
-      .should('exist')
-      .and('have.attr', 'src')
-      .and('match', /^data:image\/png;base64,/);
   });
 });

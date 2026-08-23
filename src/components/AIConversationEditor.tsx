@@ -2,7 +2,6 @@ import React, { useEffect, useRef, useState } from 'react';
 import {
   Alert,
   Box,
-  Button,
   CircularProgress,
   IconButton,
   Menu,
@@ -716,9 +715,6 @@ const AIConversationEditor = ({
           borderTop: panelBorder,
         }}
       >
-        {/* one bordered shell: the text sits on top and everything else
-            lives in a toolbar row inside it, so the input keeps the full
-            width of the panel however many controls get added */}
         <Box
           data-cy="AI Composer"
           onPaste={(event) => handlePaste(event.clipboardData)}
@@ -754,7 +750,9 @@ const AIConversationEditor = ({
             disabled={disabled || isLoading}
             slotProps={{
               input: { disableUnderline: true },
-              htmlInput: { style: { fontFamily: 'Roboto Mono, monospace' } },
+              htmlInput: {
+                style: { fontFamily: 'Roboto Mono, monospace', fontSize: 14 },
+              },
             }}
             sx={{
               '& .MuiInputBase-root': { color: '#fff', p: 0 },
@@ -809,8 +807,6 @@ const AIConversationEditor = ({
               </span>
             </Tooltip>
 
-            {/* the attachments ride in the same row, scrolling sideways rather
-                than pushing the composer taller */}
             <Stack
               direction="row"
               spacing={0.75}
@@ -831,6 +827,8 @@ const AIConversationEditor = ({
                     sx={{
                       position: 'relative',
                       flexShrink: 0,
+                      width: 40,
+                      height: 30,
                       border: panelBorder,
                       borderRadius: 1,
                       overflow: 'hidden',
@@ -841,7 +839,12 @@ const AIConversationEditor = ({
                       component="img"
                       src={attachment.dataURL}
                       alt={attachment.label}
-                      sx={{ display: 'block', height: 28, width: 'auto' }}
+                      sx={{
+                        display: 'block',
+                        width: '100%',
+                        height: '100%',
+                        objectFit: 'cover',
+                      }}
                     />
                     <IconButton
                       size="small"
@@ -856,12 +859,14 @@ const AIConversationEditor = ({
                         top: 0,
                         right: 0,
                         p: 0,
+                        width: 16,
+                        height: 16,
                         color: '#fff',
-                        bgcolor: 'rgba(0,0,0,0.55)',
-                        '&:hover': { bgcolor: 'rgba(0,0,0,0.75)' },
+                        bgcolor: 'rgba(0,0,0,0.6)',
+                        '&:hover': { bgcolor: 'rgba(0,0,0,0.85)' },
                       }}
                     >
-                      <CloseIcon sx={{ fontSize: 11 }} />
+                      <CloseIcon sx={{ fontSize: 12 }} />
                     </IconButton>
                   </Box>
                 </Tooltip>
@@ -935,6 +940,19 @@ const AIConversationEditor = ({
             <UploadIcon sx={{ fontSize: 18, mr: 1 }} />
             Upload image...
           </MenuItem>
+          <Typography
+            variant="caption"
+            data-cy="AI Capture Paste Hint"
+            sx={{
+              display: 'block',
+              px: 2,
+              py: 0.5,
+              color: secondaryText,
+              pointerEvents: 'none',
+            }}
+          >
+            ...or paste an image into the chat
+          </Typography>
         </Menu>
         {!editable && (
           <Box
