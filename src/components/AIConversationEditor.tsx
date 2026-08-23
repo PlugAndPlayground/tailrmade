@@ -37,8 +37,10 @@ import { useUserPreferences } from './useUserPreferences';
 import {
   CAPTURE_SOURCES,
   CaptureSource,
+  blobToDataURL,
   capture,
 } from '../services/CaptureService';
+import { downscaleImageForAI } from '../utils/imageDownscale';
 
 const panelBorder = '1px solid rgba(255,255,255,0.16)';
 const panelSurface = 'rgba(255,255,255,0.08)';
@@ -555,10 +557,8 @@ const AIConversationEditor = ({
     setCaptureMenuAnchor(null);
     try {
       const result = await capture(source);
-      setAttachments((current) => [
-        ...current,
-        { label: source, dataURL: result.dataURL },
-      ]);
+      const dataURL = await downscaleImageForAI(result.dataURL);
+      setAttachments((current) => [...current, { label: source, dataURL }]);
     } catch (error) {
       InterfaceController.showSnackBar(
         `${source} capture failed. ${(error as Error).message}`,
@@ -567,22 +567,21 @@ const AIConversationEditor = ({
     }
   };
 
-  const attachImageFile = (file: File) => {
-    const reader = new FileReader();
-    reader.onload = () =>
+  // downscaled on the way in rather than on send, so the thumbnail, the state
+  // we hold and the request body are all the one small image
+  const attachImageFile = async (file: File) => {
+    try {
+      const dataURL = await downscaleImageForAI(await blobToDataURL(file));
       setAttachments((current) => [
         ...current,
-        {
-          label: file.name || 'Pasted image',
-          dataURL: reader.result as string,
-        },
+        { label: file.name || 'Pasted image', dataURL },
       ]);
-    reader.onerror = () =>
+    } catch (error) {
       InterfaceController.showSnackBar(
-        `Could not read ${file.name || 'the pasted image'}.`,
+        `Could not read ${file.name || 'the pasted image'}. ${(error as Error).message}`,
         { variant: 'error' },
       );
-    reader.readAsDataURL(file);
+    }
   };
 
   // an image on the clipboard arrives as a file item, so pasting one anywhere
@@ -593,7 +592,7 @@ const AIConversationEditor = ({
       .forEach((item) => {
         const file = item.getAsFile();
         if (file) {
-          attachImageFile(file);
+          void attachImageFile(file);
         }
       });
   };
@@ -601,7 +600,7 @@ const AIConversationEditor = ({
   const handleUpload = (files: FileList | null) => {
     Array.from(files ?? [])
       .filter((file) => file.type.startsWith('image/'))
-      .forEach(attachImageFile);
+      .forEach((file) => void attachImageFile(file));
   };
 
   const handleSubmit = async () => {

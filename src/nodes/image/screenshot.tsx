@@ -46,7 +46,7 @@ export class Screenshot extends PPNode {
   }
 
   public getDescription(): string {
-    return 'Capture the dashboard, the graph, the current selection, a connected ReactUI widget or the whole screen as an image.';
+    return 'Capture the user interface, the graph, the current node selection, a connected ReactUI widget or the whole screen as an image.';
   }
 
   public getTags(): string[] {
