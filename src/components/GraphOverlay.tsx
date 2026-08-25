@@ -28,6 +28,11 @@ import {
 import { VISIBILITY_ACTION } from '../utils/constants_shared';
 import { EmptyState } from './dashboard/DashboardEditor';
 import { ModalHost } from './dashboard/ModalHost';
+import {
+  createAxisAwareHandlers,
+  DashboardDropIndicator,
+  dropIndicatorOptions,
+} from './dashboard/DropIndicator';
 import { Container } from './dashboard/Container';
 import { DashboardStateProvider } from './dashboard/DashboardStateProvider';
 import { Text } from './dashboard/Text';
@@ -436,6 +441,8 @@ const GraphOverlay: React.FunctionComponent<GraphOverlayProps> = (props) => {
           enabled={isEditMode && !activeSurfaceLocked}
           onNodesChange={handleNodesChange}
           onRender={RenderNode}
+          handlers={createAxisAwareHandlers}
+          indicator={dropIndicatorOptions}
         >
           <DashboardStateProvider>
             <ShellLayout
@@ -451,6 +458,7 @@ const GraphOverlay: React.FunctionComponent<GraphOverlayProps> = (props) => {
               setIsGraphContextMenuOpen={props.setIsGraphContextMenuOpen}
               currentGraph={PPGraph.currentGraph}
             />
+            <DashboardDropIndicator />
           </DashboardStateProvider>
         </Editor>
         {/* open UI modal dialogs render globally, independent of embedding */}
