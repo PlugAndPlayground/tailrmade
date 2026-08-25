@@ -22,6 +22,7 @@ import {
   outName,
   sizeName,
   useWidgetSize,
+  useSizeTokens,
 } from './abstract';
 import { TRgba } from '../../utils/color';
 import { WidgetContentProps } from '../../utils/interfaces';
@@ -130,7 +131,7 @@ export class WidgetColorPicker extends WidgetHybridBase {
     const [colorPicker, showColorPicker] = useState(false);
     const initialColor = TRgba.fromObject(props[initialValueName]);
     const size = useWidgetSize(props[sizeName]);
-    const tokens = getSizeTokens(size);
+    const tokens = useSizeTokens(size);
 
     return (
       <WidgetPaper ref={ref} node={node} inDashboard={props.inDashboard}>

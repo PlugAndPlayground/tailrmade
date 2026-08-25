@@ -30,6 +30,7 @@ import {
 import { resolveCustomStylesForPreviewWidth } from './viewState';
 import { getContainerDashboardIcon } from './dashboardIcons';
 import { RootName, containerName } from '../../utils/constants_shared';
+import { ColorSetting, colorSettingToCss } from '../../utils/themeColors';
 
 const ROOT_PRESET_MAX_WIDTH: Record<string, false | string> = {
   fullscreen: false,
@@ -38,7 +39,8 @@ const ROOT_PRESET_MAX_WIDTH: Record<string, false | string> = {
 
 type ContainerWidgetProps = {
   background: Record<'r' | 'g' | 'b' | 'a', number>;
-  color: Record<'r' | 'g' | 'b' | 'a', number>;
+  // see WidgetLayoutInterface.color - may be the 'inherit' keyword
+  color: ColorSetting;
   flexDirection: FlexDirection;
   alignItems: string;
   justifyContent: string;
@@ -139,11 +141,10 @@ export const ContainerView = (viewProps: ContainerViewProps) => {
 
   const gapValue = isEditMode ? Math.max(editPadding, gap) : gap;
   const rootMaxWidth = getRootMaxWidth(maxWidth);
-  // construct via TRgba (keyed assignment) rather than templating
-  // Object.values() directly - the latter silently scrambles the r/g/b/a
-  // channels whenever the stored object's key order isn't exactly r,g,b,a
-  const backgroundCss = Object.assign(new TRgba(), background).toString();
-  const colorCss = Object.assign(new TRgba(), color).toString();
+  // both slots can hold the 'inherit' keyword instead of an rgba object, so
+  // a container can defer to the app theme rather than naming a color
+  const backgroundCss = colorSettingToCss(background);
+  const colorCss = colorSettingToCss(color);
 
   // Apply minimum padding values when in edit mode
   const paddingValues = isEditMode

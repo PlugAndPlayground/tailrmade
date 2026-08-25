@@ -29,10 +29,12 @@ import InterfaceController from '../../InterfaceController';
 import { useHoverEvents, useParentDirection } from './hooks';
 import { DynamicWidgetName } from '../../utils/constants_shared';
 import { dynamicWidgetDefaultProps } from '../../utils/surfaceTree';
+import { ColorSetting } from '../../utils/themeColors';
 
 export type DynamicWidgetBaseProps = {
   background: Record<'r' | 'g' | 'b' | 'a', number>;
-  color: Record<'r' | 'g' | 'b' | 'a', number>;
+  // see WidgetLayoutInterface.color - may be the 'inherit' keyword
+  color: ColorSetting;
   flexDirection: FlexDirection;
   alignItems: string;
   justifyContent: string;

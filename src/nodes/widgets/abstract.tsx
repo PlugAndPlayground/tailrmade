@@ -6,7 +6,7 @@ import { NODE_TYPE_COLOR, SOCKET_TYPE } from '../../utils/constants';
 import { TRgba } from '../../utils/color';
 import { WidgetProps } from '../../utils/interfaces';
 import { EnumStructure, EnumType } from '../datatypes/enumType';
-import { Density, useResolvedDensity } from '../../utils/theme';
+import { Density, useResolvedDensity, useThemeTokens } from '../../utils/theme';
 
 export const defaultProps: WidgetProps = {
   background: { r: 9, g: 13, b: 26, a: 0 },
@@ -162,8 +162,33 @@ const sizeTokens: Record<WidgetSize, SizeTokens> = {
 export const useWidgetSize = (setting: unknown): WidgetSize =>
   useResolvedDensity(setting);
 
-export const getSizeTokens = (size: unknown): SizeTokens =>
-  sizeTokens[size as WidgetSize] ?? sizeTokens[defaultSize];
+/** The theme's type scalar, for the pure getSize* helpers above. */
+export const useFontScalar = (): number => useThemeTokens().fontSizeScalar;
+
+export const useSizeTokens = (size: unknown): SizeTokens =>
+  getSizeTokens(size, useFontScalar());
+
+export const useSizeSx = (size: unknown) => getSizeSx(size, useFontScalar());
+
+/**
+ * Size tokens for a step, with the theme's type scalar applied.
+ *
+ * Density picks the STEP (how big a control is); fontSizeScalar scales the
+ * type system on top of it. Only the text sizes move - control height, icon
+ * size and padding are geometry of the control, not of the type scale, and
+ * scaling them here would make fontSizeScalar a second density knob.
+ */
+export const getSizeTokens = (size: unknown, fontScalar = 1): SizeTokens => {
+  const base = sizeTokens[size as WidgetSize] ?? sizeTokens[defaultSize];
+  if (fontScalar === 1) {
+    return base;
+  }
+  return {
+    ...base,
+    fontSize: Math.round(base.fontSize * fontScalar),
+    helperFontSize: Math.round(base.helperFontSize * fontScalar),
+  };
+};
 
 export const getMuiSize = (size: unknown): 'small' | 'medium' =>
   getSizeTokens(size).muiSize;
@@ -188,8 +213,8 @@ const getAutocompleteRootPaddingTop = (t: SizeTokens): number =>
  * consistent across all of them. Meant to be spread onto the outermost MUI
  * element of a widget (TextField, FormControl, Autocomplete, ...).
  */
-export const getSizeSx = (size: unknown) => {
-  const t = getSizeTokens(size);
+export const getSizeSx = (size: unknown, fontScalar = 1) => {
+  const t = getSizeTokens(size, fontScalar);
   return {
     fontSize: `${t.fontSize}px`,
     '& .MuiInputBase-root': {

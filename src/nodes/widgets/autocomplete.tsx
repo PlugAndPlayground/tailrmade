@@ -19,6 +19,8 @@ import {
   selectedOptionName,
   sizeName,
   useWidgetSize,
+  useSizeSx,
+  useFontScalar,
   stringifyIfNeeded,
   WidgetPaper,
 } from './abstract';
@@ -46,9 +48,9 @@ const autocompleteDefaultLabel = 'Autocomplete';
 
 // Shared slot props to ensure dropdown width matches input. The option list
 // renders in a portal, so it also has to carry the size styling itself
-const getAutocompleteSlotProps = (size: unknown) => ({
+const getAutocompleteSlotProps = (size: unknown, fontScalar: number) => ({
   paper: {
-    sx: getSizeSx(size),
+    sx: getSizeSx(size, fontScalar),
   },
   popper: {
     placement: 'bottom-start' as const,
@@ -144,6 +146,8 @@ abstract class WidgetAutocompleteBase extends WidgetSelectableBase {
     const isDisabled = props[disabledName] || props.disabled;
     const placeholder = props[placeholderName];
     const size = useWidgetSize(props[sizeName]);
+    const fontScalar = useFontScalar();
+    const sizeSx = useSizeSx(size);
     const inputVariant = useResolvedInputVariant();
 
     const currentValue = node.formatSelected(props[selectedOptionName]);
@@ -151,10 +155,7 @@ abstract class WidgetAutocompleteBase extends WidgetSelectableBase {
     if (node.isSingle()) {
       return (
         <WidgetPaper node={node} inDashboard={props.inDashboard}>
-          <FormControl
-            variant={inputVariant}
-            sx={{ width: '100%', ...getSizeSx(size) }}
-          >
+          <FormControl variant={inputVariant} sx={{ width: '100%', ...sizeSx }}>
             <Autocomplete
               autoHighlight
               size={getMuiSize(size)}
@@ -183,7 +184,7 @@ abstract class WidgetAutocompleteBase extends WidgetSelectableBase {
                   placeholder={placeholder}
                 />
               )}
-              slotProps={getAutocompleteSlotProps(size)}
+              slotProps={getAutocompleteSlotProps(size, fontScalar)}
             />
           </FormControl>
         </WidgetPaper>
@@ -197,10 +198,7 @@ abstract class WidgetAutocompleteBase extends WidgetSelectableBase {
 
     return (
       <WidgetPaper node={node} inDashboard={props.inDashboard}>
-        <FormControl
-          variant={inputVariant}
-          sx={{ width: '100%', ...getSizeSx(size) }}
-        >
+        <FormControl variant={inputVariant} sx={{ width: '100%', ...sizeSx }}>
           <Autocomplete
             multiple
             autoHighlight
@@ -236,7 +234,7 @@ abstract class WidgetAutocompleteBase extends WidgetSelectableBase {
                 placeholder={multiValue.length === 0 ? placeholder : undefined}
               />
             )}
-            slotProps={getAutocompleteSlotProps(size)}
+            slotProps={getAutocompleteSlotProps(size, fontScalar)}
           />
         </FormControl>
       </WidgetPaper>

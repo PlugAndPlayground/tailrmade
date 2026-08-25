@@ -1,6 +1,8 @@
 import React from 'react';
 import {
+  Checkbox,
   FormControl,
+  FormControlLabel,
   FormLabel,
   Slider,
   Stack,
@@ -11,6 +13,7 @@ import {
 } from '@mui/material';
 import { TRgba } from '../../utils/color';
 import { ColorPickerComponent, SimpleDataEditor } from '../../widgets';
+import { INHERIT_COLOR, isInheritColor } from '../../utils/themeColors';
 import {
   ALIGNLEFT_TEXTURE,
   ALIGNCENTERHORIZONTALLY_TEXTURE,
@@ -108,23 +111,52 @@ export const ColorControl = ({
   setProp: any;
   color: any;
   controlBackground: boolean;
-}) => (
-  <FormWrapper>
-    <StyledFormLabel>
-      {controlBackground ? 'Background' : 'Color'}
-    </StyledFormLabel>
-    <ColorPickerComponent
-      defaultColor={TRgba.fromObject(color)}
-      onChange={(color) =>
-        setProp(
-          (props: any) =>
-            (props[controlBackground ? 'background' : 'color'] = color),
-        )
-      }
-      showAlphaSlider={true}
-    />
-  </FormWrapper>
-);
+}) => {
+  const key = controlBackground ? 'background' : 'color';
+  const inherits = isInheritColor(color);
+  return (
+    <FormWrapper>
+      <Stack
+        direction="row"
+        sx={{ alignItems: 'center', justifyContent: 'space-between' }}
+      >
+        <StyledFormLabel>
+          {controlBackground ? 'Background' : 'Color'}
+        </StyledFormLabel>
+        {/* the theme owns this slot until the creator names a value. Text
+            needs the keyword rather than alpha 0 - transparent text is
+            invisible, not inherited. */}
+        <FormControlLabel
+          sx={{
+            mr: 0,
+            '& .MuiFormControlLabel-label': { fontSize: '0.75rem' },
+          }}
+          control={
+            <Checkbox
+              size="small"
+              checked={inherits}
+              onChange={(event) =>
+                setProp((props: any) => {
+                  props[key] = event.target.checked
+                    ? INHERIT_COLOR
+                    : { r: 128, g: 128, b: 128, a: 1 };
+                })
+              }
+            />
+          }
+          label="Theme"
+        />
+      </Stack>
+      {!inherits && (
+        <ColorPickerComponent
+          defaultColor={TRgba.fromObject(color)}
+          onChange={(next) => setProp((props: any) => (props[key] = next))}
+          showAlphaSlider={true}
+        />
+      )}
+    </FormWrapper>
+  );
+};
 
 export const DimensionInputs = ({
   setProp,

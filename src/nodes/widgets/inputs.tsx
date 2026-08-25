@@ -12,6 +12,8 @@ import {
   outName,
   sizeName,
   useWidgetSize,
+  useSizeTokens,
+  useSizeSx,
 } from './abstract';
 import Socket from '../../classes/SocketClass';
 import { StringType } from '../datatypes/stringType';
@@ -202,7 +204,8 @@ export class WidgetTextField extends WidgetHybridBase {
 
     const size = useWidgetSize(props[sizeName]);
     const inputVariant = useResolvedInputVariant();
-    const fontSize = `${getSizeTokens(size).fontSize}px`;
+    const sizeSx = useSizeSx(size);
+    const fontSize = `${useSizeTokens(size).fontSize}px`;
     return (
       <WidgetPaper node={node} inDashboard={props.inDashboard}>
         <Box sx={{ width: '100%' }}>
@@ -236,7 +239,7 @@ export class WidgetTextField extends WidgetHybridBase {
               }}
               sx={{
                 pointerEvents: props.disabled ? 'none' : undefined,
-                ...getSizeSx(size),
+                ...sizeSx,
               }}
             />
           </FormControl>

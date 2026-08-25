@@ -21,6 +21,7 @@ import {
   selectedOptionName,
   sizeName,
   useWidgetSize,
+  useSizeTokens,
 } from './abstract';
 import Socket from '../../classes/SocketClass';
 import { ArrayType } from '../datatypes/arrayType';
@@ -162,7 +163,7 @@ export class WidgetRadio extends WidgetHybridBase {
     const selectedValue = props[selectedOptionName];
 
     const size = useWidgetSize(props[sizeName]);
-    const tokens = getSizeTokens(size);
+    const tokens = useSizeTokens(size);
     const fontSize = props.inDashboard
       ? `${tokens.fontSize}px`
       : `${Math.max(12, node.nodeHeight / 10) * tokens.scale}px`;
@@ -382,7 +383,7 @@ export class WidgetCheckbox extends WidgetHybridBase {
 
     // Calculate dynamic font size based on node dimensions
     const size = useWidgetSize(props[sizeName]);
-    const tokens = getSizeTokens(size);
+    const tokens = useSizeTokens(size);
     const fontSize = props.inDashboard
       ? `${tokens.fontSize}px`
       : `${Math.max(12, node.nodeHeight / 10) * tokens.scale}px`;

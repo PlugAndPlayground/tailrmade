@@ -19,6 +19,7 @@ import {
   variantName,
   sizeName,
   useWidgetSize,
+  useSizeTokens,
   getMuiSize,
   getSizeSocket,
   getSizeTokens,
@@ -27,7 +28,7 @@ import {
   colorName,
   defaultOptions,
 } from './abstract';
-import { useResolvedButtonVariant } from '../../utils/theme';
+import { useResolvedButtonVariant, useThemeTokens } from '../../utils/theme';
 import { HybridWidgetContentProps } from '../../classes/HybridNode2';
 import Socket from '../../classes/SocketClass';
 import { AnyType } from '../datatypes/anyType';
@@ -205,7 +206,7 @@ export class WidgetButton extends WidgetHybridBase {
     const isDisabled = props.disabled || props[disabledName];
     const variant = useResolvedButtonVariant(props[variantName]);
     const size = useWidgetSize(props[sizeName]);
-    const tokens = getSizeTokens(size);
+    const tokens = useSizeTokens(size);
 
     return (
       <WidgetPaper node={node} inDashboard={props.inDashboard}>
@@ -410,12 +411,13 @@ export class WidgetButtonGroup extends WidgetHybridBase {
     // Get configuration props
     const isToggleMode = props[isToggleGroupName];
     const variant = useResolvedButtonVariant(props[variantName]);
+    const groupRadius = useThemeTokens().radius;
     const color = props[colorName];
     const isVertical = props[orientationName];
 
     // Calculate dynamic font sizes based on node dimensions
     const size = useWidgetSize(props[sizeName]);
-    const tokens = getSizeTokens(size);
+    const tokens = useSizeTokens(size);
     const fontSize = props.inDashboard
       ? `${tokens.fontSize}px`
       : `${Math.max(12, node.nodeHeight / 12) * tokens.scale}px`;
@@ -484,26 +486,29 @@ export class WidgetButtonGroup extends WidgetHybridBase {
                         overflow: 'hidden',
                         textOverflow: 'ellipsis',
                         whiteSpace: 'nowrap',
+                        // the group reads as one control: only its outer
+                        // corners are rounded, and they follow the theme
+                        // radius rather than a fixed 4px
                         borderRadius: 0,
                         ...(isVertical
                           ? {
                               ...(isFirst && {
-                                borderTopLeftRadius: 4,
-                                borderTopRightRadius: 4,
+                                borderTopLeftRadius: groupRadius,
+                                borderTopRightRadius: groupRadius,
                               }),
                               ...(isLast && {
-                                borderBottomLeftRadius: 4,
-                                borderBottomRightRadius: 4,
+                                borderBottomLeftRadius: groupRadius,
+                                borderBottomRightRadius: groupRadius,
                               }),
                             }
                           : {
                               ...(isFirst && {
-                                borderTopLeftRadius: 4,
-                                borderBottomLeftRadius: 4,
+                                borderTopLeftRadius: groupRadius,
+                                borderBottomLeftRadius: groupRadius,
                               }),
                               ...(isLast && {
-                                borderTopRightRadius: 4,
-                                borderBottomRightRadius: 4,
+                                borderTopRightRadius: groupRadius,
+                                borderBottomRightRadius: groupRadius,
                               }),
                             }),
                         m: 0,
@@ -692,7 +697,7 @@ export class WidgetSwitch extends WidgetHybridBase {
   getWidgetContent(props: HybridWidgetContentProps): React.ReactElement {
     const node = props.node;
     const size = useWidgetSize(props[sizeName]);
-    const tokens = getSizeTokens(size);
+    const tokens = useSizeTokens(size);
 
     const handleChange = (event: React.ChangeEvent<HTMLInputElement>) => {
       const checked = event.target.checked;

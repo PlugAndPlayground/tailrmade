@@ -16,6 +16,7 @@ import { DashboardInspectorWrapper } from '../components/dashboard/DashboardInsp
 import PPGraph from '../classes/GraphClass';
 import { NodeArrayContainer } from './NodeArrayContainer';
 import { customTheme, RightDrawerView } from '../utils/constants';
+import { ThemeSettings } from '../components/dashboard/ThemePanel';
 
 type RightSideContainerProps = {
   rightDrawerView: RightDrawerView;
@@ -92,6 +93,11 @@ const RightSideContainerInner: React.FC<RightSideContainerProps> = ({
     return (
       <Stack spacing={2}>
         <InfoContent graph={PPGraph.currentGraph} />
+        {/* the theme belongs to the app, not to a surface, so it lives beside
+            the other app-wide settings rather than in the dashboard's own
+            chrome - and it stays reachable outside edit mode, where widgets
+            render in their disabled state and cannot be judged */}
+        <ThemeSettings />
         <SourceContent
           header="App Configuration"
           editable={true}

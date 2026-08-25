@@ -10,6 +10,7 @@ import {
   outName,
   sizeName,
   useWidgetSize,
+  useSizeTokens,
 } from './abstract';
 import Socket from '../../classes/SocketClass';
 import { StringType } from '../datatypes/stringType';
@@ -151,7 +152,7 @@ export class WidgetSlider extends WidgetHybridBase {
     const value = props[initialValueName];
     const shouldRound = props[roundName];
     const size = useWidgetSize(props[sizeName]);
-    const tokens = getSizeTokens(size);
+    const tokens = useSizeTokens(size);
     // the slider has no fixed control height to hit - it just scales the height
     // it already had, so M keeps its current look
     const sliderHeight = props.inDashboard

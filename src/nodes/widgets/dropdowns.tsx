@@ -21,6 +21,8 @@ import {
   selectedOptionName,
   sizeName,
   useWidgetSize,
+  useSizeSx,
+  useFontScalar,
   stringifyIfNeeded,
   WidgetPaper,
 } from './abstract';
@@ -88,6 +90,8 @@ abstract class WidgetDropdownBase extends WidgetSelectableBase {
   public getWidgetContent(props: WidgetContentProps): React.ReactElement {
     const node = props.node as WidgetDropdownBase;
     const size = useWidgetSize(props[sizeName]);
+    const fontScalar = useFontScalar();
+    const sizeSx = useSizeSx(size);
     const inputVariant = useResolvedInputVariant();
 
     const renderMenuItems = () => {
@@ -117,7 +121,7 @@ abstract class WidgetDropdownBase extends WidgetSelectableBase {
           size={getMuiSize(size)}
           sx={{
             pointerEvents: props.disabled ? 'none' : undefined,
-            ...getSizeSx(size),
+            ...sizeSx,
           }}
         >
           <InputLabel>{props[labelName]}</InputLabel>
@@ -132,7 +136,7 @@ abstract class WidgetDropdownBase extends WidgetSelectableBase {
             renderValue={(selected) =>
               Array.isArray(selected) ? selected.join(', ') : selected
             }
-            MenuProps={getMenuProps(size)}
+            MenuProps={getMenuProps(size, fontScalar)}
           >
             {renderMenuItems()}
           </Select>
@@ -205,7 +209,7 @@ export class WidgetMultiDropdown extends WidgetDropdownBase {
 
 // Utility function for menu props. The menu renders in a portal, so it has to
 // carry the size styling itself instead of inheriting it from the FormControl
-const getMenuProps = (size: unknown) => {
+const getMenuProps = (size: unknown, fontScalar: number) => {
   const ITEM_HEIGHT = 48;
   const ITEM_PADDING_TOP = 8;
   return {
@@ -214,12 +218,12 @@ const getMenuProps = (size: unknown) => {
         maxHeight: ITEM_HEIGHT * 9.5 + ITEM_PADDING_TOP,
       },
       sx: {
-        ...getSizeSx(size),
+        ...getSizeSx(size, fontScalar),
         '& .MuiMenuItem-root': {
-          fontSize: `${getSizeTokens(size).fontSize}px`,
+          fontSize: `${getSizeTokens(size, fontScalar).fontSize}px`,
         },
         '& .MuiTypography-root': {
-          fontSize: `${getSizeTokens(size).fontSize}px`,
+          fontSize: `${getSizeTokens(size, fontScalar).fontSize}px`,
         },
       },
     },

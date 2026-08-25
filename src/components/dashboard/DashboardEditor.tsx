@@ -6,7 +6,6 @@ import DashboardCustomizeIcon from '@mui/icons-material/DashboardCustomize';
 import EditIcon from '@mui/icons-material/Edit';
 import { Frame, Element, useEditor } from '@craftjs/core';
 import { AppThemeProvider } from './AppThemeProvider';
-import { ThemePanel } from './ThemePanel';
 import * as PIXI from 'pixi.js';
 import PPGraph from '../../classes/GraphClass';
 import InterfaceController, { ListenEvent } from '../../InterfaceController';
@@ -1128,11 +1127,6 @@ export const DashboardEditor: React.FC<DashboardEditorProps> = ({
             <EmptyState appView={appView} />
           )}
         </Box>
-
-        {/* editor chrome: deliberately OUTSIDE AppThemeProvider, so the panel
-            stays legible under the editor theme no matter what the app theme
-            is set to */}
-        {isVisible && isEditMode && <ThemePanel />}
       </Box>
     </Box>
   );

@@ -29,13 +29,15 @@ import { widthName, heightName } from '../../utils/layoutableHelpers';
 import { DashboardContentGate } from '../../components/dashboard/DashboardContentGate';
 import { ArrayType } from '../datatypes/arrayType';
 import { LayoutableNodeBase } from './dynamicLayoutBase';
+import { ColorSetting } from '../../utils/themeColors';
 
 type VisibilityMode = 'visible' | 'hidden';
 type CollapseMode = 'collapse' | 'expand' | 'none';
 
 type DashboardContainerBaseProps = {
   background: Record<'r' | 'g' | 'b' | 'a', number>;
-  color: Record<'r' | 'g' | 'b' | 'a', number>;
+  // see WidgetLayoutInterface.color - may be the 'inherit' keyword
+  color: ColorSetting;
   flexDirection: string;
   alignItems: string;
   justifyContent: string;

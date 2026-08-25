@@ -12,6 +12,7 @@ import {
   DynamicWidgetName,
   RootName,
 } from '../../utils/constants_shared';
+import { INHERIT_COLOR } from '../../utils/themeColors';
 import {
   dynamicWidgetDefaultProps,
   rootProps,
@@ -87,7 +88,7 @@ const containerDefaultPropsForSpec = {
   maxHeight: UNSET_VALUE,
   gap: 0,
   background: getDefaultContainerBackground(),
-  color: { r: 51, g: 51, b: 51, a: 1 },
+  color: INHERIT_COLOR,
   // DELIBERATE divergence from the editor default ('row' in
   // getDefaultWidgetLayoutValue): AI-built row containers stack vertically
   // on narrow dashboards by default (mobile-first), which is almost always
