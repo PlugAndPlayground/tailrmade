@@ -27,6 +27,7 @@ import {
   SerializableActionHandler,
 } from '../../classes/Action';
 import { WidgetContentProps } from '../../utils/interfaces';
+import { useResolvedInputVariant } from '../../utils/theme';
 
 // Socket names
 const placeholderName = 'Placeholder';
@@ -200,6 +201,7 @@ export class WidgetTextField extends WidgetHybridBase {
     const isInteractive = !(props.inDashboard && props.disabled);
 
     const size = useWidgetSize(props[sizeName]);
+    const inputVariant = useResolvedInputVariant();
     const fontSize = `${getSizeTokens(size).fontSize}px`;
     return (
       <WidgetPaper node={node} inDashboard={props.inDashboard}>
@@ -210,7 +212,7 @@ export class WidgetTextField extends WidgetHybridBase {
               label={props[labelName]}
               placeholder={placeholder}
               helperText={helperText}
-              variant="filled"
+              variant={inputVariant}
               size={getMuiSize(size)}
               type={type}
               multiline={multiline}

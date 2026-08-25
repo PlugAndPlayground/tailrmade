@@ -28,6 +28,7 @@ import { ArrayType } from '../datatypes/arrayType';
 import { StringType } from '../datatypes/stringType';
 import { BooleanType } from '../datatypes/booleanType';
 import { WidgetContentProps } from '../../utils/interfaces';
+import { useResolvedInputVariant } from '../../utils/theme';
 
 enum AutocompleteType {
   SINGLE = '(single select)',
@@ -143,6 +144,7 @@ abstract class WidgetAutocompleteBase extends WidgetSelectableBase {
     const isDisabled = props[disabledName] || props.disabled;
     const placeholder = props[placeholderName];
     const size = useWidgetSize(props[sizeName]);
+    const inputVariant = useResolvedInputVariant();
 
     const currentValue = node.formatSelected(props[selectedOptionName]);
 
@@ -150,7 +152,7 @@ abstract class WidgetAutocompleteBase extends WidgetSelectableBase {
       return (
         <WidgetPaper node={node} inDashboard={props.inDashboard}>
           <FormControl
-            variant="filled"
+            variant={inputVariant}
             sx={{ width: '100%', ...getSizeSx(size) }}
           >
             <Autocomplete
@@ -176,7 +178,7 @@ abstract class WidgetAutocompleteBase extends WidgetSelectableBase {
               renderInput={(params) => (
                 <TextField
                   {...params}
-                  variant="filled"
+                  variant={inputVariant}
                   label={props[labelName]}
                   placeholder={placeholder}
                 />
@@ -196,7 +198,7 @@ abstract class WidgetAutocompleteBase extends WidgetSelectableBase {
     return (
       <WidgetPaper node={node} inDashboard={props.inDashboard}>
         <FormControl
-          variant="filled"
+          variant={inputVariant}
           sx={{ width: '100%', ...getSizeSx(size) }}
         >
           <Autocomplete
@@ -229,7 +231,7 @@ abstract class WidgetAutocompleteBase extends WidgetSelectableBase {
             renderInput={(params) => (
               <TextField
                 {...params}
-                variant="filled"
+                variant={inputVariant}
                 label={props[labelName]}
                 placeholder={multiValue.length === 0 ? placeholder : undefined}
               />

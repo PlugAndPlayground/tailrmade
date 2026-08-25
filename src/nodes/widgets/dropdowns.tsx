@@ -29,6 +29,7 @@ import { SOCKET_TYPE } from '../../utils/constants';
 import { ArrayType } from '../datatypes/arrayType';
 import { StringType } from '../datatypes/stringType';
 import { WidgetContentProps } from '../../utils/interfaces';
+import { useResolvedInputVariant } from '../../utils/theme';
 
 enum DropdownType {
   SINGLE = 'Dropdown (single select)',
@@ -87,6 +88,7 @@ abstract class WidgetDropdownBase extends WidgetSelectableBase {
   public getWidgetContent(props: WidgetContentProps): React.ReactElement {
     const node = props.node as WidgetDropdownBase;
     const size = useWidgetSize(props[sizeName]);
+    const inputVariant = useResolvedInputVariant();
 
     const renderMenuItems = () => {
       if (!Array.isArray(props[optionsName])) return null;
@@ -111,7 +113,7 @@ abstract class WidgetDropdownBase extends WidgetSelectableBase {
     return (
       <WidgetPaper node={node} inDashboard={props.inDashboard}>
         <FormControl
-          variant="filled"
+          variant={inputVariant}
           size={getMuiSize(size)}
           sx={{
             pointerEvents: props.disabled ? 'none' : undefined,
@@ -120,7 +122,7 @@ abstract class WidgetDropdownBase extends WidgetSelectableBase {
         >
           <InputLabel>{props[labelName]}</InputLabel>
           <Select
-            variant="filled"
+            variant={inputVariant}
             disabled={props.disabled}
             multiple={!node.isSingle()}
             value={node.formatSelected(props[selectedOptionName])}

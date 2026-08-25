@@ -20,6 +20,7 @@ import {
   ThemeLayer,
 } from '../../../src/utils/theme/resolve';
 import { COLOR_ROLES, ThemeMode } from '../../../src/utils/theme/tokens';
+import { TRgba } from '../../../src/utils/color';
 
 const light = { prefersDark: false };
 const dark = { prefersDark: true };
@@ -252,5 +253,25 @@ describe('mode storage rules', () => {
     expect(resolved.mode).toBe('light');
     expect(resolved.followsSystem).toBe(false);
     expect(pinned.mode).toBe('light');
+  });
+});
+
+describe('authored color values round-trip through the color picker', () => {
+  // the panel hands every role to ColorPickerComponent as a TRgba and writes
+  // back whatever comes out, so any value a preset can hold must survive that
+  it.each(
+    PRESETS.flatMap((preset) =>
+      (['light', 'dark'] as ThemeMode[]).flatMap((mode) =>
+        COLOR_ROLES.map(
+          (role) =>
+            [`${preset.id}/${mode}/${role}`, preset.roles[mode][role]] as const,
+        ),
+      ),
+    ),
+  )('%s', (_name, value) => {
+    const parsed = TRgba.fromString(value);
+    expect(Number.isNaN(parsed.r)).toBe(false);
+    // and the string it writes back must parse again
+    expect(() => TRgba.fromString(parsed.toString())).not.toThrow();
   });
 });

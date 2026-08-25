@@ -20,6 +20,7 @@ import { FlexDirection } from '../../utils/interfaces';
 import { getNewDirection } from '../../utils/layoutableHelpers';
 import { useIsDashboardNarrow } from './hooks';
 import { UNSET_VALUE } from '../../utils/constants';
+import { AppThemeProvider } from './AppThemeProvider';
 
 // ids of UI surface nodes currently being rendered up the React tree; used
 // to break render cycles between mutually embedded surfaces
@@ -254,17 +255,23 @@ export const SurfaceRenderer: React.FC<SurfaceRendererProps> = ({
     }
   };
 
+  // App content, wherever it renders - a canvas thumbnail, an embedded
+  // surface, a modal - follows the APP theme, not the editor's. A canvas
+  // thumbnail on the editor theme would disagree with the same surface in the
+  // dashboard, which is exactly the divergence the boundary exists to prevent.
   return (
-    <Box
-      data-cy="surface-renderer"
-      sx={{
-        width: '100%',
-        height: '100%',
-        overflow: 'auto',
-        pointerEvents: interactive ? 'auto' : 'none',
-      }}
-    >
-      {renderItem(rootId, undefined)}
-    </Box>
+    <AppThemeProvider>
+      <Box
+        data-cy="surface-renderer"
+        sx={{
+          width: '100%',
+          height: '100%',
+          overflow: 'auto',
+          pointerEvents: interactive ? 'auto' : 'none',
+        }}
+      >
+        {renderItem(rootId, undefined)}
+      </Box>
+    </AppThemeProvider>
   );
 };

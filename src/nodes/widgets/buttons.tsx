@@ -27,6 +27,7 @@ import {
   colorName,
   defaultOptions,
 } from './abstract';
+import { useResolvedButtonVariant } from '../../utils/theme';
 import { HybridWidgetContentProps } from '../../classes/HybridNode2';
 import Socket from '../../classes/SocketClass';
 import { AnyType } from '../datatypes/anyType';
@@ -49,6 +50,11 @@ import PPGraph from '../../classes/GraphClass';
 const disabledName = 'Disabled';
 
 const variantOptions: EnumStructure = [
+  // 'Inherit' first and default, so a button follows the preset's button
+  // variant unless the creator deliberately pins one
+  {
+    text: 'Inherit',
+  },
   {
     text: 'contained',
   },
@@ -197,6 +203,7 @@ export class WidgetButton extends WidgetHybridBase {
   getWidgetContent(props: HybridWidgetContentProps): React.ReactElement {
     const node = props.node;
     const isDisabled = props.disabled || props[disabledName];
+    const variant = useResolvedButtonVariant(props[variantName]);
     const size = useWidgetSize(props[sizeName]);
     const tokens = getSizeTokens(size);
 
@@ -204,7 +211,7 @@ export class WidgetButton extends WidgetHybridBase {
       <WidgetPaper node={node} inDashboard={props.inDashboard}>
         <Button
           data-cy={'button-' + props[labelName]}
-          variant={props[variantName]}
+          variant={variant}
           color={props[colorName]}
           size={getMuiSize(size)}
           disabled={isDisabled}
@@ -228,11 +235,11 @@ export class WidgetButton extends WidgetHybridBase {
               opacity: 0.6,
               color: 'text.secondary',
               backgroundColor: (theme) =>
-                props[variantName] === 'contained'
+                variant === 'contained'
                   ? 'rgba(80, 80, 80, 0.3)'
                   : 'transparent',
               border:
-                props[variantName] === 'outlined'
+                variant === 'outlined'
                   ? '1px solid rgba(120, 120, 120, 0.5)'
                   : 'none',
             },
@@ -402,7 +409,7 @@ export class WidgetButtonGroup extends WidgetHybridBase {
 
     // Get configuration props
     const isToggleMode = props[isToggleGroupName];
-    const variant = props[variantName];
+    const variant = useResolvedButtonVariant(props[variantName]);
     const color = props[colorName];
     const isVertical = props[orientationName];
 
@@ -513,11 +520,11 @@ export class WidgetButtonGroup extends WidgetHybridBase {
                           opacity: 0.7,
                           color: 'text.secondary',
                           backgroundColor: (theme) =>
-                            props[variantName] === 'contained'
+                            variant === 'contained'
                               ? 'rgba(0, 0, 0, 0.12)'
                               : 'transparent',
                           border:
-                            props[variantName] === 'outlined'
+                            variant === 'outlined'
                               ? '1px solid rgba(0, 0, 0, 0.23)'
                               : 'none',
                         },

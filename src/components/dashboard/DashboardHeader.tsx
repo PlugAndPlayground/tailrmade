@@ -5,12 +5,19 @@ import CloseIcon from '@mui/icons-material/Close';
 import DashboardCustomizeIcon from '@mui/icons-material/DashboardCustomize';
 import EditIcon from '@mui/icons-material/Edit';
 import OpenInFullIcon from '@mui/icons-material/OpenInFull';
+import PaletteIcon from '@mui/icons-material/Palette';
 import PPGraph from '../../classes/GraphClass';
 import InterfaceController from '../../InterfaceController';
 import { StyledButton } from '../StyledButton';
 import { SurfaceBreadcrumb } from './SurfaceBreadcrumb';
 import { DevicePreviewToggle } from './DevicePreviewToggle';
-import { toggleToolbox, useSurfaceStack, useToolboxOpen } from './viewState';
+import {
+  toggleThemePanel,
+  toggleToolbox,
+  useSurfaceStack,
+  useThemePanelOpen,
+  useToolboxOpen,
+} from './viewState';
 import { SHELL_CONSTANTS } from '../../utils/constants';
 import { VISIBILITY_ACTION } from '../../utils/constants_shared';
 
@@ -27,6 +34,7 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
 }) => {
   const surfaceStack = useSurfaceStack();
   const isToolboxOpen = useToolboxOpen();
+  const isThemePanelOpen = useThemePanelOpen();
 
   return (
     <Box
@@ -103,6 +111,26 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
             {isEditMode ? <CloseIcon /> : <EditIcon />}
           </StyledButton>
         </Tooltip>
+
+        {isEditMode && (
+          <Tooltip
+            title={isThemePanelOpen ? 'Hide theme' : 'Show theme'}
+            placement="bottom-start"
+            disableInteractive
+          >
+            <StyledButton
+              data-cy="toggle-theme-panel-btn"
+              isSelected={isThemePanelOpen}
+              sx={{ flex: 'none' }}
+              onClick={(event) => {
+                event.stopPropagation();
+                toggleThemePanel();
+              }}
+            >
+              <PaletteIcon />
+            </StyledButton>
+          </Tooltip>
+        )}
 
         {isEditMode && (
           <Tooltip

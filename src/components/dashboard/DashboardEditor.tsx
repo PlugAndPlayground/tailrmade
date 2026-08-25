@@ -5,6 +5,8 @@ import { Box, Typography } from '@mui/material';
 import DashboardCustomizeIcon from '@mui/icons-material/DashboardCustomize';
 import EditIcon from '@mui/icons-material/Edit';
 import { Frame, Element, useEditor } from '@craftjs/core';
+import { AppThemeProvider } from './AppThemeProvider';
+import { ThemePanel } from './ThemePanel';
 import * as PIXI from 'pixi.js';
 import PPGraph from '../../classes/GraphClass';
 import InterfaceController, { ListenEvent } from '../../InterfaceController';
@@ -1119,9 +1121,24 @@ export const DashboardEditor: React.FC<DashboardEditorProps> = ({
                     }),
               }}
             >
-              <Frame>
-                <Element is={Container} canvas {...rootProps}></Element>
-              </Frame>
+              <AppThemeProvider>
+                {/* the app's own ground. The root container paints a
+                    translucent tint over this, so without it a preset or mode
+                    change would only show up on controls, not on the surface
+                    they sit on */}
+                <Box
+                  data-cy="app-theme-surface"
+                  sx={{
+                    minHeight: '100%',
+                    bgcolor: 'background.default',
+                    color: 'text.primary',
+                  }}
+                >
+                  <Frame>
+                    <Element is={Container} canvas {...rootProps}></Element>
+                  </Frame>
+                </Box>
+              </AppThemeProvider>
             </Box>
           </Box>
           {isGraphLoading && !isEditMode && (
@@ -1131,6 +1148,11 @@ export const DashboardEditor: React.FC<DashboardEditorProps> = ({
             <EmptyState appView={appView} />
           )}
         </Box>
+
+        {/* editor chrome: deliberately OUTSIDE AppThemeProvider, so the panel
+            stays legible under the editor theme no matter what the app theme
+            is set to */}
+        {isVisible && isEditMode && <ThemePanel />}
       </Box>
     </Box>
   );

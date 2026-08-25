@@ -134,3 +134,15 @@ const surfaceStackStore = createStore<string[]>([], sameStack);
 
 export const setSurfaceStack = surfaceStackStore.set;
 export const useSurfaceStack = surfaceStackStore.useStore;
+
+// --- theme panel ----------------------------------------------------------
+// Same shape as the toolbox: the control that opens it (DashboardHeader) is a
+// sibling of the panel itself, not its parent.
+
+const themePanelOpenStore = createStore(false);
+
+export const setThemePanelOpen = themePanelOpenStore.set;
+export const useThemePanelOpen = themePanelOpenStore.useStore;
+
+export const toggleThemePanel = (): void =>
+  themePanelOpenStore.set((open) => !open);

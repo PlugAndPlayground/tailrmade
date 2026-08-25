@@ -3,5 +3,7 @@ export * from './presets';
 export * from './resolve';
 export * from './document';
 export * from './muiTheme';
+export * from './context';
 export * from './density';
+export * from './variants';
 export * from './store';
