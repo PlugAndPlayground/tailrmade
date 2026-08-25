@@ -113,7 +113,6 @@ const PixiOutputWidget: React.FunctionComponent<any> = (props) => {
   return (
     <DynamicWidgetPixiBody
       property={property.getNode()}
-      randomMainColor={props.randomMainColor}
       disabled={props.disabled}
       width={props.width}
       height={props.height}
@@ -123,7 +122,6 @@ const PixiOutputWidget: React.FunctionComponent<any> = (props) => {
 
 export type DynamicWidgetContainerNodeProps = {
   property: DRAW_Base;
-  randomMainColor: string;
   disabled: boolean;
   width: string;
   height: string;
@@ -310,7 +308,7 @@ export const DynamicWidgetPixiBody: React.FunctionComponent<
         pixiAppRef.current = null;
       }
     };
-  }, [props.property, props.randomMainColor]);
+  }, [props.property]);
 
   const fitContentToCanvas = () => {
     if (pixiAppRef.current && contentContainerRef.current) {

@@ -18,7 +18,6 @@ import { NodeArrayContainer } from './NodeArrayContainer';
 import { customTheme, RightDrawerView } from '../utils/constants';
 
 type RightSideContainerProps = {
-  randomMainColor: string;
   rightDrawerView: RightDrawerView;
   setRightDrawerView: (view: RightDrawerView) => void;
   selectedNodes: any[];
@@ -31,7 +30,6 @@ type RightSideContainerProps = {
 };
 
 const RightSideContainerInner: React.FC<RightSideContainerProps> = ({
-  randomMainColor,
   rightDrawerView,
   setRightDrawerView,
   selectedNodes,
@@ -64,7 +62,6 @@ const RightSideContainerInner: React.FC<RightSideContainerProps> = ({
       return (
         <NodeInspectorContainer
           selectedNodes={selectedNodes}
-          randomMainColor={randomMainColor}
           filter={nodeFilter}
           setFilter={setNodeFilter}
         />
@@ -75,7 +72,6 @@ const RightSideContainerInner: React.FC<RightSideContainerProps> = ({
       <NodeArrayContainer
         graphId={PPGraph.currentGraph?.id}
         selectedNodes={selectedNodes}
-        randomMainColor={randomMainColor}
         filter={graphFilter}
         setFilter={setGraphFilter}
         filterText={graphFilterText}
@@ -84,7 +80,6 @@ const RightSideContainerInner: React.FC<RightSideContainerProps> = ({
     );
   }, [
     selectedNodes,
-    randomMainColor,
     nodeFilter,
     setNodeFilter,
     graphFilter,
@@ -101,11 +96,10 @@ const RightSideContainerInner: React.FC<RightSideContainerProps> = ({
           header="App Configuration"
           editable={true}
           source={PPGraph.currentGraph}
-          randomMainColor={randomMainColor}
         />
       </Stack>
     );
-  }, [PPGraph.currentGraph, randomMainColor]);
+  }, [PPGraph.currentGraph]);
 
   return (
     <ThemeProvider theme={customTheme}>
@@ -168,7 +162,6 @@ const areEqual = (
 ) => {
   return (
     prevProps.rightDrawerView === nextProps.rightDrawerView &&
-    prevProps.randomMainColor === nextProps.randomMainColor &&
     prevProps.nodeFilter === nextProps.nodeFilter &&
     prevProps.graphFilter === nextProps.graphFilter &&
     prevProps.graphFilterText === nextProps.graphFilterText &&

@@ -93,7 +93,6 @@ type SourceContentProps = {
   header: string;
   editable: boolean;
   source: PPGraph | PPNode | string;
-  randomMainColor: string;
 };
 
 export function SourceContent(props: SourceContentProps) {

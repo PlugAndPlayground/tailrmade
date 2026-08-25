@@ -52,6 +52,7 @@ import {
 import type { UISurfaceNode } from '../../nodes/layout/uiSurface';
 import { useDevicePreviewWidth, useDisplayedSurfaceLocked } from './hooks';
 import { setSurfaceStack } from './viewState';
+import { MAIN_COLOR } from '../../utils/constants';
 
 // example structure of a dashboard item
 // {
@@ -89,7 +90,6 @@ import { setSurfaceStack } from './viewState';
 //         "showLabel": false,
 //         "id": "NODE_serious-frog-61", // elementId (NODE | SOCKET + nodeId) of the layoutable element
 //         "index": 0,
-//         "randomMainColor": "#3c54ab"
 //     },
 //     "parent": "ROOT", // parent of the widget
 //     "isCanvas": false, // whether the widget can nest other widgets
@@ -128,7 +128,6 @@ function replacePlaceholderWithActualWidget(
   nodeId: string,
   query,
   actions,
-  randomMainColor: string,
 ) {
   const linkedNode = PPGraph.currentGraph.nodes[nodeId];
   if (!linkedNode || !isLayoutableNode(linkedNode)) {
@@ -152,7 +151,6 @@ function replacePlaceholderWithActualWidget(
           is={DashboardContainer}
           id={itemId}
           index={0}
-          randomMainColor={randomMainColor}
           {...linkedNode.getWidgetProps()}
         />,
       )
@@ -165,7 +163,6 @@ function replacePlaceholderWithActualWidget(
         <DynamicWidget
           id={itemId}
           index={0}
-          randomMainColor={randomMainColor}
           {...linkedNode.getWidgetProps()}
         />,
       )
@@ -190,7 +187,6 @@ function convertWidgetToPlaceholder(
   dashboardItemId: string,
   query,
   actions,
-  randomMainColor: string,
 ) {
   // Node is missing, convert to placeholder
   console.log(
@@ -207,7 +203,7 @@ function convertWidgetToPlaceholder(
       <Element
         is={PlaceholderWidget}
         text={`Missing ${widgetName}...`}
-        background={TRgba.fromString(randomMainColor)
+        background={TRgba.fromString(MAIN_COLOR)
           .darken(0.6)
           .setAlpha(0.2)
           .toString()}
@@ -347,7 +343,6 @@ interface DashboardEditorProps {
   isVisible: boolean;
   isEditMode: boolean;
   appView: boolean;
-  randomMainColor: string;
   overlayState: IOverlay;
   updateOverlayState: (newState: Partial<IOverlay>) => void;
 }
@@ -356,7 +351,6 @@ export const DashboardEditor: React.FC<DashboardEditorProps> = ({
   isVisible,
   isEditMode,
   appView,
-  randomMainColor,
   overlayState,
   updateOverlayState,
 }) => {
@@ -662,7 +656,6 @@ export const DashboardEditor: React.FC<DashboardEditorProps> = ({
                 nodeId,
                 query,
                 actions,
-                randomMainColor,
               );
             }
           }
@@ -684,19 +677,12 @@ export const DashboardEditor: React.FC<DashboardEditorProps> = ({
               dashboardItemId,
               query,
               actions,
-              randomMainColor,
             );
           }
         }
       },
     );
-  }, [
-    query,
-    actions,
-    randomMainColor,
-    getDisplayedSurface,
-    flushEditorTreeToSurface,
-  ]);
+  }, [query, actions, getDisplayedSurface, flushEditorTreeToSurface]);
 
   useEffect(() => {
     const pollInterval = setInterval(pollDashboardItems, 1000);
@@ -794,7 +780,6 @@ export const DashboardEditor: React.FC<DashboardEditorProps> = ({
               is={DashboardContainer}
               id={itemId}
               index={0}
-              randomMainColor={randomMainColor}
               {...itemToAdd.getWidgetProps()}
             />,
           )
@@ -807,7 +792,6 @@ export const DashboardEditor: React.FC<DashboardEditorProps> = ({
             <DynamicWidget
               id={itemId}
               index={0}
-              randomMainColor={randomMainColor}
               {...itemToAdd.getWidgetProps()}
             />,
           )
@@ -840,7 +824,6 @@ export const DashboardEditor: React.FC<DashboardEditorProps> = ({
       });
     },
     [
-      randomMainColor,
       overlayState.dashboard,
       updateOverlayState,
       getDisplayedSurface,
@@ -1038,7 +1021,7 @@ export const DashboardEditor: React.FC<DashboardEditorProps> = ({
         minWidth: 0,
         minHeight: 0,
         overflowY: 'auto',
-        background: `${getDashboardBackground(randomMainColor)}`,
+        background: `${getDashboardBackground()}`,
         position: 'relative',
       }}
       onDragOver={(e) => e.preventDefault()}
@@ -1056,10 +1039,7 @@ export const DashboardEditor: React.FC<DashboardEditorProps> = ({
         {isVisible &&
           isEditMode &&
           PPGraph.currentGraph.graphConfiguredAndReady && (
-            <Toolbox
-              randomMainColor={randomMainColor}
-              addToDashboard={addToDashboard}
-            />
+            <Toolbox addToDashboard={addToDashboard} />
           )}
 
         {/* Dashboard content */}

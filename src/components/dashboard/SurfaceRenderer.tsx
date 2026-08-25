@@ -38,7 +38,6 @@ export interface SurfaceRendererProps {
   rootId?: string;
   // false = preview only (e.g. on the canvas), pointer events are disabled
   interactive?: boolean;
-  randomMainColor: string;
   // ids of UI surface nodes already being rendered up the tree (cycle guard)
   visitedSurfaceIds?: string[];
 }
@@ -90,9 +89,8 @@ const FallbackItem: React.FC<{ label: string }> = ({ label }) => (
 // this is a static preview of the layout structure.
 const DashboardContainerPreview: React.FC<{
   item: SerializedCraftItem;
-  randomMainColor: string;
   children: React.ReactNode;
-}> = ({ item, randomMainColor, children }) => {
+}> = ({ item, children }) => {
   const layoutableElement = getLayoutableElement(item.props.id);
   if (!layoutableElement) {
     return <FallbackItem label={`Missing ${item.displayName || 'widget'}`} />;
@@ -109,7 +107,6 @@ const DashboardContainerPreview: React.FC<{
     >
       {layoutableElement.getDashboardWrapper({
         index: item.props.index ?? 0,
-        randomMainColor,
         disabled: true,
         isEditMode: false,
         isSurfacePreview: true,
@@ -132,7 +129,6 @@ export const SurfaceRenderer: React.FC<SurfaceRendererProps> = ({
   tree,
   rootId = RootName,
   interactive = false,
-  randomMainColor,
   visitedSurfaceIds = [],
 }) => {
   const isNarrow = useIsDashboardNarrow();
@@ -206,17 +202,12 @@ export const SurfaceRenderer: React.FC<SurfaceRendererProps> = ({
             isEditMode={false}
             isSurfacePreview
             parentDirection={parentDirection}
-            randomMainColor={item.props.randomMainColor ?? randomMainColor}
             wrapperExtraProps={{ visitedSurfaceIds }}
           />
         );
       case DashboardContainerName:
         return (
-          <DashboardContainerPreview
-            key={itemId}
-            item={item}
-            randomMainColor={randomMainColor}
-          >
+          <DashboardContainerPreview key={itemId} item={item}>
             {children}
           </DashboardContainerPreview>
         );

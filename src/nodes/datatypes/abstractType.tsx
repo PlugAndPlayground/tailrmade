@@ -17,7 +17,6 @@ import { BackPropagationPayload } from '../../interfaces';
 export interface DataTypeProps {
   key?: string;
   index: number;
-  randomMainColor: any;
   dataType: AbstractType;
   language?: string;
   inDashboard?: boolean;

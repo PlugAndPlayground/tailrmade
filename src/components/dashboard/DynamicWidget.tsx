@@ -54,7 +54,6 @@ const defaultProps: DynamicWidgetBaseProps =
 export interface DynamicWidgetProps extends DynamicWidgetBaseProps {
   id: string;
   index: number;
-  randomMainColor: string;
   disabled: boolean;
   children?: React.ReactNode;
 }
@@ -118,7 +117,6 @@ export const DynamicWidgetView = (viewProps: DynamicWidgetViewProps) => {
 
   const {
     index,
-    randomMainColor,
     flexDirection,
     alignItems,
     justifyContent,
@@ -154,7 +152,6 @@ export const DynamicWidgetView = (viewProps: DynamicWidgetViewProps) => {
       )}
       {layoutableElement.getDashboardWrapper({
         index,
-        randomMainColor,
         isEditMode,
         disabled: isEditMode ? true : disabled,
         height: style.height as string,

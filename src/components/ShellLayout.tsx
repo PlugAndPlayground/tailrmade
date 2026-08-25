@@ -11,9 +11,9 @@ import { useIsSmallScreen } from '../utils/utils';
 import { DrawerSide, IOverlay } from '../utils/interfaces';
 import { SHELL_CONSTANTS } from '../utils/constants';
 import { VISIBILITY_ACTION } from '../utils/constants_shared';
+import { MAIN_COLOR } from '../utils/constants';
 
 type ShellLayoutProps = {
-  randomMainColor: string;
   overlayState: IOverlay;
   updateOverlayState: (newState: Partial<IOverlay>) => void;
   isEditMode: boolean;
@@ -58,7 +58,6 @@ const ShellLayout: React.FunctionComponent<ShellLayoutProps> = (props) => {
           }}
         >
           <Rail
-            randomMainColor={props.randomMainColor}
             overlayState={overlayState}
             setContextMenuPosition={props.setContextMenuPosition}
             setIsGraphContextMenuOpen={props.setIsGraphContextMenuOpen}
@@ -71,13 +70,11 @@ const ShellLayout: React.FunctionComponent<ShellLayoutProps> = (props) => {
       <LeftRightDrawer
         isLeft={true}
         hidden={appView}
-        randomMainColor={props.randomMainColor}
         overlayState={overlayState}
         updateOverlayState={props.updateOverlayState}
       />
 
       <DashboardColumn
-        randomMainColor={props.randomMainColor}
         overlayState={overlayState}
         updateOverlayState={props.updateOverlayState}
         isEditMode={props.isEditMode}
@@ -124,7 +121,6 @@ const ShellLayout: React.FunctionComponent<ShellLayoutProps> = (props) => {
       <LeftRightDrawer
         isLeft={false}
         hidden={appView}
-        randomMainColor={props.randomMainColor}
         overlayState={overlayState}
         updateOverlayState={props.updateOverlayState}
       />
@@ -150,9 +146,7 @@ const ShellLayout: React.FunctionComponent<ShellLayoutProps> = (props) => {
               '&:hover': {
                 opacity: 1,
                 backgroundColor: 'transparent',
-                '--svg-fill-color': TRgba.fromString(
-                  props.randomMainColor,
-                ).hex(),
+                '--svg-fill-color': TRgba.fromString(MAIN_COLOR).hex(),
               },
             }}
           >

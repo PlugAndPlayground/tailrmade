@@ -86,7 +86,6 @@ type CanvasHybridNodeContentProps<T extends HybridNode2 = HybridNode2> = {
   selected: boolean;
   isOnlySelected: boolean;
   isInteractionEnabled: boolean;
-  randomMainColor: string;
   dataCyId: string;
   width?: string;
   height?: string;
@@ -156,7 +155,6 @@ function CanvasHybridNodeContent<T extends HybridNode2>(
           id={props.node.id}
           selected={props.selected}
           isOnlySelected={props.isOnlySelected}
-          randomMainColor={props.randomMainColor}
           node={props.node}
           isInteractionEnabled={props.isInteractionEnabled}
           inDashboard={false}
@@ -417,7 +415,6 @@ export default abstract class HybridNode2 extends PPNode implements Layoutable {
             selected={interactionState.selected}
             isOnlySelected={interactionState.isOnlySelected}
             isInteractionEnabled={interactionState.isInteractionEnabled}
-            randomMainColor={MAIN_COLOR}
             dataCyId={`${this.id}-canvas`}
             width={widgetProps.width}
             height={widgetProps.height}
@@ -769,7 +766,6 @@ const DynamicWidgetContainerHybridNodeInner: React.FunctionComponent<
             isOnlySelected={PPGraph.currentGraph.selection.isOnlySelectedNode(
               props.property,
             )}
-            randomMainColor={props.randomMainColor}
             node={props.property}
             isInteractionEnabled={props.property.isInteractionEnabled()}
             inDashboard={true}

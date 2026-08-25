@@ -615,7 +615,6 @@ export default class Socket
   getTooltipContent(props): React.ReactElement {
     const baseProps: DataTypeProps = {
       index: 0,
-      randomMainColor: props.randomMainColor,
       dataType: this.dataType,
       socketsToUpdate: [this],
     };
@@ -631,7 +630,6 @@ export default class Socket
       >
         <SocketBody
           referenceSocket={this}
-          randomMainColor={props.randomMainColor}
           selectedNode={props.selectedNode}
           widget={widget}
         />
@@ -761,7 +759,6 @@ type DashboardSocketWidgetContainerProps = {
   isInput: boolean;
   hasLink: boolean;
   data: any;
-  randomMainColor: string;
   selectedNode: PPNode;
   disabled: boolean;
   width: string;
@@ -778,7 +775,6 @@ export const DashboardSocketWidgetContainer: React.FunctionComponent<
   const baseProps: DataTypeProps = {
     // key: props.dataType.getName(),
     index: props.index,
-    randomMainColor: props.randomMainColor,
     dataType: props.dataType,
     inDashboard: true,
     socketsToUpdate: [props.property],
@@ -805,7 +801,6 @@ export const DashboardSocketWidgetContainer: React.FunctionComponent<
     >
       <SocketBody
         referenceSocket={props.property}
-        randomMainColor={props.randomMainColor}
         selectedNode={props.selectedNode}
         widget={widget}
       />

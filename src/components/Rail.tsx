@@ -40,9 +40,9 @@ import {
   SHELL_CONSTANTS,
 } from '../utils/constants';
 import { VISIBILITY_ACTION } from '../utils/constants_shared';
+import { MAIN_COLOR } from '../utils/constants';
 
 type RailProps = {
-  randomMainColor: string;
   overlayState: IOverlay;
   setContextMenuPosition: React.Dispatch<React.SetStateAction<number[]>>;
   setIsGraphContextMenuOpen: React.Dispatch<React.SetStateAction<boolean>>;
@@ -79,9 +79,9 @@ export const Rail: React.FunctionComponent<RailProps> = React.memo((props) => {
   // open - it is the one physically adjacent (the dashboard is a column
   // further right), and the two use slightly different darkenings.
   const railBackground = props.overlayState.leftSide.visible
-    ? getDrawerBackground(props.randomMainColor)
+    ? getDrawerBackground()
     : props.overlayState.dashboard.visible
-      ? getDashboardBackground(props.randomMainColor)
+      ? getDashboardBackground()
       : null;
 
   // On that dark background the icons that have no background of their own -
@@ -90,14 +90,14 @@ export const Rail: React.FunctionComponent<RailProps> = React.memo((props) => {
   // stay legible either way, which is why they are left alone.
   const iconColor = railBackground
     ? TRgba.white().hex()
-    : TRgba.fromString(props.randomMainColor).hex();
+    : TRgba.fromString(MAIN_COLOR).hex();
 
   // Hovering the logo shows the other of those two colours, so the feedback is
   // the logo itself flipping rather than a box appearing behind it. Same idea
   // in app view - see ShellLayout's exit button.
   const logoHoverColor = railBackground
-    ? TRgba.fromString(props.randomMainColor).hex()
-    : TRgba.fromString(props.randomMainColor).darken(0.6).toString();
+    ? TRgba.fromString(MAIN_COLOR).hex()
+    : TRgba.fromString(MAIN_COLOR).darken(0.6).toString();
 
   const posX = smallScreen ? 8 : window.innerWidth / 2 - CONTEXTMENU_WIDTH / 2;
   const posY = smallScreen
@@ -403,10 +403,7 @@ export const Rail: React.FunctionComponent<RailProps> = React.memo((props) => {
 
         {!smallScreen && (
           <Box sx={{ mt: 'auto', pb: 1 }}>
-            <SocialIcons
-              randomMainColor={props.randomMainColor}
-              iconColor={iconColor}
-            />
+            <SocialIcons iconColor={iconColor} />
           </Box>
         )}
       </Box>

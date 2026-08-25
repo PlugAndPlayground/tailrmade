@@ -340,13 +340,13 @@ export const createPixiApp = (
   console.log('CREATING PIXI');
   pixiApp.current = new PIXI.Application();
 
-  const randomMainColorLightHex = new PIXI.Color(
+  const mainColorLightHex = new PIXI.Color(
     TRgba.fromString(MAIN_COLOR).mix(TRgba.white(), 0.9).hex(),
   ).toNumber();
 
   void (async () => {
     await pixiApp.current.init({
-      backgroundColor: randomMainColorLightHex,
+      backgroundColor: mainColorLightHex,
       backgroundAlpha: 1,
       width: window.innerWidth,
       height: window.innerHeight,

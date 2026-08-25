@@ -2,6 +2,7 @@ import React from 'react';
 import { Button, Stack, styled } from '@mui/material';
 import { BlueskyIcon, DiscordIcon, GithubIcon } from '../utils/icons';
 import { TRgba } from '../utils/color';
+import { MAIN_COLOR } from '../utils/constants';
 
 export const StyledSocialButton = styled(Button, {
   shouldForwardProp: (prop) => prop !== 'isSelected',
@@ -28,7 +29,7 @@ const SocialIcons = (props) => {
         // these buttons are transparent, so the icon colour has to follow
         // whatever the rail is sitting on - see Rail's iconColor
         '--svg-fill-color':
-          props.iconColor ?? TRgba.fromString(props.randomMainColor).hex(),
+          props.iconColor ?? TRgba.fromString(MAIN_COLOR).hex(),
       }}
     >
       <StyledSocialButton

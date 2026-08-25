@@ -349,7 +349,6 @@ const App = (): JSX.Element => {
           <GraphOverlay
             setContextMenuPosition={setContextMenuPosition}
             setIsGraphContextMenuOpen={setIsGraphContextMenuOpen}
-            randomMainColor={MAIN_COLOR}
           />
           {PPGraph.currentGraph && (
             <NodeSearch
@@ -361,7 +360,6 @@ const App = (): JSX.Element => {
               nodeSearchInput={nodeSearchInput}
               nodeSearchCountRef={nodeSearchCountRef}
               nodeSearchActiveItem={nodeSearchActiveItem}
-              randomMainColor={MAIN_COLOR}
               theme={theme}
             />
           )}

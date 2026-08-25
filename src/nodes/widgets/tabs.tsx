@@ -17,7 +17,7 @@ import { NumberType } from '../datatypes/numberType';
 import { StringType } from '../datatypes/stringType';
 import { BooleanType } from '../datatypes/booleanType';
 import { BackPropagation } from '../../interfaces';
-import { SOCKET_TYPE } from '../../utils/constants';
+import { MAIN_COLOR, SOCKET_TYPE } from '../../utils/constants';
 import { TRgba } from '../../utils/color';
 import { WidgetContentProps } from '../../utils/interfaces';
 import {
@@ -190,12 +190,12 @@ export class WidgetTabs extends WidgetHybridBase {
                   flex: !scrollable ? 1 : 'auto',
                   padding: `${6 * tokens.scale}px ${12 * tokens.scale}px`,
                   '&.Mui-selected': {
-                    backgroundColor: `${TRgba.fromString(props.randomMainColor).negate().setAlpha(0.1)}`,
+                    backgroundColor: `${TRgba.fromString(MAIN_COLOR).negate().setAlpha(0.1)}`,
                     borderTopLeftRadius: 4,
                     borderTopRightRadius: 4,
                   },
                   '&:hover': {
-                    backgroundColor: `${TRgba.fromString(props.randomMainColor).negate().setAlpha(0.05)}`,
+                    backgroundColor: `${TRgba.fromString(MAIN_COLOR).negate().setAlpha(0.05)}`,
                     opacity: 1,
                   },
                   textTransform: 'none',

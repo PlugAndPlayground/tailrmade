@@ -146,7 +146,6 @@ export type WidgetProps = {
 
 export interface DashboardWidgetProps {
   index: number;
-  randomMainColor: string;
   disabled: boolean;
   width: string;
   height: string;
@@ -180,7 +179,6 @@ export interface WidgetContentProps {
   id: string;
   selected: boolean;
   isOnlySelected?: boolean;
-  randomMainColor: string;
   node: PPNode;
   // Interaction-enabled is the explicit interaction mode for hybrid nodes.
   isInteractionEnabled: boolean;

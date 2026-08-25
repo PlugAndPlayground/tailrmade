@@ -31,7 +31,6 @@ type SocketContainerProps = {
   index: number;
   dataType: AbstractType;
   data: any;
-  randomMainColor: string;
   selectedNode: PPNode;
   // All sockets to update when editing. socketsToUpdate[0] is the reference socket.
   socketsToUpdate: Socket[];
@@ -84,7 +83,6 @@ export const SocketContainer = memo(
 
     const baseProps: DataTypeProps = {
       index: props.index,
-      randomMainColor: props.randomMainColor,
       dataType: referenceSocket.dataType,
       socketsToUpdate: props.socketsToUpdate,
     };
@@ -120,7 +118,6 @@ export const SocketContainer = memo(
           onChangeDropdown={(event) =>
             onChangeDropdown(event, props, setDataTypeValue, setHasError)
           }
-          randomMainColor={props.randomMainColor}
           socketsToUpdate={props.socketsToUpdate}
           collapsible={isCollapsible}
           collapsed={collapsed}
@@ -136,7 +133,6 @@ export const SocketContainer = memo(
           >
             <SocketBody
               referenceSocket={referenceSocket}
-              randomMainColor={props.randomMainColor}
               selectedNode={props.selectedNode}
               widget={widget}
             />
@@ -160,6 +156,7 @@ export const SocketContainer = memo(
 
 // CommonSocket interface for multi-node editing
 import { TSocketType } from './../utils/interfaces';
+import { MAIN_COLOR } from '../utils/constants';
 
 export interface CommonSocket {
   name: string;
@@ -176,7 +173,6 @@ interface MenuItemsProps {
   currentTypeName: string;
   onSelect: (event: React.MouseEvent<HTMLLIElement>) => void;
   handleClose: () => void;
-  randomMainColor: string;
 }
 
 const MenuItems = React.memo(
@@ -187,7 +183,6 @@ const MenuItems = React.memo(
     currentTypeName,
     onSelect,
     handleClose,
-    randomMainColor,
   }: MenuItemsProps) => {
     return Object.keys(dropDownSelectableTypes)
       .filter((name) => {
@@ -213,7 +208,7 @@ const MenuItems = React.memo(
             }}
             sx={{
               '&.Mui-selected': {
-                backgroundColor: `${TRgba.fromString(randomMainColor).negate()}`,
+                backgroundColor: `${TRgba.fromString(MAIN_COLOR).negate()}`,
               },
             }}
           >
@@ -230,7 +225,6 @@ type SocketHeaderProps = {
   index: number;
   hasError: boolean;
   onChangeDropdown: (event) => void;
-  randomMainColor: string;
   // All sockets to update - socketsToUpdate[0] is the reference socket
   socketsToUpdate: Socket[];
   collapsible?: boolean;
@@ -425,7 +419,6 @@ const SocketHeader = React.memo(
                 currentTypeName={referenceSocket.dataType.constructor.name}
                 onSelect={props.onChangeDropdown}
                 handleClose={handleClose}
-                randomMainColor={props.randomMainColor}
               />
             </Menu>
           )}
@@ -451,7 +444,6 @@ type SocketBodyProps = {
   referenceSocket: Socket;
   selectedNode: PPNode;
   widget: React.ReactNode;
-  randomMainColor: string;
 };
 
 export const SocketBody: React.FunctionComponent<SocketBodyProps> = (props) => {

@@ -5,17 +5,33 @@ import { Box } from '@mui/material';
 import PPNode from '../../classes/NodeClass';
 import Socket from '../../classes/SocketClass';
 import UpdateBehaviourClass from '../../classes/UpdateBehaviourClass';
-import { NODE_TYPE_COLOR, SOCKET_TYPE, TEXT_RESOLUTION } from '../../utils/constants';
+import {
+  NODE_TYPE_COLOR,
+  SOCKET_TYPE,
+  TEXT_RESOLUTION,
+} from '../../utils/constants';
 import { DEFAULT_DASHBOARD_ICON } from '../../components/dashboard/dashboardIcons';
 import { DashboardContentGate } from '../../components/dashboard/DashboardContentGate';
 import { BooleanType } from '../datatypes/booleanType';
 import { NumberType } from '../datatypes/numberType';
 import {
-  TwoDVectorType, TwoDVectorTypeInterface, } from '../datatypes/twoDVectorType';
+  TwoDVectorType,
+  TwoDVectorTypeInterface,
+} from '../datatypes/twoDVectorType';
 import {
-  DynamicWidgetPixiBody, DynamicWidgetContainerNodeProps, DeferredPixiType, DeferredPixiTypeInterface, } from '../datatypes/deferredPixiType';
+  DynamicWidgetPixiBody,
+  DynamicWidgetContainerNodeProps,
+  DeferredPixiType,
+  DeferredPixiTypeInterface,
+} from '../datatypes/deferredPixiType';
 import {
-  DashboardIconProps, DashboardWidgetProps, Layoutable, TNodeSource, WidgetContentProps, WidgetProps } from '../../utils/interfaces';
+  DashboardIconProps,
+  DashboardWidgetProps,
+  Layoutable,
+  TNodeSource,
+  WidgetContentProps,
+  WidgetProps,
+} from '../../utils/interfaces';
 import { formatIfNumber } from '../../utils/utils';
 import { removeAndDestroyChild } from '../../pixi/utils-pixi';
 import { NodeExecutionError } from '../../classes/ErrorClass';
@@ -490,10 +506,12 @@ const DynamicWidgetContainerDrawNode: React.FunctionComponent<
         flexDirection: 'column',
       }}
     >
-      <DashboardContentGate disabled={props.disabled} isSurfacePreview={props.isSurfacePreview}>
+      <DashboardContentGate
+        disabled={props.disabled}
+        isSurfacePreview={props.isSurfacePreview}
+      >
         <DynamicWidgetPixiBody
           property={props.property}
-          randomMainColor={props.randomMainColor}
           disabled={props.disabled}
           width={props.width}
           height={props.height}

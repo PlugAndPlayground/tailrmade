@@ -106,7 +106,7 @@ const ModalDialogOverlay: React.FC<{ node: ModalNodeLike }> = ({ node }) => {
         </DialogTitle>
       ) : null}
       <DialogContent sx={{ p: 0 }}>
-        <SurfaceRenderer tree={tree} interactive randomMainColor={MAIN_COLOR} />
+        <SurfaceRenderer tree={tree} interactive />
       </DialogContent>
     </Dialog>
   );
@@ -124,8 +124,8 @@ export const ModalHost: React.FC = () => {
     ListenEvent.GraphConfigured,
   ]);
 
-  const modals = Object.values(PPGraph.currentGraph.nodes).filter(
-    (node: any) => node.isModalDialog?.(),
+  const modals = Object.values(PPGraph.currentGraph.nodes).filter((node: any) =>
+    node.isModalDialog?.(),
   ) as unknown as ModalNodeLike[];
 
   return (

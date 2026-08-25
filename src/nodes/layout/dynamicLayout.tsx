@@ -115,7 +115,6 @@ export const DynamicWidgetContainerNode: React.FunctionComponent<
             {...props}
             id={props.property.id}
             selected={props.property.selected}
-            randomMainColor={props.randomMainColor}
             disabled={props.disabled}
             node={props.property}
             showDashboard={showDashboard}
@@ -398,7 +397,6 @@ const ReactUICombineArrayComponent: React.FunctionComponent<any> = (props) => {
         >
           {item.renderFunction({
             index,
-            randomMainColor: props.randomMainColor,
             disabled: props.disabled,
             width: 'auto',
             height: 'auto',
@@ -412,7 +410,6 @@ const ReactUICombineArrayComponent: React.FunctionComponent<any> = (props) => {
     changeDrawingOrder,
     props[widthName],
     props[heightName],
-    props.randomMainColor,
     props.disabled,
     isInteractive,
     activeItemIndex,

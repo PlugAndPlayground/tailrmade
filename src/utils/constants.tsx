@@ -67,11 +67,11 @@ export const SHELL_CONSTANTS = {
 // because the rail has no colour of its own - it borrows whichever of these
 // its neighbour is using, and the two columns only read as one surface while
 // both sides agree on the value.
-export const getDrawerBackground = (randomMainColor: string): TRgba =>
-  TRgba.fromString(randomMainColor).darken(0.8);
+export const getDrawerBackground = (): TRgba =>
+  TRgba.fromString(MAIN_COLOR).darken(0.8);
 
-export const getDashboardBackground = (randomMainColor: string): TRgba =>
-  TRgba.fromString(randomMainColor).darken(0.85);
+export const getDashboardBackground = (): TRgba =>
+  TRgba.fromString(MAIN_COLOR).darken(0.85);
 
 export const DASHBOARD_DEFAULT = {
   visible: false,

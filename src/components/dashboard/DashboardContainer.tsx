@@ -180,7 +180,7 @@ export const DashboardContainer = (props: Partial<DynamicWidgetProps>) => {
     return () => InterfaceController.removeListener(listenID);
   }, [setProp, sourceId]);
 
-  const { index, randomMainColor, disabled, children } = props;
+  const { index, disabled, children } = props;
   const {
     connectors: { connect, drag },
   } = useNode();
@@ -262,7 +262,6 @@ export const DashboardContainer = (props: Partial<DynamicWidgetProps>) => {
       >
         {layoutableElement.getDashboardWrapper({
           index: index ?? 0,
-          randomMainColor: randomMainColor ?? '#4CAF50',
           disabled: isEditMode ? true : (disabled ?? false),
           height: containerState.height,
           width: containerState.width,

@@ -106,11 +106,7 @@ export const UISurfaceWidget: React.FunctionComponent<
   const rendered = (
     <SurfaceCanvasPreviewContext.Provider value={isCanvasPreview}>
       <SurfaceVisitedContext.Provider value={[...visited, node.id]}>
-        <SurfaceRenderer
-          tree={tree}
-          interactive={interactive}
-          randomMainColor={props.randomMainColor}
-        />
+        <SurfaceRenderer tree={tree} interactive={interactive} />
       </SurfaceVisitedContext.Provider>
     </SurfaceCanvasPreviewContext.Provider>
   );
