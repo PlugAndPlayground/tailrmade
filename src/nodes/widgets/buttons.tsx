@@ -18,6 +18,7 @@ import {
   initialValueName,
   variantName,
   sizeName,
+  useWidgetSize,
   getMuiSize,
   getSizeSocket,
   getSizeTokens,
@@ -196,7 +197,8 @@ export class WidgetButton extends WidgetHybridBase {
   getWidgetContent(props: HybridWidgetContentProps): React.ReactElement {
     const node = props.node;
     const isDisabled = props.disabled || props[disabledName];
-    const tokens = getSizeTokens(props[sizeName]);
+    const size = useWidgetSize(props[sizeName]);
+    const tokens = getSizeTokens(size);
 
     return (
       <WidgetPaper node={node} inDashboard={props.inDashboard}>
@@ -204,7 +206,7 @@ export class WidgetButton extends WidgetHybridBase {
           data-cy={'button-' + props[labelName]}
           variant={props[variantName]}
           color={props[colorName]}
-          size={getMuiSize(props[sizeName])}
+          size={getMuiSize(size)}
           disabled={isDisabled}
           disableRipple
           sx={{
@@ -405,7 +407,8 @@ export class WidgetButtonGroup extends WidgetHybridBase {
     const isVertical = props[orientationName];
 
     // Calculate dynamic font sizes based on node dimensions
-    const tokens = getSizeTokens(props[sizeName]);
+    const size = useWidgetSize(props[sizeName]);
+    const tokens = getSizeTokens(size);
     const fontSize = props.inDashboard
       ? `${tokens.fontSize}px`
       : `${Math.max(12, node.nodeHeight / 12) * tokens.scale}px`;
@@ -452,7 +455,7 @@ export class WidgetButtonGroup extends WidgetHybridBase {
                         selectedIndex === index ? 'contained' : 'outlined'
                       }
                       color={color}
-                      size={getMuiSize(props[sizeName])}
+                      size={getMuiSize(size)}
                       onClick={() =>
                         void (node as WidgetButtonGroup).handleButtonClick(
                           index,
@@ -530,7 +533,7 @@ export class WidgetButtonGroup extends WidgetHybridBase {
               <ButtonGroup
                 variant={variant}
                 color={color}
-                size={getMuiSize(props[sizeName])}
+                size={getMuiSize(size)}
                 orientation={isVertical ? 'vertical' : 'horizontal'}
                 sx={{
                   justifyContent: 'center',
@@ -681,7 +684,8 @@ export class WidgetSwitch extends WidgetHybridBase {
 
   getWidgetContent(props: HybridWidgetContentProps): React.ReactElement {
     const node = props.node;
-    const tokens = getSizeTokens(props[sizeName]);
+    const size = useWidgetSize(props[sizeName]);
+    const tokens = getSizeTokens(size);
 
     const handleChange = (event: React.ChangeEvent<HTMLInputElement>) => {
       const checked = event.target.checked;

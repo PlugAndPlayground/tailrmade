@@ -6,6 +6,7 @@ import {
   getSizeSocket,
   getSizeTokens,
   sizeName,
+  useWidgetSize,
 } from './abstract';
 import Socket from '../../classes/SocketClass';
 import { BooleanType } from '../datatypes/booleanType';
@@ -89,7 +90,10 @@ export class WidgetDiode extends WidgetHybridBase {
     const diodeColor = TRgba.fromObject(props[diodeColorName]);
     const glowStrength = 5;
 
-    const tokens = getSizeTokens(props[sizeName]);
+    // `size` further down is a pixel diameter, not a density step - keep the
+    // two apart
+    const widgetSize = useWidgetSize(props[sizeName]);
+    const tokens = getSizeTokens(widgetSize);
     const size =
       Math.min(
         props.inDashboard ? 40 : node.nodeWidth * 0.5,

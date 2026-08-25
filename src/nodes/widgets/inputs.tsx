@@ -11,6 +11,7 @@ import {
   labelName,
   outName,
   sizeName,
+  useWidgetSize,
 } from './abstract';
 import Socket from '../../classes/SocketClass';
 import { StringType } from '../datatypes/stringType';
@@ -198,7 +199,7 @@ export class WidgetTextField extends WidgetHybridBase {
     const helperText = props[helperTextName];
     const isInteractive = !(props.inDashboard && props.disabled);
 
-    const size = props[sizeName];
+    const size = useWidgetSize(props[sizeName]);
     const fontSize = `${getSizeTokens(size).fontSize}px`;
     return (
       <WidgetPaper node={node} inDashboard={props.inDashboard}>

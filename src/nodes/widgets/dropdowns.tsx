@@ -20,6 +20,7 @@ import {
   outName,
   selectedOptionName,
   sizeName,
+  useWidgetSize,
   stringifyIfNeeded,
   WidgetPaper,
 } from './abstract';
@@ -85,7 +86,7 @@ abstract class WidgetDropdownBase extends WidgetSelectableBase {
 
   public getWidgetContent(props: WidgetContentProps): React.ReactElement {
     const node = props.node as WidgetDropdownBase;
-    const size = props[sizeName];
+    const size = useWidgetSize(props[sizeName]);
 
     const renderMenuItems = () => {
       if (!Array.isArray(props[optionsName])) return null;

@@ -9,6 +9,7 @@ import {
   outName,
   outIndexName,
   sizeName,
+  useWidgetSize,
 } from './abstract';
 import Socket from '../../classes/SocketClass';
 import { ArrayType } from '../datatypes/arrayType';
@@ -142,7 +143,8 @@ export class WidgetTabs extends WidgetHybridBase {
     );
 
     const scrollable = props[scrollableName];
-    const tokens = getSizeTokens(props[sizeName]);
+    const size = useWidgetSize(props[sizeName]);
+    const tokens = getSizeTokens(size);
     const fontSize = props.inDashboard
       ? `${14 * tokens.scale}px`
       : `${Math.max(12, node.nodeHeight / 10) * tokens.scale}px`;

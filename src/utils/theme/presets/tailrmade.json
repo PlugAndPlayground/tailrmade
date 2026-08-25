@@ -1,0 +1,49 @@
+{
+  "id": "tailrmade",
+  "name": "Tailrmade",
+  "description": "The look Tailrmade has always shipped with.",
+  "roles": {
+    "dark": {
+      "primary": "#3C54AB",
+      "secondary": "#C3AB54",
+      "background.default": "#090D1A",
+      "background.paper": "#1E2A56",
+      "text.primary": "#FFFFFF",
+      "text.secondary": "rgba(255, 255, 255, 0.7)",
+      "divider": "rgba(255, 255, 255, 0.12)",
+      "error": "#F44336",
+      "warning": "#FFA726",
+      "info": "#29B6F6",
+      "success": "#66BB6A"
+    },
+    "light": {
+      "primary": "#3C54AB",
+      "secondary": "#8A7420",
+      "background.default": "#F5F6FA",
+      "background.paper": "#FFFFFF",
+      "text.primary": "rgba(0, 0, 0, 0.87)",
+      "text.secondary": "rgba(0, 0, 0, 0.6)",
+      "divider": "rgba(0, 0, 0, 0.12)",
+      "error": "#D32F2F",
+      "warning": "#ED6C02",
+      "info": "#0288D1",
+      "success": "#2E7D32"
+    }
+  },
+  "typography": {
+    "fontFamily": "Roboto",
+    "fontFamilyMono": "Roboto Mono",
+    "fontSizeScalar": 1,
+    "headingWeight": 500
+  },
+  "geometry": {
+    "radius": 0,
+    "density": "M",
+    "spacingUnit": 8,
+    "elevation": "none"
+  },
+  "variants": {
+    "button": "contained",
+    "input": "filled"
+  }
+}

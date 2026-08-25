@@ -9,6 +9,7 @@ import {
   labelName,
   outName,
   sizeName,
+  useWidgetSize,
 } from './abstract';
 import Socket from '../../classes/SocketClass';
 import { StringType } from '../datatypes/stringType';
@@ -149,7 +150,8 @@ export class WidgetSlider extends WidgetHybridBase {
     const max = props[maxValueName];
     const value = props[initialValueName];
     const shouldRound = props[roundName];
-    const tokens = getSizeTokens(props[sizeName]);
+    const size = useWidgetSize(props[sizeName]);
+    const tokens = getSizeTokens(size);
     // the slider has no fixed control height to hit - it just scales the height
     // it already had, so M keeps its current look
     const sliderHeight = props.inDashboard
@@ -187,7 +189,7 @@ export class WidgetSlider extends WidgetHybridBase {
           </Typography>
           <Slider
             disabled={props.disabled}
-            size={getMuiSize(props[sizeName])}
+            size={getMuiSize(size)}
             aria-labelledby={`slider-label-${node.id}`}
             value={value}
             min={min}

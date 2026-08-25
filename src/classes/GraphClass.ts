@@ -24,6 +24,16 @@ import {
   isPhone,
 } from '../utils/utils';
 import { getLoadSeedNodes } from '../utils/updateBehaviour';
+import {
+  EMPTY_THEME_DOCUMENT,
+  parseThemeDocument,
+  serializeThemeDocument,
+} from '../utils/theme/document';
+import {
+  clearRuntimeThemeLayer,
+  getThemeDocument,
+  setThemeDocument,
+} from '../utils/theme/store';
 import { getNodesBounds } from '../pixi/utils-pixi';
 import PPNode from './NodeClass';
 import PPSocket from './SocketClass';
@@ -1143,6 +1153,9 @@ export default class PPGraph {
 
   async clear(): Promise<void> {
     this.graphConfiguredAndReady = false;
+    // the theme belongs to the document being cleared, not to the session
+    clearRuntimeThemeLayer();
+    setThemeDocument(EMPTY_THEME_DOCUMENT);
     const fadeOut = Object.values(this.nodes).length;
     if (fadeOut) {
       await this.fadeGraph(false);
@@ -1306,6 +1319,9 @@ export default class PPGraph {
         ),
         viewportScale: this.viewportScaleX,
         defaultUISurfaceNodeId: this.defaultUISurfaceNodeId,
+        // undefined for an untouched theme, so we do not write an empty object
+        // into every graph that never opened the theming UI
+        theme: serializeThemeDocument(getThemeDocument()),
       },
       overlay: overlayForSerialization,
       nodes: nodesSerialized,
@@ -1435,6 +1451,13 @@ export default class PPGraph {
       data.graphSettings.showExecutionVisualisation ?? true;
     this.defaultUISurfaceNodeId =
       data.graphSettings.defaultUISurfaceNodeId ?? undefined;
+
+    // The theme comes off the document before any node runs, so the dashboard
+    // paints themed on first frame. The runtime layer belongs to the session
+    // that pushed it, not to the graph being loaded - drop it, or a theme
+    // pushed by the previously open app would bleed into this one.
+    clearRuntimeThemeLayer();
+    setThemeDocument(parseThemeDocument(data.graphSettings.theme));
 
     // create nodes & links
     let lastSerializedNode: SerializedNode | undefined = undefined;

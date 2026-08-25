@@ -1,0 +1,49 @@
+{
+  "id": "paper",
+  "name": "Paper",
+  "description": "Warm, low-contrast and light-first.",
+  "roles": {
+    "light": {
+      "primary": "#8A5A2B",
+      "secondary": "#4F6B57",
+      "background.default": "#FAF6EF",
+      "background.paper": "#FFFDF8",
+      "text.primary": "#2B2721",
+      "text.secondary": "rgba(43, 39, 33, 0.68)",
+      "divider": "rgba(43, 39, 33, 0.14)",
+      "error": "#B3402F",
+      "warning": "#966A12",
+      "info": "#33648C",
+      "success": "#4A7340"
+    },
+    "dark": {
+      "primary": "#D9A46A",
+      "secondary": "#9BBCA5",
+      "background.default": "#1B1815",
+      "background.paper": "#241F1A",
+      "text.primary": "#F2EBE0",
+      "text.secondary": "rgba(242, 235, 224, 0.64)",
+      "divider": "rgba(242, 235, 224, 0.14)",
+      "error": "#E58B79",
+      "warning": "#DFB463",
+      "info": "#87B4D6",
+      "success": "#96BE8B"
+    }
+  },
+  "typography": {
+    "fontFamily": "Source Serif 4",
+    "fontFamilyMono": "Roboto Mono",
+    "fontSizeScalar": 1.0625,
+    "headingWeight": 600
+  },
+  "geometry": {
+    "radius": 4,
+    "density": "L",
+    "spacingUnit": 10,
+    "elevation": "subtle"
+  },
+  "variants": {
+    "button": "outlined",
+    "input": "standard"
+  }
+}

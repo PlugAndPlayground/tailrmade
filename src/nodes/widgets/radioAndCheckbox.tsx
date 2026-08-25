@@ -20,6 +20,7 @@ import {
   fallbackValueName,
   selectedOptionName,
   sizeName,
+  useWidgetSize,
 } from './abstract';
 import Socket from '../../classes/SocketClass';
 import { ArrayType } from '../datatypes/arrayType';
@@ -160,7 +161,8 @@ export class WidgetRadio extends WidgetHybridBase {
     const options = props[optionsName];
     const selectedValue = props[selectedOptionName];
 
-    const tokens = getSizeTokens(props[sizeName]);
+    const size = useWidgetSize(props[sizeName]);
+    const tokens = getSizeTokens(size);
     const fontSize = props.inDashboard
       ? `${tokens.fontSize}px`
       : `${Math.max(12, node.nodeHeight / 10) * tokens.scale}px`;
@@ -218,7 +220,7 @@ export class WidgetRadio extends WidgetHybridBase {
                   value={option}
                   control={
                     <Radio
-                      size={getMuiSize(props[sizeName])}
+                      size={getMuiSize(size)}
                       sx={{
                         '& .MuiSvgIcon-root': {
                           fontSize: fontSize,
@@ -379,7 +381,8 @@ export class WidgetCheckbox extends WidgetHybridBase {
     const selectedOptions = props[selectedOptionsName];
 
     // Calculate dynamic font size based on node dimensions
-    const tokens = getSizeTokens(props[sizeName]);
+    const size = useWidgetSize(props[sizeName]);
+    const tokens = getSizeTokens(size);
     const fontSize = props.inDashboard
       ? `${tokens.fontSize}px`
       : `${Math.max(12, node.nodeHeight / 10) * tokens.scale}px`;
@@ -441,7 +444,7 @@ export class WidgetCheckbox extends WidgetHybridBase {
                       checked={selectedOptions.includes(option)}
                       onChange={(node as WidgetCheckbox).handleCheckboxChange}
                       value={option}
-                      size={getMuiSize(props[sizeName])}
+                      size={getMuiSize(size)}
                       sx={{
                         '& .MuiSvgIcon-root': {
                           fontSize: fontSize,

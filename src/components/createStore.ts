@@ -13,6 +13,9 @@ import { useSyncExternalStore } from 'react';
 type Store<T> = {
   set: (next: T | ((prev: T) => T)) => void;
   useStore: () => T;
+  // imperative read, for the paths that are not React - serialization,
+  // graph load, anything reaching for the value outside a render
+  get: () => T;
 };
 
 export function createStore<T>(
@@ -47,5 +50,5 @@ export function createStore<T>(
     return useSyncExternalStore(subscribe, get);
   }
 
-  return { set, useStore };
+  return { set, useStore, get };
 }

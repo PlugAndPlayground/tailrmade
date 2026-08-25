@@ -6,6 +6,7 @@ import { NODE_TYPE_COLOR, SOCKET_TYPE } from '../../utils/constants';
 import { TRgba } from '../../utils/color';
 import { WidgetProps } from '../../utils/interfaces';
 import { EnumStructure, EnumType } from '../datatypes/enumType';
+import { Density, useResolvedDensity } from '../../utils/theme';
 
 export const defaultProps: WidgetProps = {
   background: { r: 9, g: 13, b: 26, a: 0 },
@@ -64,7 +65,9 @@ export const colorOptions: EnumStructure = [
   },
 ];
 
-export type WidgetSize = 'XS' | 'S' | 'M' | 'L' | 'XL';
+// the same five steps the theme calls density - one source of truth, so a
+// widget's Size and the theme's density can never drift apart
+export type WidgetSize = Density;
 export type WidgetSizeSetting = WidgetSize | 'Inherit';
 export const sizeOptions: EnumStructure = [
   { text: 'Inherit' },
@@ -146,6 +149,18 @@ const sizeTokens: Record<WidgetSize, SizeTokens> = {
     inputPadding: { top: 35, bottom: 12 },
   },
 };
+
+/**
+ * Resolves a widget's Size socket to a concrete step.
+ *
+ * 'Inherit' - the default - follows the density of whichever theme the widget
+ * is under, which is how the app theme reaches controls at all. A widget that
+ * names an explicit size opts out. Call this once at the top of a widget and
+ * pass the result to the getSize* helpers below, which all expect a size that
+ * has already been resolved.
+ */
+export const useWidgetSize = (setting: unknown): WidgetSize =>
+  useResolvedDensity(setting);
 
 export const getSizeTokens = (size: unknown): SizeTokens =>
   sizeTokens[size as WidgetSize] ?? sizeTokens[defaultSize];

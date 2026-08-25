@@ -18,6 +18,7 @@ import {
   outName,
   selectedOptionName,
   sizeName,
+  useWidgetSize,
   stringifyIfNeeded,
   WidgetPaper,
 } from './abstract';
@@ -141,7 +142,7 @@ abstract class WidgetAutocompleteBase extends WidgetSelectableBase {
     const noOptionsText = props[noOptionsTextName];
     const isDisabled = props[disabledName] || props.disabled;
     const placeholder = props[placeholderName];
-    const size = props[sizeName];
+    const size = useWidgetSize(props[sizeName]);
 
     const currentValue = node.formatSelected(props[selectedOptionName]);
 
