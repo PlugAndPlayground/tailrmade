@@ -1,0 +1,40 @@
+{
+  "id": "terminal",
+  "name": "Terminal",
+  "description": "Phosphor on black. Monospace everywhere, no corners, tight.",
+  "roles": {
+    "dark": {
+      "primary": "#3BE08A",
+      "secondary": "#E0B23B",
+      "background.default": "#0A0C0A",
+      "background.paper": "#121612",
+      "text.primary": "#D6E8D6",
+      "text.secondary": "rgba(214, 232, 214, 0.62)",
+      "divider": "rgba(59, 224, 138, 0.22)",
+      "error": "#FF6B6B",
+      "warning": "#E0B23B",
+      "info": "#5BC8E0",
+      "success": "#3BE08A"
+    },
+    "light": {
+      "primary": "#0F7A44",
+      "secondary": "#7A5A0F",
+      "background.default": "#F2F4F0",
+      "background.paper": "#FFFFFF",
+      "text.primary": "#14180F",
+      "text.secondary": "rgba(20, 24, 15, 0.66)",
+      "divider": "rgba(15, 122, 68, 0.28)",
+      "error": "#B3241F",
+      "warning": "#7A5A0F",
+      "info": "#0F5E7A",
+      "success": "#0F7A44"
+    }
+  },
+  "typography": {
+    "fontFamily": "JetBrains Mono",
+    "fontFamilyMono": "JetBrains Mono",
+    "fontSizeScalar": 0.9375
+  },
+  "geometry": { "radius": 0, "density": "XS", "spacingUnit": 4, "elevation": "none" },
+  "variants": { "button": "outlined", "input": "standard" }
+}

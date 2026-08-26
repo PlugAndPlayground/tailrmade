@@ -1,0 +1,40 @@
+{
+  "id": "bauhaus",
+  "name": "Bauhaus",
+  "description": "Flat primaries, hard corners, generous space. Poster-like.",
+  "roles": {
+    "light": {
+      "primary": "#1B4CD8",
+      "secondary": "#D81B2E",
+      "background.default": "#F2EFE7",
+      "background.paper": "#FFFFFF",
+      "text.primary": "#12100D",
+      "text.secondary": "rgba(18, 16, 13, 0.68)",
+      "divider": "rgba(18, 16, 13, 0.24)",
+      "error": "#D81B2E",
+      "warning": "#B8860B",
+      "info": "#1B4CD8",
+      "success": "#1F7A3D"
+    },
+    "dark": {
+      "primary": "#6E92F5",
+      "secondary": "#F56E7A",
+      "background.default": "#141210",
+      "background.paper": "#1F1C18",
+      "text.primary": "#F5F1E8",
+      "text.secondary": "rgba(245, 241, 232, 0.68)",
+      "divider": "rgba(245, 241, 232, 0.24)",
+      "error": "#F56E7A",
+      "warning": "#E8C05A",
+      "info": "#6E92F5",
+      "success": "#6FC188"
+    }
+  },
+  "typography": {
+    "fontFamily": "Space Grotesk",
+    "fontFamilyMono": "Roboto Mono",
+    "fontSizeScalar": 1
+  },
+  "geometry": { "radius": 0, "density": "M", "spacingUnit": 12, "elevation": "none" },
+  "variants": { "button": "contained", "input": "filled" }
+}

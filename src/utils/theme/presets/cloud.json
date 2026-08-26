@@ -1,0 +1,48 @@
+{
+  "id": "cloud",
+  "name": "Cloud",
+  "description": "Soft indigo, big corners, roomy and lifted.",
+  "roles": {
+    "light": {
+      "primary": "#5B5BD6",
+      "secondary": "#2B7A69",
+      "background.default": "#F6F7FB",
+      "background.paper": "#FFFFFF",
+      "text.primary": "#1C1E2B",
+      "text.secondary": "rgba(28, 30, 43, 0.62)",
+      "divider": "rgba(28, 30, 43, 0.10)",
+      "error": "#C5384A",
+      "warning": "#8A6210",
+      "info": "#2C6EA8",
+      "success": "#2E7A5A"
+    },
+    "dark": {
+      "primary": "#9B9BF0",
+      "secondary": "#6FCBB8",
+      "background.default": "#15161D",
+      "background.paper": "#1E202A",
+      "text.primary": "#E9EAF2",
+      "text.secondary": "rgba(233, 234, 242, 0.62)",
+      "divider": "rgba(233, 234, 242, 0.12)",
+      "error": "#F08A96",
+      "warning": "#E0B96A",
+      "info": "#7EB8E8",
+      "success": "#7ECBA6"
+    }
+  },
+  "typography": {
+    "fontFamily": "Outfit",
+    "fontFamilyMono": "Roboto Mono",
+    "fontSizeScalar": 1
+  },
+  "geometry": {
+    "radius": 16,
+    "density": "L",
+    "spacingUnit": 12,
+    "elevation": "raised"
+  },
+  "variants": {
+    "button": "contained",
+    "input": "outlined"
+  }
+}

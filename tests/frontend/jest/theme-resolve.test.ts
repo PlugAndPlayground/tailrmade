@@ -72,10 +72,10 @@ describe('mode resolution', () => {
 describe('layer stack', () => {
   it('inherits every absent key from the preset', () => {
     const resolved = resolveTheme(
-      [{ source: 'saved', presetId: 'slate', mode: 'dark' }],
+      [{ source: 'saved', presetId: 'cloud', mode: 'dark' }],
       light,
     );
-    expect(resolved.tokens).toEqual(presetToTokens(getPreset('slate'), 'dark'));
+    expect(resolved.tokens).toEqual(presetToTokens(getPreset('cloud'), 'dark'));
     expect(resolved.provenance).toEqual({});
   });
 
@@ -83,7 +83,7 @@ describe('layer stack', () => {
     const layers: ThemeLayer[] = [
       {
         source: 'saved',
-        presetId: 'slate',
+        presetId: 'cloud',
         mode: 'dark',
         tokens: { radius: 2 },
       },
@@ -98,28 +98,28 @@ describe('layer stack', () => {
     // the agreed behaviour: switching preset does NOT silently discard work.
     // The override wins, and provenance is how the UI can say so.
     const overridden: ThemeDocument = {
-      presetId: 'slate',
+      presetId: 'cloud',
       mode: 'dark',
       override: { 'background.paper': '#123456' },
     };
-    const switched: ThemeDocument = { ...overridden, presetId: 'paper' };
+    const switched: ThemeDocument = { ...overridden, presetId: 'newsprint' };
 
     const resolved = resolveTheme([themeDocumentToLayer(switched)], dark);
-    expect(resolved.presetId).toBe('paper');
+    expect(resolved.presetId).toBe('newsprint');
     expect(resolved.tokens['background.paper']).toBe('#123456');
     expect(listColorOverrides(resolved)).toEqual([
       { key: 'background.paper', source: 'saved' },
     ]);
     // everything the creator did not touch does come from the new preset
     expect(resolved.tokens['background.default']).toBe(
-      getPreset('paper').roles.dark['background.default'],
+      getPreset('newsprint').roles.dark['background.default'],
     );
   });
 });
 
 describe('token hashing', () => {
   it('is stable across key insertion order', () => {
-    const preset = getPreset('slate');
+    const preset = getPreset('cloud');
     const a = presetToTokens(preset, 'dark');
     const b = Object.keys(a)
       .reverse()
@@ -128,7 +128,7 @@ describe('token hashing', () => {
   });
 
   it('separates the two modes of one preset', () => {
-    const preset = getPreset('slate');
+    const preset = getPreset('cloud');
     expect(hashTokens(presetToTokens(preset, 'dark'), 'dark')).not.toBe(
       hashTokens(presetToTokens(preset, 'light'), 'light'),
     );
@@ -195,7 +195,7 @@ describe('contrast warnings', () => {
 describe('theme document', () => {
   it('drops keys it does not recognise', () => {
     const parsed = parseThemeDocument({
-      presetId: 'slate',
+      presetId: 'cloud',
       mode: 'sideways',
       override: {
         radius: 12,
@@ -206,7 +206,7 @@ describe('theme document', () => {
       },
     });
     expect(parsed).toEqual({
-      presetId: 'slate',
+      presetId: 'cloud',
       override: { radius: 12, 'background.default': '#000000' },
     });
   });
@@ -220,8 +220,8 @@ describe('theme document', () => {
   it('serializes an untouched theme as absent', () => {
     expect(serializeThemeDocument({})).toBeUndefined();
     expect(serializeThemeDocument({ override: {} })).toBeUndefined();
-    expect(serializeThemeDocument({ presetId: 'slate' })).toEqual({
-      presetId: 'slate',
+    expect(serializeThemeDocument({ presetId: 'cloud' })).toEqual({
+      presetId: 'cloud',
     });
   });
 
@@ -274,4 +274,49 @@ describe('authored color values round-trip through the color picker', () => {
     // and the string it writes back must parse again
     expect(() => TRgba.fromString(parsed.toString())).not.toThrow();
   });
+});
+
+describe('presets are actually distinct', () => {
+  // a preset set that only varies its palette produces apps that all feel the
+  // same. Guard the non-color axes too, so a new preset has to commit to a
+  // shape as well as a hue.
+  const shapeOf = (preset: (typeof PRESETS)[number]) =>
+    [
+      preset.geometry.radius,
+      preset.geometry.density,
+      preset.geometry.spacingUnit,
+      preset.geometry.elevation,
+      preset.variants.button,
+      preset.variants.input,
+    ].join('|');
+
+  it('gives every preset its own shape, not just its own palette', () => {
+    const shapes = PRESETS.map(shapeOf);
+    expect(new Set(shapes).size).toBe(PRESETS.length);
+  });
+
+  it('spreads across the geometry range rather than clustering', () => {
+    const radii = new Set(PRESETS.map((preset) => preset.geometry.radius));
+    const densities = new Set(PRESETS.map((preset) => preset.geometry.density));
+    const buttons = new Set(PRESETS.map((preset) => preset.variants.button));
+    const inputs = new Set(PRESETS.map((preset) => preset.variants.input));
+    expect(radii.size).toBeGreaterThanOrEqual(3);
+    expect(densities.size).toBeGreaterThanOrEqual(3);
+    // all three of each variant family should be represented somewhere
+    expect(buttons.size).toBe(3);
+    expect(inputs.size).toBe(3);
+  });
+
+  // compared WITHIN a mode: a preset reusing one accent across both modes is
+  // a legitimate choice (tailrmade keeps the brand blue), but two presets
+  // sharing an accent in the same mode are not telling apart.
+  it.each(['light', 'dark'] as ThemeMode[])(
+    'has no two presets sharing a %s primary',
+    (mode) => {
+      const primaries = PRESETS.map((preset) =>
+        preset.roles[mode].primary.toUpperCase(),
+      );
+      expect(new Set(primaries).size).toBe(primaries.length);
+    },
+  );
 });

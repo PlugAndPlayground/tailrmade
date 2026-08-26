@@ -9,9 +9,12 @@ import {
   ThemeMode,
   ThemeTokens,
 } from './tokens';
-import paper from './presets/paper.json';
-import slate from './presets/slate.json';
+import bauhaus from './presets/bauhaus.json';
+import cloud from './presets/cloud.json';
+import neon from './presets/neon.json';
+import newsprint from './presets/newsprint.json';
 import tailrmade from './presets/tailrmade.json';
+import terminal from './presets/terminal.json';
 
 // A preset is a named bundle of role values, shipped as DATA. Adding one is a
 // data change (drop a .json file in ./presets and list it below), not a code
@@ -44,8 +47,11 @@ export type ThemePreset = {
 // for a scale we do not have.
 export const PRESETS: ThemePreset[] = [
   tailrmade as ThemePreset,
-  slate as ThemePreset,
-  paper as ThemePreset,
+  cloud as ThemePreset,
+  bauhaus as ThemePreset,
+  newsprint as ThemePreset,
+  terminal as ThemePreset,
+  neon as ThemePreset,
 ];
 
 // The preset a document falls back to when its presetId is missing or unknown

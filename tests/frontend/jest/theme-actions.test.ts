@@ -28,16 +28,16 @@ beforeEach(() => {
 
 describe('theme writes', () => {
   it('marks the graph dirty so the change is actually persisted', () => {
-    chooseThemePreset('slate');
+    chooseThemePreset('cloud');
     expect(ActionHandler.setUnsavedChange).toHaveBeenCalledWith(true);
-    expect(getThemeDocument().presetId).toBe('slate');
+    expect(getThemeDocument().presetId).toBe('cloud');
   });
 
   it('keeps overrides when the preset changes', () => {
     overrideThemeToken('radius', 12);
-    chooseThemePreset('paper');
+    chooseThemePreset('newsprint');
     expect(getThemeDocument()).toEqual({
-      presetId: 'paper',
+      presetId: 'newsprint',
       override: { radius: 12 },
     });
   });
@@ -50,11 +50,11 @@ describe('theme writes', () => {
   });
 
   it('resets every role but keeps the chosen preset and mode', () => {
-    chooseThemePreset('slate');
+    chooseThemePreset('cloud');
     chooseThemeMode('light', true);
     overrideThemeToken('radius', 12);
     resetAllThemeTokens();
-    expect(getThemeDocument()).toEqual({ presetId: 'slate', mode: 'light' });
+    expect(getThemeDocument()).toEqual({ presetId: 'cloud', mode: 'light' });
   });
 
   it('drops the mode key when the choice matches the system', () => {

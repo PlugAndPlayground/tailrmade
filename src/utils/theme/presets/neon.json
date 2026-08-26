@@ -1,0 +1,40 @@
+{
+  "id": "neon",
+  "name": "Neon",
+  "description": "Saturated magenta on deep violet, pill-shaped and lifted.",
+  "roles": {
+    "dark": {
+      "primary": "#FF4FD8",
+      "secondary": "#4FE8FF",
+      "background.default": "#0D0A18",
+      "background.paper": "#171029",
+      "text.primary": "#F2EAFF",
+      "text.secondary": "rgba(242, 234, 255, 0.66)",
+      "divider": "rgba(255, 79, 216, 0.26)",
+      "error": "#FF5C7A",
+      "warning": "#FFC24F",
+      "info": "#4FE8FF",
+      "success": "#5CFFA8"
+    },
+    "light": {
+      "primary": "#B0128E",
+      "secondary": "#0E6E82",
+      "background.default": "#FAF5FF",
+      "background.paper": "#FFFFFF",
+      "text.primary": "#1A0F26",
+      "text.secondary": "rgba(26, 15, 38, 0.64)",
+      "divider": "rgba(176, 18, 142, 0.24)",
+      "error": "#C01238",
+      "warning": "#8A5A00",
+      "info": "#0E6E82",
+      "success": "#0F7A4A"
+    }
+  },
+  "typography": {
+    "fontFamily": "Space Grotesk",
+    "fontFamilyMono": "JetBrains Mono",
+    "fontSizeScalar": 1
+  },
+  "geometry": { "radius": 20, "density": "S", "spacingUnit": 8, "elevation": "raised" },
+  "variants": { "button": "contained", "input": "filled" }
+}
