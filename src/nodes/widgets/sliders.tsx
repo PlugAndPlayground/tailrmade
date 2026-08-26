@@ -4,6 +4,8 @@ import {
   WidgetHybridBase,
   WidgetPaper,
   getMuiSize,
+  colorName,
+  getColorSocket,
   getSizeSocket,
   getSizeTokens,
   labelName,
@@ -54,6 +56,7 @@ export class WidgetSlider extends WidgetHybridBase {
       new Socket(SOCKET_TYPE.IN, maxValueName, new NumberType(), 100, false),
       new Socket(SOCKET_TYPE.IN, roundName, new BooleanType(), false, false),
       new Socket(SOCKET_TYPE.IN, labelName, new StringType(), 'Slider', false),
+      getColorSocket(),
       getSizeSocket(),
       new Socket(SOCKET_TYPE.OUT, outName, new NumberType()),
     ];
@@ -152,6 +155,7 @@ export class WidgetSlider extends WidgetHybridBase {
     const value = props[initialValueName];
     const shouldRound = props[roundName];
     const size = useWidgetSize(props[sizeName]);
+    const color = props[colorName];
     const tokens = useSizeTokens(size);
     // the slider has no fixed control height to hit - it just scales the height
     // it already had, so M keeps its current look
@@ -189,6 +193,7 @@ export class WidgetSlider extends WidgetHybridBase {
             {displayValue}
           </Typography>
           <Slider
+            color={color}
             disabled={props.disabled}
             size={getMuiSize(size)}
             aria-labelledby={`slider-label-${node.id}`}

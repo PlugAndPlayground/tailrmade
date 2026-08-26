@@ -12,6 +12,8 @@ import {
   WidgetHybridBase,
   WidgetPaper,
   getMuiSize,
+  colorName,
+  getColorSocket,
   getSizeSocket,
   getSizeTokens,
   labelName,
@@ -89,6 +91,7 @@ export class WidgetRadio extends WidgetHybridBase {
         radioDefaultLabel,
         false,
       ),
+      getColorSocket(),
       getSizeSocket(),
       new Socket(SOCKET_TYPE.OUT, outName, new StringType()),
     ];
@@ -164,6 +167,7 @@ export class WidgetRadio extends WidgetHybridBase {
 
     const size = useWidgetSize(props[sizeName]);
     const tokens = useSizeTokens(size);
+    const color = props[colorName];
     const fontSize = props.inDashboard
       ? `${tokens.fontSize}px`
       : `${Math.max(12, node.nodeHeight / 10) * tokens.scale}px`;
@@ -221,6 +225,7 @@ export class WidgetRadio extends WidgetHybridBase {
                   value={option}
                   control={
                     <Radio
+                      color={color}
                       size={getMuiSize(size)}
                       sx={{
                         '& .MuiSvgIcon-root': {
@@ -293,6 +298,7 @@ export class WidgetCheckbox extends WidgetHybridBase {
         checkboxDefaultLabel,
         false,
       ),
+      getColorSocket(),
       getSizeSocket(),
       new Socket(SOCKET_TYPE.OUT, outName, new ArrayType()),
     ];
@@ -384,6 +390,7 @@ export class WidgetCheckbox extends WidgetHybridBase {
     // Calculate dynamic font size based on node dimensions
     const size = useWidgetSize(props[sizeName]);
     const tokens = useSizeTokens(size);
+    const color = props[colorName];
     const fontSize = props.inDashboard
       ? `${tokens.fontSize}px`
       : `${Math.max(12, node.nodeHeight / 10) * tokens.scale}px`;
@@ -442,6 +449,7 @@ export class WidgetCheckbox extends WidgetHybridBase {
                   key={index}
                   control={
                     <Checkbox
+                      color={color}
                       checked={selectedOptions.includes(option)}
                       onChange={(node as WidgetCheckbox).handleCheckboxChange}
                       value={option}

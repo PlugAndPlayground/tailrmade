@@ -249,6 +249,24 @@ export const getSizeSx = (size: unknown, fontScalar = 1) => {
   };
 };
 
+/**
+ * The palette role a control paints itself with. Every option is a MUI palette
+ * role name, so the theme reaches these for free - no widget resolves a color
+ * of its own.
+ *
+ * 'primary' is the default and is also MUI's own default for Slider, Checkbox,
+ * Radio, Switch, Tabs and input focus, so adding this socket to a widget that
+ * did not have one changes nothing until a creator picks something else.
+ */
+export const getColorSocket = (): Socket =>
+  new Socket(
+    SOCKET_TYPE.IN,
+    colorName,
+    new EnumType(colorOptions, undefined, true),
+    colorOptions[0].text,
+    false,
+  );
+
 export const getSizeSocket = (): Socket =>
   new Socket(
     SOCKET_TYPE.IN,

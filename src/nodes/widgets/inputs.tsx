@@ -4,6 +4,8 @@ import {
   WidgetHybridBase,
   WidgetPaper,
   getMuiSize,
+  colorName,
+  getColorSocket,
   getSizeSocket,
   getSizeSx,
   getSizeTokens,
@@ -113,6 +115,7 @@ export class WidgetTextField extends WidgetHybridBase {
         false,
       ),
       new Socket(SOCKET_TYPE.IN, requiredName, new BooleanType(), false, false),
+      getColorSocket(),
       getSizeSocket(),
       new Socket(SOCKET_TYPE.OUT, outName, new StringType()),
     ];
@@ -204,6 +207,7 @@ export class WidgetTextField extends WidgetHybridBase {
 
     const size = useWidgetSize(props[sizeName]);
     const inputVariant = useResolvedInputVariant();
+    const color = props[colorName];
     const sizeSx = useSizeSx(size);
     const fontSize = `${useSizeTokens(size).fontSize}px`;
     return (
@@ -216,6 +220,7 @@ export class WidgetTextField extends WidgetHybridBase {
               placeholder={placeholder}
               helperText={helperText}
               variant={inputVariant}
+              color={color}
               size={getMuiSize(size)}
               type={type}
               multiline={multiline}

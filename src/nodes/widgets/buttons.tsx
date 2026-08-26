@@ -235,14 +235,13 @@ export class WidgetButton extends WidgetHybridBase {
             '&.Mui-disabled': {
               opacity: 0.6,
               color: 'text.secondary',
-              backgroundColor: (theme) =>
+              backgroundColor:
                 variant === 'contained'
-                  ? 'rgba(80, 80, 80, 0.3)'
+                  ? 'action.disabledBackground'
                   : 'transparent',
-              border:
-                variant === 'outlined'
-                  ? '1px solid rgba(120, 120, 120, 0.5)'
-                  : 'none',
+              border: variant === 'outlined' ? '1px solid' : 'none',
+              borderColor:
+                variant === 'outlined' ? 'action.disabled' : undefined,
             },
           }}
           onClick={() => (node as WidgetButton).handleOnClick()}
@@ -524,14 +523,15 @@ export class WidgetButtonGroup extends WidgetHybridBase {
                         '&.Mui-disabled': {
                           opacity: 0.7,
                           color: 'text.secondary',
-                          backgroundColor: (theme) =>
+                          backgroundColor:
                             variant === 'contained'
-                              ? 'rgba(0, 0, 0, 0.12)'
+                              ? 'action.disabledBackground'
                               : 'transparent',
-                          border:
+                          border: variant === 'outlined' ? '1px solid' : 'none',
+                          borderColor:
                             variant === 'outlined'
-                              ? '1px solid rgba(0, 0, 0, 0.23)'
-                              : 'none',
+                              ? 'action.disabled'
+                              : undefined,
                         },
                       }}
                     >

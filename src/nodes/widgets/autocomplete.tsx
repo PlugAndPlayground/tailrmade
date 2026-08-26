@@ -11,6 +11,8 @@ import {
   defaultOptions,
   fallbackValueName,
   getMuiSize,
+  colorName,
+  getColorSocket,
   getSizeSocket,
   getSizeSx,
   labelName,
@@ -131,6 +133,7 @@ abstract class WidgetAutocompleteBase extends WidgetSelectableBase {
         false,
       ),
       new Socket(SOCKET_TYPE.IN, disabledName, new BooleanType(), false, false),
+      getColorSocket(),
       getSizeSocket(),
     ];
   }
@@ -149,6 +152,7 @@ abstract class WidgetAutocompleteBase extends WidgetSelectableBase {
     const fontScalar = useFontScalar();
     const sizeSx = useSizeSx(size);
     const inputVariant = useResolvedInputVariant();
+    const color = props[colorName];
 
     const currentValue = node.formatSelected(props[selectedOptionName]);
 
@@ -179,6 +183,7 @@ abstract class WidgetAutocompleteBase extends WidgetSelectableBase {
               renderInput={(params) => (
                 <TextField
                   {...params}
+                  color={color}
                   variant={inputVariant}
                   label={props[labelName]}
                   placeholder={placeholder}
@@ -214,7 +219,7 @@ abstract class WidgetAutocompleteBase extends WidgetSelectableBase {
             }}
             renderOption={(optionProps, option, { selected }) => (
               <li {...optionProps}>
-                <Checkbox checked={selected} sx={{ mr: 1 }} />
+                <Checkbox color={color} checked={selected} sx={{ mr: 1 }} />
                 {option}
               </li>
             )}
@@ -229,6 +234,7 @@ abstract class WidgetAutocompleteBase extends WidgetSelectableBase {
             renderInput={(params) => (
               <TextField
                 {...params}
+                color={color}
                 variant={inputVariant}
                 label={props[labelName]}
                 placeholder={multiValue.length === 0 ? placeholder : undefined}

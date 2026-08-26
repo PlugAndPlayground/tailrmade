@@ -12,6 +12,8 @@ import {
   defaultOptions,
   fallbackValueName,
   getMuiSize,
+  colorName,
+  getColorSocket,
   getSizeSocket,
   getSizeSx,
   getSizeTokens,
@@ -83,6 +85,7 @@ abstract class WidgetDropdownBase extends WidgetSelectableBase {
         dropDownDefaultName,
         false,
       ),
+      getColorSocket(),
       getSizeSocket(),
     ];
   }
@@ -93,6 +96,7 @@ abstract class WidgetDropdownBase extends WidgetSelectableBase {
     const fontScalar = useFontScalar();
     const sizeSx = useSizeSx(size);
     const inputVariant = useResolvedInputVariant();
+    const color = props[colorName];
 
     const renderMenuItems = () => {
       if (!Array.isArray(props[optionsName])) return null;
@@ -102,6 +106,7 @@ abstract class WidgetDropdownBase extends WidgetSelectableBase {
         <MenuItem key={name} value={name}>
           {!node.isSingle() && (
             <Checkbox
+              color={color}
               checked={
                 (
                   node.formatSelected(props[selectedOptionName]) as string[]
@@ -118,6 +123,7 @@ abstract class WidgetDropdownBase extends WidgetSelectableBase {
       <WidgetPaper node={node} inDashboard={props.inDashboard}>
         <FormControl
           variant={inputVariant}
+          color={color}
           size={getMuiSize(size)}
           sx={{
             pointerEvents: props.disabled ? 'none' : undefined,
@@ -127,6 +133,7 @@ abstract class WidgetDropdownBase extends WidgetSelectableBase {
           <InputLabel>{props[labelName]}</InputLabel>
           <Select
             variant={inputVariant}
+            color={color}
             disabled={props.disabled}
             multiple={!node.isSingle()}
             value={node.formatSelected(props[selectedOptionName])}

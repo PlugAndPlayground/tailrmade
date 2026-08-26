@@ -845,6 +845,14 @@ export const ColorSection: React.FC<SettingsSectionProps> = ({
       color={props.background || { r: 255, g: 255, b: 255, a: 1 }}
       controlBackground={true}
     />
+    {/* text color was never exposed here, so a container's color prop could
+        only be set by a wired layout socket - which left creators unable to
+        undo it, or to opt a subtree back into the theme */}
+    <ColorControl
+      setProp={setProp}
+      color={props.color ?? INHERIT_COLOR}
+      controlBackground={false}
+    />
   </>
 );
 

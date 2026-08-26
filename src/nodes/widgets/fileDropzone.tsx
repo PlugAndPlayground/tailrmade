@@ -2,7 +2,15 @@ import React, { useCallback, useState } from 'react';
 import { TRgba } from '../../utils/color';
 import { useDropzone } from 'react-dropzone';
 import {
-  Box, Typography, Paper, List, ListItem, ListItemText, IconButton, Button, } from '@mui/material';
+  Box,
+  Typography,
+  Paper,
+  List,
+  ListItem,
+  ListItemText,
+  IconButton,
+  Button,
+} from '@mui/material';
 import FileUploadIcon from '@mui/icons-material/FileUpload';
 import CloseIcon from '@mui/icons-material/Close';
 import ContentPasteIcon from '@mui/icons-material/ContentPaste';
@@ -10,7 +18,12 @@ import prettyBytes from 'pretty-bytes';
 import PPNode from '../../classes/NodeClass';
 import PPSocket from '../../classes/SocketClass';
 import {
-  DashboardIconProps, DashboardWidgetProps, Layoutable, WidgetContentProps, WidgetProps } from '../../utils/interfaces';
+  DashboardIconProps,
+  DashboardWidgetProps,
+  Layoutable,
+  WidgetContentProps,
+  WidgetProps,
+} from '../../utils/interfaces';
 import { ArrayType } from '../datatypes/arrayType';
 import { BooleanType } from '../datatypes/booleanType';
 import { NumberType } from '../datatypes/numberType';
@@ -515,12 +528,15 @@ const FileDropzoneComponent: React.FC<{
           borderRadius: 1,
           border: '2px dashed',
           borderColor: isDragActive ? 'primary.main' : 'divider',
-          bgcolor: isDragActive ? 'rgba(25, 118, 210, 0.8)' : 'transparent',
+          // was MUI's own default blue, hardcoded - it ignored the theme
+          bgcolor: isDragActive ? 'primary.main' : 'transparent',
           transition: 'background-color 0.2s, border-color 0.2s',
           cursor: isDisabled ? 'not-allowed' : 'pointer',
           opacity: isDisabled ? 0.5 : 1,
           '&:hover': {
-            bgcolor: isDisabled ? 'transparent' : 'rgba(0, 0, 0, 0.04)',
+            // action.hover is the palette's interaction layer, so it
+            // follows light/dark instead of always darkening
+            bgcolor: isDisabled ? 'transparent' : 'action.hover',
           },
         }}
       >
