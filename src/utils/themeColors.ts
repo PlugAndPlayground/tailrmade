@@ -30,5 +30,15 @@ export const colorSettingToCss = (value: unknown): string => {
   return Object.assign(new TRgba(), value).toString();
 };
 
-/** The alpha-0 background that lets the themed surface show through. */
+/**
+ * How a BACKGROUND defers to the theme: fully transparent, so the themed
+ * surface behind it shows through. Note this is not interchangeable with
+ * INHERIT_COLOR - `background: inherit` copies whatever the parent painted
+ * rather than letting the app's own ground show.
+ */
 export const TRANSPARENT_COLOR = { r: 0, g: 0, b: 0, a: 0 };
+
+export const isTransparentColor = (value: unknown): boolean =>
+  typeof value === 'object' &&
+  value !== null &&
+  Number((value as Record<string, unknown>).a) === 0;

@@ -27,7 +27,6 @@ export type ThemePreset = {
     fontFamily: string;
     fontFamilyMono: string;
     fontSizeScalar: number;
-    headingWeight: number;
   };
   geometry: {
     radius: number;
@@ -83,7 +82,6 @@ export const presetToTokens = (
     fontFamily: preset.typography.fontFamily,
     fontFamilyMono: preset.typography.fontFamilyMono,
     fontSizeScalar: preset.typography.fontSizeScalar,
-    headingWeight: preset.typography.headingWeight,
     radius: preset.geometry.radius,
     density: preset.geometry.density,
     spacingUnit: preset.geometry.spacingUnit,

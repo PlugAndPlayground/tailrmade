@@ -1,7 +1,10 @@
 import { migrateGraphDataOnLoad } from '../../../src/utils/graphMigrations';
 import {
-  INHERIT_COLOR,
   colorSettingToCss,
+  INHERIT_COLOR,
+  isInheritColor,
+  isTransparentColor,
+  TRANSPARENT_COLOR,
 } from '../../../src/utils/themeColors';
 import { rootProps } from '../../../src/utils/surfaceTree';
 import {
@@ -123,5 +126,19 @@ describe('v4 -> v5 surface color migration', () => {
       graphWith(treeWithColors(nearMiss, nearMiss, nearMiss)),
     );
     expect(treeOf(migrated)[RootName].props.background).toEqual(nearMiss);
+  });
+});
+
+describe('deferring to the theme', () => {
+  it('treats a transparent background as deferred', () => {
+    expect(isTransparentColor({ r: 0, g: 0, b: 0, a: 0 })).toBe(true);
+    expect(isTransparentColor({ r: 10, g: 20, b: 30, a: 1 })).toBe(false);
+  });
+
+  it('keeps the two deferral forms distinct', () => {
+    // a background defers by being transparent so the app's own ground shows;
+    // `background: inherit` would copy whatever the parent painted instead
+    expect(isInheritColor(TRANSPARENT_COLOR)).toBe(false);
+    expect(isTransparentColor(INHERIT_COLOR)).toBe(false);
   });
 });

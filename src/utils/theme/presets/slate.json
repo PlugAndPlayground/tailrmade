@@ -33,8 +33,7 @@
   "typography": {
     "fontFamily": "Inter",
     "fontFamilyMono": "Roboto Mono",
-    "fontSizeScalar": 1,
-    "headingWeight": 600
+    "fontSizeScalar": 1
   },
   "geometry": {
     "radius": 8,

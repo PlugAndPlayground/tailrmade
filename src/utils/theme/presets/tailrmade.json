@@ -33,8 +33,7 @@
   "typography": {
     "fontFamily": "Roboto",
     "fontFamilyMono": "Roboto Mono",
-    "fontSizeScalar": 1,
-    "headingWeight": 500
+    "fontSizeScalar": 1
   },
   "geometry": {
     "radius": 0,

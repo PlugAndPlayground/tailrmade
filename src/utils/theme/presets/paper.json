@@ -33,8 +33,7 @@
   "typography": {
     "fontFamily": "Source Serif 4",
     "fontFamilyMono": "Roboto Mono",
-    "fontSizeScalar": 1.0625,
-    "headingWeight": 600
+    "fontSizeScalar": 1.0625
   },
   "geometry": {
     "radius": 4,

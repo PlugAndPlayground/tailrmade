@@ -371,13 +371,6 @@ export const ThemeSettings: React.FC = () => {
           onChange={(value) => overrideThemeToken('fontSizeScalar', value)}
           onReset={() => resetThemeToken('fontSizeScalar')}
         />
-        <NumberControl
-          label="headingWeight"
-          value={tokens.headingWeight}
-          overridden={isOverridden('headingWeight')}
-          onChange={(value) => overrideThemeToken('headingWeight', value)}
-          onReset={() => resetThemeToken('headingWeight')}
-        />
       </Section>
 
       <Section title="Geometry">

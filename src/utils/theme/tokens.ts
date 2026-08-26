@@ -59,7 +59,6 @@ export type ShapeTokens = {
   // multiplier on the base type scale, not an absolute size - the scale does
   // the rest (control labels, input labels, helper text)
   fontSizeScalar: number;
-  headingWeight: number;
   // a single scalar, not a scale
   radius: number;
   density: Density;

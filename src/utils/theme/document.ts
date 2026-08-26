@@ -26,7 +26,6 @@ const SHAPE_TOKEN_VALIDATORS: Partial<
   fontFamily: (value) => typeof value === 'string',
   fontFamilyMono: (value) => typeof value === 'string',
   fontSizeScalar: (value) => typeof value === 'number' && value > 0,
-  headingWeight: (value) => typeof value === 'number',
   radius: (value) => typeof value === 'number' && value >= 0,
   density: (value) => DENSITIES.includes(value as Density),
   spacingUnit: (value) => typeof value === 'number' && value > 0,

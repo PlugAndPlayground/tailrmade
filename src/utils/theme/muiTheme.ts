@@ -81,12 +81,6 @@ export const tokensToThemeOptions = (resolved: ResolvedTheme): ThemeOptions => {
         'sans-serif',
       ]),
       fontSize: MUI_BASE_FONT_SIZE * tokens.fontSizeScalar,
-      h1: { fontWeight: tokens.headingWeight },
-      h2: { fontWeight: tokens.headingWeight },
-      h3: { fontWeight: tokens.headingWeight },
-      h4: { fontWeight: tokens.headingWeight },
-      h5: { fontWeight: tokens.headingWeight },
-      h6: { fontWeight: tokens.headingWeight },
     },
     // the geometry of LAYOUT - gaps, stack spacing, surface padding. Never
     // derived from density.

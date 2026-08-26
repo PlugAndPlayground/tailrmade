@@ -13,7 +13,12 @@ import {
 } from '@mui/material';
 import { TRgba } from '../../utils/color';
 import { ColorPickerComponent, SimpleDataEditor } from '../../widgets';
-import { INHERIT_COLOR, isInheritColor } from '../../utils/themeColors';
+import {
+  INHERIT_COLOR,
+  isInheritColor,
+  isTransparentColor,
+  TRANSPARENT_COLOR,
+} from '../../utils/themeColors';
 import {
   ALIGNLEFT_TEXTURE,
   ALIGNCENTERHORIZONTALLY_TEXTURE,
@@ -113,7 +118,10 @@ export const ColorControl = ({
   controlBackground: boolean;
 }) => {
   const key = controlBackground ? 'background' : 'color';
-  const inherits = isInheritColor(color);
+  const themeValue = controlBackground ? TRANSPARENT_COLOR : INHERIT_COLOR;
+  const defersToTheme = controlBackground
+    ? isTransparentColor(color)
+    : isInheritColor(color);
   return (
     <FormWrapper>
       <Stack
@@ -123,9 +131,12 @@ export const ColorControl = ({
         <StyledFormLabel>
           {controlBackground ? 'Background' : 'Color'}
         </StyledFormLabel>
-        {/* the theme owns this slot until the creator names a value. Text
-            needs the keyword rather than alpha 0 - transparent text is
-            invisible, not inherited. */}
+        {/* the theme owns this slot until the creator names a value.
+            A background defers by being TRANSPARENT, so the themed surface
+            behind it shows through - `background: inherit` would instead copy
+            whatever the parent painted. A foreground cannot do that, because
+            transparent text is invisible rather than inherited, so it defers
+            with the CSS keyword. */}
         <FormControlLabel
           sx={{
             mr: 0,
@@ -134,11 +145,11 @@ export const ColorControl = ({
           control={
             <Checkbox
               size="small"
-              checked={inherits}
+              checked={defersToTheme}
               onChange={(event) =>
                 setProp((props: any) => {
                   props[key] = event.target.checked
-                    ? INHERIT_COLOR
+                    ? themeValue
                     : { r: 128, g: 128, b: 128, a: 1 };
                 })
               }
@@ -147,7 +158,7 @@ export const ColorControl = ({
           label="Theme"
         />
       </Stack>
-      {!inherits && (
+      {!defersToTheme && (
         <ColorPickerComponent
           defaultColor={TRgba.fromObject(color)}
           onChange={(next) => setProp((props: any) => (props[key] = next))}
