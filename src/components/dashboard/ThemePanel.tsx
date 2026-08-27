@@ -293,7 +293,29 @@ export const ThemeSettings: React.FC = () => {
       square
       sx={{ bgcolor: 'background.paper', '&::before': { display: 'none' } }}
     >
-      <AccordionSummary expandIcon={<ExpandMoreIcon />} sx={{ px: 1 }}>
+      <AccordionSummary
+        // MUI points the icon DOWN when collapsed and rotates it up when
+        // open, which reads as "already expanded, nothing inside". Flip it to
+        // the disclosure-triangle convention - right when closed, down when
+        // open - and move it ahead of the label, so the whole row matches the
+        // groups nested inside it.
+        sx={{
+          px: 1,
+          flexDirection: 'row',
+          gap: 0.5,
+          '& .MuiAccordionSummary-content': { my: 0.5 },
+        }}
+      >
+        <ExpandMoreIcon
+          fontSize="small"
+          sx={{
+            alignSelf: 'center',
+            color: 'text.secondary',
+            transition: 'transform 0.15s',
+            transform: 'rotate(-90deg)',
+            '.Mui-expanded > &': { transform: 'none' },
+          }}
+        />
         <Stack
           direction="row"
           sx={{ alignItems: 'center', gap: 1, flex: 1, minWidth: 0 }}
@@ -312,6 +334,23 @@ export const ThemeSettings: React.FC = () => {
               sx={{ height: 18, fontSize: 11 }}
             />
           )}
+          {/* the closed row still shows something OF the theme, so the box
+              cannot read as empty - and the swatches change as you switch
+              preset, which is the clearest hint that there is more in here */}
+          <Stack direction="row" sx={{ gap: 0.375, flex: 'none' }}>
+            {IDENTITY_ROLES.map((role) => (
+              <Box
+                key={role}
+                sx={{
+                  width: 12,
+                  height: 12,
+                  borderRadius: '2px',
+                  border: '1px solid rgba(128, 128, 128, 0.4)',
+                  background: tokens[role],
+                }}
+              />
+            ))}
+          </Stack>
         </Stack>
       </AccordionSummary>
       <AccordionDetails sx={{ px: 0.5, pt: 0 }}>
