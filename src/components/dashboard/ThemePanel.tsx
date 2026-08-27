@@ -1,9 +1,13 @@
 import React from 'react';
 import {
+  Accordion,
+  AccordionDetails,
+  AccordionSummary,
   Alert,
   Box,
   Button,
   Chip,
+  Collapse,
   MenuItem,
   Select,
   Stack,
@@ -13,6 +17,7 @@ import {
   Tooltip,
   Typography,
 } from '@mui/material';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import RestartAltIcon from '@mui/icons-material/RestartAlt';
 import { ColorPickerComponent } from '../../widgets';
 import { TRgba } from '../../utils/color';
@@ -52,25 +57,60 @@ const IDENTITY_ROLES: ColorRole[] = [
   'text.primary',
 ];
 
-const Section: React.FC<{ title: string; children: React.ReactNode }> = ({
-  title,
-  children,
-}) => (
-  <Box sx={{ mb: 1.5 }}>
-    <Typography
-      variant="caption"
-      sx={{
-        px: 1,
-        display: 'block',
-        color: 'text.secondary',
-        fontWeight: 'bold',
-      }}
-    >
-      {title}
-    </Typography>
-    {children}
-  </Box>
-);
+/**
+ * One collapsible group. The panel carries six of them and eleven color rows,
+ * which is a lot of vertical space for a drawer that also holds the rest of the
+ * app settings - so only the two a creator reaches for most start open.
+ */
+const Section: React.FC<{
+  title: string;
+  defaultOpen?: boolean;
+  badge?: number;
+  children: React.ReactNode;
+}> = ({ title, defaultOpen = false, badge, children }) => {
+  const [open, setOpen] = React.useState(defaultOpen);
+  return (
+    <Box sx={{ mb: 0.5 }}>
+      <Box
+        data-cy={`theme-section-${title}`}
+        onClick={() => setOpen((wasOpen) => !wasOpen)}
+        sx={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 0.5,
+          px: 1,
+          py: 0.5,
+          cursor: 'pointer',
+          borderRadius: 1,
+          '&:hover': { bgcolor: 'action.hover' },
+        }}
+      >
+        <ExpandMoreIcon
+          fontSize="small"
+          sx={{
+            transition: 'transform 0.15s',
+            transform: open ? 'none' : 'rotate(-90deg)',
+            color: 'text.secondary',
+          }}
+        />
+        <Typography
+          variant="caption"
+          sx={{ color: 'text.secondary', fontWeight: 'bold', flex: 1 }}
+        >
+          {title}
+        </Typography>
+        {/* how many roles in this group are overridden, so a collapsed group
+            never hides the fact that it differs from the preset */}
+        {badge ? (
+          <Chip size="small" label={badge} sx={{ height: 18, fontSize: 11 }} />
+        ) : null}
+      </Box>
+      <Collapse in={open} timeout={150} unmountOnExit>
+        <Box sx={{ pb: 1 }}>{children}</Box>
+      </Collapse>
+    </Box>
+  );
+};
 
 /** A role's current value plus the control to put it back on the preset. */
 const RoleRow: React.FC<{
@@ -242,197 +282,223 @@ export const ThemeSettings: React.FC = () => {
   const overrides = listOverrides(resolved);
   const overriddenKeys = new Set(overrides.map((entry) => entry.key));
   const isOverridden = (key: keyof ThemeTokens) => overriddenKeys.has(key);
+  const countOverridden = (keys: readonly (keyof ThemeTokens)[]) =>
+    keys.filter(isOverridden).length;
   const tokens = resolved.tokens;
 
   return (
-    <Box data-cy="theme-panel">
-      <Typography variant="subtitle2" sx={{ px: 1, py: 0.5 }}>
-        Theme
-      </Typography>
-
-      {overrides.length > 0 && (
-        <Alert
-          data-cy="theme-override-notice"
-          severity="info"
-          sx={{ mb: 1, fontSize: '0.75rem' }}
-          action={
-            <Button
-              data-cy="theme-reset-all"
+    <Accordion
+      data-cy="theme-panel"
+      disableGutters
+      square
+      sx={{ bgcolor: 'background.paper', '&::before': { display: 'none' } }}
+    >
+      <AccordionSummary expandIcon={<ExpandMoreIcon />} sx={{ px: 1 }}>
+        <Stack
+          direction="row"
+          sx={{ alignItems: 'center', gap: 1, flex: 1, minWidth: 0 }}
+        >
+          <Typography variant="subtitle2">App theme</Typography>
+          {/* readable while collapsed: which preset is in force, and whether
+              anything has been changed away from it */}
+          <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+            {resolved.presetId}
+            {resolved.followsSystem ? '' : ` · ${resolved.mode}`}
+          </Typography>
+          {overrides.length > 0 && (
+            <Chip
               size="small"
-              onClick={resetAllThemeTokens}
-            >
-              Reset all
-            </Button>
-          }
-        >
-          {/* switching preset keeps these, so a new preset can look wrong
-              until the creator knows they are here */}
-          {overrides.length} role{overrides.length === 1 ? '' : 's'} overridden
-          — these stay when you switch preset:
-          <Stack
-            direction="row"
-            spacing={0.5}
-            sx={{ mt: 0.5, flexWrap: 'wrap', gap: 0.5 }}
-          >
-            {overrides.map((entry) => (
-              <Chip
-                key={entry.key}
+              label={`${overrides.length} changed`}
+              sx={{ height: 18, fontSize: 11 }}
+            />
+          )}
+        </Stack>
+      </AccordionSummary>
+      <AccordionDetails sx={{ px: 0.5, pt: 0 }}>
+        {overrides.length > 0 && (
+          <Alert
+            data-cy="theme-override-notice"
+            severity="info"
+            sx={{ mb: 1, fontSize: '0.75rem' }}
+            action={
+              <Button
+                data-cy="theme-reset-all"
                 size="small"
-                label={entry.key}
-                onDelete={() => resetThemeToken(entry.key)}
-              />
-            ))}
-          </Stack>
-        </Alert>
-      )}
-
-      {resolved.warnings.map((warning) => (
-        <Alert
-          key={`${warning.role}-${warning.against}`}
-          data-cy="theme-contrast-warning"
-          severity="warning"
-          sx={{ mb: 1, fontSize: '0.75rem' }}
-        >
-          {warning.message}
-        </Alert>
-      ))}
-
-      <Section title="Preset">
-        {PRESETS.map((preset) => (
-          <PresetRow
-            key={preset.id}
-            preset={preset}
-            selected={preset.id === resolved.presetId}
-            mode={resolved.mode}
-          />
-        ))}
-      </Section>
-
-      <Section title="Mode">
-        <ModeControl resolved={resolved} />
-      </Section>
-
-      <Section title="Colors">
-        {COLOR_ROLES.map((role) => (
-          <RoleRow
-            key={role}
-            label={role}
-            overridden={isOverridden(role)}
-            onReset={() => resetThemeToken(role)}
+                onClick={resetAllThemeTokens}
+              >
+                Reset all
+              </Button>
+            }
           >
-            <ColorPickerComponent
-              // remounted when the resolved value changes from outside (a
-              // preset switch, a reset) - the picker holds its own state and
-              // deliberately does not sync from props, see its comment
-              key={`${role}-${tokens[role]}`}
-              defaultColor={TRgba.fromString(tokens[role])}
-              showAlphaSlider
-              onChange={(color) =>
-                overrideThemeTokenDebounced(role, color.toString())
+            {/* switching preset keeps these, so a new preset can look wrong
+              until the creator knows they are here */}
+            {overrides.length} role{overrides.length === 1 ? '' : 's'}{' '}
+            overridden — these stay when you switch preset:
+            <Stack
+              direction="row"
+              spacing={0.5}
+              sx={{ mt: 0.5, flexWrap: 'wrap', gap: 0.5 }}
+            >
+              {overrides.map((entry) => (
+                <Chip
+                  key={entry.key}
+                  size="small"
+                  label={entry.key}
+                  onDelete={() => resetThemeToken(entry.key)}
+                />
+              ))}
+            </Stack>
+          </Alert>
+        )}
+
+        {resolved.warnings.map((warning) => (
+          <Alert
+            key={`${warning.role}-${warning.against}`}
+            data-cy="theme-contrast-warning"
+            severity="warning"
+            sx={{ mb: 1, fontSize: '0.75rem' }}
+          >
+            {warning.message}
+          </Alert>
+        ))}
+
+        <Section title="Preset">
+          {PRESETS.map((preset) => (
+            <PresetRow
+              key={preset.id}
+              preset={preset}
+              selected={preset.id === resolved.presetId}
+              mode={resolved.mode}
+            />
+          ))}
+        </Section>
+
+        <Section title="Mode">
+          <ModeControl resolved={resolved} />
+        </Section>
+
+        <Section title="Colors">
+          {COLOR_ROLES.map((role) => (
+            <RoleRow
+              key={role}
+              label={role}
+              overridden={isOverridden(role)}
+              onReset={() => resetThemeToken(role)}
+            >
+              <ColorPickerComponent
+                // remounted when the resolved value changes from outside (a
+                // preset switch, a reset) - the picker holds its own state and
+                // deliberately does not sync from props, see its comment
+                key={`${role}-${tokens[role]}`}
+                defaultColor={TRgba.fromString(tokens[role])}
+                showAlphaSlider
+                onChange={(color) =>
+                  overrideThemeTokenDebounced(role, color.toString())
+                }
+              />
+            </RoleRow>
+          ))}
+        </Section>
+
+        <Section title="Typography">
+          <RoleRow
+            label="fontFamily"
+            overridden={isOverridden('fontFamily')}
+            onReset={() => resetThemeToken('fontFamily')}
+          >
+            <TextField
+              size="small"
+              value={tokens.fontFamily}
+              onChange={(event) =>
+                overrideThemeToken('fontFamily', event.target.value)
               }
+              sx={{ mt: 0.5 }}
             />
           </RoleRow>
-        ))}
-      </Section>
-
-      <Section title="Typography">
-        <RoleRow
-          label="fontFamily"
-          overridden={isOverridden('fontFamily')}
-          onReset={() => resetThemeToken('fontFamily')}
-        >
-          <TextField
-            size="small"
-            value={tokens.fontFamily}
-            onChange={(event) =>
-              overrideThemeToken('fontFamily', event.target.value)
-            }
-            sx={{ mt: 0.5 }}
+          <RoleRow
+            label="fontFamilyMono"
+            overridden={isOverridden('fontFamilyMono')}
+            onReset={() => resetThemeToken('fontFamilyMono')}
+          >
+            <TextField
+              size="small"
+              value={tokens.fontFamilyMono}
+              onChange={(event) =>
+                overrideThemeToken('fontFamilyMono', event.target.value)
+              }
+              sx={{ mt: 0.5 }}
+            />
+          </RoleRow>
+          <NumberControl
+            label="fontSizeScalar"
+            value={tokens.fontSizeScalar}
+            overridden={isOverridden('fontSizeScalar')}
+            onChange={(value) => overrideThemeToken('fontSizeScalar', value)}
+            onReset={() => resetThemeToken('fontSizeScalar')}
           />
-        </RoleRow>
-        <RoleRow
-          label="fontFamilyMono"
-          overridden={isOverridden('fontFamilyMono')}
-          onReset={() => resetThemeToken('fontFamilyMono')}
-        >
-          <TextField
-            size="small"
-            value={tokens.fontFamilyMono}
-            onChange={(event) =>
-              overrideThemeToken('fontFamilyMono', event.target.value)
-            }
-            sx={{ mt: 0.5 }}
+        </Section>
+
+        <Section title="Geometry">
+          <NumberControl
+            label="radius"
+            value={tokens.radius}
+            overridden={isOverridden('radius')}
+            onChange={(value) => overrideThemeToken('radius', value)}
+            onReset={() => resetThemeToken('radius')}
           />
-        </RoleRow>
-        <NumberControl
-          label="fontSizeScalar"
-          value={tokens.fontSizeScalar}
-          overridden={isOverridden('fontSizeScalar')}
-          onChange={(value) => overrideThemeToken('fontSizeScalar', value)}
-          onReset={() => resetThemeToken('fontSizeScalar')}
-        />
-      </Section>
+          <SelectControl<Density>
+            label="density (controls)"
+            value={tokens.density}
+            options={DENSITIES}
+            overridden={isOverridden('density')}
+            onChange={(value) => overrideThemeToken('density', value)}
+            onReset={() => resetThemeToken('density')}
+          />
+          <NumberControl
+            label="spacingUnit (layout)"
+            value={tokens.spacingUnit}
+            overridden={isOverridden('spacingUnit')}
+            onChange={(value) => overrideThemeToken('spacingUnit', value)}
+            onReset={() => resetThemeToken('spacingUnit')}
+          />
+          <SelectControl<Elevation>
+            label="elevation"
+            value={tokens.elevation}
+            options={['none', 'subtle', 'raised'] as const}
+            overridden={isOverridden('elevation')}
+            onChange={(value) => overrideThemeToken('elevation', value)}
+            onReset={() => resetThemeToken('elevation')}
+          />
+        </Section>
 
-      <Section title="Geometry">
-        <NumberControl
-          label="radius"
-          value={tokens.radius}
-          overridden={isOverridden('radius')}
-          onChange={(value) => overrideThemeToken('radius', value)}
-          onReset={() => resetThemeToken('radius')}
-        />
-        <SelectControl<Density>
-          label="density (controls)"
-          value={tokens.density}
-          options={DENSITIES}
-          overridden={isOverridden('density')}
-          onChange={(value) => overrideThemeToken('density', value)}
-          onReset={() => resetThemeToken('density')}
-        />
-        <NumberControl
-          label="spacingUnit (layout)"
-          value={tokens.spacingUnit}
-          overridden={isOverridden('spacingUnit')}
-          onChange={(value) => overrideThemeToken('spacingUnit', value)}
-          onReset={() => resetThemeToken('spacingUnit')}
-        />
-        <SelectControl<Elevation>
-          label="elevation"
-          value={tokens.elevation}
-          options={['none', 'subtle', 'raised'] as const}
-          overridden={isOverridden('elevation')}
-          onChange={(value) => overrideThemeToken('elevation', value)}
-          onReset={() => resetThemeToken('elevation')}
-        />
-      </Section>
+        <Section title="Default variants">
+          <SelectControl
+            label="button"
+            value={tokens.buttonVariant}
+            options={['contained', 'outlined', 'text'] as const}
+            overridden={isOverridden('buttonVariant')}
+            onChange={(value) => overrideThemeToken('buttonVariant', value)}
+            onReset={() => resetThemeToken('buttonVariant')}
+          />
+          <SelectControl
+            label="input"
+            value={tokens.inputVariant}
+            options={['outlined', 'filled', 'standard'] as const}
+            overridden={isOverridden('inputVariant')}
+            onChange={(value) => overrideThemeToken('inputVariant', value)}
+            onReset={() => resetThemeToken('inputVariant')}
+          />
+        </Section>
 
-      <Section title="Default variants">
-        <SelectControl
-          label="button"
-          value={tokens.buttonVariant}
-          options={['contained', 'outlined', 'text'] as const}
-          overridden={isOverridden('buttonVariant')}
-          onChange={(value) => overrideThemeToken('buttonVariant', value)}
-          onReset={() => resetThemeToken('buttonVariant')}
-        />
-        <SelectControl
-          label="input"
-          value={tokens.inputVariant}
-          options={['outlined', 'filled', 'standard'] as const}
-          overridden={isOverridden('inputVariant')}
-          onChange={(value) => overrideThemeToken('inputVariant', value)}
-          onReset={() => resetThemeToken('inputVariant')}
-        />
-      </Section>
-
-      {/* stated rather than left for creators to discover */}
-      <Typography
-        variant="caption"
-        sx={{ display: 'block', px: 1, py: 1, color: 'text.secondary' }}
-      >
-        The theme currently reaches widget nodes and containers. Data grids,
-        code editors, plots and Draw/Pixi nodes keep their own colors.
-      </Typography>
-    </Box>
+        {/* stated rather than left for creators to discover */}
+        <Typography
+          variant="caption"
+          sx={{ display: 'block', px: 1, py: 1, color: 'text.secondary' }}
+        >
+          The theme currently reaches widget nodes and containers. Data grids,
+          code editors, plots and Draw/Pixi nodes keep their own colors.
+        </Typography>
+      </AccordionDetails>
+    </Accordion>
   );
 };
