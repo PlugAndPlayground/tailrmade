@@ -469,6 +469,126 @@ const MessageBubble = ({
   );
 };
 
+interface Attachment {
+  label: string;
+  dataURL: string;
+}
+
+/** The row of thumbnails for the images queued onto the next message. */
+const AttachmentStrip = ({
+  attachments,
+  onRemove,
+}: {
+  attachments: Attachment[];
+  onRemove: (index: number) => void;
+}) => (
+  <Stack
+    direction="row"
+    spacing={0.75}
+    sx={{
+      flex: 1,
+      minWidth: 0,
+      overflowX: 'auto',
+      overflowY: 'hidden',
+      py: attachments.length > 0 ? 0.25 : 0,
+    }}
+  >
+    {attachments.map((attachment, index) => (
+      <Tooltip key={`${attachment.label}-${index}`} title={attachment.label}>
+        <Box
+          sx={{
+            position: 'relative',
+            flexShrink: 0,
+            width: 40,
+            height: 30,
+            border: panelBorder,
+            borderRadius: 1,
+            overflow: 'hidden',
+            bgcolor: panelSurfaceStrong,
+          }}
+        >
+          <Box
+            component="img"
+            src={attachment.dataURL}
+            alt={attachment.label}
+            sx={{
+              display: 'block',
+              width: '100%',
+              height: '100%',
+              objectFit: 'cover',
+            }}
+          />
+          <IconButton
+            size="small"
+            aria-label={`Remove ${attachment.label}`}
+            onClick={() => onRemove(index)}
+            sx={{
+              position: 'absolute',
+              top: 0,
+              right: 0,
+              p: 0,
+              width: 16,
+              height: 16,
+              color: '#fff',
+              bgcolor: 'rgba(0,0,0,0.6)',
+              '&:hover': { bgcolor: 'rgba(0,0,0,0.85)' },
+            }}
+          >
+            <CloseIcon sx={{ fontSize: 12 }} />
+          </IconButton>
+        </Box>
+      </Tooltip>
+    ))}
+  </Stack>
+);
+
+/**
+ * Where an attachment can come from: every CaptureService source except
+ * ReactUI, which has no meaning here since it needs a node output to render,
+ * plus the file picker. Pasting needs no entry of its own, so it is only
+ * advertised.
+ */
+const CaptureMenu = ({
+  anchorEl,
+  onClose,
+  onCapture,
+  onPickFile,
+}: {
+  anchorEl: HTMLElement | null;
+  onClose: () => void;
+  onCapture: (source: CaptureSource) => void;
+  onPickFile: () => void;
+}) => (
+  <Menu anchorEl={anchorEl} open={anchorEl !== null} onClose={onClose}>
+    {CAPTURE_SOURCES.filter((source) => source !== 'ReactUI').map((source) => (
+      <MenuItem
+        key={source}
+        data-cy={`AI Capture ${source}`}
+        onClick={() => onCapture(source)}
+      >
+        {source}
+      </MenuItem>
+    ))}
+    <MenuItem data-cy="AI Capture Upload" onClick={onPickFile}>
+      <UploadIcon sx={{ fontSize: 18, mr: 1 }} />
+      Upload image...
+    </MenuItem>
+    <Typography
+      variant="caption"
+      data-cy="AI Capture Paste Hint"
+      sx={{
+        display: 'block',
+        px: 2,
+        py: 0.5,
+        color: secondaryText,
+        pointerEvents: 'none',
+      }}
+    >
+      ...or paste an image into the chat
+    </Typography>
+  </Menu>
+);
+
 const AIConversationEditor = ({
   conversationID,
   editable = true,
@@ -496,9 +616,7 @@ const AIConversationEditor = ({
   );
   const [isLoading, setIsLoading] = useState(false);
   // images the agent gets to look at, attached to the next message
-  const [attachments, setAttachments] = useState<
-    { label: string; dataURL: string }[]
-  >([]);
+  const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [captureMenuAnchor, setCaptureMenuAnchor] =
     useState<HTMLElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -596,6 +714,11 @@ const AIConversationEditor = ({
         }
       });
   };
+
+  const removeAttachment = (index: number) =>
+    setAttachments((current) =>
+      current.filter((_, position) => position !== index),
+    );
 
   const handleUpload = (files: FileList | null) => {
     Array.from(files ?? [])
@@ -806,71 +929,10 @@ const AIConversationEditor = ({
               </span>
             </Tooltip>
 
-            <Stack
-              direction="row"
-              spacing={0.75}
-              sx={{
-                flex: 1,
-                minWidth: 0,
-                overflowX: 'auto',
-                overflowY: 'hidden',
-                py: attachments.length > 0 ? 0.25 : 0,
-              }}
-            >
-              {attachments.map((attachment, index) => (
-                <Tooltip
-                  key={`${attachment.label}-${index}`}
-                  title={attachment.label}
-                >
-                  <Box
-                    sx={{
-                      position: 'relative',
-                      flexShrink: 0,
-                      width: 40,
-                      height: 30,
-                      border: panelBorder,
-                      borderRadius: 1,
-                      overflow: 'hidden',
-                      bgcolor: panelSurfaceStrong,
-                    }}
-                  >
-                    <Box
-                      component="img"
-                      src={attachment.dataURL}
-                      alt={attachment.label}
-                      sx={{
-                        display: 'block',
-                        width: '100%',
-                        height: '100%',
-                        objectFit: 'cover',
-                      }}
-                    />
-                    <IconButton
-                      size="small"
-                      aria-label={`Remove ${attachment.label}`}
-                      onClick={() =>
-                        setAttachments((current) =>
-                          current.filter((_, position) => position !== index),
-                        )
-                      }
-                      sx={{
-                        position: 'absolute',
-                        top: 0,
-                        right: 0,
-                        p: 0,
-                        width: 16,
-                        height: 16,
-                        color: '#fff',
-                        bgcolor: 'rgba(0,0,0,0.6)',
-                        '&:hover': { bgcolor: 'rgba(0,0,0,0.85)' },
-                      }}
-                    >
-                      <CloseIcon sx={{ fontSize: 12 }} />
-                    </IconButton>
-                  </Box>
-                </Tooltip>
-              ))}
-            </Stack>
+            <AttachmentStrip
+              attachments={attachments}
+              onRemove={removeAttachment}
+            />
 
             {isLoading ? (
               <Tooltip title="Stop stream">
@@ -913,46 +975,15 @@ const AIConversationEditor = ({
             )}
           </Box>
         </Box>
-        <Menu
+        <CaptureMenu
           anchorEl={captureMenuAnchor}
-          open={captureMenuAnchor !== null}
           onClose={() => setCaptureMenuAnchor(null)}
-        >
-          {CAPTURE_SOURCES.filter((source) => source !== 'ReactUI').map(
-            (source) => (
-              <MenuItem
-                key={source}
-                data-cy={`AI Capture ${source}`}
-                onClick={() => void handleCapture(source)}
-              >
-                {source}
-              </MenuItem>
-            ),
-          )}
-          <MenuItem
-            data-cy="AI Capture Upload"
-            onClick={() => {
-              setCaptureMenuAnchor(null);
-              fileInputRef.current?.click();
-            }}
-          >
-            <UploadIcon sx={{ fontSize: 18, mr: 1 }} />
-            Upload image...
-          </MenuItem>
-          <Typography
-            variant="caption"
-            data-cy="AI Capture Paste Hint"
-            sx={{
-              display: 'block',
-              px: 2,
-              py: 0.5,
-              color: secondaryText,
-              pointerEvents: 'none',
-            }}
-          >
-            ...or paste an image into the chat
-          </Typography>
-        </Menu>
+          onCapture={(source) => void handleCapture(source)}
+          onPickFile={() => {
+            setCaptureMenuAnchor(null);
+            fileInputRef.current?.click();
+          }}
+        />
         {!editable && (
           <Box
             sx={{ mt: 0.75, display: 'flex', alignItems: 'center', gap: 0.5 }}

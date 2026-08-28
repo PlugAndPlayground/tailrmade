@@ -24,8 +24,7 @@ import {
  * the backend that can actually see its pixels, and the graph source runs both
  * and composites them.
  *
- * Everything is produced through `capture()`; `captureUserInterface()`,
- * `captureGraph()` and `captureScreen()` are the thin blob shaped entry points.
+ * Everything is produced through `capture()`.
  */
 
 export const CAPTURE_SOURCES = [
@@ -62,9 +61,6 @@ export interface CaptureResult {
 // html2canvas-pro, loaded on first use
 // ---------------------------------------------------------------------------
 
-// html2canvas-pro rather than html2canvas: the original is unmaintained and
-// throws on the modern colour functions (oklch, color-mix) that MUI emits
-// through its css variables.
 let html2canvasPromise: Promise<typeof html2canvasType> | undefined;
 
 const loadHtml2Canvas = async (): Promise<typeof html2canvasType> => {
@@ -128,9 +124,7 @@ const nextFrames = (count = 2): Promise<void> =>
 
 /**
  * Resolves once the video element holds a frame that was produced after the
- * call. Waiting on animation frames instead would hand back whatever the
- * element already had, which on a reused low frame rate stream can predate the
- * thing being captured.
+ * call.
  */
 const nextVideoFrame = (video: HTMLVideoElement): Promise<void> => {
   const withFrameCallback = video as HTMLVideoElement & {
@@ -195,9 +189,7 @@ const hybridNodeIdOf = (element: HTMLElement): string =>
 
 /**
  * Hides the selection rectangle, the in progress connection and the hover
- * decorations so a capture comes out clean, and returns the undo. The hover
- * decorations are css `:hover` rules, which html2canvas resolves from the live
- * element rather than from its clone, so they have to be overridden inline.
+ * decorations so a capture comes out clean, and returns the undo.
  */
 const hideTransientUI = (): (() => void) => {
   const graph = PPGraph.currentGraph;
@@ -250,15 +242,6 @@ const hideTransientUI = (): (() => void) => {
  * The user interface as it looks in app view: the live surface only, without
  * the editor chrome around it (header, toolbox, inspector, layers panel).
  *
- * The craftjs root is the target rather than the frame around it: the root is
- * what carries the surface background and padding and sizes itself to the
- * content, while the frame is transparent and merely stretches to fill the
- * column, which would trail empty space below the surface. The surface renderer
- * is not the target either - it only ever draws non-live previews (canvas
- * thumbnails and embedded surfaces). The root stays mounted while the panel is
- * closed, so being laid out is what decides whether there is anything to
- * capture.
- *
  * Known limitations of the dom backend: iframes come out blank, and
  * cross origin images without CORS headers are skipped.
  */
@@ -274,8 +257,6 @@ const captureUserInterfaceCanvas = async (
     );
   }
 
-  // the root lays out to its content rather than to the scroll box around it,
-  // so this is the whole surface even when most of it is below the fold
   const width = Math.max(surface.scrollWidth, surface.offsetWidth);
   const height = Math.max(surface.scrollHeight, surface.offsetHeight);
 
@@ -458,19 +439,14 @@ let screenStream: MediaStream | undefined;
 
 const SCREEN_CAPTURE_FPS = 5;
 
-const screenStreamIsLive = (): boolean =>
-  screenStream?.getVideoTracks()[0]?.readyState === 'live';
-
 /** Ends the shared screen stream. The next screen capture will prompt again. */
 export const stopScreenCapture = (): void => {
   screenStream?.getTracks().forEach((track) => track.stop());
   screenStream = undefined;
 };
 
-export const isScreenCaptureActive = (): boolean => screenStreamIsLive();
-
 const getScreenStream = async (): Promise<MediaStream> => {
-  if (screenStream !== undefined && screenStreamIsLive()) {
+  if (screenStream?.getVideoTracks()[0]?.readyState === 'live') {
     return screenStream;
   }
   if (!navigator.mediaDevices?.getDisplayMedia) {
@@ -484,10 +460,7 @@ const getScreenStream = async (): Promise<MediaStream> => {
   }
 
   const stream = await navigator.mediaDevices.getDisplayMedia({
-    // stills only, so cap the frame rate: a held stream keeps the compositor
-    // capturing and encoding whether or not anything reads it, and that cost
-    // scales with the rate. Low enough to be cheap, high enough that waiting
-    // for a fresh frame stays quick.
+    // stills only, so cap the frame rate.
     video: {
       preferCurrentTab: true,
       frameRate: { max: SCREEN_CAPTURE_FPS },
@@ -502,8 +475,6 @@ const getScreenStream = async (): Promise<MediaStream> => {
   });
   screenStream = stream;
 
-  // only on a new stream: the whole point of holding it is that the reuses are
-  // silent, so this must not fire again on every capture
   InterfaceController.showSnackBar(
     'Screen sharing started. Further captures will not ask again. ' +
       'To end it, trigger "Stop screen sharing" on the Screenshot node, ' +
@@ -517,9 +488,6 @@ const getScreenStream = async (): Promise<MediaStream> => {
 /**
  * Pixel perfect, iframes and video included, because the compositor rather than
  * a rasteriser produces the frame.
- *
- * preferCurrentTab is honoured by Chrome and Edge; Firefox and Safari show the
- * generic picker instead.
  */
 const captureScreenCanvas = async (): Promise<HTMLCanvasElement> => {
   const stream = await getScreenStream();
@@ -529,8 +497,6 @@ const captureScreenCanvas = async (): Promise<HTMLCanvasElement> => {
     video.srcObject = stream;
     video.muted = true;
     video.playsInline = true;
-    // a stream that never delivers a frame would leave play() pending forever,
-    // and this runs inside the node's execution, so it must not hang there
     await Promise.race([
       video.play(),
       new Promise<never>((_, reject) =>
@@ -603,20 +569,6 @@ const captureWidgetCanvas = async (
 // public api
 // ---------------------------------------------------------------------------
 
-export const captureUserInterface = async (scale = 1): Promise<Blob> =>
-  canvasToBlob(await captureUserInterfaceCanvas(scale));
-
-export const captureGraph = async (
-  bounds?: PIXI.Rectangle,
-  scale = 1,
-): Promise<Blob> => canvasToBlob(await captureGraphCanvas(bounds, scale));
-
-export const captureSelection = async (scale = 1): Promise<Blob> =>
-  canvasToBlob(await captureSelectionCanvas(scale));
-
-export const captureScreen = async (): Promise<Blob> =>
-  canvasToBlob(await captureScreenCanvas());
-
 const canvasForSource = (
   source: CaptureSource,
   options: CaptureOptions,
@@ -650,8 +602,7 @@ const canvasForSource = (
 
 /**
  * The entry point everything else goes through. Returns the png alongside the
- * data url and the pixel size, so callers do not have to decode the blob again
- * just to learn how big it is.
+ * data url and the pixel size.
  */
 export const capture = async (
   source: CaptureSource,
@@ -667,15 +618,4 @@ export const capture = async (
     source,
     timestamp: new Date().toISOString(),
   };
-};
-
-export default {
-  capture,
-  captureUserInterface,
-  captureGraph,
-  captureSelection,
-  captureScreen,
-  stopScreenCapture,
-  isScreenCaptureActive,
-  blobToDataURL,
 };
