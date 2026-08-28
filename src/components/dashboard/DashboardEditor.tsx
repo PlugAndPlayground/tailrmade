@@ -1084,6 +1084,8 @@ export const DashboardEditor: React.FC<DashboardEditorProps> = ({
               sx={{
                 alignSelf: 'stretch',
                 minHeight: 0,
+                display: 'flex',
+                flexDirection: 'column',
                 ...(isDevicePreview
                   ? {
                       boxSizing: 'content-box',
@@ -1108,7 +1110,9 @@ export const DashboardEditor: React.FC<DashboardEditorProps> = ({
                 <Box
                   data-cy="app-theme-surface"
                   sx={{
-                    minHeight: '100%',
+                    flex: '1 0 auto',
+                    width: '100%',
+                    minWidth: 0,
                     bgcolor: 'background.default',
                     color: 'text.primary',
                   }}
