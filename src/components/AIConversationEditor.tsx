@@ -2,17 +2,21 @@ import React, { useEffect, useRef, useState } from 'react';
 import {
   Alert,
   Box,
-  Button,
   CircularProgress,
   IconButton,
+  Menu,
+  MenuItem,
   Stack,
   TextField,
   Tooltip,
   Typography,
 } from '@mui/material';
 import {
+  AddAPhotoOutlined as AddCaptureIcon,
+  UploadFileOutlined as UploadIcon,
   Cancel as CancelIcon,
   CheckCircle as CheckCircleIcon,
+  Close as CloseIcon,
   ContentCopy as ContentCopyIcon,
   ErrorOutlineOutlined as ErrorOutlineIcon,
   Lock as LockIcon,
@@ -28,11 +32,15 @@ import {
 } from '../services/AIBackend';
 import InterfaceController, { ListenEvent } from '../InterfaceController';
 import { BackendGateway } from '../services/BackendGateway';
-import {
-  CLOUD_MODE,
-  EXECUTION_LOCATION_LOCAL,
-} from '../services/shared-types';
+import { CLOUD_MODE, EXECUTION_LOCATION_LOCAL } from '../services/shared-types';
 import { useUserPreferences } from './useUserPreferences';
+import {
+  CAPTURE_SOURCES,
+  CaptureSource,
+  blobToDataURL,
+  capture,
+} from '../services/CaptureService';
+import { downscaleImageForAI } from '../utils/imageDownscale';
 
 const panelBorder = '1px solid rgba(255,255,255,0.16)';
 const panelSurface = 'rgba(255,255,255,0.08)';
@@ -461,6 +469,126 @@ const MessageBubble = ({
   );
 };
 
+interface Attachment {
+  label: string;
+  dataURL: string;
+}
+
+/** The row of thumbnails for the images queued onto the next message. */
+const AttachmentStrip = ({
+  attachments,
+  onRemove,
+}: {
+  attachments: Attachment[];
+  onRemove: (index: number) => void;
+}) => (
+  <Stack
+    direction="row"
+    spacing={0.75}
+    sx={{
+      flex: 1,
+      minWidth: 0,
+      overflowX: 'auto',
+      overflowY: 'hidden',
+      py: attachments.length > 0 ? 0.25 : 0,
+    }}
+  >
+    {attachments.map((attachment, index) => (
+      <Tooltip key={`${attachment.label}-${index}`} title={attachment.label}>
+        <Box
+          sx={{
+            position: 'relative',
+            flexShrink: 0,
+            width: 40,
+            height: 30,
+            border: panelBorder,
+            borderRadius: 1,
+            overflow: 'hidden',
+            bgcolor: panelSurfaceStrong,
+          }}
+        >
+          <Box
+            component="img"
+            src={attachment.dataURL}
+            alt={attachment.label}
+            sx={{
+              display: 'block',
+              width: '100%',
+              height: '100%',
+              objectFit: 'cover',
+            }}
+          />
+          <IconButton
+            size="small"
+            aria-label={`Remove ${attachment.label}`}
+            onClick={() => onRemove(index)}
+            sx={{
+              position: 'absolute',
+              top: 0,
+              right: 0,
+              p: 0,
+              width: 16,
+              height: 16,
+              color: '#fff',
+              bgcolor: 'rgba(0,0,0,0.6)',
+              '&:hover': { bgcolor: 'rgba(0,0,0,0.85)' },
+            }}
+          >
+            <CloseIcon sx={{ fontSize: 12 }} />
+          </IconButton>
+        </Box>
+      </Tooltip>
+    ))}
+  </Stack>
+);
+
+/**
+ * Where an attachment can come from: every CaptureService source except
+ * ReactUI, which has no meaning here since it needs a node output to render,
+ * plus the file picker. Pasting needs no entry of its own, so it is only
+ * advertised.
+ */
+const CaptureMenu = ({
+  anchorEl,
+  onClose,
+  onCapture,
+  onPickFile,
+}: {
+  anchorEl: HTMLElement | null;
+  onClose: () => void;
+  onCapture: (source: CaptureSource) => void;
+  onPickFile: () => void;
+}) => (
+  <Menu anchorEl={anchorEl} open={anchorEl !== null} onClose={onClose}>
+    {CAPTURE_SOURCES.filter((source) => source !== 'ReactUI').map((source) => (
+      <MenuItem
+        key={source}
+        data-cy={`AI Capture ${source}`}
+        onClick={() => onCapture(source)}
+      >
+        {source}
+      </MenuItem>
+    ))}
+    <MenuItem data-cy="AI Capture Upload" onClick={onPickFile}>
+      <UploadIcon sx={{ fontSize: 18, mr: 1 }} />
+      Upload image...
+    </MenuItem>
+    <Typography
+      variant="caption"
+      data-cy="AI Capture Paste Hint"
+      sx={{
+        display: 'block',
+        px: 2,
+        py: 0.5,
+        color: secondaryText,
+        pointerEvents: 'none',
+      }}
+    >
+      ...or paste an image into the chat
+    </Typography>
+  </Menu>
+);
+
 const AIConversationEditor = ({
   conversationID,
   editable = true,
@@ -487,6 +615,11 @@ const AIConversationEditor = ({
       (CLOUD_MODE && BackendGateway.getInstance().getIsLoggedIn()),
   );
   const [isLoading, setIsLoading] = useState(false);
+  // images the agent gets to look at, attached to the next message
+  const [attachments, setAttachments] = useState<Attachment[]>([]);
+  const [captureMenuAnchor, setCaptureMenuAnchor] =
+    useState<HTMLElement | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (aiLocation === EXECUTION_LOCATION_LOCAL) {
@@ -536,11 +669,70 @@ const AIConversationEditor = ({
     });
   }, [messages]);
 
+  // the same CaptureService the Screenshot node uses. Runs from the click, so
+  // the Screen source has the user gesture its permission prompt needs.
+  const handleCapture = async (source: CaptureSource) => {
+    setCaptureMenuAnchor(null);
+    try {
+      const result = await capture(source);
+      const dataURL = await downscaleImageForAI(result.dataURL);
+      setAttachments((current) => [...current, { label: source, dataURL }]);
+    } catch (error) {
+      InterfaceController.showSnackBar(
+        `${source} capture failed. ${(error as Error).message}`,
+        { variant: 'error' },
+      );
+    }
+  };
+
+  // downscaled on the way in rather than on send, so the thumbnail, the state
+  // we hold and the request body are all the one small image
+  const attachImageFile = async (file: File) => {
+    try {
+      const dataURL = await downscaleImageForAI(await blobToDataURL(file));
+      setAttachments((current) => [
+        ...current,
+        { label: file.name || 'Pasted image', dataURL },
+      ]);
+    } catch (error) {
+      InterfaceController.showSnackBar(
+        `Could not read ${file.name || 'the pasted image'}. ${(error as Error).message}`,
+        { variant: 'error' },
+      );
+    }
+  };
+
+  // an image on the clipboard arrives as a file item, so pasting one anywhere
+  // in the composer attaches it instead of dropping it on the floor
+  const handlePaste = (clipboard: DataTransfer | null) => {
+    Array.from(clipboard?.items ?? [])
+      .filter((item) => item.kind === 'file' && item.type.startsWith('image/'))
+      .forEach((item) => {
+        const file = item.getAsFile();
+        if (file) {
+          void attachImageFile(file);
+        }
+      });
+  };
+
+  const removeAttachment = (index: number) =>
+    setAttachments((current) =>
+      current.filter((_, position) => position !== index),
+    );
+
+  const handleUpload = (files: FileList | null) => {
+    Array.from(files ?? [])
+      .filter((file) => file.type.startsWith('image/'))
+      .forEach((file) => void attachImageFile(file));
+  };
+
   const handleSubmit = async () => {
     if (isLoading || !inputValue.trim()) return;
 
     const prompt = inputValue.trim();
+    const images = attachments.map((attachment) => attachment.dataURL);
     setInputValue('');
+    setAttachments([]);
     setIsLoading(true);
 
     try {
@@ -551,6 +743,9 @@ const AIConversationEditor = ({
         {
           performActions,
         },
+        true,
+        16384,
+        images.length > 0 ? images : undefined,
       );
     } catch (error) {
       console.error('Failed to send message: ', error);
@@ -642,13 +837,28 @@ const AIConversationEditor = ({
           borderTop: panelBorder,
         }}
       >
-        <Box sx={{ display: 'flex', gap: 1, alignItems: 'stretch' }}>
+        <Box
+          data-cy="AI Composer"
+          onPaste={(event) => handlePaste(event.clipboardData)}
+          sx={{
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 0.75,
+            p: 1,
+            borderRadius: 1.5,
+            bgcolor: panelSurface,
+            border: '1px solid rgba(255,255,255,0.22)',
+            '&:hover': { borderColor: 'rgba(255,255,255,0.38)' },
+            '&:focus-within': { borderColor: 'rgba(255,255,255,0.6)' },
+          }}
+        >
           <TextField
             data-cy="AI Message Text Field"
             fullWidth
             multiline
             minRows={2}
-            maxRows={6}
+            maxRows={8}
+            variant="standard"
             inputRef={inputRef}
             value={inputValue}
             onChange={(event) => setInputValue(event.target.value)}
@@ -659,69 +869,121 @@ const AIConversationEditor = ({
               }
             }}
             placeholder="Tell the agent what to do next..."
-            variant="outlined"
             disabled={disabled || isLoading}
-            inputProps={{ style: { fontFamily: 'Roboto Mono, monospace' } }}
+            slotProps={{
+              input: { disableUnderline: true },
+              htmlInput: {
+                style: { fontFamily: 'Roboto Mono, monospace', fontSize: 14 },
+              },
+            }}
             sx={{
-              '& .MuiOutlinedInput-root': {
-                color: '#fff',
-                bgcolor: panelSurface,
-                alignItems: 'flex-start',
-              },
-              '& .MuiOutlinedInput-notchedOutline': {
-                borderColor: 'rgba(255,255,255,0.22)',
-              },
-              '&:hover .MuiOutlinedInput-notchedOutline': {
-                borderColor: 'rgba(255,255,255,0.38)',
-              },
+              '& .MuiInputBase-root': { color: '#fff', p: 0 },
               '& .MuiInputBase-input::placeholder': {
                 color: 'rgba(255,255,255,0.74)',
                 opacity: 1,
               },
             }}
           />
-          {isLoading ? (
-            <Tooltip title="Stop stream">
-              <Button
-                data-cy="AI Message Stop"
-                variant="outlined"
-                color="error"
-                onClick={handleCancel}
-                sx={{
-                  minWidth: 44,
-                  px: 1.25,
-                  color: '#fff',
-                  borderColor: 'rgba(255,255,255,0.42)',
-                }}
-              >
-                <CancelIcon sx={{ fontSize: 18 }} />
-              </Button>
-            </Tooltip>
-          ) : (
-            <Tooltip title="Send">
+
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            multiple
+            data-cy="AI Capture Upload Input"
+            style={{ display: 'none' }}
+            onChange={(event) => {
+              handleUpload(event.target.files);
+              // let the same file be picked again later
+              event.target.value = '';
+            }}
+          />
+
+          <Box
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 0.75,
+              minWidth: 0,
+            }}
+          >
+            <Tooltip title="Show the agent a capture or an image">
               <span>
-                <Button
-                  data-cy="AI Message Submit"
-                  variant="contained"
-                  onClick={handleSubmit}
-                  disabled={disabled || !inputValue.trim()}
+                <IconButton
+                  data-cy="AI Message Attach Capture"
+                  size="small"
+                  onClick={(event) => setCaptureMenuAnchor(event.currentTarget)}
+                  disabled={disabled || isLoading}
                   sx={{
-                    minWidth: 44,
-                    px: 1.25,
-                    height: '100%',
-                    color: '#12336f',
-                    bgcolor: '#fff',
-                    '&:hover': {
-                      bgcolor: 'rgba(255,255,255,0.86)',
+                    color: '#fff',
+                    border: '1px solid rgba(255,255,255,0.42)',
+                    borderRadius: 1,
+                    '&.Mui-disabled': {
+                      color: 'rgba(255,255,255,0.3)',
+                      borderColor: 'rgba(255,255,255,0.2)',
                     },
                   }}
                 >
-                  <SendIcon sx={{ fontSize: 20 }} />
-                </Button>
+                  <AddCaptureIcon sx={{ fontSize: 16 }} />
+                </IconButton>
               </span>
             </Tooltip>
-          )}
+
+            <AttachmentStrip
+              attachments={attachments}
+              onRemove={removeAttachment}
+            />
+
+            {isLoading ? (
+              <Tooltip title="Stop stream">
+                <IconButton
+                  data-cy="AI Message Stop"
+                  size="small"
+                  color="error"
+                  onClick={handleCancel}
+                  sx={{
+                    border: '1px solid rgba(255,255,255,0.42)',
+                    borderRadius: 1,
+                  }}
+                >
+                  <CancelIcon sx={{ fontSize: 16 }} />
+                </IconButton>
+              </Tooltip>
+            ) : (
+              <Tooltip title="Send">
+                <span>
+                  <IconButton
+                    data-cy="AI Message Submit"
+                    size="small"
+                    onClick={handleSubmit}
+                    disabled={disabled || !inputValue.trim()}
+                    sx={{
+                      borderRadius: 1,
+                      color: '#12336f',
+                      bgcolor: '#fff',
+                      '&:hover': { bgcolor: 'rgba(255,255,255,0.86)' },
+                      '&.Mui-disabled': {
+                        color: 'rgba(18,51,111,0.4)',
+                        bgcolor: 'rgba(255,255,255,0.3)',
+                      },
+                    }}
+                  >
+                    <SendIcon sx={{ fontSize: 18 }} />
+                  </IconButton>
+                </span>
+              </Tooltip>
+            )}
+          </Box>
         </Box>
+        <CaptureMenu
+          anchorEl={captureMenuAnchor}
+          onClose={() => setCaptureMenuAnchor(null)}
+          onCapture={(source) => void handleCapture(source)}
+          onPickFile={() => {
+            setCaptureMenuAnchor(null);
+            fileInputRef.current?.click();
+          }}
+        />
         {!editable && (
           <Box
             sx={{ mt: 0.75, display: 'flex', alignItems: 'center', gap: 0.5 }}

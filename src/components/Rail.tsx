@@ -264,7 +264,7 @@ export const Rail: React.FunctionComponent<RailProps> = React.memo((props) => {
               }
               onClick={() =>
                 InterfaceController.toggleLeftSideDrawer(
-                  VISIBILITY_ACTION.OPEN,
+                  VISIBILITY_ACTION.TOGGLE,
                   LeftDrawerView.GRAPHS,
                 )
               }
@@ -300,7 +300,7 @@ export const Rail: React.FunctionComponent<RailProps> = React.memo((props) => {
                   }
                   onClick={() => {
                     InterfaceController.toggleLeftSideDrawer(
-                      VISIBILITY_ACTION.OPEN,
+                      VISIBILITY_ACTION.TOGGLE,
                       LeftDrawerView.AI,
                     );
                   }}
@@ -318,7 +318,7 @@ export const Rail: React.FunctionComponent<RailProps> = React.memo((props) => {
                   }
                   onClick={() => {
                     InterfaceController.toggleLeftSideDrawer(
-                      VISIBILITY_ACTION.OPEN,
+                      VISIBILITY_ACTION.TOGGLE,
                       LeftDrawerView.ACTIONS,
                     );
                   }}

@@ -15,7 +15,6 @@ import {
   DEFAULT_2DVECTOR,
   DEFAULT_3DVECTOR,
   DRAWER_CONSTANTS,
-  GET_STARTED_GRAPH,
   GESTUREMODE,
   IMAGE_TYPES,
   MAX_STRING_LENGTH,
@@ -1208,6 +1207,38 @@ export const wrapDownloadLink = (URL: string, text = '') => {
   return `<a style="color:#E154BB;text-decoration:none;" href="${URL}" target="_blank">${
     text || URL
   }</a>`;
+};
+
+/** True for the `data:image/...;base64,...` strings the Image sockets carry. */
+export const isImageDataURL = (value: unknown): value is string =>
+  typeof value === 'string' && /^data:image\/[a-z0-9.+-]+;base64,/i.test(value);
+
+/**
+ * Decodes an image data url to a png blob. The clipboard only accepts png, so
+ * anything else is re-encoded through a canvas on the way.
+ */
+export const imageDataURLToPngBlob = async (dataURL: string): Promise<Blob> => {
+  const decoded = await fetch(dataURL).then((response) => response.blob());
+  if (decoded.type === 'image/png') {
+    return decoded;
+  }
+
+  const bitmap = await createImageBitmap(decoded);
+  const canvas = document.createElement('canvas');
+  canvas.width = bitmap.width;
+  canvas.height = bitmap.height;
+  canvas.getContext('2d')?.drawImage(bitmap, 0, 0);
+  bitmap.close();
+
+  return new Promise((resolve, reject) => {
+    canvas.toBlob((blob) => {
+      if (blob) {
+        resolve(blob);
+      } else {
+        reject(new Error('The image could not be encoded as a PNG.'));
+      }
+    }, 'image/png');
+  });
 };
 
 interface SaveOptions {

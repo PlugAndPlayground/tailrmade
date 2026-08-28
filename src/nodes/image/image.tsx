@@ -5,7 +5,7 @@ import { TRgba } from '../../utils/color';
 import { fitAndPosition } from 'object-fit-math';
 import type { FitMode } from 'object-fit-math/dist/types';
 import PPGraph from '../../classes/GraphClass';
-import { saveBase64AsImage } from '../../utils/utils';
+import { isImageDataURL, saveBase64AsImage } from '../../utils/utils';
 import {
   DashboardIconProps, TNodeSource, WidgetProps, Layoutable, DashboardWidgetProps, WidgetContentProps } from '../../utils/interfaces';
 import {
@@ -48,14 +48,13 @@ function isValidImageSource(source: unknown): source is string {
   }
 
   const trimmedSource = source.trim();
-  const dataUrlMatch = trimmedSource.match(
-    /^data:image\/[a-z0-9.+-]+;base64,([\s\S]*)$/i,
-  );
-  if (!dataUrlMatch) {
+  if (!isImageDataURL(trimmedSource)) {
     return true;
   }
 
-  const payload = dataUrlMatch[1].replace(/\s/g, '');
+  const payload = trimmedSource
+    .slice(trimmedSource.indexOf(',') + 1)
+    .replace(/\s/g, '');
   if (payload.length === 0) {
     return false;
   }
