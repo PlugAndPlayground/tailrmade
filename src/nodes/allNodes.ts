@@ -32,6 +32,7 @@ const getNodeCategories = () => ({
   slides: require('./draw/slides'),
   video: require('./draw/video'),
   image: require('./image/image'),
+  screenshot: require('./image/screenshot'),
   json: require('./data/json'),
   logViewer: require('./logViewer'),
   macro: require('./macro/macro'),

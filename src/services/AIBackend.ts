@@ -17,6 +17,7 @@ import {
 import { getCachedUserPreferences } from '../components/useUserPreferences';
 import { BackendGateway } from './BackendGateway';
 import { VISIBILITY_ACTION } from '../utils/constants_shared';
+import { downscaleImagesForAI } from '../utils/imageDownscale';
 import { getAINodesCompactList } from '../nodes/allNodes';
 import {
   parseAIProviderTurn,
@@ -214,6 +215,21 @@ export class AIBackend {
       /token limit exceeded|token usage limit exceeded|daily token limit exceeded|out of tokens/i.test(
         message,
       ),
+    );
+  }
+
+  private describeRequestFailure(status: number, payload: any): string {
+    if (status === 413) {
+      return (
+        'The request was too large to send. Remove an image attachment, ' +
+        'or start a new conversation if this one has collected a lot of them.'
+      );
+    }
+    return (
+      payload?.error?.message ||
+      payload?.error ||
+      payload?.details ||
+      'AI provider request failed'
     );
   }
 
@@ -587,10 +603,7 @@ export class AIBackend {
         if (!res.ok) {
           this.showTokenLimitToastIfNeeded(backendResponse);
           throw new Error(
-            backendResponse?.error?.message ||
-              backendResponse?.error ||
-              backendResponse?.details ||
-              'AI provider request failed',
+            this.describeRequestFailure(res.status, backendResponse),
           );
         }
 
@@ -802,6 +815,8 @@ export class AIBackend {
       };
     }
 
+    const sizedImages = await downscaleImagesForAI(images);
+
     if (agentic) {
       return this.sendAgenticMessage(
         conversationID,
@@ -809,7 +824,7 @@ export class AIBackend {
         model,
         context,
         max_tokens,
-        images,
+        sizedImages,
       );
     }
 
@@ -841,7 +856,10 @@ export class AIBackend {
 
     const sentDate = new Date();
 
-    const messageContent = this.buildAnthropicMessageContent(apiText, images);
+    const messageContent = this.buildAnthropicMessageContent(
+      apiText,
+      sizedImages,
+    );
 
     const newMessage: AnthropicConversationMessage = {
       role: 'user',
@@ -1097,7 +1115,12 @@ export class AIBackend {
     const conversation = retainConvo
       ? this.getConversation(conversationID)
       : [];
-    const messages = this.buildProviderMessages(conversation, message, images);
+    const sizedImages = await downscaleImagesForAI(images);
+    const messages = this.buildProviderMessages(
+      conversation,
+      message,
+      sizedImages,
+    );
     try {
       const prepared = prepareAIProviderTurn({
         provider,
@@ -1111,12 +1134,13 @@ export class AIBackend {
         headers: await this.getRequestHeaders(),
         body: JSON.stringify({ provider, body: prepared.body }),
       });
-      const payload = await response.json();
+      const payload = await response.json().catch(() => undefined);
       if (!response.ok) {
         this.showTokenLimitToastIfNeeded(payload);
-        throw new Error(
-          payload?.details || payload?.error || 'AI request failed',
-        );
+        throw new Error(this.describeRequestFailure(response.status, payload));
+      }
+      if (payload === undefined) {
+        throw new Error('The AI response could not be read.');
       }
       const responseData = payload?.data ?? payload;
       const turn = parseAIProviderTurn(provider, responseData, prepared.state);

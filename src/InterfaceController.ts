@@ -191,7 +191,7 @@ export default class InterfaceController {
   // Open the right drawer on the given tab, or close it if that tab is already
   // showing - same "switch or close" behaviour as the left drawer's content buttons.
   static selectRightDrawerView(view: RightDrawerView): void {
-    this.toggleRightSideDrawer(VISIBILITY_ACTION.OPEN, view);
+    this.toggleRightSideDrawer(VISIBILITY_ACTION.TOGGLE, view);
   }
   static toggleShowDebugInfo: (open?: boolean) => void = () => {};
   static getOverlayState: () => IOverlay = getDefaultOverlayState;
