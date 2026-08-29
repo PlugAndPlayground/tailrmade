@@ -7,9 +7,8 @@ import {
   colorName,
   getColorSocket,
   getSizeSocket,
-  getSizeSx,
-  getSizeTokens,
   initialValueName,
+  getLabelSocket,
   labelName,
   outName,
   sizeName,
@@ -71,13 +70,7 @@ export class WidgetTextField extends WidgetHybridBase {
         textFieldDefaultValue,
         false,
       ),
-      new Socket(
-        SOCKET_TYPE.IN,
-        labelName,
-        new StringType(),
-        textFieldDefaultLabel,
-        false,
-      ),
+      getLabelSocket(textFieldDefaultLabel),
       new Socket(
         SOCKET_TYPE.IN,
         placeholderName,
@@ -132,10 +125,6 @@ export class WidgetTextField extends WidgetHybridBase {
   public getMinNodeHeight(): number {
     return 80;
   }
-
-  onNodeResize = (newWidth, newHeight) => {
-    this.forceRerender();
-  };
 
   protected getBackPropagationTargets(): BackPropagation {
     return {

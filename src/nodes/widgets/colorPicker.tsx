@@ -16,8 +16,8 @@ import {
   WidgetPaper,
   getMuiSize,
   getSizeSocket,
-  getSizeTokens,
   initialValueName,
+  getLabelSocket,
   labelName,
   outName,
   sizeName,
@@ -27,7 +27,6 @@ import {
 import { TRgba } from '../../utils/color';
 import { WidgetContentProps } from '../../utils/interfaces';
 import { PRESET_COLORS, MAIN_COLOR, SOCKET_TYPE } from '../../utils/constants';
-import { StringType } from '../datatypes/stringType';
 import { ColorType } from '../datatypes/colorType';
 import {
   ActionHandler,
@@ -57,13 +56,7 @@ export class WidgetColorPicker extends WidgetHybridBase {
         MAIN_COLOR,
         false,
       ),
-      new Socket(
-        SOCKET_TYPE.IN,
-        labelName,
-        new StringType(),
-        pickerDefaultName,
-        false,
-      ),
+      getLabelSocket(pickerDefaultName),
       getSizeSocket(),
       new Socket(SOCKET_TYPE.OUT, outName, new ColorType()),
     ];
@@ -76,10 +69,6 @@ export class WidgetColorPicker extends WidgetHybridBase {
   public getDefaultNodeHeight(): number {
     return 104;
   }
-
-  onNodeResize = (newWidth, newHeight) => {
-    this.forceRerender();
-  };
 
   protected getBackPropagationTargets(): BackPropagation {
     return {

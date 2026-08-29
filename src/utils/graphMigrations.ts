@@ -755,35 +755,42 @@ function migrateSocketElementIdsInTree(
   return migrated;
 }
 
-function migrateSocketElementIdsV3ToV4(
+/**
+ * Rewrites every Layout JSON socket's tree with `migrateTree` and stamps the
+ * graph with `version`.
+ *
+ * The socket stores the tree as a {version, tree} envelope, a bare tree
+ * object, or a JSON string of either (see coerceSurfaceTree in
+ * surfaceSync.ts) - each tree is rewritten in place, keeping its encoding, and
+ * malformed data is left exactly as it is (the tolerant runtime parser handles
+ * it).
+ */
+function migrateSurfaceTrees(
   graphData: SerializedGraph,
+  version: number,
+  migrateTree: (tree: Record<string, any>) => Record<string, any>,
 ): SerializedGraph {
   return {
     ...graphData,
-    version: 4,
+    version,
     nodes: graphData.nodes.map((node) => {
       const socketArray = node.socketArray.map((socket) => {
         if (socket.name !== surfaceJsonSocketName || socket.data == null) {
           return socket;
         }
-        // the Layout JSON socket stores the tree as a {version, tree}
-        // envelope, a bare tree object, or a JSON string of either (see
-        // coerceSurfaceTree in surfaceSync.ts) - rewrite in place, keeping
-        // the encoding, and leave malformed data exactly as it is (the
-        // tolerant runtime parser handles it)
         try {
           const wasString = typeof socket.data === 'string';
           const decoded = wasString ? JSON.parse(socket.data) : socket.data;
           const isEnvelope =
             decoded &&
             typeof decoded === 'object' &&
-            decoded.tree &&
+            'tree' in decoded &&
             typeof decoded.tree === 'object';
           const tree = isEnvelope ? decoded.tree : decoded;
           if (!tree || typeof tree !== 'object') {
             return socket;
           }
-          const migratedTree = migrateSocketElementIdsInTree(tree);
+          const migratedTree = migrateTree(tree);
           const reEncoded = isEnvelope
             ? { ...decoded, tree: migratedTree }
             : migratedTree;
@@ -798,6 +805,12 @@ function migrateSocketElementIdsV3ToV4(
       return { ...node, socketArray };
     }),
   };
+}
+
+function migrateSocketElementIdsV3ToV4(
+  graphData: SerializedGraph,
+): SerializedGraph {
+  return migrateSurfaceTrees(graphData, 4, migrateSocketElementIdsInTree);
 }
 
 // The root surface used to bake the editor theme's dark background and a white
@@ -857,41 +870,7 @@ function migrateSurfaceColorsInTree(
 function migrateSurfaceColorsV4ToV5(
   graphData: SerializedGraph,
 ): SerializedGraph {
-  return {
-    ...graphData,
-    version: 5,
-    nodes: graphData.nodes.map((node) => {
-      const socketArray = node.socketArray.map((socket) => {
-        if (socket.name !== surfaceJsonSocketName || socket.data == null) {
-          return socket;
-        }
-        try {
-          const wasString = typeof socket.data === 'string';
-          const decoded = wasString ? JSON.parse(socket.data) : socket.data;
-          const isEnvelope =
-            decoded &&
-            typeof decoded === 'object' &&
-            'tree' in decoded &&
-            typeof decoded.tree === 'object';
-          const tree = isEnvelope ? decoded.tree : decoded;
-          if (!tree || typeof tree !== 'object') {
-            return socket;
-          }
-          const migratedTree = migrateSurfaceColorsInTree(tree);
-          const reEncoded = isEnvelope
-            ? { ...decoded, tree: migratedTree }
-            : migratedTree;
-          return {
-            ...socket,
-            data: wasString ? JSON.stringify(reEncoded) : reEncoded,
-          };
-        } catch (error) {
-          return socket;
-        }
-      });
-      return { ...node, socketArray };
-    }),
-  };
+  return migrateSurfaceTrees(graphData, 5, migrateSurfaceColorsInTree);
 }
 
 const GRAPH_MIGRATIONS: GraphMigration[] = [

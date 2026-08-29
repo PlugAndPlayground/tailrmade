@@ -17,6 +17,7 @@ import {
   getSizeSocket,
   getSizeSx,
   getSizeTokens,
+  getLabelSocket,
   labelName,
   optionsName,
   outName,
@@ -78,13 +79,7 @@ abstract class WidgetDropdownBase extends WidgetSelectableBase {
       ),
 
       this.getDefaultSelectedSocket(),
-      new Socket(
-        SOCKET_TYPE.IN,
-        labelName,
-        new StringType(),
-        dropDownDefaultName,
-        false,
-      ),
+      getLabelSocket(dropDownDefaultName),
       getColorSocket(),
       getSizeSocket(),
     ];

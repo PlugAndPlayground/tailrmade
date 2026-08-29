@@ -4,7 +4,6 @@ import {
   WidgetHybridBase,
   WidgetPaper,
   getSizeSocket,
-  getSizeTokens,
   sizeName,
   useWidgetSize,
   useSizeTokens,
@@ -65,10 +64,6 @@ export class WidgetDiode extends WidgetHybridBase {
   public getDefaultNodeHeight(): number {
     return 160;
   }
-
-  onNodeResize = (newWidth, newHeight) => {
-    this.forceRerender();
-  };
 
   protected getBackPropagationTargets(): BackPropagation {
     return {

@@ -7,7 +7,6 @@ import {
   colorName,
   getColorSocket,
   getSizeSocket,
-  getSizeTokens,
   labelName,
   outName,
   sizeName,
@@ -69,10 +68,6 @@ export class WidgetSlider extends WidgetHybridBase {
   public getDefaultNodeHeight(): number {
     return 104;
   }
-
-  onNodeResize = (newWidth, newHeight) => {
-    this.forceRerender();
-  };
 
   protected getBackPropagationTargets(): BackPropagation {
     return {

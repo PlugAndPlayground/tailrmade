@@ -6,7 +6,6 @@ import {
   colorName,
   getColorSocket,
   getSizeSocket,
-  getSizeTokens,
   labelName,
   outName,
   outIndexName,
@@ -86,10 +85,6 @@ export class WidgetTabs extends WidgetHybridBase {
   getPreferredOutputSocketName(): string {
     return outName;
   }
-
-  onNodeResize = (newWidth, newHeight) => {
-    this.forceRerender();
-  };
 
   protected getBackPropagationTargets(): BackPropagation {
     return {

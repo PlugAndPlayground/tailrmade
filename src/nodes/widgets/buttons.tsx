@@ -12,6 +12,8 @@ import {
   WidgetHybridBase,
   WidgetPaper,
   colorOptions,
+  getLabelSocket,
+  getWidgetFontSize,
   labelName,
   outName,
   outIndexName,
@@ -22,7 +24,6 @@ import {
   useSizeTokens,
   getMuiSize,
   getSizeSocket,
-  getSizeTokens,
   offValueName,
   onValueName,
   colorName,
@@ -108,7 +109,7 @@ export class WidgetButton extends WidgetHybridBase {
     return [
       new Socket(SOCKET_TYPE.IN, offValueName, new AnyType(), 0, false),
       new Socket(SOCKET_TYPE.IN, onValueName, new AnyType(), 1, false),
-      new Socket(SOCKET_TYPE.IN, labelName, new StringType(), 'Button', false),
+      getLabelSocket('Button'),
       new Socket(
         SOCKET_TYPE.IN,
         variantName,
@@ -136,10 +137,6 @@ export class WidgetButton extends WidgetHybridBase {
   public getDefaultNodeHeight(): number {
     return 104;
   }
-
-  onNodeResize = (newWidth, newHeight) => {
-    this.forceRerender();
-  };
 
   protected getBackPropagationTargets(): BackPropagation {
     return {
@@ -342,10 +339,6 @@ export class WidgetButtonGroup extends WidgetHybridBase {
     return outName;
   }
 
-  onNodeResize = (newWidth, newHeight) => {
-    this.forceRerender();
-  };
-
   protected getBackPropagationTargets(): BackPropagation {
     return {
       SocketToGetValue: this.getInputSocketByName(selectedButtonIndex),
@@ -417,9 +410,12 @@ export class WidgetButtonGroup extends WidgetHybridBase {
     // Calculate dynamic font sizes based on node dimensions
     const size = useWidgetSize(props[sizeName]);
     const tokens = useSizeTokens(size);
-    const fontSize = props.inDashboard
-      ? `${tokens.fontSize}px`
-      : `${Math.max(12, node.nodeHeight / 12) * tokens.scale}px`;
+    const fontSize = getWidgetFontSize(
+      tokens,
+      props.inDashboard,
+      node.nodeHeight,
+      12,
+    );
 
     return (
       <WidgetPaper node={node} inDashboard={props.inDashboard}>
@@ -610,13 +606,7 @@ export class WidgetSwitch extends WidgetHybridBase {
       ),
       new Socket(SOCKET_TYPE.IN, offValueName, new BooleanType(), false, false),
       new Socket(SOCKET_TYPE.IN, onValueName, new BooleanType(), true, false),
-      new Socket(
-        SOCKET_TYPE.IN,
-        labelName,
-        new StringType(),
-        switchDefaultName,
-        false,
-      ),
+      getLabelSocket(switchDefaultName),
       getSizeSocket(),
       new Socket(SOCKET_TYPE.OUT, outName, new BooleanType()),
     ];
@@ -648,10 +638,6 @@ export class WidgetSwitch extends WidgetHybridBase {
   public getDefaultNodeHeight(): number {
     return 104;
   }
-
-  onNodeResize = (newWidth, newHeight) => {
-    this.forceRerender();
-  };
 
   protected getBackPropagationTargets(): BackPropagation {
     return {

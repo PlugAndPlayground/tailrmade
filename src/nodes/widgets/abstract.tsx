@@ -6,6 +6,7 @@ import { NODE_TYPE_COLOR, SOCKET_TYPE } from '../../utils/constants';
 import { TRgba } from '../../utils/color';
 import { WidgetProps } from '../../utils/interfaces';
 import { EnumStructure, EnumType } from '../datatypes/enumType';
+import { StringType } from '../datatypes/stringType';
 import { Density, useResolvedDensity, useThemeTokens } from '../../utils/theme';
 
 export const defaultProps: WidgetProps = {
@@ -81,7 +82,7 @@ export const sizeOptions: EnumStructure = [
 export const defaultSize: WidgetSize = 'M';
 export const defaultSizeSetting: WidgetSizeSetting = 'Inherit';
 
-type SizeTokens = {
+export type SizeTokens = {
   // MUI only knows 'small' and 'medium', so XS/S and M/L share a MUI size and
   // everything that tells them apart comes from the tokens below
   muiSize: 'small' | 'medium';
@@ -193,6 +194,24 @@ export const getSizeTokens = (size: unknown, fontScalar = 1): SizeTokens => {
 export const getMuiSize = (size: unknown): 'small' | 'medium' =>
   getSizeTokens(size).muiSize;
 
+// text never gets smaller than this, however small the node is drawn
+const MIN_CANVAS_FONT_SIZE = 10;
+
+/**
+ * Font size for widgets whose text follows the node height on the canvas: the
+ * size step decides it in the dashboard, the node height decides it on the
+ * canvas (scaled by the step, floored at MIN_CANVAS_FONT_SIZE).
+ */
+export const getWidgetFontSize = (
+  tokens: SizeTokens,
+  inDashboard: boolean,
+  nodeHeight: number,
+  divisor = 10,
+): string =>
+  inDashboard
+    ? `${tokens.fontSize}px`
+    : `${Math.max(MIN_CANVAS_FONT_SIZE, nodeHeight / divisor) * tokens.scale}px`;
+
 // Autocomplete component needs special handling
 const INPUT_LINE_HEIGHT_EM = 1.4375;
 const AUTOCOMPLETE_INPUT_PADDING_Y = { small: 2.5, medium: 7 };
@@ -267,6 +286,9 @@ export const getColorSocket = (): Socket =>
     false,
   );
 
+export const getLabelSocket = (defaultLabel: string): Socket =>
+  new Socket(SOCKET_TYPE.IN, labelName, new StringType(), defaultLabel, false);
+
 export const getSizeSocket = (): Socket =>
   new Socket(
     SOCKET_TYPE.IN,
@@ -282,6 +304,11 @@ export abstract class WidgetHybridBase extends HybridNode2 {
   public getTags(): string[] {
     return ['Widget'].concat(super.getTags());
   }
+
+  // widgets size their content off the node, so a resize has to re-render
+  onNodeResize = (newWidth: number, newHeight: number) => {
+    this.forceRerender();
+  };
 
   getColor(): TRgba {
     return TRgba.fromString(NODE_TYPE_COLOR.WIDGET);

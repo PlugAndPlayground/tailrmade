@@ -15,6 +15,7 @@ import {
   getColorSocket,
   getSizeSocket,
   getSizeSx,
+  getLabelSocket,
   labelName,
   optionsName,
   outName,
@@ -110,13 +111,7 @@ abstract class WidgetAutocompleteBase extends WidgetSelectableBase {
         false,
       ),
       this.getDefaultSelectedSocket(),
-      new Socket(
-        SOCKET_TYPE.IN,
-        labelName,
-        new StringType(),
-        autocompleteDefaultLabel,
-        false,
-      ),
+      getLabelSocket(autocompleteDefaultLabel),
       new Socket(
         SOCKET_TYPE.IN,
         placeholderName,

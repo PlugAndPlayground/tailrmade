@@ -9,25 +9,28 @@ import {
   Typography,
 } from '@mui/material';
 import {
+  SizeTokens,
   WidgetHybridBase,
   WidgetPaper,
   getMuiSize,
+  getWidgetFontSize,
   colorName,
   getColorSocket,
   getSizeSocket,
-  getSizeTokens,
+  getLabelSocket,
   labelName,
   outName,
   defaultOptions,
   fallbackValueName,
   selectedOptionName,
   sizeName,
+  stringifyIfNeeded,
   useWidgetSize,
   useSizeTokens,
 } from './abstract';
+import HybridNode2 from '../../classes/HybridNode2';
 import Socket from '../../classes/SocketClass';
 import { ArrayType } from '../datatypes/arrayType';
-import { NumberType } from '../datatypes/numberType';
 import { StringType } from '../datatypes/stringType';
 import { BooleanType } from '../datatypes/booleanType';
 import { BackPropagation } from '../../interfaces';
@@ -44,6 +47,80 @@ const optionsName = 'Options';
 
 const radioDefaultLabel = 'Radio Group';
 const rowLayoutName = 'Row Layout';
+
+// radio and checkbox differ only in the control they put in each row, so the
+// group's sizing, its frame and the row layout all live here
+const useOptionGroupStyle = (props: WidgetContentProps) => {
+  const size = useWidgetSize(props[sizeName]);
+  const tokens = useSizeTokens(size);
+  return {
+    size,
+    tokens,
+    color: props[colorName],
+    fontSize: getWidgetFontSize(
+      tokens,
+      props.inDashboard,
+      props.node.nodeHeight,
+    ),
+  };
+};
+
+const getOptionLabelSx = (rowLayout: boolean) => ({
+  mx: rowLayout ? 0.5 : 0,
+  width: rowLayout ? 'auto' : '100%',
+  boxSizing: 'border-box' as const,
+});
+
+const OptionGroupFrame: React.FC<{
+  props: WidgetContentProps;
+  tokens: SizeTokens;
+  children: React.ReactNode;
+}> = ({ props, tokens, children }) => {
+  const node = props.node;
+  return (
+    <WidgetPaper node={node as HybridNode2} inDashboard={props.inDashboard}>
+      <FormControl
+        component="fieldset"
+        disabled={props.disabled}
+        sx={{
+          margin: 'auto',
+          width: '100%',
+          height: '100%',
+          userSelect: 'none',
+          padding: 1,
+          display: 'flex',
+          flexDirection: 'column',
+        }}
+      >
+        {props[labelName] && (
+          <Typography
+            variant="subtitle1"
+            sx={{
+              fontSize: `${tokens.fontSize}px`,
+              mb: 1,
+              textAlign: 'center',
+            }}
+          >
+            {props[labelName]}
+          </Typography>
+        )}
+
+        <Box
+          sx={{
+            flex: 1,
+            overflowY: 'auto',
+            overflowX: 'hidden',
+            maxHeight: props.inDashboard
+              ? 'calc(100vh - 100px)'
+              : `${Math.max(100, node.nodeHeight - 80)}px`,
+          }}
+        >
+          {children}
+        </Box>
+      </FormControl>
+    </WidgetPaper>
+  );
+};
 
 export class WidgetRadio extends WidgetHybridBase {
   public getName(): string {
@@ -84,13 +161,7 @@ export class WidgetRadio extends WidgetHybridBase {
         false,
         false,
       ),
-      new Socket(
-        SOCKET_TYPE.IN,
-        labelName,
-        new StringType(),
-        radioDefaultLabel,
-        false,
-      ),
+      getLabelSocket(radioDefaultLabel),
       getColorSocket(),
       getSizeSocket(),
       new Socket(SOCKET_TYPE.OUT, outName, new StringType()),
@@ -104,10 +175,6 @@ export class WidgetRadio extends WidgetHybridBase {
   public getDefaultNodeHeight(): number {
     return 240;
   }
-
-  onNodeResize = (newWidth, newHeight) => {
-    this.forceRerender();
-  };
 
   protected getBackPropagationTargets(): BackPropagation {
     return {
@@ -165,93 +232,44 @@ export class WidgetRadio extends WidgetHybridBase {
     const options = props[optionsName];
     const selectedValue = props[selectedOptionName];
 
-    const size = useWidgetSize(props[sizeName]);
-    const tokens = useSizeTokens(size);
-    const color = props[colorName];
-    const fontSize = props.inDashboard
-      ? `${tokens.fontSize}px`
-      : `${Math.max(12, node.nodeHeight / 10) * tokens.scale}px`;
+    const { size, tokens, color, fontSize } = useOptionGroupStyle(props);
 
     return (
-      <WidgetPaper node={node as WidgetRadio} inDashboard={props.inDashboard}>
-        <FormControl
-          component="fieldset"
-          disabled={props.disabled}
+      <OptionGroupFrame props={props} tokens={tokens}>
+        <RadioGroup
+          value={selectedValue}
+          onChange={(node as WidgetRadio).handleOnChange}
+          row={props[rowLayoutName]}
           sx={{
-            margin: 'auto',
-            width: '100%',
-            height: '100%',
-            userSelect: 'none',
-            padding: 1,
-            display: 'flex',
-            flexDirection: 'column',
+            pointerEvents: props.disabled ? 'none' : undefined,
+            flexWrap: props[rowLayoutName] ? 'wrap' : 'nowrap',
           }}
         >
-          {props[labelName] && (
-            <Typography
-              variant="subtitle1"
-              sx={{
-                fontSize: `${tokens.fontSize}px`,
-                mb: 1,
-                textAlign: 'center',
-              }}
-            >
-              {props[labelName]}
-            </Typography>
-          )}
-
-          <Box
-            sx={{
-              flex: 1,
-              overflowY: 'auto',
-              overflowX: 'hidden',
-              maxHeight: props.inDashboard
-                ? 'calc(100vh - 100px)'
-                : `${Math.max(100, node.nodeHeight - 80)}px`,
-            }}
-          >
-            <RadioGroup
-              value={selectedValue}
-              onChange={(node as WidgetRadio).handleOnChange}
-              row={props[rowLayoutName]}
-              sx={{
-                pointerEvents: props.disabled ? 'none' : undefined,
-                flexWrap: props[rowLayoutName] ? 'wrap' : 'nowrap',
-              }}
-            >
-              {options.map((option, index) => (
-                <FormControlLabel
-                  key={index}
-                  value={option}
-                  control={
-                    <Radio
-                      color={color}
-                      size={getMuiSize(size)}
-                      sx={{
-                        '& .MuiSvgIcon-root': {
-                          fontSize: fontSize,
-                        },
-                      }}
-                    />
-                  }
-                  label={
-                    <Typography sx={{ fontSize: fontSize }}>
-                      {typeof option === 'string'
-                        ? option
-                        : JSON.stringify(option)}
-                    </Typography>
-                  }
+          {options.map((option, index) => (
+            <FormControlLabel
+              key={index}
+              value={option}
+              control={
+                <Radio
+                  color={color}
+                  size={getMuiSize(size)}
                   sx={{
-                    mx: props[rowLayoutName] ? 0.5 : 0,
-                    width: props[rowLayoutName] ? 'auto' : '100%',
-                    boxSizing: 'border-box',
+                    '& .MuiSvgIcon-root': {
+                      fontSize: fontSize,
+                    },
                   }}
                 />
-              ))}
-            </RadioGroup>
-          </Box>
-        </FormControl>
-      </WidgetPaper>
+              }
+              label={
+                <Typography sx={{ fontSize: fontSize }}>
+                  {stringifyIfNeeded(option)}
+                </Typography>
+              }
+              sx={getOptionLabelSx(props[rowLayoutName])}
+            />
+          ))}
+        </RadioGroup>
+      </OptionGroupFrame>
     );
   }
 }
@@ -291,13 +309,7 @@ export class WidgetCheckbox extends WidgetHybridBase {
         false,
         false,
       ),
-      new Socket(
-        SOCKET_TYPE.IN,
-        labelName,
-        new StringType(),
-        checkboxDefaultLabel,
-        false,
-      ),
+      getLabelSocket(checkboxDefaultLabel),
       getColorSocket(),
       getSizeSocket(),
       new Socket(SOCKET_TYPE.OUT, outName, new ArrayType()),
@@ -311,10 +323,6 @@ export class WidgetCheckbox extends WidgetHybridBase {
   public getDefaultNodeHeight(): number {
     return 240;
   }
-
-  onNodeResize = (newWidth, newHeight) => {
-    this.forceRerender();
-  };
 
   protected getBackPropagationTargets(): BackPropagation {
     return {
@@ -387,96 +395,43 @@ export class WidgetCheckbox extends WidgetHybridBase {
     const options = props[optionsName];
     const selectedOptions = props[selectedOptionsName];
 
-    // Calculate dynamic font size based on node dimensions
-    const size = useWidgetSize(props[sizeName]);
-    const tokens = useSizeTokens(size);
-    const color = props[colorName];
-    const fontSize = props.inDashboard
-      ? `${tokens.fontSize}px`
-      : `${Math.max(12, node.nodeHeight / 10) * tokens.scale}px`;
+    const { size, tokens, color, fontSize } = useOptionGroupStyle(props);
 
     return (
-      <WidgetPaper
-        node={node as WidgetCheckbox}
-        inDashboard={props.inDashboard}
-      >
-        <FormControl
-          component="fieldset"
-          disabled={props.disabled}
+      <OptionGroupFrame props={props} tokens={tokens}>
+        <Box
           sx={{
-            margin: 'auto',
-            width: '100%',
-            height: '100%',
-            userSelect: 'none',
-            padding: 1,
             display: 'flex',
-            flexDirection: 'column',
+            flexDirection: props[rowLayoutName] ? 'row' : 'column',
+            flexWrap: 'wrap',
+            pointerEvents: props.disabled ? 'none' : undefined,
           }}
         >
-          {props[labelName] && (
-            <Typography
-              variant="subtitle1"
-              sx={{
-                fontSize: `${tokens.fontSize}px`,
-                mb: 1,
-                textAlign: 'center',
-              }}
-            >
-              {props[labelName]}
-            </Typography>
-          )}
-
-          <Box
-            sx={{
-              flex: 1,
-              overflowY: 'auto',
-              overflowX: 'hidden',
-              maxHeight: props.inDashboard
-                ? 'calc(100vh - 100px)'
-                : `${Math.max(100, node.nodeHeight - 80)}px`,
-            }}
-          >
-            <Box
-              sx={{
-                display: 'flex',
-                flexDirection: props[rowLayoutName] ? 'row' : 'column',
-                flexWrap: 'wrap',
-                pointerEvents: props.disabled ? 'none' : undefined,
-              }}
-            >
-              {options.map((option, index) => (
-                <FormControlLabel
-                  key={index}
-                  control={
-                    <Checkbox
-                      color={color}
-                      checked={selectedOptions.includes(option)}
-                      onChange={(node as WidgetCheckbox).handleCheckboxChange}
-                      value={option}
-                      size={getMuiSize(size)}
-                      sx={{
-                        '& .MuiSvgIcon-root': {
-                          fontSize: fontSize,
-                        },
-                      }}
-                    />
-                  }
-                  label={
-                    <Typography sx={{ fontSize: fontSize }}>
-                      {option}
-                    </Typography>
-                  }
+          {options.map((option, index) => (
+            <FormControlLabel
+              key={index}
+              control={
+                <Checkbox
+                  color={color}
+                  checked={selectedOptions.includes(option)}
+                  onChange={(node as WidgetCheckbox).handleCheckboxChange}
+                  value={option}
+                  size={getMuiSize(size)}
                   sx={{
-                    mx: props[rowLayoutName] ? 0.5 : 0,
-                    width: props[rowLayoutName] ? 'auto' : '100%',
-                    boxSizing: 'border-box',
+                    '& .MuiSvgIcon-root': {
+                      fontSize: fontSize,
+                    },
                   }}
                 />
-              ))}
-            </Box>
-          </Box>
-        </FormControl>
-      </WidgetPaper>
+              }
+              label={
+                <Typography sx={{ fontSize: fontSize }}>{option}</Typography>
+              }
+              sx={getOptionLabelSx(props[rowLayoutName])}
+            />
+          ))}
+        </Box>
+      </OptionGroupFrame>
     );
   }
 }

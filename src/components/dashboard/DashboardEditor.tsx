@@ -121,6 +121,30 @@ function safeSelectNode(actions: any, query: any, id: string | null) {
   }
 }
 
+// A container (or page) becomes a canvas DashboardContainer, everything else a
+// DynamicWidget - either way carrying the dashboard item's id.
+function buildWidgetNodeTree(
+  query,
+  item: Layoutable,
+  itemId: string,
+  dashboardItemId: string,
+) {
+  const element = item.isContainer() ? (
+    <Element
+      canvas
+      is={DashboardContainer}
+      id={itemId}
+      index={0}
+      {...item.getWidgetProps()}
+    />
+  ) : (
+    <DynamicWidget id={itemId} index={0} {...item.getWidgetProps()} />
+  );
+  return query.parseReactElement(element).toNodeTree((node) => {
+    node.id = dashboardItemId;
+  });
+}
+
 function replacePlaceholderWithActualWidget(
   dashboardItem,
   dashboardItemId: string,
@@ -139,36 +163,12 @@ function replacePlaceholderWithActualWidget(
 
   // Add actual widget
   const itemId = linkedNode.getDashboardId();
-  let nodeToAdd;
-
-  if (linkedNode.isContainer()) {
-    // Use DashboardContainer for both containers and pages
-    nodeToAdd = query
-      .parseReactElement(
-        <Element
-          canvas
-          is={DashboardContainer}
-          id={itemId}
-          index={0}
-          {...linkedNode.getWidgetProps()}
-        />,
-      )
-      .toNodeTree((node) => {
-        node.id = dashboardItemId;
-      });
-  } else {
-    nodeToAdd = query
-      .parseReactElement(
-        <DynamicWidget
-          id={itemId}
-          index={0}
-          {...linkedNode.getWidgetProps()}
-        />,
-      )
-      .toNodeTree((node) => {
-        node.id = dashboardItemId;
-      });
-  }
+  const nodeToAdd = buildWidgetNodeTree(
+    query,
+    linkedNode,
+    itemId,
+    dashboardItemId,
+  );
 
   // Insert at same position as placeholder
   const parent = dashboardItem.data.parent;
@@ -770,34 +770,12 @@ export const DashboardEditor: React.FC<DashboardEditorProps> = ({
       }
 
       const dashboardItemId = uuid();
-      let nodeToAdd;
-      if (itemToAdd.isContainer()) {
-        nodeToAdd = query
-          .parseReactElement(
-            <Element
-              canvas
-              is={DashboardContainer}
-              id={itemId}
-              index={0}
-              {...itemToAdd.getWidgetProps()}
-            />,
-          )
-          .toNodeTree((node) => {
-            node.id = dashboardItemId;
-          });
-      } else {
-        nodeToAdd = query
-          .parseReactElement(
-            <DynamicWidget
-              id={itemId}
-              index={0}
-              {...itemToAdd.getWidgetProps()}
-            />,
-          )
-          .toNodeTree((node) => {
-            node.id = dashboardItemId;
-          });
-      }
+      const nodeToAdd = buildWidgetNodeTree(
+        query,
+        itemToAdd,
+        itemId,
+        dashboardItemId,
+      );
       try {
         addNodeWithPlacement(
           query,
