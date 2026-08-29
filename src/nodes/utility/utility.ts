@@ -1,6 +1,7 @@
 import debounce from 'lodash/debounce';
 
 import PPGraph from '../../classes/GraphClass';
+import InterfaceController from '../../InterfaceController';
 import PPNode from '../../classes/NodeClass';
 import Socket from '../../classes/SocketClass';
 import UpdateBehaviourClass from '../../classes/UpdateBehaviourClass';
@@ -10,7 +11,11 @@ import {
   SOCKET_TYPE,
   TRIGGER_TYPE_OPTIONS,
 } from '../../utils/constants';
-import { wrapDownloadLink } from '../../utils/utils';
+import {
+  imageDataURLToPngBlob,
+  isImageDataURL,
+  wrapDownloadLink,
+} from '../../utils/utils';
 import { TRgba } from '../../utils/color';
 import { ensureVisible } from '../../pixi/utils-pixi';
 import { AbstractType } from '../datatypes/abstractType';
@@ -208,25 +213,34 @@ export class WriteToClipboard extends PPNode {
     return true;
   }
 
+  // an image socket carries a data url, which as text/plain would paste as a
+  // wall of base64 rather than as the picture
+  private static async buildClipboardItem(input: any): Promise<ClipboardItem> {
+    if (isImageDataURL(input)) {
+      return new ClipboardItem({
+        'image/png': await imageDataURLToPngBlob(input),
+      });
+    }
+    return new ClipboardItem({
+      'text/plain': new Blob([input], { type: 'text/plain' }),
+    });
+  }
+
   protected async onExecute(inputObject: any): Promise<void> {
     const input = inputObject[dataToCopyName];
-    if (navigator.clipboard && window.ClipboardItem) {
-      navigator.clipboard
-        .write([
-          new ClipboardItem({
-            'text/plain': new Blob([input], {
-              type: 'text/plain',
-            }),
-          }),
-        ])
-        .then(
-          function () {
-            /* clipboard successfully set */
-          },
-          function () {
-            console.error('Writing to clipboard of this text failed:', input);
-          },
-        );
+    if (!navigator.clipboard || !window.ClipboardItem) {
+      return;
+    }
+    try {
+      await navigator.clipboard.write([
+        await WriteToClipboard.buildClipboardItem(input),
+      ]);
+    } catch (error) {
+      console.error('Writing to clipboard failed:', error);
+      InterfaceController.showSnackBar(
+        `Could not write to the clipboard. ${(error as Error).message}`,
+        { variant: 'error' },
+      );
     }
   }
 }

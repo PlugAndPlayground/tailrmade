@@ -84,11 +84,47 @@ describe('testOverlays', () => {
     cy.contains('Share app').should('not.exist');
   });
 
-  it('test collapse expand button', () => {
+  it('test app view toggle', () => {
     cy.get('[data-cy="helpButton"]').should('be.visible');
+
     cy.get('[data-cy="toggle-app-button"]').click({ force: true });
     cy.get('[data-cy="helpButton"]').should('not.exist');
-    cy.get('[data-cy="toggle-app-button"]').click({ force: true });
+
+    // the floating logo is the only way back out
+    cy.get('[data-cy="app-view-exit-button"]').should('be.visible');
+    cy.get('[data-cy="app-view-exit-button"]').click({ force: true });
+
     cy.get('[data-cy="helpButton"]').should('be.visible');
+    cy.get('[data-cy="app-view-exit-button"]').should('not.exist');
+  });
+
+  it('T toggles app view, and E leaves it for the editor', () => {
+    cy.get('body').type('t');
+    cy.get('[data-cy="app-view-exit-button"]').should('be.visible');
+
+    cy.get('body').type('e');
+    cy.get('[data-cy="app-view-exit-button"]').should('not.exist');
+    cy.get('[data-cy="shell-rail"]').should('be.visible');
+
+    cy.get('[data-cy="toggle-edit-mode-btn"] svg[data-testid="CloseIcon"]')
+      .first()
+      .should('exist');
+
+    cy.get('body').type('e');
+  });
+
+  it('the empty app view says so instead of showing build steps', () => {
+    cy.get('[data-cy="toggle-dashboard-btn"]').click({ force: true });
+    cy.contains('Create user interface').should('be.visible');
+
+    cy.get('body').type('t');
+
+    cy.contains('Create user interface').should('not.exist');
+    cy.get('[data-cy="dashboard-empty-state"]')
+      .should('be.visible')
+      .and('contain.text', 'no user interface yet');
+
+    cy.get('[data-cy="app-view-exit-button"]').click({ force: true });
+    cy.contains('Create user interface').should('be.visible');
   });
 });

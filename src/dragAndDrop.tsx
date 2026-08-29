@@ -567,7 +567,10 @@ export const StyledDropzone: React.FC<StyledDropzoneProps> = ({ children }) => {
   });
 
   const isDashboardFullscreenAndVisible = (state: any) => {
-    return !!state.dashboard?.fullscreen && !!state.dashboard?.visible;
+    return (
+      (!!state.dashboard?.fullscreen || !!state.dashboard?.maximized) &&
+      !!state.dashboard?.visible
+    );
   };
 
   useEffect(() => {

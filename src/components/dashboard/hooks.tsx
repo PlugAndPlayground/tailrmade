@@ -1,16 +1,40 @@
-import { useEffect, useMemo, useReducer, useRef, useState } from 'react';
+import {
+  useEffect,
+  useMemo,
+  useReducer,
+  useState,
+  useSyncExternalStore,
+} from 'react';
 import { alpha } from '@mui/system';
 import PPGraph from '../../classes/GraphClass';
 import InterfaceController, { ListenEvent } from '../../InterfaceController';
 import {
+  DrawerSide,
   FlexDirection,
+  IOverlay,
   Layoutable,
   MobileBehavior,
 } from '../../utils/interfaces';
-import { percentageToWidth } from '../../utils/utils';
+import { getDashboardWidth } from '../../utils/utils';
 import { getNewDirection } from '../../utils/layoutableHelpers';
 import { useEditor } from '@craftjs/core';
 import { isSurfaceNode } from '../../utils/interfaces';
+import { DEVICE_PREVIEW_WIDTHS, useDevicePreviewMode } from './viewState';
+
+const subscribeToOverlayState = (listener: () => void): (() => void) => {
+  const listenerId = InterfaceController.addListener(
+    ListenEvent.OverlayStateChanged,
+    listener,
+  );
+  return () => InterfaceController.removeListener(listenerId);
+};
+
+const getOverlayStateSnapshot = (): IOverlay =>
+  InterfaceController.getOverlayState();
+
+function useOverlayState(): IOverlay {
+  return useSyncExternalStore(subscribeToOverlayState, getOverlayStateSnapshot);
+}
 
 export function useHoverEvents(
   layoutableElement: Layoutable | null | undefined,
@@ -40,37 +64,39 @@ export function useHoverEvents(
 // Same width as MUI's default breakpoint used in useIsSmallScreen
 const NARROW_DASHBOARD_THRESHOLD = 600;
 
-export function useIsDashboardNarrow(): boolean {
-  const overlayStateRef = useRef(InterfaceController.getOverlayState());
+export function useDashboardPanelWidth(): number {
+  const overlayState = useOverlayState();
 
+  // the panel width is a function of the overlay state AND the window, and the
+  // window is the one input with no snapshot to subscribe to
   const [, forceUpdate] = useReducer((x) => x + 1, 0);
-
   useEffect(() => {
-    const listenerId = InterfaceController.addListener(
-      ListenEvent.OverlayStateChanged,
-      (newState) => {
-        overlayStateRef.current = newState;
-        forceUpdate();
-      },
-    );
-
     window.addEventListener('resize', forceUpdate);
-
-    return () => {
-      InterfaceController.removeListener(listenerId);
-      window.removeEventListener('resize', forceUpdate);
-    };
+    return () => window.removeEventListener('resize', forceUpdate);
   }, []);
 
-  const overlayState = overlayStateRef.current;
-  const isFullscreen = overlayState.dashboard?.fullscreen;
-  const dashboardWidthPercentage = isFullscreen
-    ? 100
-    : overlayState.dashboard?.widthPercentage;
+  if (overlayState[DrawerSide.DASHBOARD].fullscreen) {
+    return window.innerWidth;
+  }
 
-  const dashboardWidth = percentageToWidth(dashboardWidthPercentage);
+  return getDashboardWidth(overlayState);
+}
 
-  return dashboardWidth < NARROW_DASHBOARD_THRESHOLD;
+export function useDevicePreviewWidth(): number | null {
+  const mode = useDevicePreviewMode();
+  const dashboard = useOverlayState()[DrawerSide.DASHBOARD];
+
+  if (!dashboard.visible || dashboard.fullscreen) {
+    return null;
+  }
+  return DEVICE_PREVIEW_WIDTHS[mode];
+}
+
+export function useIsDashboardNarrow(): boolean {
+  const devicePreviewWidth = useDevicePreviewWidth();
+  const dashboardWidth = useDashboardPanelWidth();
+
+  return (devicePreviewWidth ?? dashboardWidth) < NARROW_DASHBOARD_THRESHOLD;
 }
 
 export const useEditModeStyles = (
@@ -169,8 +195,7 @@ export function useParentDirection(parent: string | null) {
 
     return {
       direction: parentNode.data.props.flexDirection as FlexDirection,
-      mobileBehavior: parentNode.data.props
-        .mobileBehavior as MobileBehavior,
+      mobileBehavior: parentNode.data.props.mobileBehavior as MobileBehavior,
     };
   });
 

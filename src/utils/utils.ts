@@ -14,12 +14,13 @@ import {
   DATA_DASHBOARD_EDITABLE,
   DEFAULT_2DVECTOR,
   DEFAULT_3DVECTOR,
-  GET_STARTED_GRAPH,
+  DRAWER_CONSTANTS,
   GESTUREMODE,
   IMAGE_TYPES,
   MAX_STRING_LENGTH,
   NODE_HEADER_HEIGHT,
   NODE_PADDING_TOP,
+  SHELL_CONSTANTS,
   SOCKET_TEXTMARGIN_TOP,
   SOCKET_TYPE,
   SOCKET_WIDTH,
@@ -27,7 +28,9 @@ import {
 } from './constants';
 import { GraphDatabase, StoredGraph } from './indexedDB';
 import {
+  DrawerSide,
   IGraphSearch,
+  IOverlay,
   IWarningHandler,
   Layoutable,
   SerializedSelection,
@@ -200,12 +203,55 @@ export function escapeRegExpChars(text: string): string {
 export const roundNumber = (number: number, decimals = 2): number =>
   Math.round(number * 10 ** decimals + Number.EPSILON) / 10 ** decimals; // rounds the number with 3 decimals
 
-export function widthToPercentage(newWidth: number): number {
-  return Math.trunc((newWidth / window.innerWidth) * 100);
+export function getShellAvailableWidth(overlayState: IOverlay): number {
+  const menuPanelWidth = overlayState[DrawerSide.LEFT].visible
+    ? overlayState[DrawerSide.LEFT].width
+    : 0;
+  const inspectorWidth = overlayState[DrawerSide.RIGHT].visible
+    ? overlayState[DrawerSide.RIGHT].width
+    : 0;
+  return Math.max(
+    0,
+    window.innerWidth -
+      SHELL_CONSTANTS.RAIL_WIDTH -
+      menuPanelWidth -
+      inspectorWidth,
+  );
 }
 
-export function percentageToWidth(percentage: number): number {
-  return Math.trunc((percentage / 100) * window.innerWidth);
+export function widthToPercentage(
+  newWidth: number,
+  availableWidth: number,
+): number {
+  if (availableWidth <= 0) {
+    return 0;
+  }
+  return Math.trunc((newWidth / availableWidth) * 100);
+}
+
+function percentageToWidth(percentage: number, availableWidth: number): number {
+  return Math.trunc((percentage / 100) * availableWidth);
+}
+
+export function getDashboardWidth(overlayState: IOverlay): number {
+  const availableWidth = getShellAvailableWidth(overlayState);
+  if (overlayState[DrawerSide.DASHBOARD].maximized) {
+    return availableWidth;
+  }
+
+  const requestedWidth = percentageToWidth(
+    overlayState[DrawerSide.DASHBOARD].widthPercentage,
+    availableWidth,
+  );
+  const maxWidth = Math.max(
+    0,
+    availableWidth - SHELL_CONSTANTS.MIN_CANVAS_STRIP_WIDTH,
+  );
+  return limitRange(
+    requestedWidth,
+    Math.min(DRAWER_CONSTANTS.MIN_DRAWER_WIDTH, maxWidth),
+    maxWidth,
+  );
 }
 
 export const limitRange = (
@@ -1161,6 +1207,38 @@ export const wrapDownloadLink = (URL: string, text = '') => {
   return `<a style="color:#E154BB;text-decoration:none;" href="${URL}" target="_blank">${
     text || URL
   }</a>`;
+};
+
+/** True for the `data:image/...;base64,...` strings the Image sockets carry. */
+export const isImageDataURL = (value: unknown): value is string =>
+  typeof value === 'string' && /^data:image\/[a-z0-9.+-]+;base64,/i.test(value);
+
+/**
+ * Decodes an image data url to a png blob. The clipboard only accepts png, so
+ * anything else is re-encoded through a canvas on the way.
+ */
+export const imageDataURLToPngBlob = async (dataURL: string): Promise<Blob> => {
+  const decoded = await fetch(dataURL).then((response) => response.blob());
+  if (decoded.type === 'image/png') {
+    return decoded;
+  }
+
+  const bitmap = await createImageBitmap(decoded);
+  const canvas = document.createElement('canvas');
+  canvas.width = bitmap.width;
+  canvas.height = bitmap.height;
+  canvas.getContext('2d')?.drawImage(bitmap, 0, 0);
+  bitmap.close();
+
+  return new Promise((resolve, reject) => {
+    canvas.toBlob((blob) => {
+      if (blob) {
+        resolve(blob);
+      } else {
+        reject(new Error('The image could not be encoded as a PNG.'));
+      }
+    }, 'image/png');
+  });
 };
 
 interface SaveOptions {

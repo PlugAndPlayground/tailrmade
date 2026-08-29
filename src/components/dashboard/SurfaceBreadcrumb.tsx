@@ -18,20 +18,50 @@ const getSurfaceName = (nodeId: string): string => {
   return node.getDashboardName();
 };
 
-// shows the dive path of nested UI surfaces; clicking a crumb navigates
-// back up (the last entry is the currently edited surface)
+// shows the app name followed by the dive path of nested UI surfaces;
+// clicking a crumb navigates back up (the last entry is the currently edited
+// surface). It complements the inspector's surface switcher rather than
+// replacing it.
 export const SurfaceBreadcrumb: React.FC<{
   surfaceStack: string[];
-}> = ({ surfaceStack }) => {
-  if (surfaceStack.length === 0) {
+  appName?: string;
+  onAppNameClick?: () => void;
+}> = ({ surfaceStack, appName, onAppNameClick }) => {
+  if (surfaceStack.length === 0 && !appName) {
     return null;
   }
 
   return (
     <Breadcrumbs
       data-cy="surface-breadcrumb"
-      sx={{ px: 2, py: 0.5, flexShrink: 0 }}
+      sx={{
+        px: 1,
+        minWidth: 0,
+        overflow: 'hidden',
+        whiteSpace: 'nowrap',
+        '& .MuiBreadcrumbs-ol': { flexWrap: 'nowrap', minWidth: 0 },
+        '& .MuiBreadcrumbs-li': { minWidth: 0, overflow: 'hidden' },
+        '& .MuiBreadcrumbs-li > *': {
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          whiteSpace: 'nowrap',
+          display: 'block',
+        },
+      }}
     >
+      {appName && (
+        <Link
+          key="app-name"
+          component="button"
+          variant="body2"
+          underline="hover"
+          color="inherit"
+          onClick={onAppNameClick}
+          data-cy="surface-crumb-app-name"
+        >
+          {appName}
+        </Link>
+      )}
       {surfaceStack.map((nodeId, index) =>
         index === surfaceStack.length - 1 ? (
           <Typography

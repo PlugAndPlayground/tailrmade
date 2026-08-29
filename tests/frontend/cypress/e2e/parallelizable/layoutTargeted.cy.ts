@@ -757,10 +757,10 @@ describe('UI surface targeted layout suites', () => {
 
   // -------------------------------------------------------------------------
   // 10. ROOT height. The Frame wrapper in DashboardEditor grows (flex: 1) so
-  // the definite-height chain from the 100dvh panel reaches ROOT - height
+  // the definite-height chain from the dashboard column reaches ROOT - height
   // '100%' fills the available panel area exactly (unlike '100dvh', which
-  // would overflow by the breadcrumb/banner height in edit mode), while
-  // 'auto' keeps hugging.
+  // would overflow by the dashboard header's and the locked banner's height),
+  // while 'auto' keeps hugging.
   //
   // The two non-edit-mode cases below ARE the deployed/app rendering path:
   // route-driven "app mode" and the editor both render the displayed surface
@@ -781,18 +781,19 @@ describe('UI surface targeted layout suites', () => {
 
     it("ROOT height '100%' fills the dashboard panel without scrolling", () => {
       applyLayout([widgetItem(b1)], { height: '100%' });
-      cy.window().then((win) => {
-        cy.get('[data-cy="dashboard"]', { timeout: 5000 }).should(($dash) => {
-          const root = dashboardRoot($dash);
-          expect(
-            root.getBoundingClientRect().height,
-            'ROOT fills the panel height',
-          ).to.be.at.least(win.innerHeight - 5);
-          expect(
-            $dash[0].scrollHeight,
-            'the panel does not get a vertical scrollbar',
-          ).to.be.at.most($dash[0].clientHeight + 2);
-        });
+      cy.get('[data-cy="dashboard"]', { timeout: 5000 }).should(($dash) => {
+        const root = dashboardRoot($dash);
+        // measured against the panel rather than the window: the dashboard's
+        // own header sits above [data-cy="dashboard"] and takes its height out
+        // of the viewport, so ROOT filling the panel is the actual claim here
+        expect(
+          root.getBoundingClientRect().height,
+          'ROOT fills the panel height',
+        ).to.be.at.least($dash[0].clientHeight - 5);
+        expect(
+          $dash[0].scrollHeight,
+          'the panel does not get a vertical scrollbar',
+        ).to.be.at.most($dash[0].clientHeight + 2);
       });
     });
 
@@ -816,8 +817,12 @@ describe('UI surface targeted layout suites', () => {
       applyLayout([widgetItem(b1)], { height: '100%' });
       cy.get('[data-cy="toggle-edit-mode-btn"]').first().click({ force: true });
       // edit mode is really on (guards against a retry inheriting the edit
-      // mode a failed earlier attempt left behind and toggling it back off)
-      cy.get('[data-cy="surface-breadcrumb"]').should('be.visible');
+      // mode a failed earlier attempt left behind and toggling it back off).
+      // The button's own icon is the marker - the breadcrumb moved into the
+      // dashboard header and shows in view mode too.
+      cy.get('[data-cy="toggle-edit-mode-btn"] svg[data-testid="CloseIcon"]')
+        .first()
+        .should('be.visible');
       cy.get('[data-cy="dashboard"]', { timeout: 5000 }).should(($dash) => {
         const rootRect = dashboardRoot($dash).getBoundingClientRect();
         const dashRect = $dash[0].getBoundingClientRect();
@@ -845,7 +850,11 @@ describe('UI surface targeted layout suites', () => {
     // into other tests/attempts
     afterEach(() => {
       cy.get('body').then(($body) => {
-        if ($body.find('[data-cy="surface-breadcrumb"]:visible').length > 0) {
+        if (
+          $body.find(
+            '[data-cy="toggle-edit-mode-btn"] svg[data-testid="CloseIcon"]',
+          ).length > 0
+        ) {
           cy.get('[data-cy="toggle-edit-mode-btn"]')
             .first()
             .click({ force: true });
