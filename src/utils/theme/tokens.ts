@@ -9,11 +9,8 @@
 // subtly wrong about which level an absent key inherits from.
 
 export type ThemeMode = 'light' | 'dark';
-
-// The stored form of mode has a third state - 'follow the system preference' -
-// which is represented by the key being ABSENT rather than by a literal.
-// See resolveMode() for why.
-export type ThemeModeSetting = ThemeMode | undefined;
+export type ThemeModeSetting = ThemeMode | 'system';
+export const DEFAULT_THEME_MODE: ThemeMode = 'dark';
 
 // Geometry of a control (height, inner padding, icon size), as opposed to
 // spacingUnit, which is the geometry of layout (gaps, margins, surface

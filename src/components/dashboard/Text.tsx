@@ -86,7 +86,7 @@ export const TextView = ({
         value={text}
         onChange={onChange ?? (() => {})}
         fontSize={fontSize}
-        color={colorSettingToCss(color)}
+        color={color}
         fontWeight={fontWeight}
         textAlign={textAlign}
       />

@@ -23,11 +23,7 @@ import { ColorPickerComponent } from '../../widgets';
 import { TRgba } from '../../utils/color';
 import { PRESETS, ThemePreset } from '../../utils/theme/presets';
 import { listOverrides, ResolvedTheme } from '../../utils/theme/resolve';
-import {
-  useResolvedAppTheme,
-  useSystemPrefersDark,
-  useThemeDocument,
-} from '../../utils/theme/store';
+import { useResolvedAppTheme, useThemeDocument } from '../../utils/theme/store';
 import {
   COLOR_ROLES,
   ColorRole,
@@ -57,17 +53,12 @@ const IDENTITY_ROLES: ColorRole[] = [
   'text.primary',
 ];
 
-/**
- * One collapsible group. The panel carries six of them and eleven color rows,
- * which is a lot of vertical space for a drawer that also holds the rest of the
- * app settings - so only the two a creator reaches for most start open.
- */
 const Section: React.FC<{
   title: string;
   defaultOpen?: boolean;
   badge?: number;
   children: React.ReactNode;
-}> = ({ title, defaultOpen = false, badge, children }) => {
+}> = ({ title, defaultOpen = true, badge, children }) => {
   const [open, setOpen] = React.useState(defaultOpen);
   return (
     <Box sx={{ mb: 0.5 }}>
@@ -186,7 +177,6 @@ const PresetRow: React.FC<{
 );
 
 const ModeControl: React.FC<{ resolved: ResolvedTheme }> = ({ resolved }) => {
-  const systemPrefersDark = useSystemPrefersDark();
   // three states here on purpose: this is a settings context, where the
   // creator is deliberately configuring and legibility beats compactness. The
   // end-user toggle is the two-state one.
@@ -199,9 +189,7 @@ const ModeControl: React.FC<{ resolved: ResolvedTheme }> = ({ resolved }) => {
         size="small"
         exclusive
         value={value}
-        onChange={(_, next) =>
-          next !== null && chooseThemeMode(next, systemPrefersDark)
-        }
+        onChange={(_, next) => next !== null && chooseThemeMode(next)}
         sx={{ mt: 0.5 }}
       >
         <ToggleButton value="light">Light</ToggleButton>
@@ -325,7 +313,7 @@ export const ThemeSettings: React.FC = () => {
               anything has been changed away from it */}
           <Typography variant="caption" sx={{ color: 'text.secondary' }}>
             {resolved.presetId}
-            {resolved.followsSystem ? '' : ` · ${resolved.mode}`}
+            {` · ${resolved.followsSystem ? `system (${resolved.mode})` : resolved.mode}`}
           </Typography>
           {overrides.length > 0 && (
             <Chip

@@ -1,9 +1,10 @@
 import { ThemeLayer } from './resolve';
 import {
   COLOR_ROLES,
+  DEFAULT_THEME_MODE,
   DENSITIES,
   Density,
-  ThemeMode,
+  ThemeModeSetting,
   ThemeTokens,
 } from './tokens';
 
@@ -13,8 +14,7 @@ import {
 // migration. With a diff, an absent key just resolves from the preset.
 export type ThemeDocument = {
   presetId?: string;
-  // absent means "follow the system preference" - see setDocumentMode
-  mode?: ThemeMode;
+  mode?: ThemeModeSetting;
   override?: Partial<ThemeTokens>;
 };
 
@@ -60,7 +60,7 @@ export const parseThemeDocument = (value: unknown): ThemeDocument => {
   if (typeof raw.presetId === 'string') {
     document.presetId = raw.presetId;
   }
-  if (raw.mode === 'light' || raw.mode === 'dark') {
+  if (raw.mode === 'light' || raw.mode === 'dark' || raw.mode === 'system') {
     document.mode = raw.mode;
   }
   if (typeof raw.override === 'object' && raw.override !== null) {
@@ -103,36 +103,16 @@ export const themeDocumentToLayer = (document: ThemeDocument): ThemeLayer => ({
   tokens: document.override,
 });
 
-/**
- * Applies a mode choice made by a person, following the two-state toggle rules:
- *
- * - choosing a mode that DIFFERS from the system preference stores the override
- * - choosing a mode that MATCHES the system preference REMOVES the stored value
- *   rather than storing the matching literal, which would silently convert a
- *   temporary adjustment into a permanent pin with no way back
- *
- * Note that this evaluation happens only here, on user interaction. A stored
- * override is never cleared just because the system preference later drifted
- * into agreement with it - plenty of people run their OS on a time-of-day
- * schedule, and proactive clearing would make pinning impossible.
- */
+// Applies a mode choice made by a person.
 export const setDocumentMode = (
   document: ThemeDocument,
-  next: ThemeMode,
-  systemPrefersDark: boolean,
+  next: ThemeModeSetting,
 ): ThemeDocument => {
-  const systemMode: ThemeMode = systemPrefersDark ? 'dark' : 'light';
-  if (next === systemMode) {
+  if (next === DEFAULT_THEME_MODE) {
     const { mode: _removed, ...rest } = document;
     return rest;
   }
   return { ...document, mode: next };
-};
-
-/** Explicitly follow the system preference again (the three-state setting). */
-export const clearDocumentMode = (document: ThemeDocument): ThemeDocument => {
-  const { mode: _removed, ...rest } = document;
-  return rest;
 };
 
 export const setDocumentPreset = (

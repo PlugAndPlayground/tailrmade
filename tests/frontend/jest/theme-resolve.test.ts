@@ -19,7 +19,11 @@ import {
   resolveTheme,
   ThemeLayer,
 } from '../../../src/utils/theme/resolve';
-import { COLOR_ROLES, ThemeMode } from '../../../src/utils/theme/tokens';
+import {
+  COLOR_ROLES,
+  DEFAULT_THEME_MODE,
+  ThemeMode,
+} from '../../../src/utils/theme/tokens';
 import { TRgba } from '../../../src/utils/color';
 
 const light = { prefersDark: false };
@@ -47,10 +51,19 @@ describe('preset data', () => {
 });
 
 describe('mode resolution', () => {
-  it('follows the system preference when no layer pins a mode', () => {
-    expect(resolveTheme([], dark).mode).toBe('dark');
-    expect(resolveTheme([], light).mode).toBe('light');
-    expect(resolveTheme([], light).followsSystem).toBe(true);
+  it('falls back to the default mode when no layer chooses one', () => {
+    // an unconfigured app is dark on every machine, NOT whatever the viewer's
+    // OS happens to be set to
+    expect(resolveTheme([], light).mode).toBe(DEFAULT_THEME_MODE);
+    expect(resolveTheme([], dark).mode).toBe(DEFAULT_THEME_MODE);
+    expect(resolveTheme([], light).followsSystem).toBe(false);
+  });
+
+  it('follows the system preference only when a layer asks for it', () => {
+    const layers: ThemeLayer[] = [{ source: 'saved', mode: 'system' }];
+    expect(resolveTheme(layers, dark).mode).toBe('dark');
+    expect(resolveTheme(layers, light).mode).toBe('light');
+    expect(resolveTheme(layers, light).followsSystem).toBe(true);
   });
 
   it('lets a pinned mode beat the system preference', () => {
@@ -66,6 +79,15 @@ describe('mode resolution', () => {
       { source: 'runtime', mode: 'light' },
     ];
     expect(resolveTheme(layers, dark).mode).toBe('light');
+  });
+
+  it('lets an inner layer take an outer pin back to the system', () => {
+    const layers: ThemeLayer[] = [
+      { source: 'saved', mode: 'dark' },
+      { source: 'runtime', mode: 'system' },
+    ];
+    expect(resolveTheme(layers, light).mode).toBe('light');
+    expect(resolveTheme(layers, light).followsSystem).toBe(true);
   });
 });
 
@@ -235,24 +257,38 @@ describe('theme document', () => {
 });
 
 describe('mode storage rules', () => {
-  it('stores a mode that differs from the system preference', () => {
-    expect(setDocumentMode({}, 'light', true)).toEqual({ mode: 'light' });
+  it('stores a mode that differs from the default', () => {
+    expect(setDocumentMode({}, 'light')).toEqual({ mode: 'light' });
   });
 
-  it('removes the key when the choice matches the system preference', () => {
-    // storing the matching literal would silently convert a temporary
-    // adjustment into a permanent pin with no way back
-    expect(setDocumentMode({ mode: 'light' }, 'dark', true)).toEqual({});
+  it('stores the request to follow the system as itself', () => {
+    // unlike a light/dark literal, 'system' says what was meant - it cannot be
+    // confused with a pin to whatever the machine was set to at the time
+    expect(setDocumentMode({}, 'system')).toEqual({ mode: 'system' });
   });
 
-  it('keeps a stored pin that the system preference later drifts into', () => {
-    // evaluated only on user interaction - plenty of people run their OS on a
-    // time-of-day schedule, and clearing proactively makes pinning impossible
-    const pinned = setDocumentMode({}, 'light', true);
+  it('drops the key when the choice is the default', () => {
+    // keeps the document a true sparse diff: an app left on the default stores
+    // nothing about mode, like one whose creator never opened the control
+    expect(setDocumentMode({ mode: 'light' }, DEFAULT_THEME_MODE)).toEqual({});
+    expect(setDocumentMode({ mode: 'system' }, DEFAULT_THEME_MODE)).toEqual({});
+  });
+
+  it('keeps a pin the system preference later drifts into', () => {
+    // a pin is evaluated only against the default, never against the machine -
+    // plenty of people run their OS on a time-of-day schedule
+    const pinned = setDocumentMode({}, 'light');
     const resolved = resolveTheme([themeDocumentToLayer(pinned)], light);
     expect(resolved.mode).toBe('light');
     expect(resolved.followsSystem).toBe(false);
     expect(pinned.mode).toBe('light');
+  });
+
+  it('round-trips a saved system choice through serialization', () => {
+    const document = setDocumentMode({}, 'system');
+    expect(parseThemeDocument(serializeThemeDocument(document))).toEqual({
+      mode: 'system',
+    });
   });
 });
 

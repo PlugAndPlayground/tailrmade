@@ -833,9 +833,13 @@ function isExactColor(
     return false;
   }
   const color = value as Record<string, unknown>;
-  return (['r', 'g', 'b', 'a'] as const).every(
-    (channel) => color[channel] === expected[channel],
-  );
+  return (['r', 'g', 'b', 'a'] as const).every((channel) => {
+    const raw = color[channel];
+    if (typeof raw !== 'number' && typeof raw !== 'string') {
+      return false;
+    }
+    return raw !== '' && Number(raw) === expected[channel];
+  });
 }
 
 function migrateSurfaceColorsInTree(

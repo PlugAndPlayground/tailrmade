@@ -1114,36 +1114,42 @@ export const DashboardEditor: React.FC<DashboardEditorProps> = ({
   );
 };
 
-export const EmptyState: React.FC<{ appView?: boolean }> = ({ appView = false }) => (
-  <Box
-    data-cy="dashboard-empty-state"
-    sx={{
-      display: 'flex',
-      flexDirection: 'column',
-      alignItems: 'center',
-      justifyContent: 'center',
-      height: '100dvh',
-      textAlign: 'left',
-      userSelect: 'none',
-      pt: 4,
-      lineHeight: 1.5,
-    }}
-  >
-    {appView ? (
-      <>
-        <Typography variant="h5" gutterBottom>
-          Nothing to show
-        </Typography>
-        <Typography variant="body1" color="text.secondary">
-          This Tailrmade app has no user interface yet.
-          <br />
-          To build one, click the logo on the top left or press <em>T</em>.
-        </Typography>
-      </>
-    ) : (
-      <EmptyStateBuildSteps />
-    )}
-  </Box>
+export const EmptyState: React.FC<{ appView?: boolean }> = ({
+  appView = false,
+}) => (
+  <AppThemeProvider>
+    <Box
+      data-cy="dashboard-empty-state"
+      sx={{
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        height: '100dvh',
+        textAlign: 'left',
+        userSelect: 'none',
+        p: 4,
+        lineHeight: 1.5,
+        bgcolor: 'background.default',
+        color: 'text.primary',
+      }}
+    >
+      {appView ? (
+        <>
+          <Typography variant="h5" gutterBottom>
+            Nothing to show
+          </Typography>
+          <Typography variant="body1" color="text.secondary">
+            This Tailrmade app has no user interface yet.
+            <br />
+            To build one, click the logo on the top left or press <em>T</em>.
+          </Typography>
+        </>
+      ) : (
+        <EmptyStateBuildSteps />
+      )}
+    </Box>
+  </AppThemeProvider>
 );
 
 const EmptyStateBuildSteps: React.FC = () => (
@@ -1168,10 +1174,9 @@ const EmptyStateBuildSteps: React.FC = () => (
       <br />
       2. Drag new or existing widgets into it
       <br />
-      3. Connect widget nodes to a <em>UI surface</em> node to add them to its
-      UI
+      3. Nest UI surfaces to build pages, containers and dialogs
       <br />
-      4. Nest UI surfaces to build pages, containers and dialogs
+      4. Style them all at once with <em>App theme</em> (press 5)
       <br />
       <em>Tip: Add sockets of nodes by </em>Shift+Clicking
       <em>

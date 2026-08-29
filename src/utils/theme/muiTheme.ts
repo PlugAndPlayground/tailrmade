@@ -88,6 +88,7 @@ export const tokensToThemeOptions = (resolved: ResolvedTheme): ThemeOptions => {
     shape: { borderRadius: tokens.radius },
     shadows: buildShadows(tokens.elevation) as ThemeOptions['shadows'],
     components: {
+      MuiPaper: { styleOverrides: { root: { backgroundImage: 'none' } } },
       MuiButton: {
         defaultProps: { variant: tokens.buttonVariant, size: density.size },
       },

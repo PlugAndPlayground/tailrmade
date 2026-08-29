@@ -5,13 +5,12 @@ import InterfaceController from '../InterfaceController';
 import { Rail } from './Rail';
 import LeftRightDrawer from './LeftRightDrawer';
 import DashboardColumn from './dashboard/GraphOverlayDashboard';
-import { TRgba } from '../utils/color';
 import { TMIconNoShadow } from '../utils/icons';
+import { useResolvedAppTheme } from '../utils/theme/store';
 import { useIsSmallScreen } from '../utils/utils';
 import { DrawerSide, IOverlay } from '../utils/interfaces';
 import { SHELL_CONSTANTS } from '../utils/constants';
 import { VISIBILITY_ACTION } from '../utils/constants_shared';
-import { MAIN_COLOR } from '../utils/constants';
 
 type ShellLayoutProps = {
   overlayState: IOverlay;
@@ -29,6 +28,7 @@ type ShellLayoutProps = {
 const ShellLayout: React.FunctionComponent<ShellLayoutProps> = (props) => {
   const smallScreen = useIsSmallScreen();
   const { appView, overlayState } = props;
+  const appTokens = useResolvedAppTheme().tokens;
   const isDashboardMaximised =
     overlayState[DrawerSide.DASHBOARD].visible &&
     overlayState[DrawerSide.DASHBOARD].maximized;
@@ -141,12 +141,12 @@ const ShellLayout: React.FunctionComponent<ShellLayoutProps> = (props) => {
               borderRadius: '4px',
               pointerEvents: 'auto',
               transition: 'opacity 0.15s ease-in-out',
-              '--svg-fill-color': TRgba.white().hex(),
+              '--svg-fill-color': appTokens['text.primary'],
               '& path': { transition: 'fill 0.15s ease-in-out' },
               '&:hover': {
                 opacity: 1,
                 backgroundColor: 'transparent',
-                '--svg-fill-color': TRgba.fromString(MAIN_COLOR).hex(),
+                '--svg-fill-color': appTokens.primary,
               },
             }}
           >

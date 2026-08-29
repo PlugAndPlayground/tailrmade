@@ -1,6 +1,13 @@
 import Color from 'color';
 import { getPreset, presetToTokens } from './presets';
-import { ColorRole, isColorRole, ThemeMode, ThemeTokens } from './tokens';
+import {
+  ColorRole,
+  DEFAULT_THEME_MODE,
+  isColorRole,
+  ThemeMode,
+  ThemeModeSetting,
+  ThemeTokens,
+} from './tokens';
 
 // Resolution is a chain of sparse layers, outermost first. Each layer that
 // defines a key overrides the layers before it; an absent key inherits.
@@ -20,9 +27,9 @@ export type ThemeLayer = {
   source: ThemeLayerSource;
   presetId?: string;
   // absent means "inherit the mode from the layer above" - NOT "follow the
-  // system preference". Only the absence of a mode across the whole chain
-  // means system. See resolveMode().
-  mode?: ThemeMode;
+  // system preference", which is the explicit 'system' value. The absence of a
+  // mode across the whole chain means DEFAULT_THEME_MODE. See resolveMode().
+  mode?: ThemeModeSetting;
   tokens?: Partial<ThemeTokens>;
 };
 
@@ -44,7 +51,6 @@ export type ThemeProvenance = Partial<
 
 export type ResolvedTheme = {
   mode: ThemeMode;
-  // true when no layer pinned a mode and we fell back to the system preference
   followsSystem: boolean;
   presetId: string;
   tokens: ThemeTokens;
@@ -59,30 +65,29 @@ export type ResolvedTheme = {
 };
 
 export type ResolveContext = {
-  // from a prefers-color-scheme media query, only consulted when no layer
-  // pinned a mode
   prefersDark: boolean;
 };
 
 const MIN_CONTRAST_RATIO = 4.5;
 
-/**
- * Walks the chain for a pinned mode, last one wins. `system` is represented by
- * the ABSENCE of a mode everywhere in the chain, never by a literal - storing
- * `mode: "system"` would make a temporary adjustment indistinguishable from a
- * deliberate pin to whatever the system happened to be at the time.
- */
+// Walks the chain for a chosen mode.
 export const resolveMode = (
   layers: ThemeLayer[],
   context: ResolveContext,
 ): { mode: ThemeMode; followsSystem: boolean } => {
   for (let i = layers.length - 1; i >= 0; i--) {
     const mode = layers[i].mode;
+    if (mode === 'system') {
+      return {
+        mode: context.prefersDark ? 'dark' : 'light',
+        followsSystem: true,
+      };
+    }
     if (mode !== undefined) {
       return { mode, followsSystem: false };
     }
   }
-  return { mode: context.prefersDark ? 'dark' : 'light', followsSystem: true };
+  return { mode: DEFAULT_THEME_MODE, followsSystem: false };
 };
 
 const resolvePresetId = (layers: ThemeLayer[]): string | undefined => {

@@ -12,6 +12,7 @@ import {
   setThemeDocument,
 } from '../../../src/utils/theme/store';
 import { EMPTY_THEME_DOCUMENT } from '../../../src/utils/theme/document';
+import { DEFAULT_THEME_MODE } from '../../../src/utils/theme/tokens';
 
 jest.mock('../../../src/classes/Action', () => ({
   ActionHandler: { setUnsavedChange: jest.fn() },
@@ -51,23 +52,28 @@ describe('theme writes', () => {
 
   it('resets every role but keeps the chosen preset and mode', () => {
     chooseThemePreset('cloud');
-    chooseThemeMode('light', true);
+    chooseThemeMode('light');
     overrideThemeToken('radius', 12);
     resetAllThemeTokens();
     expect(getThemeDocument()).toEqual({ presetId: 'cloud', mode: 'light' });
   });
 
-  it('drops the mode key when the choice matches the system', () => {
-    chooseThemeMode('light', true);
+  it('drops the mode key when the choice is the default', () => {
+    chooseThemeMode('light');
     expect(getThemeDocument().mode).toBe('light');
-    chooseThemeMode('dark', true);
+    chooseThemeMode(DEFAULT_THEME_MODE);
     expect(getThemeDocument().mode).toBeUndefined();
   });
 
-  it('clears the mode when System is chosen explicitly', () => {
-    chooseThemeMode('light', true);
-    chooseThemeMode('system', true);
-    expect(getThemeDocument().mode).toBeUndefined();
+  it('stores the mode when System is chosen explicitly', () => {
+    chooseThemeMode('light');
+    chooseThemeMode('system');
+    expect(getThemeDocument().mode).toBe('system');
+  });
+
+  it('leaves a fresh document alone when the default is chosen', () => {
+    chooseThemeMode(DEFAULT_THEME_MODE);
+    expect(getThemeDocument()).toEqual({});
   });
 });
 

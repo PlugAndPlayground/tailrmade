@@ -59,6 +59,21 @@ describe('palette role coverage', () => {
   });
 });
 
+describe('no widget pins a button variant the theme cannot reach', () => {
+  // buttonVariant is an app-wide token, so a hardcoded variant is the same
+  // class of bug as a hardcoded color: it survives every preset and both
+  // modes. colorPicker is the exception - its button is a SWATCH whose fill
+  // is the picked value, and it overrides bgcolor/color/border outright.
+  const ALLOWED_VARIANT_FILES = ['colorPicker.tsx'];
+
+  it.each(widgetFiles.filter((file) => !ALLOWED_VARIANT_FILES.includes(file)))(
+    '%s',
+    (file) => {
+      expect(read(file)).not.toMatch(/variant="(contained|outlined|text)"/);
+    },
+  );
+});
+
 describe('no widget paints outside the theme', () => {
   // A literal color cannot follow light/dark or a preset. The exceptions are
   // shadows and scrims, which are not palette roles - they are depth cues that

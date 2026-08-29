@@ -99,6 +99,11 @@ const sidebars: SidebarsConfig = {
         },
         {
           type: 'doc',
+          id: 'style-app',
+          label: 'Style your app',
+        },
+        {
+          type: 'doc',
           id: 'html-nodes',
           label: 'Create custom UI elements',
         },

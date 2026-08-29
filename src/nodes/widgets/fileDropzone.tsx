@@ -528,7 +528,6 @@ const FileDropzoneComponent: React.FC<{
           borderRadius: 1,
           border: '2px dashed',
           borderColor: isDragActive ? 'primary.main' : 'divider',
-          // was MUI's own default blue, hardcoded - it ignored the theme
           bgcolor: isDragActive ? 'primary.main' : 'transparent',
           transition: 'background-color 0.2s, border-color 0.2s',
           cursor: isDisabled ? 'not-allowed' : 'pointer',
@@ -551,7 +550,6 @@ const FileDropzoneComponent: React.FC<{
         <FileUploadIcon fontSize="large" sx={{ mt: 0.5 }} />
         {node.getInputData(showPasteFromClipboardName) && (
           <Button
-            variant="outlined"
             size="small"
             startIcon={<ContentPasteIcon />}
             onClick={(e) => {

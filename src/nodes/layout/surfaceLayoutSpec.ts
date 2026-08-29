@@ -27,7 +27,7 @@ const textDefaultPropsForSpec = {
   fontSize: 20,
   textAlign: 'left',
   fontWeight: 'normal',
-  color: { r: '51', g: '51', b: '51', a: '1' },
+  color: INHERIT_COLOR,
   text: 'Hi',
 };
 

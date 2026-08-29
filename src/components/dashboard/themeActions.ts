@@ -1,7 +1,6 @@
 import { ActionHandler } from '../../classes/Action';
 import {
   clearAllDocumentOverrides,
-  clearDocumentMode,
   clearDocumentOverride,
   setDocumentMode,
   setDocumentOverride,
@@ -9,7 +8,7 @@ import {
   ThemeDocument,
 } from '../../utils/theme/document';
 import { getThemeDocument, setThemeDocument } from '../../utils/theme/store';
-import { ThemeMode, ThemeTokens } from '../../utils/theme/tokens';
+import { ThemeModeSetting, ThemeTokens } from '../../utils/theme/tokens';
 
 /**
  * Every write to the saved theme layer goes through here, so marking the graph
@@ -26,15 +25,8 @@ export const updateThemeDocument = (
 export const chooseThemePreset = (presetId: string): void =>
   updateThemeDocument((document) => setDocumentPreset(document, presetId));
 
-export const chooseThemeMode = (
-  mode: ThemeMode | 'system',
-  systemPrefersDark: boolean,
-): void =>
-  updateThemeDocument((document) =>
-    mode === 'system'
-      ? clearDocumentMode(document)
-      : setDocumentMode(document, mode, systemPrefersDark),
-  );
+export const chooseThemeMode = (mode: ThemeModeSetting): void =>
+  updateThemeDocument((document) => setDocumentMode(document, mode));
 
 export const overrideThemeToken = <K extends keyof ThemeTokens>(
   key: K,

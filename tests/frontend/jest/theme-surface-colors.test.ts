@@ -120,6 +120,49 @@ describe('v4 -> v5 surface color migration', () => {
     });
   });
 
+  it('frees a static Text whose legacy default stored STRING channels', () => {
+    // the Text widget shipped rgb(51,51,51) as { r: '51', ... } while
+    // containers shipped the same colour as numbers. A strict === compared
+    // only the numeric form, so no static text was ever freed.
+    const migrated = migrateGraphDataOnLoad(
+      graphWith(
+        treeWithColors(
+          { r: 9, g: 13, b: 26, a: 1 },
+          { r: 244, g: 250, b: 249, a: 1 },
+          { r: '51', g: '51', b: '51', a: '1' },
+        ),
+      ),
+    );
+    expect(treeOf(migrated).child.props.color).toBe(INHERIT_COLOR);
+  });
+
+  it('still refuses a string channel that is not the legacy value', () => {
+    const migrated = migrateGraphDataOnLoad(
+      graphWith(
+        treeWithColors(
+          { r: 9, g: 13, b: 26, a: 1 },
+          { r: 244, g: 250, b: 249, a: 1 },
+          { r: '52', g: '51', b: '51', a: '1' },
+        ),
+      ),
+    );
+    expect(treeOf(migrated).child.props.color).toEqual({
+      r: '52',
+      g: '51',
+      b: '51',
+      a: '1',
+    });
+  });
+
+  it('does not read an empty channel as zero', () => {
+    // Number('') is 0, so a blank channel would sail through a bare coercion
+    const blank = { r: '', g: '', b: '', a: '' };
+    const migrated = migrateGraphDataOnLoad(
+      graphWith(treeWithColors(blank, blank, blank)),
+    );
+    expect(treeOf(migrated).child.props.color).toEqual(blank);
+  });
+
   it('is not fooled by a near-miss value', () => {
     const nearMiss = { r: 9, g: 13, b: 27, a: 1 };
     const migrated = migrateGraphDataOnLoad(
