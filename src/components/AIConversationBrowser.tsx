@@ -57,6 +57,20 @@ const selectSx = {
   '& .MuiSelect-select': { py: 0.9 },
 };
 
+const toggleSx = {
+  m: 0,
+  px: 1,
+  py: 0.25,
+  minHeight: 38,
+  justifyContent: 'space-between',
+  bgcolor: panelSurface,
+  border: panelBorder,
+  '& .MuiFormControlLabel-label': {
+    color: '#fff',
+    fontSize: '0.84rem',
+  },
+};
+
 const AIConversationBrowser = () => {
   const backendConversationNames = Object.keys(
     AIBackend.getInstance().conversations,
@@ -231,19 +245,7 @@ const AIConversationBrowser = () => {
           </FormControl>
 
           <FormControlLabel
-            sx={{
-              m: 0,
-              px: 1,
-              py: 0.25,
-              minHeight: 38,
-              justifyContent: 'space-between',
-              bgcolor: panelSurface,
-              border: panelBorder,
-              '& .MuiFormControlLabel-label': {
-                color: '#fff',
-                fontSize: '0.84rem',
-              },
-            }}
+            sx={toggleSx}
             label="Perform actions"
             labelPlacement="start"
             control={
@@ -257,6 +259,26 @@ const AIConversationBrowser = () => {
               />
             }
           />
+
+          <Tooltip title="Let the assistant look at your app to check its own work - automatically after it changes something, and on request. Only the app being edited is ever captured, never your screen. Off means it cannot look at all; you can still attach a capture yourself.">
+            <FormControlLabel
+              sx={toggleSx}
+              label="Let the AI see the app"
+              labelPlacement="start"
+              control={
+                <Switch
+                  checked={preferences.aiAutoCapture !== false}
+                  onChange={(event) =>
+                    savePreferences({ aiAutoCapture: event.target.checked })
+                  }
+                  inputProps={{
+                    'aria-label': 'Let the AI see the app',
+                    'data-cy': 'AI Auto Capture Toggle',
+                  }}
+                />
+              }
+            />
+          </Tooltip>
         </Stack>
       </Box>
 

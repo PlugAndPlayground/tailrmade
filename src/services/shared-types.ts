@@ -67,6 +67,8 @@ export interface UserPreferences {
   graphSortMode: GraphSortMode;
   graphSortDirection: boolean;
   aiAgentModel: string;
+  /** let the AI assistant look at the app it is building (see AIVisionService) */
+  aiAutoCapture: boolean;
 }
 
 export interface TokenUsage {
@@ -100,6 +102,7 @@ export function getDefaultPreferences(uid: string): UserPreferences {
     graphSortMode: 'date',
     graphSortDirection: true,
     aiAgentModel: 'claude-sonnet-4-6',
+    aiAutoCapture: true,
   };
 }
 

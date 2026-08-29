@@ -41,6 +41,12 @@ import { isLayoutableNode } from '../utils/interfaces';
 import type { UISurfaceNode } from '../nodes/layout/uiSurface';
 import { cloneAndTruncateContext } from './contextTruncation';
 import { DeferredReactType } from '../nodes/datatypes/deferredHtmlType';
+import {
+  AI_INSPECT_SOURCES,
+  AIInspectSource,
+  captureForAI,
+  getDisplayedSurfaceNodeId,
+} from './AIVisionService';
 import { TriggerType } from '../nodes/datatypes/triggerType';
 
 export interface MCPToolDefinition {
@@ -56,6 +62,11 @@ export interface MCPToolDefinition {
 export interface MCPToolResult {
   content: string;
   is_error?: boolean;
+  /**
+   * Data urls the caller must show the model alongside `content`. Only
+   * inspect_ui sets this; see AIBackend for how they reach the conversation.
+   */
+  images?: string[];
 }
 
 type MCPToolName =
@@ -74,6 +85,7 @@ type MCPToolName =
   | 'set_trigger_type'
   | 'set_node_name'
   | 'inspect_surface'
+  | 'inspect_ui'
   | 'set_surface_layout'
   | 'set_default_surface';
 
@@ -134,6 +146,10 @@ interface DescribeNodeInput {
 
 interface InspectSurfaceInput {
   node_id: string;
+}
+
+interface InspectUIInput {
+  source?: AIInspectSource;
 }
 
 interface SetSurfaceLayoutInput {
@@ -426,6 +442,21 @@ export class TailrmadeMCPServer {
         },
       },
       {
+        name: 'inspect_ui',
+        description:
+          'Look at the app as it is actually rendered right now. Returns a screenshot paired with the structure behind it, so you can cross-reference what is drawn against what should exist: overflowing or clipped labels, widgets that landed in the wrong container, and empty states that the layout JSON alone cannot reveal. Use it to check your own work after changing a UI, and whenever the user describes something visual. Sources: "dashboard" (default) is the live user interface; "graph" is the node canvas and its wiring; "selection" is the currently selected nodes. The user\'s screen outside the app is never captured.',
+        input_schema: {
+          type: 'object',
+          properties: {
+            source: {
+              type: 'string',
+              enum: [...AI_INSPECT_SOURCES],
+              description: 'Defaults to "dashboard".',
+            },
+          },
+        },
+      },
+      {
         name: 'set_surface_layout',
         description:
           "Replace a UI surface's layout from a simplified declarative spec. Omitted properties reset to defaults; referenced unconnected widgets are connected automatically.",
@@ -521,6 +552,8 @@ export class TailrmadeMCPServer {
           return this.setNodeName(input as unknown as SetNodeNameInput);
         case 'inspect_surface':
           return this.inspectSurface(input as unknown as InspectSurfaceInput);
+        case 'inspect_ui':
+          return await this.inspectUI(input as unknown as InspectUIInput);
         case 'set_surface_layout':
           return await this.setSurfaceLayout(
             input as unknown as SetSurfaceLayoutInput,
@@ -1346,6 +1379,97 @@ export class TailrmadeMCPServer {
         name: nextName,
       }),
     };
+  }
+
+  /**
+   * A screenshot of the running app paired with the structure behind it.
+   *
+   * The pixels alone say "this label is cut off"; the structure alone says
+   * "there is a Text widget here". Together the model can say which widget is
+   * cut off and reach for the socket that fixes it, so the two always travel
+   * as one result rather than as two tool calls the model has to correlate.
+   */
+  private async inspectUI(input: InspectUIInput): Promise<MCPToolResult> {
+    const source: AIInspectSource = input.source ?? 'dashboard';
+    if (!AI_INSPECT_SOURCES.includes(source)) {
+      return {
+        content: `inspect_ui source must be one of ${AI_INSPECT_SOURCES.join(', ')}`,
+        is_error: true,
+      };
+    }
+
+    const structure = this.getUIStructure(source);
+    // The structure is worth returning on its own, so a capture backend that
+    // cannot see the surface downgrades the result instead of failing it.
+    let image: string | undefined;
+    let captureNote: string;
+    try {
+      const captured = await captureForAI(source);
+      image = captured.dataURL;
+      captureNote = `The attached image is the ${captured.note}.`;
+    } catch (error) {
+      captureNote =
+        'No image could be taken: ' +
+        (error instanceof Error ? error.message : String(error)) +
+        ' The structure below is still current.';
+    }
+
+    return {
+      content: JSON.stringify({
+        source,
+        image: captureNote,
+        structure_of: structure.describes,
+        structure: structure.content,
+      }),
+      ...(image ? { images: [image] } : {}),
+    };
+  }
+
+  /** What the image is a picture of, in the serialisation the edit tools take. */
+  private getUIStructure(source: AIInspectSource): {
+    describes: string;
+    content: unknown;
+  } {
+    if (source === 'dashboard') {
+      const nodeId = getDisplayedSurfaceNodeId();
+      if (!nodeId) {
+        return {
+          describes: 'no surface',
+          content: 'No UI surface is being displayed.',
+        };
+      }
+      return {
+        describes: `the layout of UI surface ${nodeId}, as set_surface_layout takes it`,
+        content: this.parseToolContent(
+          this.inspectSurface({ node_id: nodeId }),
+        ),
+      };
+    }
+
+    const hasSelection =
+      (PPGraph.currentGraph.selection?.selectedNodes?.length ?? 0) > 0;
+    if (source === 'selection' || hasSelection) {
+      return {
+        describes: 'the serialized subgraph of the selected nodes',
+        content: this.parseToolContent(this.inspectSelectedNodes()),
+      };
+    }
+    return {
+      describes: 'every node in the graph, since nothing is selected',
+      content: this.parseToolContent(this.inspectGraph()),
+    };
+  }
+
+  /**
+   * Inlines an inspection tool's json so the pair arrives as one object rather
+   * than as json escaped inside json.
+   */
+  private parseToolContent(result: MCPToolResult): unknown {
+    try {
+      return JSON.parse(result.content);
+    } catch {
+      return result.content;
+    }
   }
 
   private inspectSurface(input: InspectSurfaceInput): MCPToolResult {
