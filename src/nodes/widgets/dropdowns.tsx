@@ -6,24 +6,35 @@ import {
   ListItemText,
   MenuItem,
   Select,
-  ThemeProvider,
 } from '@mui/material';
 import Socket from '../../classes/SocketClass';
 import {
   defaultOptions,
   fallbackValueName,
+  getMuiSize,
+  colorName,
+  getColorSocket,
+  getSizeSocket,
+  getSizeSx,
+  getSizeTokens,
+  getLabelSocket,
   labelName,
   optionsName,
   outName,
   selectedOptionName,
+  sizeName,
+  useWidgetSize,
+  useSizeSx,
+  useFontScalar,
   stringifyIfNeeded,
   WidgetPaper,
 } from './abstract';
 import { WidgetSelectableBase } from './selectable-base';
-import { SOCKET_TYPE, customTheme } from '../../utils/constants';
+import { SOCKET_TYPE } from '../../utils/constants';
 import { ArrayType } from '../datatypes/arrayType';
 import { StringType } from '../datatypes/stringType';
 import { WidgetContentProps } from '../../utils/interfaces';
+import { useResolvedInputVariant } from '../../utils/theme';
 
 enum DropdownType {
   SINGLE = 'Dropdown (single select)',
@@ -68,18 +79,19 @@ abstract class WidgetDropdownBase extends WidgetSelectableBase {
       ),
 
       this.getDefaultSelectedSocket(),
-      new Socket(
-        SOCKET_TYPE.IN,
-        labelName,
-        new StringType(),
-        dropDownDefaultName,
-        false,
-      ),
+      getLabelSocket(dropDownDefaultName),
+      getColorSocket(),
+      getSizeSocket(),
     ];
   }
 
   public getWidgetContent(props: WidgetContentProps): React.ReactElement {
     const node = props.node as WidgetDropdownBase;
+    const size = useWidgetSize(props[sizeName]);
+    const fontScalar = useFontScalar();
+    const sizeSx = useSizeSx(size);
+    const inputVariant = useResolvedInputVariant();
+    const color = props[colorName];
 
     const renderMenuItems = () => {
       if (!Array.isArray(props[optionsName])) return null;
@@ -89,6 +101,7 @@ abstract class WidgetDropdownBase extends WidgetSelectableBase {
         <MenuItem key={name} value={name}>
           {!node.isSingle() && (
             <Checkbox
+              color={color}
               checked={
                 (
                   node.formatSelected(props[selectedOptionName]) as string[]
@@ -102,33 +115,35 @@ abstract class WidgetDropdownBase extends WidgetSelectableBase {
     };
 
     return (
-      <ThemeProvider theme={customTheme}>
-        <WidgetPaper node={node} inDashboard={props.inDashboard}>
-          <FormControl
-            variant="filled"
-            sx={{
-              pointerEvents: props.disabled ? 'none' : undefined,
+      <WidgetPaper node={node} inDashboard={props.inDashboard}>
+        <FormControl
+          variant={inputVariant}
+          color={color}
+          size={getMuiSize(size)}
+          sx={{
+            pointerEvents: props.disabled ? 'none' : undefined,
+            ...sizeSx,
+          }}
+        >
+          <InputLabel>{props[labelName]}</InputLabel>
+          <Select
+            variant={inputVariant}
+            color={color}
+            disabled={props.disabled}
+            multiple={!node.isSingle()}
+            value={node.formatSelected(props[selectedOptionName])}
+            onChange={(event) => {
+              void node.handleOnChange(event);
             }}
+            renderValue={(selected) =>
+              Array.isArray(selected) ? selected.join(', ') : selected
+            }
+            MenuProps={getMenuProps(size, fontScalar)}
           >
-            <InputLabel>{props[labelName]}</InputLabel>
-            <Select
-              variant="filled"
-              disabled={props.disabled}
-              multiple={!node.isSingle()}
-              value={node.formatSelected(props[selectedOptionName])}
-              onChange={(event) => {
-                void node.handleOnChange(event);
-              }}
-              renderValue={(selected) =>
-                Array.isArray(selected) ? selected.join(', ') : selected
-              }
-              MenuProps={getMenuProps()}
-            >
-              {renderMenuItems()}
-            </Select>
-          </FormControl>
-        </WidgetPaper>
-      </ThemeProvider>
+            {renderMenuItems()}
+          </Select>
+        </FormControl>
+      </WidgetPaper>
     );
   }
 }
@@ -194,14 +209,24 @@ export class WidgetMultiDropdown extends WidgetDropdownBase {
   }
 }
 
-// Utility function for menu props
-const getMenuProps = () => {
+// Utility function for menu props. The menu renders in a portal, so it has to
+// carry the size styling itself instead of inheriting it from the FormControl
+const getMenuProps = (size: unknown, fontScalar: number) => {
   const ITEM_HEIGHT = 48;
   const ITEM_PADDING_TOP = 8;
   return {
     PaperProps: {
       style: {
         maxHeight: ITEM_HEIGHT * 9.5 + ITEM_PADDING_TOP,
+      },
+      sx: {
+        ...getSizeSx(size, fontScalar),
+        '& .MuiMenuItem-root': {
+          fontSize: `${getSizeTokens(size, fontScalar).fontSize}px`,
+        },
+        '& .MuiTypography-root': {
+          fontSize: `${getSizeTokens(size, fontScalar).fontSize}px`,
+        },
       },
     },
   };

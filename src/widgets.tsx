@@ -84,6 +84,7 @@ import {
   getSocketChecksum,
 } from './classes/Action';
 import CodeEditor from './components/Editor';
+import { MAIN_COLOR } from './utils/constants';
 
 export async function potentiallyUpdateSocketData(property: Socket, newValue) {
   const nodeID = property.getNode().id;
@@ -669,7 +670,7 @@ export const FileBrowserWidget: React.FunctionComponent<FileTypeProps> = (
       onMouseLeave={() => setHoveredItem(null)}
       sx={{
         '&.Mui-selected': {
-          backgroundColor: `${TRgba.fromString(props.randomMainColor).negate()}`,
+          backgroundColor: `${TRgba.fromString(MAIN_COLOR).negate()}`,
         },
         display: 'flex',
         justifyContent: 'space-between',

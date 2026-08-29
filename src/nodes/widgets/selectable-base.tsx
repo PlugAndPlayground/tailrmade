@@ -89,10 +89,6 @@ export abstract class WidgetSelectableBase extends WidgetHybridBase {
     return 104;
   }
 
-  onNodeResize = (newWidth, newHeight) => {
-    this.forceRerender();
-  };
-
   protected getBackPropagationTargets(): BackPropagation {
     return {
       SocketToGetValue: this.getInputSocketByName(selectedOptionName),

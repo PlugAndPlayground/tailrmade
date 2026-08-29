@@ -29,13 +29,15 @@ import { widthName, heightName } from '../../utils/layoutableHelpers';
 import { DashboardContentGate } from '../../components/dashboard/DashboardContentGate';
 import { ArrayType } from '../datatypes/arrayType';
 import { LayoutableNodeBase } from './dynamicLayoutBase';
+import { ColorSetting } from '../../utils/themeColors';
 
 type VisibilityMode = 'visible' | 'hidden';
 type CollapseMode = 'collapse' | 'expand' | 'none';
 
 type DashboardContainerBaseProps = {
   background: Record<'r' | 'g' | 'b' | 'a', number>;
-  color: Record<'r' | 'g' | 'b' | 'a', number>;
+  // see WidgetLayoutInterface.color - may be the 'inherit' keyword
+  color: ColorSetting;
   flexDirection: string;
   alignItems: string;
   justifyContent: string;
@@ -115,7 +117,6 @@ export const DynamicWidgetContainerNode: React.FunctionComponent<
             {...props}
             id={props.property.id}
             selected={props.property.selected}
-            randomMainColor={props.randomMainColor}
             disabled={props.disabled}
             node={props.property}
             showDashboard={showDashboard}
@@ -398,7 +399,6 @@ const ReactUICombineArrayComponent: React.FunctionComponent<any> = (props) => {
         >
           {item.renderFunction({
             index,
-            randomMainColor: props.randomMainColor,
             disabled: props.disabled,
             width: 'auto',
             height: 'auto',
@@ -412,7 +412,6 @@ const ReactUICombineArrayComponent: React.FunctionComponent<any> = (props) => {
     changeDrawingOrder,
     props[widthName],
     props[heightName],
-    props.randomMainColor,
     props.disabled,
     isInteractive,
     activeItemIndex,

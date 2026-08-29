@@ -1,11 +1,17 @@
 import React from 'react';
-import { Box, Tab, Tabs, ThemeProvider } from '@mui/material';
+import { Box, Tab, Tabs } from '@mui/material';
 import {
   WidgetHybridBase,
   WidgetPaper,
+  colorName,
+  getColorSocket,
+  getSizeSocket,
   labelName,
   outName,
   outIndexName,
+  sizeName,
+  useWidgetSize,
+  useSizeTokens,
 } from './abstract';
 import Socket from '../../classes/SocketClass';
 import { ArrayType } from '../datatypes/arrayType';
@@ -13,8 +19,8 @@ import { NumberType } from '../datatypes/numberType';
 import { StringType } from '../datatypes/stringType';
 import { BooleanType } from '../datatypes/booleanType';
 import { BackPropagation } from '../../interfaces';
-import { SOCKET_TYPE, customTheme } from '../../utils/constants';
-import { TRgba } from '../../utils/color';
+import { SOCKET_TYPE } from '../../utils/constants';
+import { useThemeTokens } from '../../utils/theme';
 import { WidgetContentProps } from '../../utils/interfaces';
 import {
   ActionHandler,
@@ -61,6 +67,8 @@ export class WidgetTabs extends WidgetHybridBase {
         true,
         false,
       ),
+      getColorSocket(),
+      getSizeSocket(),
       new Socket(SOCKET_TYPE.OUT, outName, new StringType(), undefined, false),
       new Socket(SOCKET_TYPE.OUT, outIndexName, new NumberType()),
     ];
@@ -77,10 +85,6 @@ export class WidgetTabs extends WidgetHybridBase {
   getPreferredOutputSocketName(): string {
     return outName;
   }
-
-  onNodeResize = (newWidth, newHeight) => {
-    this.forceRerender();
-  };
 
   protected getBackPropagationTargets(): BackPropagation {
     return {
@@ -138,63 +142,80 @@ export class WidgetTabs extends WidgetHybridBase {
     );
 
     const scrollable = props[scrollableName];
+    const size = useWidgetSize(props[sizeName]);
+    const color = props[colorName];
+    const tabRadius = useThemeTokens().radius;
+    const tokens = useSizeTokens(size);
     const fontSize = props.inDashboard
-      ? '14px'
-      : `${Math.max(12, node.nodeHeight / 10)}px`;
+      ? `${14 * tokens.scale}px`
+      : `${Math.max(12, node.nodeHeight / 10) * tokens.scale}px`;
 
     return (
-      <ThemeProvider theme={customTheme}>
-        <WidgetPaper node={node} inDashboard={props.inDashboard}>
-          <Box
+      <WidgetPaper node={node} inDashboard={props.inDashboard}>
+        <Box
+          sx={{
+            width: '100%',
+            display: 'flex',
+            flexDirection: 'column',
+          }}
+        >
+          <Tabs
+            data-cy={`${props.dataCyId}-tabs`}
+            value={selectedIndex}
+            onChange={node.handleOnChange}
+            variant={scrollable ? 'scrollable' : 'standard'}
+            scrollButtons={scrollable ? 'auto' : false}
+            centered={!scrollable}
+            allowScrollButtonsMobile={scrollable}
+            // MUI's own textColor/indicatorColor only accept primary and
+            // secondary, so the indicator and the selected label are driven
+            // from the palette here instead - that way every role the Color
+            // socket offers actually works
+            textColor="inherit"
+            aria-label="tabs widget"
             sx={{
-              width: '100%',
-              display: 'flex',
-              flexDirection: 'column',
+              pointerEvents: props.disabled ? 'none' : undefined,
+              minHeight: `${tokens.tabHeight}px`,
+              '& .MuiSvgIcon-root': {
+                fontSize: `${tokens.iconSize}px`,
+              },
+              '& .MuiTabs-indicator': {
+                backgroundColor: `${color}.main`,
+              },
             }}
           >
-            <Tabs
-              data-cy={`${props.dataCyId}-tabs`}
-              value={selectedIndex}
-              onChange={node.handleOnChange}
-              variant={scrollable ? 'scrollable' : 'standard'}
-              scrollButtons={scrollable ? 'auto' : false}
-              centered={!scrollable}
-              allowScrollButtonsMobile={scrollable}
-              textColor="secondary"
-              indicatorColor="secondary"
-              aria-label="tabs widget"
-              sx={{
-                pointerEvents: props.disabled ? 'none' : undefined,
-              }}
-            >
-              {options.map((option, index) => (
-                <Tab
-                  key={index}
-                  data-cy={`${props.dataCyId}-tab-${index}`}
-                  label={option}
-                  disabled={props.disabled}
-                  sx={{
-                    fontSize: fontSize,
-                    minWidth: !scrollable ? 0 : 90,
-                    flex: !scrollable ? 1 : 'auto',
-                    padding: '6px 12px',
-                    '&.Mui-selected': {
-                      backgroundColor: `${TRgba.fromString(props.randomMainColor).negate().setAlpha(0.1)}`,
-                      borderTopLeftRadius: 4,
-                      borderTopRightRadius: 4,
-                    },
-                    '&:hover': {
-                      backgroundColor: `${TRgba.fromString(props.randomMainColor).negate().setAlpha(0.05)}`,
-                      opacity: 1,
-                    },
-                    textTransform: 'none',
-                  }}
-                />
-              ))}
-            </Tabs>
-          </Box>
-        </WidgetPaper>
-      </ThemeProvider>
+            {options.map((option, index) => (
+              <Tab
+                key={index}
+                data-cy={`${props.dataCyId}-tab-${index}`}
+                label={option}
+                disabled={props.disabled}
+                sx={{
+                  fontSize: fontSize,
+                  minWidth: !scrollable ? 0 : 90 * tokens.scale,
+                  minHeight: `${tokens.tabHeight}px`,
+                  flex: !scrollable ? 1 : 'auto',
+                  padding: `${6 * tokens.scale}px ${12 * tokens.scale}px`,
+                  // was a fixed tint derived from MAIN_COLOR, which ignored
+                  // the theme outright. action.selected/action.hover are the
+                  // palette's own interaction layers and follow light/dark.
+                  '&.Mui-selected': {
+                    color: `${color}.main`,
+                    backgroundColor: 'action.selected',
+                    borderTopLeftRadius: tabRadius,
+                    borderTopRightRadius: tabRadius,
+                  },
+                  '&:hover': {
+                    backgroundColor: 'action.hover',
+                    opacity: 1,
+                  },
+                  textTransform: 'none',
+                }}
+              />
+            ))}
+          </Tabs>
+        </Box>
+      </WidgetPaper>
     );
   }
 }

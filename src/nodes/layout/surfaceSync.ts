@@ -259,7 +259,6 @@ export class SurfaceSync {
               : {}),
             id: elementId,
             index: 0,
-            randomMainColor: MAIN_COLOR,
           },
           displayName: DynamicWidgetName,
           custom: {},

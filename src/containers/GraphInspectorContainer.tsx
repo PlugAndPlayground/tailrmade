@@ -16,7 +16,6 @@ import { useIsSmallScreen } from '../utils/utils';
 
 type GraphInspectorContainerProps = {
   selectedNodes: PPNode[];
-  randomMainColor: string;
   filter: string;
   setFilter: React.Dispatch<React.SetStateAction<string>>;
   filterText: string;
@@ -26,7 +25,6 @@ type GraphInspectorContainerProps = {
 const GraphInspectorContainer: React.FunctionComponent<
   GraphInspectorContainerProps
 > = (props) => {
-
   return (
     <ThemeProvider theme={customTheme}>
       <Stack
@@ -43,7 +41,6 @@ const GraphInspectorContainer: React.FunctionComponent<
         <NodeArrayContainer
           graphId={PPGraph.currentGraph?.id}
           selectedNodes={props.selectedNodes}
-          randomMainColor={props.randomMainColor}
           filter={props.filter}
           setFilter={props.setFilter}
           filterText={props.filterText}

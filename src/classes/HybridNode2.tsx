@@ -2,7 +2,7 @@ import * as PIXI from 'pixi.js';
 import React, { useEffect, useState } from 'react';
 import { TRgba } from '../utils/color';
 import { createRoot, Root } from 'react-dom/client';
-import { Box } from '@mui/material';
+import { Box, ThemeProvider } from '@mui/material';
 import PPGraph from './GraphClass';
 import PPNode from './NodeClass';
 import UpdateBehaviourClass from './UpdateBehaviourClass';
@@ -26,6 +26,7 @@ import {
   NODE_SOURCE,
   MAIN_COLOR,
   UNSET_VALUE,
+  customTheme,
 } from '../utils/constants';
 import { DEFAULT_DASHBOARD_ICON } from '../components/dashboard/dashboardIcons';
 import {
@@ -85,7 +86,6 @@ type CanvasHybridNodeContentProps<T extends HybridNode2 = HybridNode2> = {
   selected: boolean;
   isOnlySelected: boolean;
   isInteractionEnabled: boolean;
-  randomMainColor: string;
   dataCyId: string;
   width?: string;
   height?: string;
@@ -155,7 +155,6 @@ function CanvasHybridNodeContent<T extends HybridNode2>(
           id={props.node.id}
           selected={props.selected}
           isOnlySelected={props.isOnlySelected}
-          randomMainColor={props.randomMainColor}
           node={props.node}
           isInteractionEnabled={props.isInteractionEnabled}
           inDashboard={false}
@@ -409,17 +408,18 @@ export default abstract class HybridNode2 extends PPNode implements Layoutable {
       const interactionState = this.getInteractionRenderState();
       this.lastInteractionRenderState = interactionState;
       this.root.render(
-        <CanvasHybridNodeContent
-          node={this}
-          widgetInputProps={props}
-          selected={interactionState.selected}
-          isOnlySelected={interactionState.isOnlySelected}
-          isInteractionEnabled={interactionState.isInteractionEnabled}
-          randomMainColor={MAIN_COLOR}
-          dataCyId={`${this.id}-canvas`}
-          width={widgetProps.width}
-          height={widgetProps.height}
-        />,
+        <ThemeProvider theme={customTheme}>
+          <CanvasHybridNodeContent
+            node={this}
+            widgetInputProps={props}
+            selected={interactionState.selected}
+            isOnlySelected={interactionState.isOnlySelected}
+            isInteractionEnabled={interactionState.isInteractionEnabled}
+            dataCyId={`${this.id}-canvas`}
+            width={widgetProps.width}
+            height={widgetProps.height}
+          />
+        </ThemeProvider>,
       );
       this.hasRendered = true;
     }
@@ -766,7 +766,6 @@ const DynamicWidgetContainerHybridNodeInner: React.FunctionComponent<
             isOnlySelected={PPGraph.currentGraph.selection.isOnlySelectedNode(
               props.property,
             )}
-            randomMainColor={props.randomMainColor}
             node={props.property}
             isInteractionEnabled={props.property.isInteractionEnabled()}
             inDashboard={true}

@@ -20,6 +20,7 @@ import { FlexDirection } from '../../utils/interfaces';
 import { getNewDirection } from '../../utils/layoutableHelpers';
 import { useIsDashboardNarrow } from './hooks';
 import { UNSET_VALUE } from '../../utils/constants';
+import { AppThemeProvider } from './AppThemeProvider';
 
 // ids of UI surface nodes currently being rendered up the React tree; used
 // to break render cycles between mutually embedded surfaces
@@ -37,7 +38,6 @@ export interface SurfaceRendererProps {
   rootId?: string;
   // false = preview only (e.g. on the canvas), pointer events are disabled
   interactive?: boolean;
-  randomMainColor: string;
   // ids of UI surface nodes already being rendered up the tree (cycle guard)
   visitedSurfaceIds?: string[];
 }
@@ -89,9 +89,8 @@ const FallbackItem: React.FC<{ label: string }> = ({ label }) => (
 // this is a static preview of the layout structure.
 const DashboardContainerPreview: React.FC<{
   item: SerializedCraftItem;
-  randomMainColor: string;
   children: React.ReactNode;
-}> = ({ item, randomMainColor, children }) => {
+}> = ({ item, children }) => {
   const layoutableElement = getLayoutableElement(item.props.id);
   if (!layoutableElement) {
     return <FallbackItem label={`Missing ${item.displayName || 'widget'}`} />;
@@ -108,7 +107,6 @@ const DashboardContainerPreview: React.FC<{
     >
       {layoutableElement.getDashboardWrapper({
         index: item.props.index ?? 0,
-        randomMainColor,
         disabled: true,
         isEditMode: false,
         isSurfacePreview: true,
@@ -131,7 +129,6 @@ export const SurfaceRenderer: React.FC<SurfaceRendererProps> = ({
   tree,
   rootId = RootName,
   interactive = false,
-  randomMainColor,
   visitedSurfaceIds = [],
 }) => {
   const isNarrow = useIsDashboardNarrow();
@@ -205,17 +202,12 @@ export const SurfaceRenderer: React.FC<SurfaceRendererProps> = ({
             isEditMode={false}
             isSurfacePreview
             parentDirection={parentDirection}
-            randomMainColor={item.props.randomMainColor ?? randomMainColor}
             wrapperExtraProps={{ visitedSurfaceIds }}
           />
         );
       case DashboardContainerName:
         return (
-          <DashboardContainerPreview
-            key={itemId}
-            item={item}
-            randomMainColor={randomMainColor}
-          >
+          <DashboardContainerPreview key={itemId} item={item}>
             {children}
           </DashboardContainerPreview>
         );
@@ -254,17 +246,23 @@ export const SurfaceRenderer: React.FC<SurfaceRendererProps> = ({
     }
   };
 
+  // App content, wherever it renders - a canvas thumbnail, an embedded
+  // surface, a modal - follows the APP theme, not the editor's. A canvas
+  // thumbnail on the editor theme would disagree with the same surface in the
+  // dashboard, which is exactly the divergence the boundary exists to prevent.
   return (
-    <Box
-      data-cy="surface-renderer"
-      sx={{
-        width: '100%',
-        height: '100%',
-        overflow: 'auto',
-        pointerEvents: interactive ? 'auto' : 'none',
-      }}
-    >
-      {renderItem(rootId, undefined)}
-    </Box>
+    <AppThemeProvider>
+      <Box
+        data-cy="surface-renderer"
+        sx={{
+          width: '100%',
+          height: '100%',
+          overflow: 'auto',
+          pointerEvents: interactive ? 'auto' : 'none',
+        }}
+      >
+        {renderItem(rootId, undefined)}
+      </Box>
+    </AppThemeProvider>
   );
 };

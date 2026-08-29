@@ -18,7 +18,6 @@ import { ResizeHandle } from '../LeftRightDrawer';
 import { useDragResize } from '../useDragResize';
 
 type DashboardColumnProps = {
-  randomMainColor: string;
   overlayState: IOverlay;
   updateOverlayState: (newState: Partial<IOverlay>) => void;
   isEditMode: boolean;
@@ -28,7 +27,6 @@ type DashboardColumnProps = {
 };
 
 const DashboardColumn: React.FunctionComponent<DashboardColumnProps> = ({
-  randomMainColor,
   overlayState,
   updateOverlayState,
   isEditMode,
@@ -95,7 +93,7 @@ const DashboardColumn: React.FunctionComponent<DashboardColumnProps> = ({
         overflow: 'hidden',
         background:
           isVisible || appView
-            ? getDashboardBackground(randomMainColor).toString()
+            ? getDashboardBackground().toString()
             : 'transparent',
         boxShadow:
           isVisible && !appView ? '0 0 24px rgba(0, 0, 0, 0.5)' : 'none',
@@ -129,7 +127,6 @@ const DashboardColumn: React.FunctionComponent<DashboardColumnProps> = ({
             isVisible={isVisible || appView}
             isEditMode={isEditMode}
             appView={appView}
-            randomMainColor={randomMainColor}
             overlayState={overlayState}
             updateOverlayState={updateOverlayState}
           />

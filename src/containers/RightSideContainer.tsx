@@ -16,9 +16,9 @@ import { DashboardInspectorWrapper } from '../components/dashboard/DashboardInsp
 import PPGraph from '../classes/GraphClass';
 import { NodeArrayContainer } from './NodeArrayContainer';
 import { customTheme, RightDrawerView } from '../utils/constants';
+import { ThemeSettings } from '../components/dashboard/ThemePanel';
 
 type RightSideContainerProps = {
-  randomMainColor: string;
   rightDrawerView: RightDrawerView;
   setRightDrawerView: (view: RightDrawerView) => void;
   selectedNodes: any[];
@@ -31,7 +31,6 @@ type RightSideContainerProps = {
 };
 
 const RightSideContainerInner: React.FC<RightSideContainerProps> = ({
-  randomMainColor,
   rightDrawerView,
   setRightDrawerView,
   selectedNodes,
@@ -64,7 +63,6 @@ const RightSideContainerInner: React.FC<RightSideContainerProps> = ({
       return (
         <NodeInspectorContainer
           selectedNodes={selectedNodes}
-          randomMainColor={randomMainColor}
           filter={nodeFilter}
           setFilter={setNodeFilter}
         />
@@ -75,7 +73,6 @@ const RightSideContainerInner: React.FC<RightSideContainerProps> = ({
       <NodeArrayContainer
         graphId={PPGraph.currentGraph?.id}
         selectedNodes={selectedNodes}
-        randomMainColor={randomMainColor}
         filter={graphFilter}
         setFilter={setGraphFilter}
         filterText={graphFilterText}
@@ -84,7 +81,6 @@ const RightSideContainerInner: React.FC<RightSideContainerProps> = ({
     );
   }, [
     selectedNodes,
-    randomMainColor,
     nodeFilter,
     setNodeFilter,
     graphFilter,
@@ -97,15 +93,19 @@ const RightSideContainerInner: React.FC<RightSideContainerProps> = ({
     return (
       <Stack spacing={2}>
         <InfoContent graph={PPGraph.currentGraph} />
+        {/* the theme belongs to the app, not to a surface, so it lives beside
+            the other app-wide settings rather than in the dashboard's own
+            chrome - and it stays reachable outside edit mode, where widgets
+            render in their disabled state and cannot be judged */}
+        <ThemeSettings />
         <SourceContent
           header="App Configuration"
           editable={true}
           source={PPGraph.currentGraph}
-          randomMainColor={randomMainColor}
         />
       </Stack>
     );
-  }, [PPGraph.currentGraph, randomMainColor]);
+  }, [PPGraph.currentGraph]);
 
   return (
     <ThemeProvider theme={customTheme}>
@@ -168,7 +168,6 @@ const areEqual = (
 ) => {
   return (
     prevProps.rightDrawerView === nextProps.rightDrawerView &&
-    prevProps.randomMainColor === nextProps.randomMainColor &&
     prevProps.nodeFilter === nextProps.nodeFilter &&
     prevProps.graphFilter === nextProps.graphFilter &&
     prevProps.graphFilterText === nextProps.graphFilterText &&

@@ -244,7 +244,6 @@ export default CommonContent;
 // Component for displaying common sockets across selected nodes
 interface CommonSocketsArrayProps {
   commonSockets: CommonSocket[];
-  randomMainColor: string;
   selectedNodes: PPNode[];
   filter?: string;
   value?: string;
@@ -253,7 +252,6 @@ interface CommonSocketsArrayProps {
 
 const CommonSocketsArrayComponent: React.FC<CommonSocketsArrayProps> = ({
   commonSockets,
-  randomMainColor,
   selectedNodes,
   filter,
   value,
@@ -279,7 +277,6 @@ const CommonSocketsArrayComponent: React.FC<CommonSocketsArrayProps> = ({
             index={index}
             dataType={commonSocket.referenceSocket.dataType}
             data={commonSocket.referenceSocket.data}
-            randomMainColor={randomMainColor}
             selectedNode={selectedNodes[0]}
             socketsToUpdate={commonSocket.sockets}
           />
@@ -384,7 +381,6 @@ function NodeInfoContent(props: NodeInfoContentProps) {
 }
 
 type PropertyArrayContainerProps = {
-  randomMainColor: string;
   filter: string;
   setFilter: React.Dispatch<React.SetStateAction<string>>;
 };
@@ -669,7 +665,6 @@ export const PropertyArrayContainer: React.FunctionComponent<
           )}
           <CommonSocketsArrayComponent
             commonSockets={commonTriggerSockets}
-            randomMainColor={props.randomMainColor}
             selectedNodes={selectedNodes}
             text={SOCKET_SECTIONS.trigger.text}
             filter={props.filter}
@@ -677,7 +672,6 @@ export const PropertyArrayContainer: React.FunctionComponent<
           />
           <CommonSocketsArrayComponent
             commonSockets={commonInputSockets}
-            randomMainColor={props.randomMainColor}
             selectedNodes={selectedNodes}
             text={SOCKET_SECTIONS.in.text}
             filter={props.filter}
@@ -685,7 +679,6 @@ export const PropertyArrayContainer: React.FunctionComponent<
           />
           <CommonSocketsArrayComponent
             commonSockets={commonOutputSockets}
-            randomMainColor={props.randomMainColor}
             selectedNodes={selectedNodes}
             text={SOCKET_SECTIONS.out.text}
             filter={props.filter}
@@ -701,7 +694,6 @@ export const PropertyArrayContainer: React.FunctionComponent<
                     header="Config"
                     editable={true}
                     source={selectedNode}
-                    randomMainColor={props.randomMainColor}
                   />
                 </Stack>
               )}

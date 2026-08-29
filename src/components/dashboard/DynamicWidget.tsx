@@ -29,10 +29,12 @@ import InterfaceController from '../../InterfaceController';
 import { useHoverEvents, useParentDirection } from './hooks';
 import { DynamicWidgetName } from '../../utils/constants_shared';
 import { dynamicWidgetDefaultProps } from '../../utils/surfaceTree';
+import { ColorSetting } from '../../utils/themeColors';
 
 export type DynamicWidgetBaseProps = {
   background: Record<'r' | 'g' | 'b' | 'a', number>;
-  color: Record<'r' | 'g' | 'b' | 'a', number>;
+  // see WidgetLayoutInterface.color - may be the 'inherit' keyword
+  color: ColorSetting;
   flexDirection: FlexDirection;
   alignItems: string;
   justifyContent: string;
@@ -54,7 +56,6 @@ const defaultProps: DynamicWidgetBaseProps =
 export interface DynamicWidgetProps extends DynamicWidgetBaseProps {
   id: string;
   index: number;
-  randomMainColor: string;
   disabled: boolean;
   children?: React.ReactNode;
 }
@@ -118,7 +119,6 @@ export const DynamicWidgetView = (viewProps: DynamicWidgetViewProps) => {
 
   const {
     index,
-    randomMainColor,
     flexDirection,
     alignItems,
     justifyContent,
@@ -154,7 +154,6 @@ export const DynamicWidgetView = (viewProps: DynamicWidgetViewProps) => {
       )}
       {layoutableElement.getDashboardWrapper({
         index,
-        randomMainColor,
         isEditMode,
         disabled: isEditMode ? true : disabled,
         height: style.height as string,

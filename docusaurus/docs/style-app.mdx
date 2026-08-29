@@ -1,0 +1,186 @@
+# Style your app
+
+Your app's look is set in one place - the **theme** - and everything in the
+user interface reads from it. Widgets, containers and static text all follow
+the theme by default, so switching a preset or flipping to light mode restyles
+the whole app without touching a single widget.
+
+You can still override any individual piece when you need to. This page covers
+the theme first, then the per-container escape hatches.
+
+## Open the theme settings
+
+Press `5` (or click the **App** tab in the right drawer) and open the **App
+theme** box.
+
+The theme belongs to the app, not to a UI surface - it applies to every page of
+your interface.
+
+The collapsed row summarises what is in force: the preset name, the mode, a
+`N changed` chip if you have overridden anything, and swatches of the main
+colors.
+
+## Presets
+
+A preset is a complete look - colors for both light and dark, typography,
+geometry and control styles. Pick one as your starting point.
+
+Switching preset is instant and non-destructive - your own app is the preview.
+
+:::info
+Switching a preset **keeps** any values you overrode by hand. That is
+deliberate, but it means a new preset can look wrong until you notice the
+overrides. The panel tells you: see [Overrides](#overrides-and-resetting).
+:::
+
+## Mode
+
+Three choices: **Light**, **Dark** and **System**.
+
+New apps are **Dark**. Every preset defines a complete set of colors for both
+modes, so switching can never leave you in a half-styled state.
+
+**System** follows the viewer's operating-system preference.
+
+## Colors
+
+Colors are authored as **roles**, not as a palette of arbitrary values. Each
+role has a job, and everything in the app that needs that job reads the role:
+
+| Role                                     | Used for                                        |
+| ---------------------------------------- | ----------------------------------------------- |
+| `primary`                                | The main accent - buttons, active states        |
+| `secondary`                              | The supporting accent                           |
+| `background.default`                     | The app's ground                                |
+| `background.paper`                       | Cards, widgets and panels sitting on the ground |
+| `text.primary` / `text.secondary`        | Body text and its quieter companion             |
+| `divider`                                | Rules and borders                               |
+| `error` / `warning` / `info` / `success` | Status colors                                   |
+
+You author only the base value of each role - hover states, active states and
+readable contrast text are derived from it.
+
+:::tip
+If you set body text and background too close together, the panel shows a
+contrast warning with the measured ratio and the 4.5:1 that body text needs. It
+only warns - low contrast is allowed if you want it.
+:::
+
+## Typography, geometry and variants
+
+- **fontFamily** / **fontFamilyMono** - the body and monospace families. Fonts
+  load at runtime; fully offline viewers fall back to the stack's fallback
+  family.
+- **fontSizeScalar** - a multiplier on the whole type scale, not an absolute
+  size. Only text scales; control heights and icons do not.
+- **radius** - corner rounding.
+- **density (controls)** - the geometry of a _control_: height, inner padding,
+  icon size. `XS` through `XL`.
+- **spacingUnit (layout)** - the geometry of _layout_: gaps, margins, surface
+  padding. Independent of density on purpose - a compact form inside a generous
+  card is a legitimate design.
+- **elevation** - `none`, `subtle` or `raised`. A character, not a shadow ramp.
+- **Default variants** - the shape every button (`contained` / `outlined` /
+  `text`) and input (`outlined` / `filled` / `standard`) takes unless something
+  overrides it.
+
+## Overrides and resetting
+
+Changing any single value creates an **override**: your value wins over the
+preset's, and it survives a preset switch.
+
+The panel makes this visible. When anything is overridden you get a notice
+listing every changed role, with:
+
+- a **✕** on each chip to reset that one value back to the preset
+- **Reset all** to drop every override at once
+
+An overridden row is also marked individually, with its own reset button.
+
+## How widgets pick up the theme
+
+Most widgets expose a **Color** socket holding a palette _role_ -
+`primary`, `secondary`, `success`, `error`, `info` or `warning` - rather than a
+literal color. The widget then renders in whatever that role currently resolves
+to, so it follows the theme through every preset and both modes.
+
+Color controls in the interface editor have a **Theme** checkbox. While it is
+ticked, that slot defers to the theme instead of naming a value:
+
+- a **text** color defers by inheriting the surrounding text color
+- a **background** defers by being fully transparent, so the themed surface
+  behind it shows through
+
+Untick it to pick a specific color, and tick it again to hand the slot back to
+the theme.
+
+## Customize container styling
+
+Everything above is app-wide. Individual containers can go further.
+
+In addition to _Direction, Padding, Alignment, Width, Height, Background color,_
+you can apply custom CSS styling to widget containers.
+
+### Custom CSS Properties
+
+Add custom CSS properties as a JSON object to apply additional styles to a
+container:
+
+**Example:**
+
+```json
+{
+  "border": "2px solid #3498db",
+  "boxShadow": "0 4px 6px rgba(0,0,0,0.1)",
+  "borderRadius": "8px",
+  "fontFamily": "monospace"
+}
+```
+
+These properties will be merged with the container's existing styles, allowing
+you to:
+
+- Add borders and shadows
+- Set custom fonts
+- Apply transforms
+- Add transitions and animations
+- Override any CSS property
+
+:::tip
+Custom CSS properties take precedence over the default container styles,
+allowing you to fine-tune the appearance of your UI.
+:::
+
+:::caution
+A literal color here cannot follow the theme - it stays the same in light and
+dark and through every preset. Prefer the theme for color, and keep custom CSS
+for the things the theme does not cover.
+:::
+
+### Dynamic container styling
+
+For dynamic layouts controlled by the node graph, use the **Widget Container**
+node's **Layout** socket:
+
+1. Add a `Widget Container` node to the canvas
+2. Unhide the `Layout` input socket
+3. Construct the layout options using JSON nodes
+
+![Construct custom css](/img/screenshots/create-custom-css.png)
+
+:::tip
+To see the base settings (JSON), drag a connection from the Layout socket,
+release the mouse and add a _Code editor_ node
+:::
+
+## Which layer wins
+
+From weakest to strongest:
+
+1. **Preset** - the look you started from
+2. **Theme override** - a role you changed by hand in the App theme box
+3. **Container / widget setting** - a color or variant set on one element
+4. **Custom CSS** - the last word for that container
+
+Anything left on **Theme** at step 3 falls through to the layers above it, which
+is what makes a preset switch reach the whole app.

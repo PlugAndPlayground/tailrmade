@@ -19,6 +19,7 @@ import {
   surfaceRadioGroupSocketName,
   surfaceRouteSocketName,
 } from './constants_shared';
+import { INHERIT_COLOR } from './themeColors';
 // a standalone, import-free utility (safe under this module's isolation
 // discipline - see note below) that fixes up pre-v2 widthMode/heightMode
 // widget props; legacy layouts.default trees may still carry that format
@@ -31,7 +32,7 @@ import {
   parseLegacyElementId,
 } from './elementIds';
 
-export const GRAPH_DATA_VERSION = 4;
+export const GRAPH_DATA_VERSION = 5;
 const LEGACY_GRAPH_DATA_VERSION = 0.1;
 
 type GraphMigration = {
@@ -754,35 +755,42 @@ function migrateSocketElementIdsInTree(
   return migrated;
 }
 
-function migrateSocketElementIdsV3ToV4(
+/**
+ * Rewrites every Layout JSON socket's tree with `migrateTree` and stamps the
+ * graph with `version`.
+ *
+ * The socket stores the tree as a {version, tree} envelope, a bare tree
+ * object, or a JSON string of either (see coerceSurfaceTree in
+ * surfaceSync.ts) - each tree is rewritten in place, keeping its encoding, and
+ * malformed data is left exactly as it is (the tolerant runtime parser handles
+ * it).
+ */
+function migrateSurfaceTrees(
   graphData: SerializedGraph,
+  version: number,
+  migrateTree: (tree: Record<string, any>) => Record<string, any>,
 ): SerializedGraph {
   return {
     ...graphData,
-    version: 4,
+    version,
     nodes: graphData.nodes.map((node) => {
       const socketArray = node.socketArray.map((socket) => {
         if (socket.name !== surfaceJsonSocketName || socket.data == null) {
           return socket;
         }
-        // the Layout JSON socket stores the tree as a {version, tree}
-        // envelope, a bare tree object, or a JSON string of either (see
-        // coerceSurfaceTree in surfaceSync.ts) - rewrite in place, keeping
-        // the encoding, and leave malformed data exactly as it is (the
-        // tolerant runtime parser handles it)
         try {
           const wasString = typeof socket.data === 'string';
           const decoded = wasString ? JSON.parse(socket.data) : socket.data;
           const isEnvelope =
             decoded &&
             typeof decoded === 'object' &&
-            decoded.tree &&
+            'tree' in decoded &&
             typeof decoded.tree === 'object';
           const tree = isEnvelope ? decoded.tree : decoded;
           if (!tree || typeof tree !== 'object') {
             return socket;
           }
-          const migratedTree = migrateSocketElementIdsInTree(tree);
+          const migratedTree = migrateTree(tree);
           const reEncoded = isEnvelope
             ? { ...decoded, tree: migratedTree }
             : migratedTree;
@@ -797,6 +805,76 @@ function migrateSocketElementIdsV3ToV4(
       return { ...node, socketArray };
     }),
   };
+}
+
+function migrateSocketElementIdsV3ToV4(
+  graphData: SerializedGraph,
+): SerializedGraph {
+  return migrateSurfaceTrees(graphData, 4, migrateSocketElementIdsInTree);
+}
+
+// The root surface used to bake the editor theme's dark background and a white
+// text color into every tree, and containers baked rgb(51,51,51) text. With a
+// theme in the app document those values mask it outright: the app can never
+// change its own background, and text ignores the palette.
+//
+// Only values that are BYTE-IDENTICAL to the shipped legacy defaults are
+// rewritten. A creator who picked a color keeps it - this migration is for
+// documents that never made a choice, not a restyle of everyone's app.
+const LEGACY_ROOT_BACKGROUND = { r: 9, g: 13, b: 26, a: 1 };
+const LEGACY_ROOT_TEXT = { r: 244, g: 250, b: 249, a: 1 };
+const LEGACY_CONTAINER_TEXT = { r: 51, g: 51, b: 51, a: 1 };
+
+function isExactColor(
+  value: unknown,
+  expected: Record<'r' | 'g' | 'b' | 'a', number>,
+): boolean {
+  if (typeof value !== 'object' || value === null) {
+    return false;
+  }
+  const color = value as Record<string, unknown>;
+  return (['r', 'g', 'b', 'a'] as const).every((channel) => {
+    const raw = color[channel];
+    if (typeof raw !== 'number' && typeof raw !== 'string') {
+      return false;
+    }
+    return raw !== '' && Number(raw) === expected[channel];
+  });
+}
+
+function migrateSurfaceColorsInTree(
+  tree: Record<string, any>,
+): Record<string, any> {
+  const migrated: Record<string, any> = {};
+  Object.entries(tree).forEach(([key, item]) => {
+    const props = item?.props;
+    if (typeof props !== 'object' || props === null) {
+      migrated[key] = item;
+      return;
+    }
+    const isRoot = key === RootName;
+    const nextProps: Record<string, any> = { ...props };
+    let changed = false;
+
+    if (isRoot && isExactColor(props.background, LEGACY_ROOT_BACKGROUND)) {
+      nextProps.background = { r: 0, g: 0, b: 0, a: 0 };
+      changed = true;
+    }
+    const legacyText = isRoot ? LEGACY_ROOT_TEXT : LEGACY_CONTAINER_TEXT;
+    if (isExactColor(props.color, legacyText)) {
+      nextProps.color = INHERIT_COLOR;
+      changed = true;
+    }
+
+    migrated[key] = changed ? { ...item, props: nextProps } : item;
+  });
+  return migrated;
+}
+
+function migrateSurfaceColorsV4ToV5(
+  graphData: SerializedGraph,
+): SerializedGraph {
+  return migrateSurfaceTrees(graphData, 5, migrateSurfaceColorsInTree);
 }
 
 const GRAPH_MIGRATIONS: GraphMigration[] = [
@@ -814,6 +892,11 @@ const GRAPH_MIGRATIONS: GraphMigration[] = [
     fromVersion: 3,
     toVersion: 4,
     migrate: migrateSocketElementIdsV3ToV4,
+  },
+  {
+    fromVersion: 4,
+    toVersion: 5,
+    migrate: migrateSurfaceColorsV4ToV5,
   },
 ];
 

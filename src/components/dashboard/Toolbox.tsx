@@ -27,6 +27,7 @@ import { PlaceholderWidget } from './PlaceholderWidget';
 import { NODE_SOURCE } from '../../utils/constants';
 import { useDashboardPanelWidth } from './hooks';
 import { setToolboxOpen, useToolboxOpen } from './viewState';
+import { MAIN_COLOR } from '../../utils/constants';
 
 export const draggedWidgetType = 'widget-node';
 
@@ -81,7 +82,6 @@ type WidgetNodeButtonProps = {
   node: any;
   widgetId: string;
   connectors: CraftHandle;
-  randomMainColor: string;
   addToDashboard: (itemToAdd: any) => Promise<void> | void;
   onAdded: () => void;
 };
@@ -91,7 +91,6 @@ const WidgetNodeButton: React.FC<WidgetNodeButtonProps> = ({
   node,
   widgetId,
   connectors,
-  randomMainColor,
   addToDashboard,
   onAdded,
 }) => {
@@ -134,7 +133,7 @@ const WidgetNodeButton: React.FC<WidgetNodeButtonProps> = ({
             <Element
               is={PlaceholderWidget}
               text={`Loading ${node.name}...`}
-              background={TRgba.fromString(randomMainColor)
+              background={TRgba.fromString(MAIN_COLOR)
                 .darken(0.6)
                 .setAlpha(0.2)
                 .toString()}
@@ -300,7 +299,7 @@ const StaticToolButton: React.FC<StaticToolButtonProps> = ({
   );
 };
 
-const getStaticTools = (randomMainColor: string) => [
+const getStaticTools = () => [
   {
     icon: TableRowsIcon,
     tooltip: 'Container stacked',
@@ -311,7 +310,7 @@ const getStaticTools = (randomMainColor: string) => [
         canvas
         is={Container}
         padding={[8, 8, 8, 8]}
-        background={getDefaultContainerBackground(randomMainColor)}
+        background={getDefaultContainerBackground()}
         gap={8}
         flexDirection="column"
       />
@@ -327,7 +326,7 @@ const getStaticTools = (randomMainColor: string) => [
         canvas
         is={Container}
         padding={[8, 8, 8, 8]}
-        background={getDefaultContainerBackground(randomMainColor)}
+        background={getDefaultContainerBackground()}
         gap={8}
         flexDirection="row"
       />
@@ -343,21 +342,17 @@ const getStaticTools = (randomMainColor: string) => [
         fontSize={24}
         textAlign="left"
         fontWeight="normal"
-        color={TRgba.fromString(randomMainColor).getContrastTextColor()}
+        color={TRgba.fromString(MAIN_COLOR).getContrastTextColor()}
       />
     ),
   },
 ];
 
 type ToolboxProps = {
-  randomMainColor: string;
   addToDashboard: (itemToAdd: any) => Promise<void> | void;
 };
 
-export const Toolbox: React.FC<ToolboxProps> = ({
-  randomMainColor,
-  addToDashboard,
-}) => {
+export const Toolbox: React.FC<ToolboxProps> = ({ addToDashboard }) => {
   const { actions, connectors, query } = useEditor();
   const [widgetNodes, setWidgetNodes] = useState<any[]>([]);
   const [layoutableNodes, setLayoutableNodes] = useState<[string, any][]>([]);
@@ -367,10 +362,7 @@ export const Toolbox: React.FC<ToolboxProps> = ({
   const isCollapsed = useIsToolboxCollapsed();
   const isOpen = useToolboxOpen();
 
-  const staticTools = useMemo(
-    () => getStaticTools(randomMainColor),
-    [randomMainColor],
-  );
+  const staticTools = useMemo(() => getStaticTools(), []);
 
   // Crossing the breakpoint resets the toolbox: a panel that just got too
   // narrow must not have it covering the surface, and one that just got wide
@@ -585,7 +577,6 @@ export const Toolbox: React.FC<ToolboxProps> = ({
                   node={node}
                   widgetId={getWidgetId(node.key)}
                   connectors={connectors}
-                  randomMainColor={randomMainColor}
                   addToDashboard={addToDashboard}
                   onAdded={() => regenerateWidgetId(node.key)}
                 />

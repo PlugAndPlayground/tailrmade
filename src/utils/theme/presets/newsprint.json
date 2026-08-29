@@ -1,0 +1,40 @@
+{
+  "id": "newsprint",
+  "name": "Newsprint",
+  "description": "Ink on stock. Serif, flat, quiet controls.",
+  "roles": {
+    "light": {
+      "primary": "#1A1A1A",
+      "secondary": "#8C2F1E",
+      "background.default": "#F7F5F0",
+      "background.paper": "#FFFEFA",
+      "text.primary": "#141414",
+      "text.secondary": "rgba(20, 20, 20, 0.66)",
+      "divider": "rgba(20, 20, 20, 0.28)",
+      "error": "#A32118",
+      "warning": "#7A5410",
+      "info": "#1F4F73",
+      "success": "#2C5F30"
+    },
+    "dark": {
+      "primary": "#EDEAE3",
+      "secondary": "#E0876E",
+      "background.default": "#131211",
+      "background.paper": "#1B1A18",
+      "text.primary": "#EDEAE3",
+      "text.secondary": "rgba(237, 234, 227, 0.66)",
+      "divider": "rgba(237, 234, 227, 0.28)",
+      "error": "#E88379",
+      "warning": "#D6AC5E",
+      "info": "#84B2D6",
+      "success": "#8CB98F"
+    }
+  },
+  "typography": {
+    "fontFamily": "Source Serif 4",
+    "fontFamilyMono": "IBM Plex Mono",
+    "fontSizeScalar": 1.0625
+  },
+  "geometry": { "radius": 0, "density": "M", "spacingUnit": 8, "elevation": "none" },
+  "variants": { "button": "text", "input": "standard" }
+}

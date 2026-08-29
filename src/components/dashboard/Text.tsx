@@ -8,13 +8,17 @@ import {
   SliderControl,
 } from './SettingsControls';
 import { DATA_DASHBOARD_EDITABLE } from '../../utils/constants';
-import { TRgba } from '../../utils/color';
+import {
+  ColorSetting,
+  colorSettingToCss,
+  INHERIT_COLOR,
+} from '../../utils/themeColors';
 
 type TextWidgetProps = {
   fontSize: number;
   textAlign: string;
   fontWeight: string;
-  color: Record<'r' | 'g' | 'b' | 'a', string>;
+  color: ColorSetting;
   text: string;
 };
 
@@ -22,7 +26,8 @@ export const textDefaultProps: TextWidgetProps = {
   fontSize: 20,
   textAlign: 'left',
   fontWeight: 'normal',
-  color: { r: '51', g: '51', b: '51', a: '1' },
+  // defers to the app theme's text.primary
+  color: INHERIT_COLOR,
   text: 'Hi',
 };
 
@@ -44,7 +49,7 @@ function Contenteditable(props) {
       }}
       style={{
         fontSize: `${props.fontSize}px`,
-        color: props.color,
+        color: colorSettingToCss(props.color),
         textAlign: props.textAlign,
         fontWeight: props.fontWeight,
         whiteSpace: 'pre-wrap',
@@ -81,7 +86,7 @@ export const TextView = ({
         value={text}
         onChange={onChange ?? (() => {})}
         fontSize={fontSize}
-        color={Object.assign(new TRgba(), color).toString()}
+        color={color}
         fontWeight={fontWeight}
         textAlign={textAlign}
       />

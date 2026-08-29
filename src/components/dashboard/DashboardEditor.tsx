@@ -5,6 +5,7 @@ import { Box, Typography } from '@mui/material';
 import DashboardCustomizeIcon from '@mui/icons-material/DashboardCustomize';
 import EditIcon from '@mui/icons-material/Edit';
 import { Frame, Element, useEditor } from '@craftjs/core';
+import { AppThemeProvider } from './AppThemeProvider';
 import * as PIXI from 'pixi.js';
 import PPGraph from '../../classes/GraphClass';
 import InterfaceController, { ListenEvent } from '../../InterfaceController';
@@ -50,6 +51,7 @@ import {
 import type { UISurfaceNode } from '../../nodes/layout/uiSurface';
 import { useDevicePreviewWidth, useDisplayedSurfaceLocked } from './hooks';
 import { setSurfaceStack } from './viewState';
+import { MAIN_COLOR } from '../../utils/constants';
 
 // example structure of a dashboard item
 // {
@@ -87,7 +89,6 @@ import { setSurfaceStack } from './viewState';
 //         "showLabel": false,
 //         "id": "NODE_serious-frog-61", // elementId (NODE | SOCKET + nodeId) of the layoutable element
 //         "index": 0,
-//         "randomMainColor": "#3c54ab"
 //     },
 //     "parent": "ROOT", // parent of the widget
 //     "isCanvas": false, // whether the widget can nest other widgets
@@ -120,13 +121,36 @@ function safeSelectNode(actions: any, query: any, id: string | null) {
   }
 }
 
+// A container (or page) becomes a canvas DashboardContainer, everything else a
+// DynamicWidget - either way carrying the dashboard item's id.
+function buildWidgetNodeTree(
+  query,
+  item: Layoutable,
+  itemId: string,
+  dashboardItemId: string,
+) {
+  const element = item.isContainer() ? (
+    <Element
+      canvas
+      is={DashboardContainer}
+      id={itemId}
+      index={0}
+      {...item.getWidgetProps()}
+    />
+  ) : (
+    <DynamicWidget id={itemId} index={0} {...item.getWidgetProps()} />
+  );
+  return query.parseReactElement(element).toNodeTree((node) => {
+    node.id = dashboardItemId;
+  });
+}
+
 function replacePlaceholderWithActualWidget(
   dashboardItem,
   dashboardItemId: string,
   nodeId: string,
   query,
   actions,
-  randomMainColor: string,
 ) {
   const linkedNode = PPGraph.currentGraph.nodes[nodeId];
   if (!linkedNode || !isLayoutableNode(linkedNode)) {
@@ -139,38 +163,12 @@ function replacePlaceholderWithActualWidget(
 
   // Add actual widget
   const itemId = linkedNode.getDashboardId();
-  let nodeToAdd;
-
-  if (linkedNode.isContainer()) {
-    // Use DashboardContainer for both containers and pages
-    nodeToAdd = query
-      .parseReactElement(
-        <Element
-          canvas
-          is={DashboardContainer}
-          id={itemId}
-          index={0}
-          randomMainColor={randomMainColor}
-          {...linkedNode.getWidgetProps()}
-        />,
-      )
-      .toNodeTree((node) => {
-        node.id = dashboardItemId;
-      });
-  } else {
-    nodeToAdd = query
-      .parseReactElement(
-        <DynamicWidget
-          id={itemId}
-          index={0}
-          randomMainColor={randomMainColor}
-          {...linkedNode.getWidgetProps()}
-        />,
-      )
-      .toNodeTree((node) => {
-        node.id = dashboardItemId;
-      });
-  }
+  const nodeToAdd = buildWidgetNodeTree(
+    query,
+    linkedNode,
+    itemId,
+    dashboardItemId,
+  );
 
   // Insert at same position as placeholder
   const parent = dashboardItem.data.parent;
@@ -188,7 +186,6 @@ function convertWidgetToPlaceholder(
   dashboardItemId: string,
   query,
   actions,
-  randomMainColor: string,
 ) {
   // Node is missing, convert to placeholder
   console.log(
@@ -205,7 +202,7 @@ function convertWidgetToPlaceholder(
       <Element
         is={PlaceholderWidget}
         text={`Missing ${widgetName}...`}
-        background={TRgba.fromString(randomMainColor)
+        background={TRgba.fromString(MAIN_COLOR)
           .darken(0.6)
           .setAlpha(0.2)
           .toString()}
@@ -345,7 +342,6 @@ interface DashboardEditorProps {
   isVisible: boolean;
   isEditMode: boolean;
   appView: boolean;
-  randomMainColor: string;
   overlayState: IOverlay;
   updateOverlayState: (newState: Partial<IOverlay>) => void;
 }
@@ -354,7 +350,6 @@ export const DashboardEditor: React.FC<DashboardEditorProps> = ({
   isVisible,
   isEditMode,
   appView,
-  randomMainColor,
   overlayState,
   updateOverlayState,
 }) => {
@@ -660,7 +655,6 @@ export const DashboardEditor: React.FC<DashboardEditorProps> = ({
                 nodeId,
                 query,
                 actions,
-                randomMainColor,
               );
             }
           }
@@ -682,19 +676,12 @@ export const DashboardEditor: React.FC<DashboardEditorProps> = ({
               dashboardItemId,
               query,
               actions,
-              randomMainColor,
             );
           }
         }
       },
     );
-  }, [
-    query,
-    actions,
-    randomMainColor,
-    getDisplayedSurface,
-    flushEditorTreeToSurface,
-  ]);
+  }, [query, actions, getDisplayedSurface, flushEditorTreeToSurface]);
 
   useEffect(() => {
     const pollInterval = setInterval(pollDashboardItems, 1000);
@@ -783,36 +770,12 @@ export const DashboardEditor: React.FC<DashboardEditorProps> = ({
       }
 
       const dashboardItemId = uuid();
-      let nodeToAdd;
-      if (itemToAdd.isContainer()) {
-        nodeToAdd = query
-          .parseReactElement(
-            <Element
-              canvas
-              is={DashboardContainer}
-              id={itemId}
-              index={0}
-              randomMainColor={randomMainColor}
-              {...itemToAdd.getWidgetProps()}
-            />,
-          )
-          .toNodeTree((node) => {
-            node.id = dashboardItemId;
-          });
-      } else {
-        nodeToAdd = query
-          .parseReactElement(
-            <DynamicWidget
-              id={itemId}
-              index={0}
-              randomMainColor={randomMainColor}
-              {...itemToAdd.getWidgetProps()}
-            />,
-          )
-          .toNodeTree((node) => {
-            node.id = dashboardItemId;
-          });
-      }
+      const nodeToAdd = buildWidgetNodeTree(
+        query,
+        itemToAdd,
+        itemId,
+        dashboardItemId,
+      );
       try {
         addNodeWithPlacement(
           query,
@@ -838,7 +801,6 @@ export const DashboardEditor: React.FC<DashboardEditorProps> = ({
       });
     },
     [
-      randomMainColor,
       overlayState.dashboard,
       updateOverlayState,
       getDisplayedSurface,
@@ -1036,7 +998,7 @@ export const DashboardEditor: React.FC<DashboardEditorProps> = ({
         minWidth: 0,
         minHeight: 0,
         overflowY: 'auto',
-        background: `${getDashboardBackground(randomMainColor)}`,
+        background: `${getDashboardBackground()}`,
         position: 'relative',
       }}
       onDragOver={(e) => e.preventDefault()}
@@ -1054,10 +1016,7 @@ export const DashboardEditor: React.FC<DashboardEditorProps> = ({
         {isVisible &&
           isEditMode &&
           PPGraph.currentGraph.graphConfiguredAndReady && (
-            <Toolbox
-              randomMainColor={randomMainColor}
-              addToDashboard={addToDashboard}
-            />
+            <Toolbox addToDashboard={addToDashboard} />
           )}
 
         {/* Dashboard content */}
@@ -1103,6 +1062,8 @@ export const DashboardEditor: React.FC<DashboardEditorProps> = ({
               sx={{
                 alignSelf: 'stretch',
                 minHeight: 0,
+                display: 'flex',
+                flexDirection: 'column',
                 ...(isDevicePreview
                   ? {
                       boxSizing: 'content-box',
@@ -1119,9 +1080,26 @@ export const DashboardEditor: React.FC<DashboardEditorProps> = ({
                     }),
               }}
             >
-              <Frame>
-                <Element is={Container} canvas {...rootProps}></Element>
-              </Frame>
+              <AppThemeProvider>
+                {/* the app's own ground. The root container paints a
+                    translucent tint over this, so without it a preset or mode
+                    change would only show up on controls, not on the surface
+                    they sit on */}
+                <Box
+                  data-cy="app-theme-surface"
+                  sx={{
+                    flex: '1 0 auto',
+                    width: '100%',
+                    minWidth: 0,
+                    bgcolor: 'background.default',
+                    color: 'text.primary',
+                  }}
+                >
+                  <Frame>
+                    <Element is={Container} canvas {...rootProps}></Element>
+                  </Frame>
+                </Box>
+              </AppThemeProvider>
             </Box>
           </Box>
           {isGraphLoading && !isEditMode && (
@@ -1136,36 +1114,42 @@ export const DashboardEditor: React.FC<DashboardEditorProps> = ({
   );
 };
 
-export const EmptyState: React.FC<{ appView?: boolean }> = ({ appView = false }) => (
-  <Box
-    data-cy="dashboard-empty-state"
-    sx={{
-      display: 'flex',
-      flexDirection: 'column',
-      alignItems: 'center',
-      justifyContent: 'center',
-      height: '100dvh',
-      textAlign: 'left',
-      userSelect: 'none',
-      pt: 4,
-      lineHeight: 1.5,
-    }}
-  >
-    {appView ? (
-      <>
-        <Typography variant="h5" gutterBottom>
-          Nothing to show
-        </Typography>
-        <Typography variant="body1" color="text.secondary">
-          This Tailrmade app has no user interface yet.
-          <br />
-          To build one, click the logo on the top left or press <em>T</em>.
-        </Typography>
-      </>
-    ) : (
-      <EmptyStateBuildSteps />
-    )}
-  </Box>
+export const EmptyState: React.FC<{ appView?: boolean }> = ({
+  appView = false,
+}) => (
+  <AppThemeProvider>
+    <Box
+      data-cy="dashboard-empty-state"
+      sx={{
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        height: '100dvh',
+        textAlign: 'left',
+        userSelect: 'none',
+        p: 4,
+        lineHeight: 1.5,
+        bgcolor: 'background.default',
+        color: 'text.primary',
+      }}
+    >
+      {appView ? (
+        <>
+          <Typography variant="h5" gutterBottom>
+            Nothing to show
+          </Typography>
+          <Typography variant="body1" color="text.secondary">
+            This Tailrmade app has no user interface yet.
+            <br />
+            To build one, click the logo on the top left or press <em>T</em>.
+          </Typography>
+        </>
+      ) : (
+        <EmptyStateBuildSteps />
+      )}
+    </Box>
+  </AppThemeProvider>
 );
 
 const EmptyStateBuildSteps: React.FC = () => (
@@ -1190,10 +1174,9 @@ const EmptyStateBuildSteps: React.FC = () => (
       <br />
       2. Drag new or existing widgets into it
       <br />
-      3. Connect widget nodes to a <em>UI surface</em> node to add them to its
-      UI
+      3. Nest UI surfaces to build pages, containers and dialogs
       <br />
-      4. Nest UI surfaces to build pages, containers and dialogs
+      4. Style them all at once with <em>App theme</em> (press 5)
       <br />
       <em>Tip: Add sockets of nodes by </em>Shift+Clicking
       <em>

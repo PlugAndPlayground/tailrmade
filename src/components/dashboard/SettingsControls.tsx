@@ -1,6 +1,8 @@
 import React from 'react';
 import {
+  Checkbox,
   FormControl,
+  FormControlLabel,
   FormLabel,
   Slider,
   Stack,
@@ -11,6 +13,12 @@ import {
 } from '@mui/material';
 import { TRgba } from '../../utils/color';
 import { ColorPickerComponent, SimpleDataEditor } from '../../widgets';
+import {
+  INHERIT_COLOR,
+  isInheritColor,
+  isTransparentColor,
+  TRANSPARENT_COLOR,
+} from '../../utils/themeColors';
 import {
   ALIGNLEFT_TEXTURE,
   ALIGNCENTERHORIZONTALLY_TEXTURE,
@@ -108,23 +116,58 @@ export const ColorControl = ({
   setProp: any;
   color: any;
   controlBackground: boolean;
-}) => (
-  <FormWrapper>
-    <StyledFormLabel>
-      {controlBackground ? 'Background' : 'Color'}
-    </StyledFormLabel>
-    <ColorPickerComponent
-      defaultColor={TRgba.fromObject(color)}
-      onChange={(color) =>
-        setProp(
-          (props: any) =>
-            (props[controlBackground ? 'background' : 'color'] = color),
-        )
-      }
-      showAlphaSlider={true}
-    />
-  </FormWrapper>
-);
+}) => {
+  const key = controlBackground ? 'background' : 'color';
+  const themeValue = controlBackground ? TRANSPARENT_COLOR : INHERIT_COLOR;
+  const defersToTheme = controlBackground
+    ? isTransparentColor(color)
+    : isInheritColor(color);
+  return (
+    <FormWrapper>
+      <Stack
+        direction="row"
+        sx={{ alignItems: 'center', justifyContent: 'space-between' }}
+      >
+        <StyledFormLabel>
+          {controlBackground ? 'Background' : 'Color'}
+        </StyledFormLabel>
+        {/* the theme owns this slot until the creator names a value.
+            A background defers by being TRANSPARENT, so the themed surface
+            behind it shows through - `background: inherit` would instead copy
+            whatever the parent painted. A foreground cannot do that, because
+            transparent text is invisible rather than inherited, so it defers
+            with the CSS keyword. */}
+        <FormControlLabel
+          sx={{
+            mr: 0,
+            '& .MuiFormControlLabel-label': { fontSize: '0.75rem' },
+          }}
+          control={
+            <Checkbox
+              size="small"
+              checked={defersToTheme}
+              onChange={(event) =>
+                setProp((props: any) => {
+                  props[key] = event.target.checked
+                    ? themeValue
+                    : { r: 128, g: 128, b: 128, a: 1 };
+                })
+              }
+            />
+          }
+          label="Theme"
+        />
+      </Stack>
+      {!defersToTheme && (
+        <ColorPickerComponent
+          defaultColor={TRgba.fromObject(color)}
+          onChange={(next) => setProp((props: any) => (props[key] = next))}
+          showAlphaSlider={true}
+        />
+      )}
+    </FormWrapper>
+  );
+};
 
 export const DimensionInputs = ({
   setProp,
@@ -801,6 +844,14 @@ export const ColorSection: React.FC<SettingsSectionProps> = ({
       setProp={setProp}
       color={props.background || { r: 255, g: 255, b: 255, a: 1 }}
       controlBackground={true}
+    />
+    {/* text color was never exposed here, so a container's color prop could
+        only be set by a wired layout socket - which left creators unable to
+        undo it, or to opt a subtree back into the theme */}
+    <ColorControl
+      setProp={setProp}
+      color={props.color ?? INHERIT_COLOR}
+      controlBackground={false}
     />
   </>
 );

@@ -6,24 +6,30 @@ import {
   FormControl,
   Stack,
   Switch,
-  ThemeProvider,
   Typography,
 } from '@mui/material';
 import {
   WidgetHybridBase,
   WidgetPaper,
   colorOptions,
+  getLabelSocket,
+  getWidgetFontSize,
   labelName,
   outName,
   outIndexName,
   initialValueName,
   variantName,
   sizeName,
+  useWidgetSize,
+  useSizeTokens,
+  getMuiSize,
+  getSizeSocket,
   offValueName,
   onValueName,
   colorName,
   defaultOptions,
 } from './abstract';
+import { useResolvedButtonVariant, useThemeTokens } from '../../utils/theme';
 import { HybridWidgetContentProps } from '../../classes/HybridNode2';
 import Socket from '../../classes/SocketClass';
 import { AnyType } from '../datatypes/anyType';
@@ -33,11 +39,7 @@ import { StringType } from '../datatypes/stringType';
 import { EnumType, EnumStructure } from '../datatypes/enumType';
 import { BooleanType } from '../datatypes/booleanType';
 import { BackPropagation } from '../../interfaces';
-import {
-  DEFAULT_UPDATE_FREQUENCY,
-  SOCKET_TYPE,
-  customTheme,
-} from '../../utils/constants';
+import { DEFAULT_UPDATE_FREQUENCY, SOCKET_TYPE } from '../../utils/constants';
 import {
   ActionHandler,
   BakedAction,
@@ -50,6 +52,11 @@ import PPGraph from '../../classes/GraphClass';
 const disabledName = 'Disabled';
 
 const variantOptions: EnumStructure = [
+  // 'Inherit' first and default, so a button follows the preset's button
+  // variant unless the creator deliberately pins one
+  {
+    text: 'Inherit',
+  },
   {
     text: 'contained',
   },
@@ -102,7 +109,7 @@ export class WidgetButton extends WidgetHybridBase {
     return [
       new Socket(SOCKET_TYPE.IN, offValueName, new AnyType(), 0, false),
       new Socket(SOCKET_TYPE.IN, onValueName, new AnyType(), 1, false),
-      new Socket(SOCKET_TYPE.IN, labelName, new StringType(), 'Button', false),
+      getLabelSocket('Button'),
       new Socket(
         SOCKET_TYPE.IN,
         variantName,
@@ -118,6 +125,7 @@ export class WidgetButton extends WidgetHybridBase {
         false,
       ),
       new Socket(SOCKET_TYPE.IN, disabledName, new BooleanType(), false, false),
+      getSizeSocket(),
       new Socket(SOCKET_TYPE.OUT, outName, new AnyType()),
     ];
   }
@@ -129,10 +137,6 @@ export class WidgetButton extends WidgetHybridBase {
   public getDefaultNodeHeight(): number {
     return 104;
   }
-
-  onNodeResize = (newWidth, newHeight) => {
-    this.forceRerender();
-  };
 
   protected getBackPropagationTargets(): BackPropagation {
     return {
@@ -197,58 +201,64 @@ export class WidgetButton extends WidgetHybridBase {
   getWidgetContent(props: HybridWidgetContentProps): React.ReactElement {
     const node = props.node;
     const isDisabled = props.disabled || props[disabledName];
+    const variant = useResolvedButtonVariant(props[variantName]);
+    const size = useWidgetSize(props[sizeName]);
+    const tokens = useSizeTokens(size);
 
     return (
-      <ThemeProvider theme={customTheme}>
-        <WidgetPaper node={node} inDashboard={props.inDashboard}>
-          <Button
-            data-cy={'button-' + props[labelName]}
-            variant={props[variantName]}
-            color={props[colorName]}
-            size={props[sizeName]}
-            disabled={isDisabled}
-            disableRipple
+      <WidgetPaper node={node} inDashboard={props.inDashboard}>
+        <Button
+          data-cy={'button-' + props[labelName]}
+          variant={variant}
+          color={props[colorName]}
+          size={getMuiSize(size)}
+          disabled={isDisabled}
+          disableRipple
+          sx={{
+            margin: 'auto',
+            minHeight: props.inDashboard
+              ? `${tokens.controlHeight}px`
+              : undefined,
+            lineHeight: props.inDashboard
+              ? `${36 * tokens.scale}px`
+              : `${(node.nodeHeight / 5) * tokens.scale}px`,
+            width: '100%',
+            height: '100%',
+            pointerEvents: isDisabled ? 'none' : undefined,
+            // in the dashboard minHeight (controlHeight) owns the height, so
+            // any fixed padding here can only overshoot it - at XS the 24px
+            // this used to add made the control 42px instead of its 36px token
+            py: props.inDashboard ? 0 : 1.5,
+            '&.Mui-disabled': {
+              opacity: 0.6,
+              color: 'text.secondary',
+              backgroundColor:
+                variant === 'contained'
+                  ? 'action.disabledBackground'
+                  : 'transparent',
+              border: variant === 'outlined' ? '1px solid' : 'none',
+              borderColor:
+                variant === 'outlined' ? 'action.disabled' : undefined,
+            },
+          }}
+          onClick={() => (node as WidgetButton).handleOnClick()}
+        >
+          <Typography
             sx={{
-              margin: 'auto',
-              lineHeight: props.inDashboard
-                ? '36px'
-                : `${node.nodeHeight / 5}px`,
-              width: '100%',
-              height: '100%',
-              pointerEvents: isDisabled ? 'none' : undefined,
-              py: 1.5,
-              '&.Mui-disabled': {
-                opacity: 0.6,
-                color: 'text.secondary',
-                backgroundColor: (theme) =>
-                  props[variantName] === 'contained'
-                    ? 'rgba(80, 80, 80, 0.3)'
-                    : 'transparent',
-                border:
-                  props[variantName] === 'outlined'
-                    ? '1px solid rgba(120, 120, 120, 0.5)'
-                    : 'none',
-              },
+              fontSize: props.inDashboard
+                ? `${tokens.fontSize}px`
+                : `${(node.nodeHeight / 6) * tokens.scale}px`,
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+              maxWidth: '100%',
+              textTransform: 'none',
             }}
-            onClick={() => (node as WidgetButton).handleOnClick()}
           >
-            <Typography
-              sx={{
-                fontSize: props.inDashboard
-                  ? '16px'
-                  : `${node.nodeHeight / 6}px`,
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                whiteSpace: 'nowrap',
-                maxWidth: '100%',
-                textTransform: 'none',
-              }}
-            >
-              {props[labelName]}
-            </Typography>
-          </Button>
-        </WidgetPaper>
-      </ThemeProvider>
+            {props[labelName]}
+          </Typography>
+        </Button>
+      </WidgetPaper>
     );
   }
 }
@@ -311,6 +321,7 @@ export class WidgetButtonGroup extends WidgetHybridBase {
         false,
         false,
       ),
+      getSizeSocket(),
       new Socket(SOCKET_TYPE.OUT, outName, new StringType(), undefined, false),
       new Socket(SOCKET_TYPE.OUT, outIndexName, new NumberType()),
     ];
@@ -327,10 +338,6 @@ export class WidgetButtonGroup extends WidgetHybridBase {
   getPreferredOutputSocketName(): string {
     return outName;
   }
-
-  onNodeResize = (newWidth, newHeight) => {
-    this.forceRerender();
-  };
 
   protected getBackPropagationTargets(): BackPropagation {
     return {
@@ -395,167 +402,183 @@ export class WidgetButtonGroup extends WidgetHybridBase {
 
     // Get configuration props
     const isToggleMode = props[isToggleGroupName];
-    const variant = props[variantName];
+    const variant = useResolvedButtonVariant(props[variantName]);
+    const groupRadius = useThemeTokens().radius;
     const color = props[colorName];
     const isVertical = props[orientationName];
 
     // Calculate dynamic font sizes based on node dimensions
-    const fontSize = props.inDashboard
-      ? '14px'
-      : `${Math.max(12, node.nodeHeight / 12)}px`;
-
-    const headerFontSize = props.inDashboard
-      ? '16px'
-      : `${Math.max(14, node.nodeHeight / 10)}px`;
+    const size = useWidgetSize(props[sizeName]);
+    const tokens = useSizeTokens(size);
+    const fontSize = getWidgetFontSize(
+      tokens,
+      props.inDashboard,
+      node.nodeHeight,
+      12,
+    );
 
     return (
-      <ThemeProvider theme={customTheme}>
-        <WidgetPaper node={node} inDashboard={props.inDashboard}>
+      <WidgetPaper node={node} inDashboard={props.inDashboard}>
+        <Box
+          sx={{
+            width: '100%',
+            height: '100%',
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'center',
+          }}
+        >
           <Box
             sx={{
-              width: '100%',
-              height: '100%',
               display: 'flex',
               flexDirection: 'column',
-              justifyContent: 'center',
+              alignItems: 'center',
+              width: '100%',
+              flex: 1,
             }}
           >
-            <Box
-              sx={{
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                width: '100%',
-                flex: 1,
-              }}
-            >
-              {isToggleMode ? (
-                // Toggle Button Group
-                <Box
-                  sx={{
-                    width: '100%',
-                    display: 'flex',
-                    flexDirection: isVertical ? 'column' : 'row',
-                    justifyContent: 'center',
-                    pointerEvents: props.disabled ? 'none' : undefined,
-                  }}
-                >
-                  {options.map((option, index) => {
-                    const isFirst = index === 0;
-                    const isLast = index === options.length - 1;
+            {isToggleMode ? (
+              // Toggle Button Group
+              <Box
+                sx={{
+                  width: '100%',
+                  display: 'flex',
+                  flexDirection: isVertical ? 'column' : 'row',
+                  justifyContent: 'center',
+                  pointerEvents: props.disabled ? 'none' : undefined,
+                }}
+              >
+                {options.map((option, index) => {
+                  const isFirst = index === 0;
+                  const isLast = index === options.length - 1;
 
-                    return (
-                      <Button
-                        key={index}
-                        variant={
-                          selectedIndex === index ? 'contained' : 'outlined'
-                        }
-                        color={color}
-                        onClick={() =>
-                          void (node as WidgetButtonGroup).handleButtonClick(
-                            index,
-                          )
-                        }
-                        disabled={props.disabled}
-                        sx={{
-                          fontSize: fontSize,
-                          flex: isVertical ? '0 0 auto' : '1 1 0',
-                          minWidth: isVertical ? '90%' : '30%',
-                          ...(selectedIndex === index && {
-                            boxShadow: 2,
-                          }),
-                          py: 1.5,
-                          textTransform: 'none',
-                          borderRadius: 0,
-                          ...(isVertical
-                            ? {
-                                ...(isFirst && {
-                                  borderTopLeftRadius: 4,
-                                  borderTopRightRadius: 4,
-                                }),
-                                ...(isLast && {
-                                  borderBottomLeftRadius: 4,
-                                  borderBottomRightRadius: 4,
-                                }),
-                              }
-                            : {
-                                ...(isFirst && {
-                                  borderTopLeftRadius: 4,
-                                  borderBottomLeftRadius: 4,
-                                }),
-                                ...(isLast && {
-                                  borderTopRightRadius: 4,
-                                  borderBottomRightRadius: 4,
-                                }),
-                              }),
-                          m: 0,
-                          ...(isFirst
-                            ? {}
-                            : isVertical
-                              ? { mt: '-1px' }
-                              : { ml: '-1px' }),
-                          ...(selectedIndex === index && {
-                            position: 'relative',
-                            zIndex: 1,
-                          }),
-                          '&.Mui-disabled': {
-                            opacity: 0.7,
-                            color: 'text.secondary',
-                            backgroundColor: (theme) =>
-                              props[variantName] === 'contained'
-                                ? 'rgba(0, 0, 0, 0.12)'
-                                : 'transparent',
-                            border:
-                              props[variantName] === 'outlined'
-                                ? '1px solid rgba(0, 0, 0, 0.23)'
-                                : 'none',
-                          },
-                        }}
-                      >
-                        {option}
-                      </Button>
-                    );
-                  })}
-                </Box>
-              ) : (
-                // Regular Button Group
-                <ButtonGroup
-                  variant={variant}
-                  color={color}
-                  orientation={isVertical ? 'vertical' : 'horizontal'}
-                  sx={{
-                    justifyContent: 'center',
-                    pointerEvents: props.disabled ? 'none' : undefined,
-                    width: '100%',
-                    '& .MuiButtonGroup-grouped': {
-                      flex: 1,
-                    },
-                  }}
-                  disabled={props.disabled}
-                >
-                  {options.map((option, index) => (
+                  return (
                     <Button
                       key={index}
+                      variant={
+                        selectedIndex === index ? 'contained' : 'outlined'
+                      }
+                      color={color}
+                      size={getMuiSize(size)}
                       onClick={() =>
                         void (node as WidgetButtonGroup).handleButtonClick(
                           index,
                         )
                       }
+                      disabled={props.disabled}
                       sx={{
                         fontSize: fontSize,
-                        py: 1.5,
+                        minHeight: props.inDashboard
+                          ? `${tokens.controlHeight}px`
+                          : undefined,
+                        flex: isVertical ? '0 0 auto' : '1 1 0',
+                        minWidth: isVertical ? '90%' : '30%',
+                        ...(selectedIndex === index && {
+                          boxShadow: 2,
+                        }),
+                        py: props.inDashboard ? 0 : 1.5,
                         textTransform: 'none',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap',
+                        // the group reads as one control: only its outer
+                        // corners are rounded, and they follow the theme
+                        // radius rather than a fixed 4px
+                        borderRadius: 0,
+                        ...(isVertical
+                          ? {
+                              ...(isFirst && {
+                                borderTopLeftRadius: groupRadius,
+                                borderTopRightRadius: groupRadius,
+                              }),
+                              ...(isLast && {
+                                borderBottomLeftRadius: groupRadius,
+                                borderBottomRightRadius: groupRadius,
+                              }),
+                            }
+                          : {
+                              ...(isFirst && {
+                                borderTopLeftRadius: groupRadius,
+                                borderBottomLeftRadius: groupRadius,
+                              }),
+                              ...(isLast && {
+                                borderTopRightRadius: groupRadius,
+                                borderBottomRightRadius: groupRadius,
+                              }),
+                            }),
+                        m: 0,
+                        ...(isFirst
+                          ? {}
+                          : isVertical
+                            ? { mt: '-1px' }
+                            : { ml: '-1px' }),
+                        ...(selectedIndex === index && {
+                          position: 'relative',
+                          zIndex: 1,
+                        }),
+                        '&.Mui-disabled': {
+                          opacity: 0.7,
+                          color: 'text.secondary',
+                          backgroundColor:
+                            variant === 'contained'
+                              ? 'action.disabledBackground'
+                              : 'transparent',
+                          border: variant === 'outlined' ? '1px solid' : 'none',
+                          borderColor:
+                            variant === 'outlined'
+                              ? 'action.disabled'
+                              : undefined,
+                        },
                       }}
                     >
                       {option}
                     </Button>
-                  ))}
-                </ButtonGroup>
-              )}
-            </Box>
+                  );
+                })}
+              </Box>
+            ) : (
+              // Regular Button Group
+              <ButtonGroup
+                variant={variant}
+                color={color}
+                size={getMuiSize(size)}
+                orientation={isVertical ? 'vertical' : 'horizontal'}
+                sx={{
+                  justifyContent: 'center',
+                  pointerEvents: props.disabled ? 'none' : undefined,
+                  width: '100%',
+                  '& .MuiButtonGroup-grouped': {
+                    flex: 1,
+                  },
+                }}
+                disabled={props.disabled}
+              >
+                {options.map((option, index) => (
+                  <Button
+                    key={index}
+                    onClick={() =>
+                      void (node as WidgetButtonGroup).handleButtonClick(index)
+                    }
+                    sx={{
+                      fontSize: fontSize,
+                      minHeight: props.inDashboard
+                        ? `${tokens.controlHeight}px`
+                        : undefined,
+                      py: props.inDashboard ? 0 : 1.5,
+                      textTransform: 'none',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    {option}
+                  </Button>
+                ))}
+              </ButtonGroup>
+            )}
           </Box>
-        </WidgetPaper>
-      </ThemeProvider>
+        </Box>
+      </WidgetPaper>
     );
   }
 }
@@ -583,13 +606,8 @@ export class WidgetSwitch extends WidgetHybridBase {
       ),
       new Socket(SOCKET_TYPE.IN, offValueName, new BooleanType(), false, false),
       new Socket(SOCKET_TYPE.IN, onValueName, new BooleanType(), true, false),
-      new Socket(
-        SOCKET_TYPE.IN,
-        labelName,
-        new StringType(),
-        switchDefaultName,
-        false,
-      ),
+      getLabelSocket(switchDefaultName),
+      getSizeSocket(),
       new Socket(SOCKET_TYPE.OUT, outName, new BooleanType()),
     ];
   }
@@ -620,10 +638,6 @@ export class WidgetSwitch extends WidgetHybridBase {
   public getDefaultNodeHeight(): number {
     return 104;
   }
-
-  onNodeResize = (newWidth, newHeight) => {
-    this.forceRerender();
-  };
 
   protected getBackPropagationTargets(): BackPropagation {
     return {
@@ -668,6 +682,8 @@ export class WidgetSwitch extends WidgetHybridBase {
 
   getWidgetContent(props: HybridWidgetContentProps): React.ReactElement {
     const node = props.node;
+    const size = useWidgetSize(props[sizeName]);
+    const tokens = useSizeTokens(size);
 
     const handleChange = (event: React.ChangeEvent<HTMLInputElement>) => {
       const checked = event.target.checked;
@@ -675,46 +691,44 @@ export class WidgetSwitch extends WidgetHybridBase {
     };
 
     return (
-      <ThemeProvider theme={customTheme}>
-        <WidgetPaper node={node} inDashboard={props.inDashboard}>
-          <FormControl component="fieldset" sx={{ margin: 'auto' }}>
-            <Stack
-              direction="row"
-              alignItems="center"
-              spacing={1}
+      <WidgetPaper node={node} inDashboard={props.inDashboard}>
+        <FormControl component="fieldset" sx={{ margin: 'auto' }}>
+          <Stack
+            direction="row"
+            alignItems="center"
+            spacing={1}
+            sx={{
+              minWidth: 'min-content',
+              flexWrap: 'wrap',
+              justifyContent: 'center',
+            }}
+          >
+            <Switch
+              disabled={props.disabled}
+              size="medium"
+              checked={props[initialValueName]}
+              color="primary"
+              onChange={handleChange}
               sx={{
-                minWidth: 'min-content',
-                flexWrap: 'wrap',
-                justifyContent: 'center',
+                transform: props.inDashboard
+                  ? `scale(${1.4 * tokens.scale})`
+                  : `scale(${(node.nodeHeight / 60) * tokens.scale})`,
+                pointerEvents: props.disabled ? 'none' : undefined,
+              }}
+            />
+            <Typography
+              sx={{
+                mt: props.inDashboard ? '0' : `${node.nodeHeight / 24}px`,
+                fontSize: props.inDashboard
+                  ? `${tokens.fontSize}px`
+                  : `${(node.nodeHeight / 6) * tokens.scale}px`,
               }}
             >
-              <Switch
-                disabled={props.disabled}
-                size="medium"
-                checked={props[initialValueName]}
-                color="primary"
-                onChange={handleChange}
-                sx={{
-                  transform: props.inDashboard
-                    ? 'scale(1.4)'
-                    : `scale(${node.nodeHeight / 60})`,
-                  pointerEvents: props.disabled ? 'none' : undefined,
-                }}
-              />
-              <Typography
-                sx={{
-                  mt: props.inDashboard ? '0' : `${node.nodeHeight / 24}px`,
-                  fontSize: props.inDashboard
-                    ? '16px'
-                    : `${node.nodeHeight / 6}px`,
-                }}
-              >
-                {props[labelName]}
-              </Typography>
-            </Stack>
-          </FormControl>
-        </WidgetPaper>
-      </ThemeProvider>
+              {props[labelName]}
+            </Typography>
+          </Stack>
+        </FormControl>
+      </WidgetPaper>
     );
   }
 }

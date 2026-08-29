@@ -11,6 +11,7 @@ import {
   RightDrawerView,
 } from './constants';
 import type { UISurfaceNode } from '../nodes/layout/uiSurface';
+import type { ThemeDocument } from './theme/document';
 export { TRgba } from './color';
 export type { TColorHsva } from './color';
 
@@ -71,6 +72,12 @@ export type SerializedGraph = {
     viewportScale: number;
     // the UI surface node shown on app load
     defaultUISurfaceNodeId?: string;
+    // the app theme, stored as a SPARSE DIFF against a shipped preset. It
+    // lives in the document rather than being produced by the graph so the
+    // dashboard can paint before anything has executed - otherwise every load
+    // flashes unthemed content, and apps whose theme node is never reached
+    // never theme at all. Absent on documents that never touched theming.
+    theme?: ThemeDocument;
   };
   overlay: IDashboardState;
   nodes: SerializedNode[];
@@ -139,7 +146,6 @@ export type WidgetProps = {
 
 export interface DashboardWidgetProps {
   index: number;
-  randomMainColor: string;
   disabled: boolean;
   width: string;
   height: string;
@@ -173,7 +179,6 @@ export interface WidgetContentProps {
   id: string;
   selected: boolean;
   isOnlySelected?: boolean;
-  randomMainColor: string;
   node: PPNode;
   // Interaction-enabled is the explicit interaction mode for hybrid nodes.
   isInteractionEnabled: boolean;

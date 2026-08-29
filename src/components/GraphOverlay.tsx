@@ -44,7 +44,6 @@ import { PlaceholderWidget } from './dashboard/PlaceholderWidget';
 import { useDisplayedSurfaceLocked } from './dashboard/hooks';
 
 type GraphOverlayProps = {
-  randomMainColor: string;
   setContextMenuPosition: React.Dispatch<React.SetStateAction<number[]>>;
   setIsGraphContextMenuOpen: React.Dispatch<React.SetStateAction<boolean>>;
 };
@@ -444,7 +443,6 @@ const GraphOverlay: React.FunctionComponent<GraphOverlayProps> = (props) => {
         >
           <DashboardStateProvider>
             <ShellLayout
-              randomMainColor={props.randomMainColor}
               overlayState={overlayState}
               updateOverlayState={updateOverlayState}
               isEditMode={isEditMode}

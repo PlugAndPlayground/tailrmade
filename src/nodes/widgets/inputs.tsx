@@ -1,11 +1,20 @@
 import React, { useEffect, useState } from 'react';
-import { Box, FormControl, TextField, ThemeProvider } from '@mui/material';
+import { Box, FormControl, TextField } from '@mui/material';
 import {
   WidgetHybridBase,
   WidgetPaper,
+  getMuiSize,
+  colorName,
+  getColorSocket,
+  getSizeSocket,
   initialValueName,
+  getLabelSocket,
   labelName,
   outName,
+  sizeName,
+  useWidgetSize,
+  useSizeTokens,
+  useSizeSx,
 } from './abstract';
 import Socket from '../../classes/SocketClass';
 import { StringType } from '../datatypes/stringType';
@@ -13,7 +22,7 @@ import { BooleanType } from '../datatypes/booleanType';
 import { NumberType } from '../datatypes/numberType';
 import { EnumType, EnumStructure } from '../datatypes/enumType';
 import { BackPropagation } from '../../interfaces';
-import { SOCKET_TYPE, customTheme } from '../../utils/constants';
+import { SOCKET_TYPE } from '../../utils/constants';
 import {
   ActionHandler,
   BakedAction,
@@ -21,6 +30,7 @@ import {
   SerializableActionHandler,
 } from '../../classes/Action';
 import { WidgetContentProps } from '../../utils/interfaces';
+import { useResolvedInputVariant } from '../../utils/theme';
 
 // Socket names
 const placeholderName = 'Placeholder';
@@ -60,13 +70,7 @@ export class WidgetTextField extends WidgetHybridBase {
         textFieldDefaultValue,
         false,
       ),
-      new Socket(
-        SOCKET_TYPE.IN,
-        labelName,
-        new StringType(),
-        textFieldDefaultLabel,
-        false,
-      ),
+      getLabelSocket(textFieldDefaultLabel),
       new Socket(
         SOCKET_TYPE.IN,
         placeholderName,
@@ -104,6 +108,8 @@ export class WidgetTextField extends WidgetHybridBase {
         false,
       ),
       new Socket(SOCKET_TYPE.IN, requiredName, new BooleanType(), false, false),
+      getColorSocket(),
+      getSizeSocket(),
       new Socket(SOCKET_TYPE.OUT, outName, new StringType()),
     ];
   }
@@ -119,10 +125,6 @@ export class WidgetTextField extends WidgetHybridBase {
   public getMinNodeHeight(): number {
     return 80;
   }
-
-  onNodeResize = (newWidth, newHeight) => {
-    this.forceRerender();
-  };
 
   protected getBackPropagationTargets(): BackPropagation {
     return {
@@ -192,53 +194,51 @@ export class WidgetTextField extends WidgetHybridBase {
     const helperText = props[helperTextName];
     const isInteractive = !(props.inDashboard && props.disabled);
 
-    // Calculate dynamic sizing
-    const fontSize = '16px';
+    const size = useWidgetSize(props[sizeName]);
+    const inputVariant = useResolvedInputVariant();
+    const color = props[colorName];
+    const sizeSx = useSizeSx(size);
+    const fontSize = `${useSizeTokens(size).fontSize}px`;
     return (
-      <ThemeProvider theme={customTheme}>
-        <WidgetPaper node={node} inDashboard={props.inDashboard}>
-          <Box sx={{ width: '100%' }}>
-            <FormControl fullWidth>
-              <TextField
-                value={internalValue}
-                label={props[labelName]}
-                placeholder={placeholder}
-                helperText={helperText}
-                variant="filled"
-                type={type}
-                multiline={multiline}
-                rows={multiline ? rows : undefined}
-                inputProps={{
-                  maxLength: maxLength > 0 ? maxLength : undefined,
-                  sx: { fontSize },
-                  readOnly: !isInteractive,
-                }}
-                required={required}
-                disabled={props.disabled}
-                onFocus={() => setIsFocused(true)}
-                onChange={(e) => {
-                  setInternalValue(e.target.value);
-                  // still update graph so outputs react immediately
-                  void node.handleOnChange(e);
-                }}
-                onBlur={() => {
-                  setIsFocused(false);
-                  void node.handleOnBlur();
-                }}
-                sx={{
-                  pointerEvents: props.disabled ? 'none' : undefined,
-                  '& .MuiInputLabel-root': {
-                    fontSize: fontSize,
-                  },
-                  '& .MuiFormHelperText-root': {
-                    fontSize: `calc(${fontSize} * 0.8)`,
-                  },
-                }}
-              />
-            </FormControl>
-          </Box>
-        </WidgetPaper>
-      </ThemeProvider>
+      <WidgetPaper node={node} inDashboard={props.inDashboard}>
+        <Box sx={{ width: '100%' }}>
+          <FormControl fullWidth>
+            <TextField
+              value={internalValue}
+              label={props[labelName]}
+              placeholder={placeholder}
+              helperText={helperText}
+              variant={inputVariant}
+              color={color}
+              size={getMuiSize(size)}
+              type={type}
+              multiline={multiline}
+              rows={multiline ? rows : undefined}
+              inputProps={{
+                maxLength: maxLength > 0 ? maxLength : undefined,
+                sx: { fontSize },
+                readOnly: !isInteractive,
+              }}
+              required={required}
+              disabled={props.disabled}
+              onFocus={() => setIsFocused(true)}
+              onChange={(e) => {
+                setInternalValue(e.target.value);
+                // still update graph so outputs react immediately
+                void node.handleOnChange(e);
+              }}
+              onBlur={() => {
+                setIsFocused(false);
+                void node.handleOnBlur();
+              }}
+              sx={{
+                pointerEvents: props.disabled ? 'none' : undefined,
+                ...sizeSx,
+              }}
+            />
+          </FormControl>
+        </Box>
+      </WidgetPaper>
     );
   }
 }

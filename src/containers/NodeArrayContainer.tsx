@@ -18,6 +18,7 @@ import InterfaceController, { ListenEvent } from './../InterfaceController';
 import { ensureVisible, zoomToFitNodes } from './../pixi/utils-pixi';
 import { ONCLICK_DOUBLECLICK, STATUS_SEVERITY } from './../utils/constants';
 import { TRgba } from './../utils/color';
+import { MAIN_COLOR } from '../utils/constants';
 
 const EmptyNodeState: React.FC<{ filterText: string }> = ({ filterText }) => (
   <Box
@@ -61,7 +62,6 @@ const NodesContent = memo(
                 <NodeItem
                   key={property.id}
                   property={property}
-                  randomMainColor={props.randomMainColor}
                   index={property.id}
                   sx={{
                     listStyleType: 'none',
@@ -107,7 +107,7 @@ const NodeItem = memo(
           '&:hover + .MuiListItemSecondaryAction-root': {
             visibility: 'visible',
           },
-          bgcolor: `${TRgba.fromString(props.randomMainColor).darken(0.6)}`,
+          bgcolor: `${TRgba.fromString(MAIN_COLOR).darken(0.6)}`,
           margin: '2px 0',
           borderLeft: `16px solid ${props.property.getColor()}`,
         }}
@@ -261,7 +261,6 @@ ${props.status.message}`}
 type NodeArrayContainerProps = {
   graphId: string;
   selectedNodes: PPNode[];
-  randomMainColor: string;
   filter: string;
   setFilter: React.Dispatch<React.SetStateAction<string>>;
   filterText: string;
@@ -385,17 +384,11 @@ export const NodeArrayContainer: React.FunctionComponent<
           '&&&& input': {
             paddingBottom: '8px',
             paddingTop: '9px',
-            color: TRgba.fromString(props.randomMainColor)
-              .getContrastTextColor()
-              .hex(),
+            color: TRgba.fromString(MAIN_COLOR).getContrastTextColor().hex(),
           },
         }}
       />
-      <NodesContent
-        nodes={filteredNodes}
-        randomMainColor={props.randomMainColor}
-        filterText={props.filterText}
-      />
+      <NodesContent nodes={filteredNodes} filterText={props.filterText} />
     </Stack>
   );
 };

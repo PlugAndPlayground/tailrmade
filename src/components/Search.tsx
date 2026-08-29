@@ -21,6 +21,7 @@ import * as styles from '../utils/style.module.css';
 import { getAllNodeTypes, getAllTagNames } from '../nodes/allNodes';
 import { INodeSearch } from '../utils/interfaces';
 import { getLoadNodeExampleURL } from '../utils/utils';
+import { MAIN_COLOR } from '../utils/constants';
 import {
   executeMacroPrefix,
   mapExecuteMacroPrefix,
@@ -45,11 +46,9 @@ export interface INodeSearchExtended extends INodeSearch {
   tags: string[];
 }
 
-export const NodeSearchInput = ({ randomMainColor, ...restOfProps }) => {
+export const NodeSearchInput = ({ ...restOfProps }) => {
   const { slotProps = {}, ...textFieldProps } = restOfProps;
-  const backgroundColor = TRgba.fromString(randomMainColor)
-    .setAlpha(0.9)
-    .hexa();
+  const backgroundColor = TRgba.fromString(MAIN_COLOR).setAlpha(0.9).hexa();
   return (
     <TextField
       {...textFieldProps}
@@ -79,7 +78,7 @@ export const NodeSearchInput = ({ randomMainColor, ...restOfProps }) => {
         '&&&& input': {
           paddingBottom: '8px',
           paddingTop: '8px',
-          color: `${TRgba.fromString(randomMainColor).getContrastTextColor()}`,
+          color: `${TRgba.fromString(MAIN_COLOR).getContrastTextColor()}`,
         },
         '& .MuiInputBase-root.MuiInputBase-adornedStart': {
           flexWrap: 'wrap',
@@ -630,7 +629,6 @@ export interface NodeSearchProps {
   nodeSearchInput: React.RefObject<HTMLInputElement>;
   nodeSearchCountRef: React.MutableRefObject<number>;
   nodeSearchActiveItem: INodeSearch[];
-  randomMainColor: string;
   theme: any;
 }
 
@@ -643,7 +641,6 @@ export const NodeSearch: React.FC<NodeSearchProps> = ({
   nodeSearchInput,
   nodeSearchCountRef,
   nodeSearchActiveItem,
-  randomMainColor,
   theme,
 }) => {
   const handleTagClick = useCallback(
@@ -1019,11 +1016,7 @@ export const NodeSearch: React.FC<NodeSearchProps> = ({
         options={getSortedOptions()}
         renderOption={renderOptionHandler}
         renderInput={(params) => (
-          <NodeSearchInput
-            {...params}
-            randomMainColor={randomMainColor}
-            inputRef={nodeSearchInput}
-          />
+          <NodeSearchInput {...params} inputRef={nodeSearchInput} />
         )}
         filterOptions={filterOptions}
         renderGroup={renderGroupItem}

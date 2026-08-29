@@ -1,12 +1,24 @@
 import React from 'react';
-import { Slider, ThemeProvider, Typography, Box } from '@mui/material';
-import { WidgetHybridBase, WidgetPaper, labelName, outName } from './abstract';
+import { Slider, Typography, Box } from '@mui/material';
+import {
+  WidgetHybridBase,
+  WidgetPaper,
+  getMuiSize,
+  colorName,
+  getColorSocket,
+  getSizeSocket,
+  labelName,
+  outName,
+  sizeName,
+  useWidgetSize,
+  useSizeTokens,
+} from './abstract';
 import Socket from '../../classes/SocketClass';
 import { StringType } from '../datatypes/stringType';
 import { BooleanType } from '../datatypes/booleanType';
 import { NumberType } from '../datatypes/numberType';
 import { BackPropagation } from '../../interfaces';
-import { SOCKET_TYPE, customTheme } from '../../utils/constants';
+import { SOCKET_TYPE } from '../../utils/constants';
 import {
   ActionHandler,
   BakedAction,
@@ -43,6 +55,8 @@ export class WidgetSlider extends WidgetHybridBase {
       new Socket(SOCKET_TYPE.IN, maxValueName, new NumberType(), 100, false),
       new Socket(SOCKET_TYPE.IN, roundName, new BooleanType(), false, false),
       new Socket(SOCKET_TYPE.IN, labelName, new StringType(), 'Slider', false),
+      getColorSocket(),
+      getSizeSocket(),
       new Socket(SOCKET_TYPE.OUT, outName, new NumberType()),
     ];
   }
@@ -54,10 +68,6 @@ export class WidgetSlider extends WidgetHybridBase {
   public getDefaultNodeHeight(): number {
     return 104;
   }
-
-  onNodeResize = (newWidth, newHeight) => {
-    this.forceRerender();
-  };
 
   protected getBackPropagationTargets(): BackPropagation {
     return {
@@ -139,6 +149,14 @@ export class WidgetSlider extends WidgetHybridBase {
     const max = props[maxValueName];
     const value = props[initialValueName];
     const shouldRound = props[roundName];
+    const size = useWidgetSize(props[sizeName]);
+    const color = props[colorName];
+    const tokens = useSizeTokens(size);
+    // the slider has no fixed control height to hit - it just scales the height
+    // it already had, so M keeps its current look
+    const sliderHeight = props.inDashboard
+      ? 32 * tokens.scale
+      : (node.nodeHeight / 3) * tokens.scale;
 
     // Format the value displayed based on rounding setting
     const displayValue = shouldRound
@@ -146,66 +164,66 @@ export class WidgetSlider extends WidgetHybridBase {
       : Number(value.toFixed(2));
 
     return (
-      <ThemeProvider theme={customTheme}>
-        <WidgetPaper node={node} inDashboard={props.inDashboard}>
-          <Box
+      <WidgetPaper node={node} inDashboard={props.inDashboard}>
+        <Box
+          sx={{
+            width: '100%',
+            boxSizing: 'border-box',
+            overflow: 'hidden',
+          }}
+        >
+          <Typography
+            id={`slider-label-${node.id}`}
+            gutterBottom
             sx={{
-              width: '100%',
-              boxSizing: 'border-box',
-              overflow: 'hidden',
+              fontSize: props.inDashboard
+                ? `${tokens.fontSize}px`
+                : `${(node.nodeHeight / 8) * tokens.scale}px`,
+              fontWeight: 500,
+              textAlign: 'center',
             }}
           >
-            <Typography
-              id={`slider-label-${node.id}`}
-              gutterBottom
-              sx={{
-                fontSize: props.inDashboard
-                  ? '16px'
-                  : `${node.nodeHeight / 8}px`,
-                fontWeight: 500,
-                textAlign: 'center',
-              }}
-            >
-              {props[labelName]}
-              {`${props[labelName] !== '' ? ': ' : ''} `}
-              {displayValue}
-            </Typography>
-            <Slider
-              disabled={props.disabled}
-              aria-labelledby={`slider-label-${node.id}`}
-              value={value}
-              min={min}
-              max={max}
-              step={shouldRound ? 1 : 0.01}
-              onChange={node.handleOnChange}
-              valueLabelDisplay="off"
-              sx={{
-                width: '100%',
-                padding: 0,
-                pointerEvents: props.disabled ? 'none' : undefined,
-                height: props.inDashboard ? '32px' : node.nodeHeight / 3,
-                '& .MuiSlider-track': {
-                  border: 'none',
+            {props[labelName]}
+            {`${props[labelName] !== '' ? ': ' : ''} `}
+            {displayValue}
+          </Typography>
+          <Slider
+            color={color}
+            disabled={props.disabled}
+            size={getMuiSize(size)}
+            aria-labelledby={`slider-label-${node.id}`}
+            value={value}
+            min={min}
+            max={max}
+            step={shouldRound ? 1 : 0.01}
+            onChange={node.handleOnChange}
+            valueLabelDisplay="off"
+            sx={{
+              width: '100%',
+              padding: 0,
+              pointerEvents: props.disabled ? 'none' : undefined,
+              height: sliderHeight,
+              '& .MuiSlider-track': {
+                border: 'none',
+              },
+              borderRadius: 2,
+              '& .MuiSlider-thumb': {
+                height: sliderHeight,
+                width: 16 * tokens.scale,
+                backgroundColor: 'transparent',
+                borderRadius: 0,
+                '&:focus, &:hover, &.Mui-active, &.Mui-focusVisible': {
+                  boxShadow: 'inherit',
                 },
-                borderRadius: 2,
-                '& .MuiSlider-thumb': {
-                  height: props.inDashboard ? '32px' : node.nodeHeight / 3,
-                  width: 16,
-                  backgroundColor: 'transparent',
-                  borderRadius: 0,
-                  '&:focus, &:hover, &.Mui-active, &.Mui-focusVisible': {
-                    boxShadow: 'inherit',
-                  },
 
-                  '&::before': {
-                    display: 'none',
-                  },
+                '&::before': {
+                  display: 'none',
                 },
-              }}
-            />
-          </Box>
-        </WidgetPaper>
-      </ThemeProvider>
+              },
+            }}
+          />
+        </Box>
+      </WidgetPaper>
     );
   }
 

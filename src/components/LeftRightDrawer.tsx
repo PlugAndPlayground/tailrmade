@@ -19,6 +19,7 @@ import { DrawerSide, IOverlay } from '../utils/interfaces';
 import { useDragResize } from './useDragResize';
 import PPGraph from '../classes/GraphClass';
 import * as styles from '../utils/style.module.css';
+import { MAIN_COLOR } from '../utils/constants';
 
 export const ResizeHandle = ({ isLeft, onPointerDown }) => {
   return (
@@ -43,7 +44,6 @@ interface LeftRightDrawerProps {
   hidden: boolean;
   overlayState: IOverlay;
   updateOverlayState: (newState: Partial<IOverlay>) => void;
-  randomMainColor: string;
 }
 
 // A docked column of the shell: the menu panel (left) or the inspector
@@ -54,7 +54,6 @@ const LeftRightDrawer: React.FC<LeftRightDrawerProps> = ({
   hidden,
   overlayState,
   updateOverlayState,
-  randomMainColor,
 }) => {
   // State
   const [nodeFilter, setNodeFilter] = useState<string | null>(null);
@@ -107,14 +106,12 @@ const LeftRightDrawer: React.FC<LeftRightDrawerProps> = ({
       return (
         <LeftsideContainer
           activeView={(activeView as LeftDrawerView) ?? LeftDrawerView.GRAPHS}
-          randomMainColor={randomMainColor}
         />
       );
     }
 
     return (
       <RightSideContainer
-        randomMainColor={randomMainColor}
         rightDrawerView={
           (activeView as RightDrawerView) ?? RightDrawerView.GRAPH
         }
@@ -132,7 +129,7 @@ const LeftRightDrawer: React.FC<LeftRightDrawerProps> = ({
     );
   };
 
-  const backgroundColor = getDrawerBackground(randomMainColor);
+  const backgroundColor = getDrawerBackground();
 
   // small screens keep the pre-dock behaviour: the panel covers everything
   // instead of taking a share of the row
@@ -206,7 +203,7 @@ const LeftRightDrawer: React.FC<LeftRightDrawerProps> = ({
               boxShadow: '0px 2px 4px rgba(0,0,0,0.2)',
               pointerEvents: 'auto',
               '&:hover': {
-                backgroundColor: TRgba.fromString(randomMainColor)
+                backgroundColor: TRgba.fromString(MAIN_COLOR)
                   .darken(0.7)
                   .toString(),
               },

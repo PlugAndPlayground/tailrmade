@@ -12,6 +12,7 @@ import {
   DynamicWidgetName,
   RootName,
 } from '../../utils/constants_shared';
+import { INHERIT_COLOR } from '../../utils/themeColors';
 import {
   dynamicWidgetDefaultProps,
   rootProps,
@@ -26,7 +27,7 @@ const textDefaultPropsForSpec = {
   fontSize: 20,
   textAlign: 'left',
   fontWeight: 'normal',
-  color: { r: '51', g: '51', b: '51', a: '1' },
+  color: INHERIT_COLOR,
   text: 'Hi',
 };
 
@@ -87,7 +88,7 @@ const containerDefaultPropsForSpec = {
   maxHeight: UNSET_VALUE,
   gap: 0,
   background: getDefaultContainerBackground(),
-  color: { r: 51, g: 51, b: 51, a: 1 },
+  color: INHERIT_COLOR,
   // DELIBERATE divergence from the editor default ('row' in
   // getDefaultWidgetLayoutValue): AI-built row containers stack vertically
   // on narrow dashboards by default (mobile-first), which is almost always
@@ -397,8 +398,7 @@ export function compileSurfaceSpec(
 
     // always built fresh (declarative): shared defaults, then the node's own
     // preferred widget props (matching a sync-layer insert), then the spec's
-    // explicit overrides. randomMainColor mirrors insertWidgetForNode in
-    // surfaceSync.ts.
+    // explicit overrides.
     const id = generateItemId();
     const craftItem: SerializedCraftItem = {
       type: { resolvedName: DynamicWidgetName },
@@ -409,7 +409,6 @@ export function compileSurfaceSpec(
         ...(widgetPropsByNodeId?.get(item.widget) ?? {}),
         id: elementId,
         index: 0,
-        randomMainColor: MAIN_COLOR,
         ...overrides,
         ...(item.props ?? {}),
       },
@@ -632,6 +631,9 @@ export function decompileSurfaceTree(
       dynamicWidgetDefaultProps,
       ['showLabel', 'collapsible', 'collapsedByDefault', 'width', 'height'],
       // internal, recomputed on every compile - never round-tripped
+      // randomMainColor is retired, but trees saved before that still carry
+      // it - it stays listed so it keeps being ignored rather than surfacing
+      // as an extra prop on every decompiled widget.
       ['id', 'index', 'randomMainColor'],
     );
     if (extras) result.props = extras;

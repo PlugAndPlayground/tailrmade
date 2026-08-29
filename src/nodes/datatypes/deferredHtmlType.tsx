@@ -121,10 +121,5 @@ const HtmlOutputWidget: React.FunctionComponent<any> = (props) => {
 
   return property
     .getNode()
-    .getDashboardWrapper(
-      props.index,
-      props.randomMainColor,
-      props.disabled,
-      props.heightMode,
-    );
+    .getDashboardWrapper(props.index, props.disabled, props.heightMode);
 };

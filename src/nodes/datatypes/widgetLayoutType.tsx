@@ -1,6 +1,10 @@
 import React from 'react';
 import { TRgba } from '../../utils/color';
-import { TParseType, FlexDirection, MobileBehavior } from '../../utils/interfaces';
+import {
+  TParseType,
+  FlexDirection,
+  MobileBehavior,
+} from '../../utils/interfaces';
 import {
   AbstractType,
   Compatibility,
@@ -13,6 +17,7 @@ import { AnyType } from './anyType';
 import { WidgetLayoutWidget } from '../../layoutWidget';
 import { MAIN_COLOR, UNSET_VALUE } from '../../utils/constants';
 import { parseJSON } from '../../utils/utils';
+import { ColorSetting, INHERIT_COLOR } from '../../utils/themeColors';
 
 export interface WidgetLayoutInterface {
   flexDirection: FlexDirection;
@@ -27,7 +32,9 @@ export interface WidgetLayoutInterface {
   maxHeight: string;
   gap: number;
   background: Record<'r' | 'g' | 'b' | 'a', number>;
-  color: Record<'r' | 'g' | 'b' | 'a', number>;
+  // may hold the 'inherit' keyword instead of a value, so a container can
+  // defer to the app theme rather than naming a color
+  color: ColorSetting;
   mobileBehavior: MobileBehavior;
   customStyles: Record<string, any>;
 }
@@ -63,7 +70,8 @@ export function getDefaultWidgetLayoutValue(): WidgetLayoutInterface {
     maxHeight: UNSET_VALUE,
     gap: 0,
     background: getDefaultContainerBackground(),
-    color: { r: 51, g: 51, b: 51, a: 1 },
+    // defers to the app theme's text.primary
+    color: INHERIT_COLOR,
     mobileBehavior: 'row',
     customStyles: {},
   };

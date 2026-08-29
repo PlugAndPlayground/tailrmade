@@ -1,21 +1,20 @@
 // Headless craft-tree types and constants shared between the dashboard React
 // components and node-land code (e.g. the UI surface sync engine). Keep this
 // module free of React and node-class imports.
-import { UNSET_VALUE, customTheme, COLOR_WHITE_TEXT } from './constants';
+import { UNSET_VALUE } from './constants';
 import { RootName, containerName } from './constants_shared';
 import { TRgba } from './color';
+import { INHERIT_COLOR } from './themeColors';
 
-const toRgbaObject = (
-  colorString: string,
-): { r: number; g: number; b: number; a: number } => {
-  const c = TRgba.fromString(colorString);
-  return { r: c.r, g: c.g, b: c.b, a: c.a };
-};
-
-const DARK_SURFACE_BACKGROUND = toRgbaObject(
-  customTheme.palette.background.default,
-);
-const DARK_SURFACE_TEXT = toRgbaObject(COLOR_WHITE_TEXT);
+// The root surface paints NOTHING of its own by default: the app theme's
+// background.default is what shows through, and text inherits the theme's
+// text.primary. Before theming these were baked to the editor theme's dark
+// palette, which meant a themed app could never change its own background.
+//
+// Transparent is the right default for a background (you see the themed
+// surface behind it) but not for a foreground - fully transparent text is
+// invisible, not inherited - so color uses the CSS keyword instead.
+const TRANSPARENT_BACKGROUND = { r: 0, g: 0, b: 0, a: 0 };
 
 export type SerializedCraftItem = {
   type: { resolvedName: string };
@@ -95,8 +94,8 @@ export const rootProps = {
   flexDirection: 'column',
   alignItems: 'flex-start',
   justifyContent: 'flex-start',
-  background: DARK_SURFACE_BACKGROUND,
-  color: DARK_SURFACE_TEXT,
+  background: TRANSPARENT_BACKGROUND,
+  color: INHERIT_COLOR,
   width: '100%',
   height: 'auto',
   padding: [0, 0, 0, 0],

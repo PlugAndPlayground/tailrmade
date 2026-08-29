@@ -9,11 +9,14 @@ export const StyledButton = styled(Button, {
 })<{ isSelected?: boolean }>(({ theme, isSelected }) => ({
   minWidth: 0,
   padding: theme.spacing(0.5),
+  boxShadow: 'none',
+  color: isSelected ? theme.palette.common.white : theme.palette.primary.main,
   backgroundColor: isSelected
     ? theme.palette.primary.main
     : theme.palette.common.white,
   borderRadius: theme.shape.borderRadius,
   '&:hover': {
+    boxShadow: 'none',
     backgroundColor: isSelected
       ? theme.palette.primary.dark
       : theme.palette.grey[200],

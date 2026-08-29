@@ -5,7 +5,7 @@ import {
   Fade,
   Paper,
   Popper,
-  ThemeProvider,
+  Typography,
 } from '@mui/material';
 import ColorizeIcon from '@mui/icons-material/Colorize';
 import { Sketch } from '@uiw/react-color';
@@ -14,19 +14,19 @@ import Socket from '../../classes/SocketClass';
 import {
   WidgetHybridBase,
   WidgetPaper,
+  getMuiSize,
+  getSizeSocket,
   initialValueName,
+  getLabelSocket,
   labelName,
   outName,
+  sizeName,
+  useWidgetSize,
+  useSizeTokens,
 } from './abstract';
 import { TRgba } from '../../utils/color';
 import { WidgetContentProps } from '../../utils/interfaces';
-import {
-  PRESET_COLORS,
-  MAIN_COLOR,
-  SOCKET_TYPE,
-  customTheme,
-} from '../../utils/constants';
-import { StringType } from '../datatypes/stringType';
+import { PRESET_COLORS, MAIN_COLOR, SOCKET_TYPE } from '../../utils/constants';
 import { ColorType } from '../datatypes/colorType';
 import {
   ActionHandler,
@@ -56,13 +56,8 @@ export class WidgetColorPicker extends WidgetHybridBase {
         MAIN_COLOR,
         false,
       ),
-      new Socket(
-        SOCKET_TYPE.IN,
-        labelName,
-        new StringType(),
-        pickerDefaultName,
-        false,
-      ),
+      getLabelSocket(pickerDefaultName),
+      getSizeSocket(),
       new Socket(SOCKET_TYPE.OUT, outName, new ColorType()),
     ];
   }
@@ -74,10 +69,6 @@ export class WidgetColorPicker extends WidgetHybridBase {
   public getDefaultNodeHeight(): number {
     return 104;
   }
-
-  onNodeResize = (newWidth, newHeight) => {
-    this.forceRerender();
-  };
 
   protected getBackPropagationTargets(): BackPropagation {
     return {
@@ -128,79 +119,100 @@ export class WidgetColorPicker extends WidgetHybridBase {
     const ref = useRef<HTMLDivElement | null>(null);
     const [colorPicker, showColorPicker] = useState(false);
     const initialColor = TRgba.fromObject(props[initialValueName]);
+    const size = useWidgetSize(props[sizeName]);
+    const tokens = useSizeTokens(size);
 
     return (
-      <ThemeProvider theme={customTheme}>
-        <WidgetPaper ref={ref} node={node} inDashboard={props.inDashboard}>
-          <Button
-            disabled={props.disabled}
-            variant="contained"
-            onClick={() => {
-              showColorPicker(!colorPicker);
-            }}
+      <WidgetPaper ref={ref} node={node} inDashboard={props.inDashboard}>
+        <Button
+          disabled={props.disabled}
+          variant="contained"
+          size={getMuiSize(size)}
+          onClick={() => {
+            showColorPicker(!colorPicker);
+          }}
+          sx={{
+            margin: 'auto',
+            // keep the same dashboard height as the other button-like widgets
+            // (see WidgetButton) so the picker fills its widget box instead of
+            // sitting at MUI's natural button height
+            minHeight: props.inDashboard
+              ? `${tokens.controlHeight}px`
+              : undefined,
+            lineHeight: props.inDashboard
+              ? `${36 * tokens.scale}px`
+              : `${(node.nodeHeight / 5) * tokens.scale}px`,
+            py: props.inDashboard ? 0 : undefined,
+            border: 0,
+            bgcolor: initialColor.hexa(),
+            color: initialColor.getContrastTextColor().hex(),
+            width: '100%',
+            height: '100%',
+            borderRadius: props.inDashboard
+              ? '48px'
+              : `${node.nodeWidth / 4}px`,
+            '&:hover': {
+              bgcolor: initialColor.darken(0.1).hex(),
+            },
+            '&:active': {
+              boxShadow: 4,
+            },
+            pointerEvents: props.disabled ? 'none' : undefined,
+          }}
+        >
+          <Typography
             sx={{
-              margin: 'auto',
-              fontSize: props.inDashboard ? '16px' : `${node.nodeHeight / 6}px`,
-              lineHeight: props.inDashboard
-                ? '24px'
-                : `${node.nodeHeight / 5}px`,
-              border: 0,
-              bgcolor: initialColor.hexa(),
-              color: initialColor.getContrastTextColor().hex(),
-              width: '100%',
-              height: '100%',
-              borderRadius: props.inDashboard
-                ? '48px'
-                : `${node.nodeWidth / 4}px`,
-              '&:hover': {
-                bgcolor: initialColor.darken(0.1).hex(),
-              },
-              '&:active': {
-                boxShadow: 4,
-              },
-              pointerEvents: props.disabled ? 'none' : undefined,
+              fontSize: props.inDashboard
+                ? `${tokens.fontSize}px`
+                : `${(node.nodeHeight / 6) * tokens.scale}px`,
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+              maxWidth: '100%',
+              textTransform: 'none',
             }}
           >
             {props[labelName]}
-            <ColorizeIcon
-              sx={{
-                pl: 0.5,
-                fontSize: props.inDashboard
-                  ? '24px'
-                  : `${node.nodeHeight / 6}px`,
-              }}
-            />
-          </Button>
-          <Popper
-            id="toolbar-popper"
-            open={colorPicker}
-            anchorEl={ref.current}
-            placement="top"
-            transition
-            sx={{ zIndex: 10 }}
-          >
-            {({ TransitionProps }) => (
-              <Fade {...TransitionProps} timeout={350}>
-                <Paper
-                  sx={{
-                    margin: '4px',
-                  }}
-                >
-                  <ClickAwayListener onClickAway={() => showColorPicker(false)}>
-                    <span className="chrome-picker">
-                      <Sketch
-                        color={initialColor.hsva()}
-                        onChange={node.handleOnChange}
-                        presetColors={PRESET_COLORS}
-                      />
-                    </span>
-                  </ClickAwayListener>
-                </Paper>
-              </Fade>
-            )}
-          </Popper>
-        </WidgetPaper>
-      </ThemeProvider>
+          </Typography>
+          <ColorizeIcon
+            sx={{
+              pl: 0.5,
+              flexShrink: 0,
+              fontSize: props.inDashboard
+                ? `${tokens.iconSize}px`
+                : `${(node.nodeHeight / 6) * tokens.scale}px`,
+            }}
+          />
+        </Button>
+        <Popper
+          id="toolbar-popper"
+          open={colorPicker}
+          anchorEl={ref.current}
+          placement="top"
+          transition
+          sx={{ zIndex: 10 }}
+        >
+          {({ TransitionProps }) => (
+            <Fade {...TransitionProps} timeout={350}>
+              <Paper
+                sx={{
+                  margin: '4px',
+                }}
+              >
+                <ClickAwayListener onClickAway={() => showColorPicker(false)}>
+                  <span className="chrome-picker">
+                    <Sketch
+                      color={initialColor.hsva()}
+                      onChange={node.handleOnChange}
+                      presetColors={PRESET_COLORS}
+                    />
+                  </span>
+                </ClickAwayListener>
+              </Paper>
+            </Fade>
+          )}
+        </Popper>
+      </WidgetPaper>
     );
   }
 }

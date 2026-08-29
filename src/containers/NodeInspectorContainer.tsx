@@ -24,6 +24,7 @@ import { ACTIONS, PNPAction, SetCommentActionArgs } from '../classes/Action';
 import { SurfaceSync } from '../nodes/layout/surfaceSync';
 import { isSurfaceNode } from '../utils/interfaces';
 import type { UISurfaceNode } from '../nodes/layout/uiSurface';
+import { MAIN_COLOR } from '../utils/constants';
 
 function InspectorHeader(props) {
   const [nodeName, setNodeName] = React.useState('');
@@ -74,9 +75,7 @@ function InspectorHeader(props) {
       sx={{
         p: 1,
         bgcolor: 'background.paper',
-        color: `${TRgba.fromString(
-          props.randomMainColor,
-        ).getContrastTextColor()}`,
+        color: `${TRgba.fromString(MAIN_COLOR).getContrastTextColor()}`,
       }}
     >
       <Box
@@ -128,20 +127,18 @@ type: ${props.selectedNodes[0].type}`}
                     border: 0,
                   },
                   '& input': {
-                    color: `${TRgba.fromString(
-                      props.randomMainColor,
-                    ).getContrastTextColor()}`,
+                    color: `${TRgba.fromString(MAIN_COLOR).getContrastTextColor()}`,
                     padding: '4px 8px',
                     lineHeight: 1.2,
                   },
                   '& input:hover': {
-                    backgroundColor: TRgba.fromString(props.randomMainColor)
+                    backgroundColor: TRgba.fromString(MAIN_COLOR)
                       .setAlpha(0.5)
                       .hexa(),
                   },
                   '& input:focus': {
-                    boxShadow: `0 0 0 1px ${props.randomMainColor}`,
-                    backgroundColor: TRgba.fromString(props.randomMainColor)
+                    boxShadow: `0 0 0 1px ${MAIN_COLOR}`,
+                    backgroundColor: TRgba.fromString(MAIN_COLOR)
                       .setAlpha(0.5)
                       .hexa(),
                   },
@@ -153,9 +150,7 @@ type: ${props.selectedNodes[0].type}`}
               color="secondary"
               size="small"
               sx={{
-                color: `${TRgba.fromString(
-                  props.randomMainColor,
-                ).getContrastTextColor()}`,
+                color: `${TRgba.fromString(MAIN_COLOR).getContrastTextColor()}`,
               }}
               onClick={() => {
                 setTimeout(() => {
@@ -376,7 +371,6 @@ function LinkedWidgets({ selectedNode }) {
 
 type InspectorContainerProps = {
   selectedNodes: PPNode[];
-  randomMainColor: string;
   filter: string;
   setFilter: React.Dispatch<React.SetStateAction<string>>;
 };
@@ -423,7 +417,6 @@ const NodeInspectorContainer: React.FunctionComponent<
           <InspectorHeader
             isEditable={isSingleNodeSelected}
             selectedNodes={props.selectedNodes}
-            randomMainColor={props.randomMainColor}
           />
 
           {isSingleNodeSelected && (
@@ -431,7 +424,6 @@ const NodeInspectorContainer: React.FunctionComponent<
           )}
 
           <PropertyArrayContainer
-            randomMainColor={props.randomMainColor}
             filter={props.filter}
             setFilter={props.setFilter}
           />
