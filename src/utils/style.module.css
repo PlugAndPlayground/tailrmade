@@ -143,3 +143,113 @@
 .menuItemButton {
   border-radius: 0 !important;
 }
+
+.socketNameOverlay {
+  position: absolute;
+  /* just above the socket inspector (1120 in components/Tooltip.tsx) */
+  z-index: 1130;
+  pointer-events: none;
+  display: none;
+  overflow: hidden;
+  background: rgba(12, 12, 12, 0.88);
+  color: #f4faf9;
+  font-family: Arial, Helvetica, sans-serif;
+  line-height: 1.4;
+  white-space: nowrap;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+}
+
+.socketNameOverlayZone {
+  display: block;
+}
+
+.socketNameOverlaySocketLeft {
+  text-align: right;
+}
+
+.socketNameOverlaySocketLeft .socketNameOverlayZone {
+  padding: 6px 14px 6px 8px;
+}
+
+.socketNameOverlaySocketRight .socketNameOverlayZone {
+  padding: 6px 8px 6px 14px;
+}
+
+.socketNameOverlayRail {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 6px;
+}
+
+.socketNameOverlaySocketLeft .socketNameOverlayRail {
+  right: 0;
+  border-left: 1px solid rgba(255, 255, 255, 0.22);
+}
+
+.socketNameOverlaySocketRight .socketNameOverlayRail {
+  left: 0;
+  border-right: 1px solid rgba(255, 255, 255, 0.22);
+}
+
+.socketNameOverlayRailGhost {
+  background: repeating-linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.5) 0 4px,
+    transparent 4px 8px
+  );
+  border-color: rgba(255, 255, 255, 0.14);
+}
+
+.socketNameOverlaySocketName {
+  display: block;
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.socketNameOverlaySubtitle {
+  display: block;
+  margin-top: 2px;
+  font-size: 12px;
+  opacity: 0.6;
+}
+
+.socketNameOverlayConnections {
+  background: rgba(255, 255, 255, 0.07);
+}
+
+.socketNameOverlayDirection {
+  display: block;
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  opacity: 0.45;
+}
+
+.socketNameOverlayConnection {
+  display: block;
+  font-size: 12px;
+  opacity: 0.9;
+}
+
+.socketNameOverlayDirection + .socketNameOverlayConnection {
+  margin-top: 2px;
+}
+
+.socketNameOverlayConnectionSocket {
+  opacity: 0.55;
+}
+
+.socketNameOverlayConnectionSocket::before {
+  content: '\00b7';
+  margin: 0 4px;
+  opacity: 0.7;
+}
+
+.socketNameOverlayMore {
+  display: block;
+  margin-top: 2px;
+  font-size: 10px;
+  opacity: 0.4;
+}

@@ -44,10 +44,10 @@ import {
   clearDocumentSelection,
   constructSocketId,
   convertToViewableString,
-  getCurrentCursorPosition,
   parseValueAndAttachWarnings,
 } from '../utils/utils';
 import { NodeExecutionWarning, PNPStatus, PNPSuccess } from './ErrorClass';
+import { PNPHitArea } from './selection/PNPHitArea';
 import { getOverflowForSize } from '../utils/layoutableHelpers';
 
 export default class Socket
@@ -79,6 +79,9 @@ export default class Socket
     this._SocketRef = new PIXI.Graphics();
     this._SocketRef.name = 'SocketRef';
     this._SocketRef.eventMode = 'static';
+    this._SocketRef.hitArea = new PNPHitArea((x, y) =>
+      this.socketRefHitAreaContains(x, y),
+    );
     this._ValueSpecificGraphics = new PIXI.Graphics();
 
     this._TextRef.eventMode = 'static';
@@ -640,19 +643,13 @@ export default class Socket
   }
 
   getTooltipPosition(): PIXI.Point {
-    const scale = PPGraph.currentGraph.viewportScaleX;
-    const absPos = this.getGlobalPosition();
-    const nodeWidthScaled = this.getNode()._BackgroundGraphicsRef.width * scale;
-    const pos = new PIXI.Point(0, absPos.y + TOOLTIP_DISTANCE * scale * 2);
-    if (this.isInput()) {
-      pos.x = Math.max(0, absPos.x + SOCKET_WIDTH * scale * 1.5);
-    } else {
-      pos.x = Math.max(
-        0,
-        absPos.x + nodeWidthScaled - TOOLTIP_WIDTH - SOCKET_WIDTH * scale * 0.5,
-      );
-    }
-    return pos;
+    const overlay = PPGraph.currentGraph.socketFocus.nameOverlay;
+    const anchor = overlay.anchorFor(this, TOOLTIP_WIDTH);
+    // sit under the label when it is up, under the socket when it is not
+    const bottom =
+      overlay.getFrameRect()?.bottom ??
+      anchor.centerY + Socket.screenHitRadius();
+    return new PIXI.Point(anchor.left, bottom + TOOLTIP_DISTANCE / 2);
   }
 
   // getGlobalPosition already returns stage (screen) coordinates; applying
@@ -673,35 +670,40 @@ export default class Socket
 
   // SETUP
 
-  pointerOverSocketMoving() {
-    const currPos = getCurrentCursorPosition();
-    const center = PPGraph.currentGraph.getSocketCenter(this);
-    const dist = Math.sqrt(
-      Math.pow(currPos.y - center.y, 2) +
-        0.05 * Math.pow(currPos.x - center.x, 2),
-    );
-    const maxDist = 15;
-    const scaleOutside =
-      Math.pow(Math.max(0, (maxDist - dist) / maxDist), 1) * 1.3 + 1;
+  static screenHitRadius(): number {
+    const MIN_HITBOX_SCREEN_SIZE = 24;
+    const scale = PPGraph.currentGraph.viewportScaleX;
+    return Math.max(SOCKET_WIDTH * scale, MIN_HITBOX_SCREEN_SIZE) / 2;
+  }
 
-    this._SocketRef.scale = new PIXI.Point(scaleOutside, scaleOutside);
-    this._ValueSpecificGraphics.scale = new PIXI.Point(
-      scaleOutside,
-      scaleOutside,
-    );
-    if (this._TextRef) {
-      this._TextRef.scale = new PIXI.Point(
-        Math.sqrt(scaleOutside),
-        Math.sqrt(scaleOutside),
-      );
+  static worldHitRadius(): number {
+    return Socket.screenHitRadius() / PPGraph.currentGraph.viewportScaleX;
+  }
+
+  isWithinZoomInvariantHitRadius(x: number, y: number): boolean {
+    const center = this.getSocketLocation();
+    const radius = Socket.worldHitRadius();
+    const dx = x - center.x;
+    const dy = y - center.y;
+    return dx * dx + dy * dy <= radius * radius;
+  }
+
+  private socketRefHitAreaContains(x: number, y: number): boolean {
+    const half = SOCKET_WIDTH / 2;
+    const radius = Socket.worldHitRadius();
+    const dx = x - half;
+    const dy = y - half;
+    if (dx * dx + dy * dy <= radius * radius) {
+      return true;
     }
+    return x >= 0 && x <= SOCKET_WIDTH && y >= 0 && y <= SOCKET_WIDTH;
   }
 
   onPointerOver(): void {
     this.cursor = 'pointer';
     (this._SocketRef as PIXI.Graphics).tint = TRgba.white().hexNumber();
     this.links.forEach((link) => link.nodeHoveredOver());
-    PPGraph.currentGraph.socketHoverOver(this);
+    PPGraph.currentGraph.socketFocus.hoverOver(this);
   }
 
   onPointerOut(): void {
@@ -709,7 +711,7 @@ export default class Socket
     this.cursor = 'default';
     (this._SocketRef as PIXI.Graphics).tint = 0xffffff;
     this.links.forEach((link) => link.nodeHoveredOut());
-    PPGraph.currentGraph.socketHoverOut(this);
+    PPGraph.currentGraph.socketFocus.hoverOut(this);
   }
 
   onSocketPointerDown(event: PIXI.FederatedPointerEvent): void {
@@ -737,19 +739,8 @@ export default class Socket
     event.stopPropagation();
   }
 
-  public nodeHoveredOver() {}
-
-  public nodeHoveredOut() {
-    // scale might have been touched by us in pointeroversocketmoving
-    this._SocketRef.scale = new PIXI.Point(1, 1);
-    this._ValueSpecificGraphics.scale = new PIXI.Point(1, 1);
-    if (this._TextRef) {
-      this._TextRef.scale = new PIXI.Point(1, 1);
-    }
-  }
-
   destroy(options: PIXI.DestroyOptions): void {
-    PPGraph.currentGraph.socketHoverOut(this);
+    PPGraph.currentGraph.socketFocus.forgetSocket(this);
     super.destroy(options);
   }
 }
