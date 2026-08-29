@@ -101,7 +101,7 @@ export const Tooltip = (props) => {
 
   return (
     <ThemeProvider theme={customTheme}>
-      <div style={{ position: 'absolute', zIndex: 1120 }}>
+      <div style={{ position: 'absolute', zIndex: 3 }}>
         <ClickAwayListener
           onClickAway={(event) => {
             if (showTooltip && !props.isContextMenuOpen) {

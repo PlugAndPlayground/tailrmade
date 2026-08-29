@@ -565,18 +565,20 @@ export class TextEditor2 extends HybridNode2 {
         node.setInputData(textEditorMarkdownName, markdownString);
 
         // Force update to ensure auto-links are properly converted
-        editorRef.current.update(() => {
-          const autoLinkNodes = $nodesOfType(AutoLinkNode);
-          autoLinkNodes.forEach((autoLinkNode) => {
-            // Convert AutoLinkNode to LinkNode to ensure consistent handling
-            const linkNode = $createLinkNode(autoLinkNode.getURL(), {
-              rel: autoLinkNode.__rel,
-              target: autoLinkNode.__target,
-              title: autoLinkNode.__title,
+        if ($nodesOfType(AutoLinkNode).length > 0) {
+          editorRef.current.update(() => {
+            const autoLinkNodes = $nodesOfType(AutoLinkNode);
+            autoLinkNodes.forEach((autoLinkNode) => {
+              // Convert AutoLinkNode to LinkNode to ensure consistent handling
+              const linkNode = $createLinkNode(autoLinkNode.getURL(), {
+                rel: autoLinkNode.__rel,
+                target: autoLinkNode.__target,
+                title: autoLinkNode.__title,
+              });
+              autoLinkNode.replace(linkNode, true);
             });
-            autoLinkNode.replace(linkNode, true);
           });
-        });
+        }
 
         updateOutputsAndEditorHeight();
       });

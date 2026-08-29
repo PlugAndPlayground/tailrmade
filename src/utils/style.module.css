@@ -146,8 +146,7 @@
 
 .socketNameOverlay {
   position: absolute;
-  /* just above the socket inspector (1120 in components/Tooltip.tsx) */
-  z-index: 1130;
+  z-index: 4;
   pointer-events: none;
   display: none;
   overflow: hidden;

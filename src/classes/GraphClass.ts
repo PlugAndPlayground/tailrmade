@@ -460,6 +460,10 @@ export default class PPGraph {
     socket: PPSocket,
     event: PIXI.FederatedPointerEvent,
   ): Promise<void> {
+    if (socket.socketType === SOCKET_TYPE.GHOST) {
+      this.selection.selectNodes([socket.getNode()]);
+      return;
+    }
     // we allow re-connection of outputs if ctrl is pressed
     if (event.ctrlKey && socket.isOutput() && socket.hasLink()) {
       const target = socket.links[0].getTarget();
