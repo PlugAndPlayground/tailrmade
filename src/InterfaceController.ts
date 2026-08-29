@@ -11,6 +11,7 @@ import {
   isMac,
 } from './utils/utils';
 import PPGraph from './classes/GraphClass';
+import type { Tooltipable } from './components/Tooltip';
 import PPStorage from './PPStorage';
 import { zoomInOutViewport, zoomToFitNodes } from './pixi/utils-pixi';
 import { getDefaultDrawerState } from './utils/sessionStorageHandler';
@@ -350,6 +351,7 @@ export default class InterfaceController {
   static setIsGraphContextMenuOpen: (open: boolean) => void = () => {};
   static setIsNodeContextMenuOpen: (open: boolean) => void = () => {};
   static setIsSocketContextMenuOpen: (open: boolean) => void = () => {};
+  static closeTooltipIfShowing: (object: Tooltipable) => void = () => {};
 
   static setGraphToBeModified: (graph: IGraphSearch) => void = () => {};
   static setShowGraphEdit: (show: boolean) => void = () => {};

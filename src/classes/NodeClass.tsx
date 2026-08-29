@@ -1019,7 +1019,33 @@ export default class PPNode extends PIXI.Container implements IWarningHandler {
   protected getHitArea(): PNPHitArea {
     let rect = new PIXI.Rectangle(0, 0, this.nodeWidth, this.nodeHeight);
     rect = PPNode.boundsToSelectionBounds(rect);
-    return new PNPHitArea((x, y) => rect.contains(x, y));
+    return new PNPHitArea((x, y) => {
+      if (rect.contains(x, y)) {
+        return true;
+      }
+      // Pixi hit tests every node on every pointer move, so the socket scan
+      // has to be unreachable for nodes the pointer is nowhere near. Sockets
+      // never reach further than one hit radius past the node bounds.
+      const reach = Socket.worldHitRadius();
+      return (
+        x >= rect.x - reach &&
+        x <= rect.right + reach &&
+        y >= rect.y - reach &&
+        y <= rect.bottom + reach &&
+        this.isPointNearVisibleSocket(x, y)
+      );
+    });
+  }
+
+  // x/y in node local space; needed so that the zoom invariant socket hit
+  // areas are not pruned by the node's own hit area when they extend beyond
+  // the node bounds (PIXI prunes children outside a parent's hitArea)
+  protected isPointNearVisibleSocket(x: number, y: number): boolean {
+    return this.getAllSockets().some(
+      (socket) =>
+        socket.visible &&
+        socket.isWithinZoomInvariantHitRadius(x - socket.x, y - socket.y),
+    );
   }
 
   public getForegroundDimensions(): { width: number; height: number } {
@@ -1521,9 +1547,9 @@ ${Math.round(bounds.minX)}, ${Math.round(
           wasOnlySelectedAtPointerDown: false,
         });
         await selection.beginNodePointerInteraction(event);
-      } else if (PPGraph.currentGraph.overInputRef != undefined) {
+      } else if (PPGraph.currentGraph.socketFocus.hovered != undefined) {
         // this clause is a bit hacky, it happened for me under some edge cases where i would drag the selected node (macro in my case) instead of dragging socket connection
-        PPGraph.currentGraph.overInputRef.onSocketPointerDown(event);
+        PPGraph.currentGraph.socketFocus.hovered.onSocketPointerDown(event);
       } else {
         selection.beginPendingClick(this, event, {
           clearExistingSelection: !this.selected,
@@ -1635,9 +1661,9 @@ ${Math.round(bounds.minX)}, ${Math.round(
     PPGraph.currentGraph.viewport.plugins.pause('mouse-edges');
 
     const source = PPGraph.currentGraph.selectedSocket;
-    const hoveredOver = PPGraph.currentGraph.overInputRef;
-    if (hoveredOver) {
-      hoveredOver.onPointerUp(event);
+    const focused = PPGraph.currentGraph.socketFocus.focused;
+    if (focused) {
+      focused.onPointerUp(event);
       return;
     }
     if (source && this !== source.getNode()) {
@@ -1688,10 +1714,6 @@ ${Math.round(bounds.minX)}, ${Math.round(
     this.dropShadowFilter = undefined;
 
     this.onNodeRemoved();
-  }
-
-  pointerOverMoving(): void {
-    this.getAllSockets().forEach((socket) => socket.pointerOverSocketMoving());
   }
 
   OFFSET_TRANSLATION_ITERATION = 0.02;
@@ -1779,22 +1801,18 @@ ${Math.round(bounds.minX)}, ${Math.round(
     this.cursor = 'move'; // Show move cursor on hover
     this.updateBehaviour.graphics.redrawAnythingChanging();
     this.nodeSelectionHeader.redrawAnythingChanging(true);
-    this.addEventListener('pointermove', this.pointerOverMoving);
     this.selectionFilterIn();
 
-    this.getAllSockets().forEach((socket) => socket.nodeHoveredOver());
     this.drawUserComment();
   }
 
   onPointerOut(): void {
     this.isHovering = false;
     this.cursor = 'auto'; // Reset cursor
-    this.removeEventListener('pointermove', this.pointerOverMoving);
     this.updateBehaviour.graphics.redrawAnythingChanging();
     this.nodeSelectionHeader.redrawAnythingChanging(false);
     this.selectionFilterOut();
 
-    this.getAllSockets().forEach((socket) => socket.nodeHoveredOut());
     this.drawUserComment();
   }
 

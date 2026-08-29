@@ -49,15 +49,27 @@ export const Tooltip = (props) => {
     return new PIXI.Point(event.clientX + 16, event.clientY - 8);
   };
 
+  // the object a pointer event resolves to, or undefined for a keyboard
+  // event, which has no position to hit test
+  const objectUnderEvent = (event: any): Tooltipable | undefined => {
+    if (!event || typeof event.clientX !== 'number') {
+      return undefined;
+    }
+    return getClassWithTooltipContent(
+      getObjectAtPoint(new PIXI.Point(event.clientX, event.clientY)),
+    );
+  };
+
   const tooltipInspectorToggled = ({ event, open }) => {
     const toggleInputValue = (open) => (prev) => open ?? !prev;
 
     if (open === false) {
+      if (objectUnderEvent(event) === tooltipRef.current) {
+        return;
+      }
       setShowTooltip(false);
     } else {
-      const object = getClassWithTooltipContent(
-        getObjectAtPoint(new PIXI.Point(event.clientX, event.clientY)),
-      );
+      const object = objectUnderEvent(event);
       if (object) {
         if (object === tooltipRef.current) {
           setShowTooltip(toggleInputValue(open));
@@ -76,6 +88,14 @@ export const Tooltip = (props) => {
       tooltipInspectorToggled,
     );
 
+    // Close when the object that owns the tooltip is destroyed
+    InterfaceController.closeTooltipIfShowing = (object: Tooltipable) => {
+      if (object === tooltipRef.current) {
+        setShowTooltip(false);
+        setTooltipObject(undefined);
+      }
+    };
+
     return () => InterfaceController.removeListener(id);
   }, []);
 
@@ -83,8 +103,11 @@ export const Tooltip = (props) => {
     <ThemeProvider theme={customTheme}>
       <div style={{ position: 'absolute', zIndex: 1120 }}>
         <ClickAwayListener
-          onClickAway={() => {
+          onClickAway={(event) => {
             if (showTooltip && !props.isContextMenuOpen) {
+              if (objectUnderEvent(event) === tooltipRef.current) {
+                return;
+              }
               setShowTooltip(false);
             }
           }}
@@ -98,6 +121,8 @@ export const Tooltip = (props) => {
               position: 'absolute',
               p: 1,
               width: TOOLTIP_WIDTH,
+              borderRadius: 0,
+              boxShadow: '0 2px 8px rgba(0, 0, 0, 0.35)',
               left: Math.min(window.innerWidth - TOOLTIP_WIDTH, pos.x),
               top: pos.y,
               transition: 'opacity 0.1s ease-out',

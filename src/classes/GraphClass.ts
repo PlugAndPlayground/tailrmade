@@ -5,6 +5,7 @@ import { v4 as uuid } from 'uuid';
 
 import { NODE_SOURCE, NODE_WIDTH, SOCKET_TYPE } from '../utils/constants';
 import { GRAPH_DATA_VERSION } from '../utils/graphMigrations';
+import SocketFocus from './SocketFocus';
 import {
   CustomArgs,
   SerializedGraph,
@@ -79,7 +80,8 @@ export default class PPGraph {
   clickPoint: undefined | PIXI.Point;
   lastSelectedSocketWasOutput = false;
   overrideNodeCursorPosition: undefined | PIXI.Point = undefined;
-  overInputRef: undefined | PPSocket;
+  // hovering, magnetic snapping and everything that highlights a socket
+  socketFocus: SocketFocus;
   pointerEvent: PIXI.FederatedPointerEvent | undefined = undefined; // lets try to get rid of this undefined
   dragSourcePoint: PIXI.Point | undefined;
   dragLastPoint: PIXI.Point;
@@ -144,6 +146,10 @@ export default class PPGraph {
     this.overlayContainer = new PIXI.Container();
     this.overlayContainer.name = 'OverlayContainer';
     this.app.stage.addChild(this.overlayContainer);
+    this.socketFocus = new SocketFocus(
+      this.overlayContainer,
+      () => this.selectedSocket,
+    );
     this.initEmptyCanvasIndicator();
 
     this.graphConfiguredAndReady = false;
@@ -187,6 +193,8 @@ export default class PPGraph {
       this.onPointerRightClicked.bind(this),
     );
     this.viewport.addEventListener('click', this.onPointerClick.bind(this));
+
+    this.viewport.addEventListener('moved', () => this.socketFocus.refresh());
     this.viewport.addEventListener('pointermove', (event) =>
       this.onViewportMove(event),
     );
@@ -285,7 +293,7 @@ export default class PPGraph {
     });
 
     if (event.button === 0 && !isPhone()) {
-      if (!this.overInputRef) {
+      if (!this.socketFocus.hovered) {
         this.selection.drawSelectionStart(event, event.shiftKey);
       }
 
@@ -307,8 +315,12 @@ export default class PPGraph {
     this.viewport.plugins.pause('mouse-edges');
     document.body.style.cursor = 'default';
 
-    if (!this.overInputRef && this.selectedSocket) {
-      if (!this.overrideNodeCursorPosition) {
+    if (!this.socketFocus.hovered && this.selectedSocket) {
+      const snapTarget = this.socketFocus.focused;
+      if (snapTarget) {
+        // released within snap range of a compatible socket - connect to it
+        void this.socketMouseUp(snapTarget, event);
+      } else if (!this.overrideNodeCursorPosition) {
         this.overrideNodeCursorPosition = this.viewport.toWorld(event.global);
         if (this.lastSelectedSocketWasOutput || this.selectedSocket.isInput()) {
           InterfaceController.openNodeSearch(new PIXI.Point(event.x, event.y));
@@ -378,6 +390,14 @@ export default class PPGraph {
       }
     }
 
+    // Magnetic snapping: find the nearest compatible socket in screen space
+    this.socketFocus.updateSnapTarget({
+      pointer: event.global,
+      nodes: this.nodes,
+      scale: this.viewportScaleX,
+      hasPinnedCursorPosition: this.overrideNodeCursorPosition !== undefined,
+    });
+
     // Draw the connection line
     this.drawConnectionLine(event);
   }
@@ -388,8 +408,10 @@ export default class PPGraph {
 
     // Get target point based on context
     let targetPoint: PIXI.Point;
-    if (this.overInputRef && this.overInputRef !== this.selectedSocket) {
-      targetPoint = this.getSocketCenter(this.overInputRef);
+    // the socket the wire would land on, hovered directly or snapped to
+    const focusedSocket = this.socketFocus.focused;
+    if (focusedSocket) {
+      targetPoint = this.getSocketCenter(focusedSocket);
     } else if (this.overrideNodeCursorPosition) {
       targetPoint = this.overrideNodeCursorPosition;
     } else {
@@ -421,28 +443,17 @@ export default class PPGraph {
       toY, // destination point
     );
 
+    const TEMP_CONNECTION_SCREEN_WIDTH = 4;
     const selectedDataType = this.selectedSocket.dataType;
     this.tempConnection.stroke({
-      width: 2,
-      color: selectedDataType.getColor().multiply(0.9).hexNumber(),
+      width: TEMP_CONNECTION_SCREEN_WIDTH / this.viewportScaleX,
+      color: selectedDataType.getColor().hexNumber(),
       alpha: selectedDataType.getConnectionAlpha(),
     });
 
     // Position the curve at the source point
     this.tempConnection.x = sourcePointX;
     this.tempConnection.y = sourcePointY;
-  }
-
-  socketHoverOver(socket: PPSocket): void {
-    this.overInputRef = socket;
-    document.body.style.cursor = 'grab';
-  }
-
-  socketHoverOut(socket: PPSocket): void {
-    if (socket == this.overInputRef) this.overInputRef = undefined;
-    if (this.selectedSocket == undefined) {
-      document.body.style.cursor = 'default';
-    }
   }
 
   async socketPointerDown(
@@ -491,6 +502,7 @@ export default class PPGraph {
     }
     this.stopConnecting();
     if (source && socket !== this.selectedSocket && !connected) {
+      this.socketFocus.nameOverlay.showFor(socket, true);
       InterfaceController.notifyListeners(ListenEvent.ToggleTooltipInspector, {
         event,
       });
@@ -971,6 +983,7 @@ export default class PPGraph {
 
   stopConnecting() {
     this.clearTempConnection();
+    this.socketFocus.clearSnapTarget();
     this.overrideNodeCursorPosition = undefined;
     this.selectedSocket = undefined;
   }
@@ -1153,7 +1166,7 @@ export default class PPGraph {
 
   async clear(): Promise<void> {
     this.graphConfiguredAndReady = false;
-    // the theme belongs to the document being cleared, not to the session
+    this.socketFocus.forgetAll();
     clearRuntimeThemeLayer();
     setThemeDocument(EMPTY_THEME_DOCUMENT);
     const fadeOut = Object.values(this.nodes).length;

@@ -1,4 +1,5 @@
 import React from 'react';
+import { Box } from '@mui/material';
 import {
   AbstractType,
   Compatibility,
@@ -19,7 +20,7 @@ export interface DeferredReactTypeInterface {
 
 export class DeferredReactType extends AbstractType {
   getInputWidget = (props: any): any => {
-    return <></>;
+    return props.inDashboard ? <></> : <ReactUIPlaceholder />;
   };
 
   getOutputWidget = (props: any): any => {
@@ -41,7 +42,7 @@ export class DeferredReactType extends AbstractType {
 
   getDefaultValue(): DeferredReactTypeInterface {
     return {
-      renderFunction: () => <div>Default HTML</div>,
+      renderFunction: () => <ReactUIPlaceholder label="No widget connected" />,
     };
   }
 
@@ -90,9 +91,29 @@ export class DeferredReactType extends AbstractType {
   }
 }
 
+const ReactUIPlaceholder: React.FunctionComponent<{ label?: string }> = ({
+  label = 'ReactUI element - rendered in the dashboard',
+}) => (
+  <Box
+    sx={{
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      p: 1,
+      border: '1px dashed',
+      borderColor: 'rgba(255, 255, 255, 0.2)',
+      color: 'text.secondary',
+      fontSize: '12px',
+      textAlign: 'center',
+    }}
+  >
+    {label}
+  </Box>
+);
+
 const HtmlOutputWidget: React.FunctionComponent<any> = (props) => {
   if (!props.inDashboard) {
-    return <></>;
+    return <ReactUIPlaceholder />;
   }
 
   // Reference socket for reading state
