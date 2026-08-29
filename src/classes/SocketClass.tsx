@@ -643,7 +643,7 @@ export default class Socket
   }
 
   getTooltipPosition(): PIXI.Point {
-    const overlay = PPGraph.currentGraph.socketNameOverlay;
+    const overlay = PPGraph.currentGraph.socketFocus.nameOverlay;
     const anchor = overlay.anchorFor(this, TOOLTIP_WIDTH);
     // sit under the label when it is up, under the socket when it is not
     const bottom =
@@ -703,7 +703,7 @@ export default class Socket
     this.cursor = 'pointer';
     (this._SocketRef as PIXI.Graphics).tint = TRgba.white().hexNumber();
     this.links.forEach((link) => link.nodeHoveredOver());
-    PPGraph.currentGraph.socketHoverOver(this);
+    PPGraph.currentGraph.socketFocus.hoverOver(this);
   }
 
   onPointerOut(): void {
@@ -711,7 +711,7 @@ export default class Socket
     this.cursor = 'default';
     (this._SocketRef as PIXI.Graphics).tint = 0xffffff;
     this.links.forEach((link) => link.nodeHoveredOut());
-    PPGraph.currentGraph.socketHoverOut(this);
+    PPGraph.currentGraph.socketFocus.hoverOut(this);
   }
 
   onSocketPointerDown(event: PIXI.FederatedPointerEvent): void {
@@ -740,7 +740,7 @@ export default class Socket
   }
 
   destroy(options: PIXI.DestroyOptions): void {
-    PPGraph.currentGraph.forgetSocket(this);
+    PPGraph.currentGraph.socketFocus.forgetSocket(this);
     super.destroy(options);
   }
 }

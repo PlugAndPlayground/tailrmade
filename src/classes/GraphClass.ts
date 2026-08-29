@@ -5,9 +5,7 @@ import { v4 as uuid } from 'uuid';
 
 import { NODE_SOURCE, NODE_WIDTH, SOCKET_TYPE } from '../utils/constants';
 import { GRAPH_DATA_VERSION } from '../utils/graphMigrations';
-import SocketNameOverlay from './SocketNameOverlay';
-import { isSnappingSuppressed } from '../utils/socketSnapping';
-import { drawFocusRing, findSnapTarget } from '../utils/socketFocus';
+import SocketFocus from './SocketFocus';
 import {
   CustomArgs,
   SerializedGraph,
@@ -72,11 +70,8 @@ export default class PPGraph {
   clickPoint: undefined | PIXI.Point;
   lastSelectedSocketWasOutput = false;
   overrideNodeCursorPosition: undefined | PIXI.Point = undefined;
-  overInputRef: undefined | PPSocket;
-  // nearest compatible socket within snap range while dragging a connection
-  snapTargetSocket: undefined | PPSocket;
-  private focusRing: PIXI.Graphics;
-  socketNameOverlay: SocketNameOverlay;
+  // hovering, magnetic snapping and everything that highlights a socket
+  socketFocus: SocketFocus;
   pointerEvent: PIXI.FederatedPointerEvent | undefined = undefined; // lets try to get rid of this undefined
   dragSourcePoint: PIXI.Point | undefined;
   dragLastPoint: PIXI.Point;
@@ -141,13 +136,10 @@ export default class PPGraph {
     this.overlayContainer = new PIXI.Container();
     this.overlayContainer.name = 'OverlayContainer';
     this.app.stage.addChild(this.overlayContainer);
-    // Ring, moved to whichever socket has focus
-    this.focusRing = new PIXI.Graphics();
-    this.focusRing.name = 'SocketFocusRing';
-    this.focusRing.eventMode = 'none';
-    this.overlayContainer.addChild(this.focusRing);
-    // html layer, not a child of overlayContainer
-    this.socketNameOverlay = new SocketNameOverlay();
+    this.socketFocus = new SocketFocus(
+      this.overlayContainer,
+      () => this.selectedSocket,
+    );
     this.initEmptyCanvasIndicator();
 
     this.graphConfiguredAndReady = false;
@@ -192,7 +184,7 @@ export default class PPGraph {
     );
     this.viewport.addEventListener('click', this.onPointerClick.bind(this));
 
-    this.viewport.addEventListener('moved', () => this.applyFocus());
+    this.viewport.addEventListener('moved', () => this.socketFocus.refresh());
     this.viewport.addEventListener('pointermove', (event) =>
       this.onViewportMove(event),
     );
@@ -291,7 +283,7 @@ export default class PPGraph {
     });
 
     if (event.button === 0 && !isPhone()) {
-      if (!this.overInputRef) {
+      if (!this.socketFocus.hovered) {
         this.selection.drawSelectionStart(event, event.shiftKey);
       }
 
@@ -313,10 +305,11 @@ export default class PPGraph {
     this.viewport.plugins.pause('mouse-edges');
     document.body.style.cursor = 'default';
 
-    if (!this.overInputRef && this.selectedSocket) {
-      if (this.snapTargetSocket) {
+    if (!this.socketFocus.hovered && this.selectedSocket) {
+      const snapTarget = this.socketFocus.focused;
+      if (snapTarget) {
         // released within snap range of a compatible socket - connect to it
-        void this.socketMouseUp(this.snapTargetSocket, event);
+        void this.socketMouseUp(snapTarget, event);
       } else if (!this.overrideNodeCursorPosition) {
         this.overrideNodeCursorPosition = this.viewport.toWorld(event.global);
         if (this.lastSelectedSocketWasOutput || this.selectedSocket.isInput()) {
@@ -388,56 +381,15 @@ export default class PPGraph {
     }
 
     // Magnetic snapping: find the nearest compatible socket in screen space
-    this.updateSnapTarget(event);
+    this.socketFocus.updateSnapTarget({
+      pointer: event.global,
+      nodes: this.nodes,
+      scale: this.viewportScaleX,
+      hasPinnedCursorPosition: this.overrideNodeCursorPosition !== undefined,
+    });
 
     // Draw the connection line
     this.drawConnectionLine(event);
-  }
-
-  private updateSnapTarget(event: PIXI.FederatedPointerEvent): void {
-    // a directly hovered socket always wins over snapping and while the node
-    // search is open the wire is pinned to overrideNodeCursorPosition
-    const snappingDisabled = isSnappingSuppressed({
-      hasPinnedCursorPosition: this.overrideNodeCursorPosition !== undefined,
-      hoversOtherSocket:
-        this.overInputRef !== undefined &&
-        this.overInputRef !== this.selectedSocket,
-    });
-    this.snapTargetSocket =
-      snappingDisabled || !this.selectedSocket
-        ? undefined
-        : findSnapTarget(
-            event.global,
-            this.selectedSocket,
-            this.nodes,
-            this.viewportScaleX,
-          );
-    this.applyFocus();
-  }
-
-  private clearSnapTarget(): void {
-    this.snapTargetSocket = undefined;
-    // a socket still under the pointer stays focused after the drag ends
-    this.applyFocus();
-  }
-
-  // The socket the pointer would act on, either the one under the pointer or the one snapped to.
-  get focusedSocket(): undefined | PPSocket {
-    const hovered =
-      this.overInputRef === this.selectedSocket ? undefined : this.overInputRef;
-    return hovered ?? this.snapTargetSocket;
-  }
-
-  // The one place that turns socket focus on and off, so a socket reached by
-  // hovering and one reached by snapping always look the same.
-  private applyFocus(): void {
-    const socket = this.focusedSocket;
-    drawFocusRing(this.focusRing, socket);
-    if (socket) {
-      this.socketNameOverlay.showFor(socket, Boolean(this.selectedSocket));
-    } else {
-      this.socketNameOverlay.hide();
-    }
   }
 
   // Separate drawing logic to reduce complexity in the onViewportMove method
@@ -446,10 +398,10 @@ export default class PPGraph {
 
     // Get target point based on context
     let targetPoint: PIXI.Point;
-    if (this.overInputRef && this.overInputRef !== this.selectedSocket) {
-      targetPoint = this.getSocketCenter(this.overInputRef);
-    } else if (this.snapTargetSocket) {
-      targetPoint = this.getSocketCenter(this.snapTargetSocket);
+    // the socket the wire would land on, hovered directly or snapped to
+    const focusedSocket = this.socketFocus.focused;
+    if (focusedSocket) {
+      targetPoint = this.getSocketCenter(focusedSocket);
     } else if (this.overrideNodeCursorPosition) {
       targetPoint = this.overrideNodeCursorPosition;
     } else {
@@ -492,33 +444,6 @@ export default class PPGraph {
     // Position the curve at the source point
     this.tempConnection.x = sourcePointX;
     this.tempConnection.y = sourcePointY;
-  }
-
-  socketHoverOver(socket: PPSocket): void {
-    this.overInputRef = socket;
-    document.body.style.cursor = 'grab';
-    this.applyFocus();
-  }
-
-  socketHoverOut(socket: PPSocket): void {
-    if (socket == this.overInputRef) this.overInputRef = undefined;
-    if (this.selectedSocket == undefined) {
-      document.body.style.cursor = 'default';
-    }
-    // mid drag the wire may still be snapped to something else
-    this.applyFocus();
-  }
-
-  // Called from Socket.destroy
-  forgetSocket(socket: PPSocket): void {
-    // the socket inspector lives on the react side and holds its own
-    // reference, so it has to be told rather than discovered
-    InterfaceController.closeTooltipIfShowing(socket);
-    if (socket === this.snapTargetSocket) {
-      this.snapTargetSocket = undefined;
-    }
-    // clears overInputRef, restores the cursor and reapplies the focus
-    this.socketHoverOut(socket);
   }
 
   async socketPointerDown(
@@ -567,7 +492,7 @@ export default class PPGraph {
     }
     this.stopConnecting();
     if (source && socket !== this.selectedSocket && !connected) {
-      this.socketNameOverlay.showFor(socket, true);
+      this.socketFocus.nameOverlay.showFor(socket, true);
       InterfaceController.notifyListeners(ListenEvent.ToggleTooltipInspector, {
         event,
       });
@@ -1048,7 +973,7 @@ export default class PPGraph {
 
   stopConnecting() {
     this.clearTempConnection();
-    this.clearSnapTarget();
+    this.socketFocus.clearSnapTarget();
     this.overrideNodeCursorPosition = undefined;
     this.selectedSocket = undefined;
   }
@@ -1231,10 +1156,7 @@ export default class PPGraph {
 
   async clear(): Promise<void> {
     this.graphConfiguredAndReady = false;
-    // sockets are about to be destroyed - drop the references to them
-    this.overInputRef = undefined;
-    this.snapTargetSocket = undefined;
-    this.applyFocus();
+    this.socketFocus.forgetAll();
     const fadeOut = Object.values(this.nodes).length;
     if (fadeOut) {
       await this.fadeGraph(false);

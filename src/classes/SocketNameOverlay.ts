@@ -193,6 +193,12 @@ export default class SocketNameOverlay {
       !this.subtitleElement ||
       !this.connectionsElement
     ) {
+      console.error(
+        'Socket name overlay could not be rendered, its elements are missing:',
+        element
+          ? 'the host element is there but its parts are not'
+          : 'no #container to attach to',
+      );
       return;
     }
     this.currentSocket = socket;

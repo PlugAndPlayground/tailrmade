@@ -1547,9 +1547,9 @@ ${Math.round(bounds.minX)}, ${Math.round(
           wasOnlySelectedAtPointerDown: false,
         });
         await selection.beginNodePointerInteraction(event);
-      } else if (PPGraph.currentGraph.overInputRef != undefined) {
+      } else if (PPGraph.currentGraph.socketFocus.hovered != undefined) {
         // this clause is a bit hacky, it happened for me under some edge cases where i would drag the selected node (macro in my case) instead of dragging socket connection
-        PPGraph.currentGraph.overInputRef.onSocketPointerDown(event);
+        PPGraph.currentGraph.socketFocus.hovered.onSocketPointerDown(event);
       } else {
         selection.beginPendingClick(this, event, {
           clearExistingSelection: !this.selected,
@@ -1661,11 +1661,7 @@ ${Math.round(bounds.minX)}, ${Math.round(
     PPGraph.currentGraph.viewport.plugins.pause('mouse-edges');
 
     const source = PPGraph.currentGraph.selectedSocket;
-    // whichever socket the focus ring is on - hovered directly, or snapped to
-    // from just off it. Releasing has to land where the ring says it will:
-    // reading overInputRef alone meant a release a few pixels below a socket
-    // fell through to this node's preferred socket instead
-    const focused = PPGraph.currentGraph.focusedSocket;
+    const focused = PPGraph.currentGraph.socketFocus.focused;
     if (focused) {
       focused.onPointerUp(event);
       return;
