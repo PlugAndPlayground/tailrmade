@@ -2,17 +2,7 @@
 
 export type SocketSnapDirection = 'input' | 'output' | 'ghost';
 
-export type SnapPoint = {
-  x: number;
-  y: number;
-};
-
-export type SnapBounds = {
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-};
+export type SnapPoint = { x: number; y: number };
 
 export type SnapSocketInfo = {
   nodeId: string;
@@ -40,24 +30,10 @@ export function canSnapToSocket(
   return source.direction !== candidate.direction;
 }
 
-// Snapping stands down when the dragged wire is already committed elsewhere.
-// Keeping the precedence in one predicate makes the ordering explicit: a
-// socket under the pointer always beats a merely nearby one, and while the
-// node search is open the wire stays pinned to the stored cursor position.
-export type SnapSuppressionState = {
-  // overrideNodeCursorPosition is set - the node search pinned the wire
-  hasPinnedCursorPosition: boolean;
-  // the pointer is directly over a socket other than the dragged one
-  hoversOtherSocket: boolean;
-};
-
-export function isSnappingSuppressed(state: SnapSuppressionState): boolean {
-  return state.hasPinnedCursorPosition || state.hoversOtherSocket;
-}
-
+// cheap prune so a pointer nowhere near a node never enumerates its sockets
 export function isPointerNearNodeBounds(
   pointer: SnapPoint,
-  bounds: SnapBounds,
+  bounds: { x: number; y: number; width: number; height: number },
   snapRadius: number,
 ): boolean {
   return (

@@ -1,7 +1,7 @@
-// Socket focus: which socket the pointer would act on, and everything that
-// shows it. Owns the hovered socket, the magnetic snap target, the ring drawn
-// on the overlay container and the html name overlay, so that a socket reached
-// by hovering and one reached by snapping always behave and look the same.
+// Which socket the pointer would act on, and everything that shows it: the
+// hovered socket, the magnetic snap target, the ring on the overlay container
+// and the html name overlay - so a socket reached by hovering and one reached
+// by snapping always behave and look the same.
 
 import * as PIXI from 'pixi.js';
 
@@ -20,7 +20,6 @@ import {
   SocketSnapDirection,
   findNearestSnapCandidate,
   isPointerNearNodeBounds,
-  isSnappingSuppressed,
 } from '../utils/socketSnapping';
 import PPNode from './NodeClass';
 import PPSocket from './SocketClass';
@@ -28,9 +27,8 @@ import SocketNameOverlay from './SocketNameOverlay';
 
 const SNAP_SCREEN_RADIUS = 48;
 const HIGHLIGHT_SCREEN_WIDTH = 2;
-// a socket that already carries a link fills in, so hovering shows there is
-// something to pick up. Denser rather than a second colour - every other
-// colour on a socket is its datatype's
+// a socket that already carries a link fills in denser, so hovering shows
+// there is something to pick up (a second colour would clash with datatypes)
 const FILL_ALPHA = 0.2;
 const FILL_ALPHA_CONNECTED = 0.7;
 
@@ -90,7 +88,7 @@ export default class SocketFocus {
   hoverOver(socket: PPSocket): void {
     this.hoveredSocket = socket;
     document.body.style.cursor = 'grab';
-    this.apply();
+    this.refresh();
   }
 
   hoverOut(socket: PPSocket): void {
@@ -99,57 +97,47 @@ export default class SocketFocus {
       document.body.style.cursor = 'default';
     }
     // mid drag the wire may still be snapped to something else
-    this.apply();
+    this.refresh();
   }
 
   // Called from Socket.destroy
   forgetSocket(socket: PPSocket): void {
-    // the socket inspector lives on the react side and holds its own
-    // reference, so it has to be told rather than discovered
+    // the inspector lives on the react side and holds its own reference
     InterfaceController.closeTooltipIfShowing(socket);
     if (socket === this.snappedSocket) {
       this.snappedSocket = undefined;
     }
-    // clears the hover reference, restores the cursor and reapplies the focus
+    // clears the hover reference, restores the cursor and refreshes
     this.hoverOut(socket);
   }
 
   // Sockets are about to be destroyed - drop the references to them
   forgetAll(): void {
     this.hoveredSocket = undefined;
-    this.snappedSocket = undefined;
-    this.apply();
+    this.clearSnapTarget();
   }
 
   updateSnapTarget(context: SnapContext): void {
     const source = this.getConnectionSource();
-    // a directly hovered socket always wins over snapping and while the node
+    // a directly hovered socket always wins over snapping, and while the node
     // search is open the wire is pinned to the stored cursor position
-    const snappingDisabled = isSnappingSuppressed({
-      hasPinnedCursorPosition: context.hasPinnedCursorPosition,
-      hoversOtherSocket:
-        this.hoveredSocket !== undefined && this.hoveredSocket !== source,
-    });
+    const suppressed =
+      context.hasPinnedCursorPosition ||
+      (this.hoveredSocket !== undefined && this.hoveredSocket !== source);
     this.snappedSocket =
-      snappingDisabled || !source
-        ? undefined
-        : this.findSnapTarget(source, context);
-    this.apply();
+      suppressed || !source ? undefined : this.findSnapTarget(source, context);
+    this.refresh();
   }
 
   clearSnapTarget(): void {
     this.snappedSocket = undefined;
     // a socket still under the pointer stays focused after the drag ends
-    this.apply();
+    this.refresh();
   }
 
-  // redraw where the focus is, after the viewport moved under it
+  // The one place that turns socket focus on and off - also how the focus is
+  // redrawn after the viewport moved under it.
   refresh(): void {
-    this.apply();
-  }
-
-  // The one place that turns socket focus on and off.
-  private apply(): void {
     const socket = this.focused;
     this.drawRing(socket);
     if (socket) {
@@ -182,14 +170,13 @@ export default class SocketFocus {
         return;
       }
       node.getAllSockets().forEach((socket) => {
-        if (!socket.visible) {
-          return;
+        if (socket.visible) {
+          candidates.push({
+            ref: socket,
+            center: socket.screenPointSocketCenter(),
+            ...toSnapInfo(socket),
+          });
         }
-        candidates.push({
-          ref: socket,
-          center: socket.screenPointSocketCenter(),
-          ...toSnapInfo(socket),
-        });
       });
     });
 

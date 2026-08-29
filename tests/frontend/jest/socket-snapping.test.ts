@@ -4,7 +4,6 @@ import {
   canSnapToSocket,
   findNearestSnapCandidate,
   isPointerNearNodeBounds,
-  isSnappingSuppressed,
 } from '../../../src/utils/socketSnapping';
 
 const socket = (
@@ -120,60 +119,19 @@ describe('findNearestSnapCandidate', () => {
     ).toBe('in');
   });
 
-  it('returns undefined when everything is outside the snap radius', () => {
-    const outside = candidate('outside', 'b', 'input', 149, 100);
-    expect(
-      findNearestSnapCandidate({ x: 100, y: 100 }, source, [outside], 48),
-    ).toBeUndefined();
-  });
-
-  it('measures radius as a circle, not a bounding box', () => {
+  it('ignores anything outside the snap radius, measured as a circle', () => {
+    const pointer = { x: 100, y: 100 };
     // 40/40 is inside a 48px square but outside a 48px circle (~56.6 away)
-    const diagonal = candidate('diagonal', 'b', 'input', 140, 140);
-    expect(
-      findNearestSnapCandidate({ x: 100, y: 100 }, source, [diagonal], 48),
-    ).toBeUndefined();
-  });
-
-  it('excludes a candidate sitting exactly on the radius', () => {
-    const onRadius = candidate('onRadius', 'b', 'input', 148, 100);
-    expect(
-      findNearestSnapCandidate({ x: 100, y: 100 }, source, [onRadius], 48),
-    ).toBeUndefined();
-  });
-
-  it('returns undefined for an empty candidate list', () => {
-    expect(
-      findNearestSnapCandidate({ x: 100, y: 100 }, source, [], 48),
-    ).toBeUndefined();
-  });
-});
-
-describe('isSnappingSuppressed', () => {
-  it('lets a directly hovered socket win over a nearby snap target', () => {
-    expect(
-      isSnappingSuppressed({
-        hasPinnedCursorPosition: false,
-        hoversOtherSocket: true,
-      }),
-    ).toBe(true);
-  });
-
-  it('stays out of the way while the node search pins the wire', () => {
-    expect(
-      isSnappingSuppressed({
-        hasPinnedCursorPosition: true,
-        hoversOtherSocket: false,
-      }),
-    ).toBe(true);
-  });
-
-  it('snaps when the pointer is over open canvas', () => {
-    expect(
-      isSnappingSuppressed({
-        hasPinnedCursorPosition: false,
-        hoversOtherSocket: false,
-      }),
-    ).toBe(false);
+    const outside = [
+      candidate('outside', 'b', 'input', 149, 100),
+      candidate('diagonal', 'b', 'input', 140, 140),
+      candidate('onRadius', 'b', 'input', 148, 100),
+    ];
+    outside.forEach((only) => {
+      expect(
+        findNearestSnapCandidate(pointer, source, [only], 48),
+      ).toBeUndefined();
+    });
+    expect(findNearestSnapCandidate(pointer, source, [], 48)).toBeUndefined();
   });
 });
