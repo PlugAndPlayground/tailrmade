@@ -24,6 +24,7 @@ import { getLoadNodeExampleURL } from '../utils/utils';
 import { MAIN_COLOR } from '../utils/constants';
 import {
   executeMacroPrefix,
+  getNodeGroup,
   mapExecuteMacroPrefix,
 } from './nodeSearchConstants';
 export {
@@ -144,7 +145,7 @@ export const getNodes = (latest: INodeSearch[]): INodeSearch[] => {
           hasInputs: obj.hasInputs,
           tags: obj.tags,
           hasExample: obj.hasExample,
-          group: obj.tags?.[0],
+          group: getNodeGroup(obj.tags),
           optionType: NodeListOptionType.NODE,
         };
       })
@@ -166,7 +167,7 @@ export const getNodes = (latest: INodeSearch[]): INodeSearch[] => {
   const arrayWithGroupReset: INodeSearchExtended[] = allNodesInList.map(
     (node) => ({
       ...node,
-      group: node.tags[0],
+      group: getNodeGroup(node.tags),
     }),
   );
 

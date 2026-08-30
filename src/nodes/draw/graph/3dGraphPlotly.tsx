@@ -63,7 +63,7 @@ export class DRAW_3D_GRAPH_PLOTLY extends HybridNode2 {
   }
 
   public getTags(): string[] {
-    return ['3D', 'Draw', 'Interactive'].concat(super.getTags());
+    return ['Draw', 'Interactive'].concat(super.getTags());
   }
 
   public getColor(): TRgba {

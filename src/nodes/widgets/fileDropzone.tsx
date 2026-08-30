@@ -76,7 +76,7 @@ export class FileDropzone extends PPNode implements Layoutable {
   }
 
   public getTags(): string[] {
-    return ['Widget', 'Input', 'Files'].concat(super.getTags());
+    return ['Widget', 'Input'].concat(super.getTags());
   }
 
   public getColor(): TRgba {
