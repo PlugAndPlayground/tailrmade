@@ -90,6 +90,7 @@ type MCPToolName =
   | 'describe_node'
   | 'add_node'
   | 'connect_sockets'
+  | 'disconnect_sockets'
   | 'set_socket_value'
   | 'set_node_comment'
   | 'set_update_behaviour'
@@ -112,6 +113,12 @@ interface ConnectSocketsInput {
   from_socket: string;
   to_node: string;
   to_socket: string;
+}
+
+interface DisconnectSocketsInput {
+  to_node: string;
+  to_socket?: string;
+  from_node?: string;
 }
 
 interface SetSocketValueInput {
@@ -345,6 +352,31 @@ export class TailrmadeMCPServer {
         },
       },
       {
+        name: 'disconnect_sockets',
+        description:
+          'Remove a link. Give to_socket to unlink one named input, or from_node to unlink everything one node feeds into another - which is how a widget is taken off a UI surface (its element socket and the "<name> visible"/"<name> layout" companions go with it, and it leaves that surface\'s layout). The widget node itself stays in the graph, so connect it to another surface to move it there. Errors when no such link exists rather than reporting success.',
+        input_schema: {
+          type: 'object',
+          properties: {
+            to_node: {
+              type: 'string',
+              description: 'the node the link points at, e.g. the UI surface',
+            },
+            to_socket: {
+              type: 'string',
+              description:
+                'the input or trigger socket holding the link. Omit for a widget on a surface - element socket names are generated, so identify it with from_node instead.',
+            },
+            from_node: {
+              type: 'string',
+              description:
+                'the node the link comes from. On its own it removes every link from that node into to_node; alongside to_socket it is checked against the link actually there.',
+            },
+          },
+          required: ['to_node'],
+        },
+      },
+      {
         name: 'set_socket_value',
         description: 'Set an editable input socket value.',
         input_schema: {
@@ -574,6 +606,10 @@ export class TailrmadeMCPServer {
         case 'connect_sockets':
           return await this.connectSockets(
             input as unknown as ConnectSocketsInput,
+          );
+        case 'disconnect_sockets':
+          return await this.disconnectSockets(
+            input as unknown as DisconnectSocketsInput,
           );
         case 'set_socket_value':
           return await this.setSocketValue(
@@ -1051,6 +1087,122 @@ export class TailrmadeMCPServer {
         },
       }),
     };
+  }
+
+  /**
+   * Removes links pointing INTO to_node. A link is addressed either by the
+   * input socket that holds it (to_socket) or by where it comes from
+   * (from_node) - the latter because a widget sits on a surface through a
+   * generated element socket whose name the caller has no reason to know.
+   *
+   * The surface cleans up after itself: UISurfaceNode.inputUnplugged drops the
+   * element socket together with its dependent "visible"/"layout" sockets and
+   * re-syncs the layout, so taking a widget off a page needs nothing else.
+   */
+  private async disconnectSockets(
+    input: DisconnectSocketsInput,
+  ): Promise<MCPToolResult> {
+    const targetNode = PPGraph.currentGraph.nodes[input.to_node];
+    if (!targetNode) {
+      return { content: `Node not found: ${input.to_node}`, is_error: true };
+    }
+    if (!input.to_socket && !input.from_node) {
+      return {
+        content:
+          'disconnect_sockets needs to_socket (the input holding the link) or from_node (the node feeding it).',
+        is_error: true,
+      };
+    }
+    if (input.from_node && !PPGraph.currentGraph.nodes[input.from_node]) {
+      return { content: `Node not found: ${input.from_node}`, is_error: true };
+    }
+
+    const linkedSockets = targetNode
+      .getAllInputSockets()
+      .filter((socket) => socket.links.length > 0);
+
+    let sockets = linkedSockets;
+    if (input.to_socket) {
+      sockets = sockets.filter((socket) => socket.name === input.to_socket);
+      if (sockets.length === 0) {
+        return {
+          content: `No link into "${input.to_socket}" on ${input.to_node}.${this.describeIncomingLinks(linkedSockets)}`,
+          is_error: true,
+        };
+      }
+    }
+    if (input.from_node) {
+      sockets = sockets.filter(
+        (socket) =>
+          socket.links[0].getSource().getNode().id === input.from_node,
+      );
+      if (sockets.length === 0) {
+        return {
+          content: `No link from ${input.from_node} into ${input.to_node}${input.to_socket ? ` "${input.to_socket}"` : ''}.${this.describeIncomingLinks(linkedSockets)}`,
+          is_error: true,
+        };
+      }
+    }
+
+    const disconnected: Array<{
+      from: { node_id: string; socket: string };
+      to: { node_id: string; socket: string };
+    }> = [];
+    const spinnerLabel = 'AI disconnecting sockets';
+    InterfaceController.showSpinner(spinnerLabel);
+    try {
+      for (const socket of sockets) {
+        const source = socket.links[0].getSource();
+        // ConnectSocketsActionArgs both ways round: the undo of a disconnect
+        // is the connect that puts this exact link back
+        const args = new ConnectSocketsActionArgs(
+          source.getNode().id,
+          source.name,
+          input.to_node,
+          socket.name,
+        );
+        await PNPAction(
+          ACTIONS.DISCONNECT_SOCKETS,
+          args,
+          args,
+          undefined,
+          'ai',
+        );
+        disconnected.push({
+          from: { node_id: source.getNode().id, socket: source.name },
+          to: { node_id: input.to_node, socket: socket.name },
+        });
+      }
+    } finally {
+      InterfaceController.hideSpinner(spinnerLabel);
+    }
+
+    const affectedNodes = [input.to_node, input.from_node]
+      .map((id) => (id ? PPGraph.currentGraph.nodes[id] : undefined))
+      .filter((node): node is PPNode => Boolean(node));
+    affectedNodes.forEach((node) => this.spawnEditEffect(node));
+    if (affectedNodes.length > 0) {
+      await ensureVisible(affectedNodes);
+    }
+
+    return {
+      content: JSON.stringify({
+        status: 'disconnected',
+        links: disconnected,
+      }),
+    };
+  }
+
+  // what IS wired into the node, so a missed link can be corrected in one step
+  private describeIncomingLinks(sockets: Socket[]): string {
+    if (sockets.length === 0) {
+      return ' Nothing is connected to it.';
+    }
+    const described = sockets.map(
+      (socket) =>
+        `"${socket.name}" <- ${socket.links[0].getSource().getNode().id}`,
+    );
+    return ` Connected inputs: ${described.join(', ')}.`;
   }
 
   // Decides how a connect_sockets call that targets a UI surface should be

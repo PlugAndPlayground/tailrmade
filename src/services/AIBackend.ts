@@ -32,6 +32,12 @@ import {
   isAutoCaptureEnabled,
   type AIInspectSource,
 } from './AIVisionService';
+import {
+  endAILogRun,
+  logAIEvent,
+  startAILogRun,
+  truncateForAILog,
+} from './AIConversationLog';
 
 const LOCAL_COMPANION_AI_BASE_URL = 'http://localhost:6655/ai';
 
@@ -39,6 +45,7 @@ const LOCAL_COMPANION_AI_BASE_URL = 'http://localhost:6655/ai';
 const MUTATION_TOOL_NAMES = new Set([
   'add_node',
   'connect_sockets',
+  'disconnect_sockets',
   'set_socket_value',
   'set_node_comment',
   'set_update_behaviour',
@@ -619,6 +626,21 @@ export class AIBackend {
           inputSchema: input_schema,
         }));
 
+      // dev-only transcript of the whole run, see AIConversationLog
+      startAILogRun();
+      logAIEvent({
+        type: 'run_start',
+        conversationID,
+        model,
+        provider: getAIAgentProvider(model),
+        performActions,
+        canSeeTheApp,
+        message: truncateForAILog(apiText),
+        attachedImages: images?.length ?? 0,
+        systemPromptChars: systemPrompt.length,
+        tools: tools.map((tool) => tool.name),
+      });
+
       for (let turn = 0; turn < maxAgentTurns; turn++) {
         const provider = getAIAgentProvider(model);
         const prepared = prepareAIProviderTurn({
@@ -681,6 +703,14 @@ export class AIBackend {
         if (Number.isFinite(Number(usage?.cacheReadInputTokens))) {
           cacheReadInputTokens += Number(usage?.cacheReadInputTokens);
         }
+
+        logAIEvent({
+          type: 'assistant_text',
+          turn,
+          text: truncateForAILog(turnResponse.text ?? ''),
+          toolCalls: (turnResponse.toolCalls || []).map((call) => call.name),
+          usage,
+        });
 
         const textDelta = turnResponse.text;
         if (textDelta) {
@@ -748,10 +778,28 @@ export class AIBackend {
             applyAssistantText(assistantMessage);
           }
 
+          logAIEvent({
+            type: 'tool_call',
+            turn,
+            tool: toolName,
+            arguments: JSON.parse(
+              JSON.stringify(toolUse.arguments || {}, (_key, value) =>
+                truncateForAILog(value),
+              ),
+            ),
+          });
           const result = await TailrmadeMCPServer.getInstance().callTool(
             toolName,
             toolUse.arguments || {},
           );
+          logAIEvent({
+            type: 'tool_result',
+            turn,
+            tool: toolName,
+            isError: result.is_error === true,
+            content: truncateForAILog(result.content),
+            images: result.images?.length ?? 0,
+          });
           toolResults.push({
             callId: toolUse.id,
             name: toolName,
@@ -798,13 +846,25 @@ export class AIBackend {
         }
 
         if (turnImages.length > 0) {
-          pendingAttachments = turnImages
-            .slice(-MAX_VISION_IMAGES_PER_TURN)
-            .map((image) => ({
-              mimeType: this.getMediaTypeFromImage(image),
-              data: this.stripImageDataPrefix(image),
-            }));
+          const shownImages = turnImages.slice(-MAX_VISION_IMAGES_PER_TURN);
+          pendingAttachments = shownImages.map((image) => ({
+            mimeType: this.getMediaTypeFromImage(image),
+            data: this.stripImageDataPrefix(image),
+          }));
           pendingMessage = this.buildVisionNote(autoCaptureStructure);
+          // the capture is written next to the transcript, so a run can be
+          // read back against what the model was actually looking at
+          shownImages.forEach((image) =>
+            logAIEvent(
+              {
+                type: 'vision',
+                turn,
+                automatic: autoCaptureStructure !== undefined,
+                note: truncateForAILog(pendingMessage),
+              },
+              image,
+            ),
+          );
         }
       }
 
@@ -841,6 +901,15 @@ export class AIBackend {
 
       const tokensUsed = tokenUsage?.totalTokens || 0;
       this.logAIUsage(getAIAgentProvider(model), model, tokensUsed);
+      logAIEvent({
+        type: 'run_end',
+        toolCallCount,
+        autoCaptureCount,
+        inspections: Object.fromEntries(inspectionToolCounts),
+        hitTurnLimit: Boolean(pendingToolResults?.length),
+        tokenUsage,
+        answer: truncateForAILog(assistantMessage),
+      });
 
       void PPGraph.getCurrentGraph().notifyUserDataChanged(false);
       delete this.requestAbortControllers[conversationID];
@@ -859,6 +928,7 @@ export class AIBackend {
       };
     } catch (error) {
       delete this.requestAbortControllers[conversationID];
+      logAIEvent({ type: 'run_error', error: this.getErrorMessage(error) });
       this.applyLastAIMessageError(
         conversationID,
         'running the AI agent',
@@ -874,6 +944,7 @@ export class AIBackend {
       } catch (layoutError) {
         console.error('finishAgentTurn failed', layoutError);
       }
+      endAILogRun();
       InterfaceController.hideSpinner(agentSpinnerLabel);
     }
   }
@@ -1348,7 +1419,7 @@ export class AIBackend {
     if (name === 'set_surface_layout' || name === 'set_layout_value') {
       return typeof input.node_id === 'string' ? input.node_id : null;
     }
-    if (name === 'connect_sockets') {
+    if (name === 'connect_sockets' || name === 'disconnect_sockets') {
       const toNode = String(input.to_node ?? '');
       return PPGraph.currentGraph.nodes[toNode]?.isSurface() ? toNode : null;
     }
