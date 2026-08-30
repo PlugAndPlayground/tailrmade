@@ -12,6 +12,7 @@ import {
   DynamicWidgetName,
   RootName,
 } from '../../utils/constants_shared';
+import { normalizeDimensionProps } from '../../utils/cssDimensions';
 import { INHERIT_COLOR } from '../../utils/themeColors';
 import {
   dynamicWidgetDefaultProps,
@@ -106,8 +107,11 @@ const containerDefaultPropsForSpec = {
 // ---------------------------------------------------------------------------
 
 export type SurfaceLayoutColor = { r: number; g: number; b: number; a: number };
+export interface SpecItemIdentity {
+  id?: string;
+}
 
-export interface ContainerSpecItem {
+export interface ContainerSpecItem extends SpecItemIdentity {
   direction: 'row' | 'column';
   children: SurfaceLayoutSpecItem[];
   gap?: number;
@@ -128,7 +132,7 @@ export interface ContainerSpecItem {
   props?: Record<string, unknown>;
 }
 
-export interface TextSpecItem {
+export interface TextSpecItem extends SpecItemIdentity {
   text: string;
   fontSize?: number;
   fontWeight?: string;
@@ -137,7 +141,7 @@ export interface TextSpecItem {
   props?: Record<string, unknown>;
 }
 
-export interface WidgetSpecItem {
+export interface WidgetSpecItem extends SpecItemIdentity {
   // the source node id (a node with a ReactUI output) placed on the surface
   widget: string;
   showLabel?: boolean;
@@ -230,6 +234,138 @@ function normalizePadding(
   return padding;
 }
 
+const SPEC_PROPERTY_TO_CRAFT_PROP: Record<string, string> = {
+  direction: 'flexDirection',
+  gap: 'gap',
+  padding: 'padding',
+  background: 'background',
+  width: 'width',
+  height: 'height',
+  minWidth: 'minWidth',
+  minHeight: 'minHeight',
+  maxHeight: 'maxHeight',
+  align: 'alignItems',
+  justify: 'justifyContent',
+  mobileBehavior: 'mobileBehavior',
+  text: 'text',
+  fontSize: 'fontSize',
+  fontWeight: 'fontWeight',
+  textAlign: 'textAlign',
+  color: 'color',
+  showLabel: 'showLabel',
+  collapsible: 'collapsible',
+  collapsedByDefault: 'collapsedByDefault',
+};
+
+export const SPEC_PROPERTIES_BY_KIND: Record<
+  'container' | 'text' | 'widget',
+  string[]
+> = {
+  container: [
+    'direction',
+    'gap',
+    'padding',
+    'background',
+    'width',
+    'height',
+    'minWidth',
+    'minHeight',
+    'maxHeight',
+    'align',
+    'justify',
+    'mobileBehavior',
+  ],
+  text: ['text', 'fontSize', 'fontWeight', 'textAlign', 'color'],
+  widget: [
+    'width',
+    'height',
+    'minWidth',
+    'minHeight',
+    'maxHeight',
+    'showLabel',
+    'collapsible',
+    'collapsedByDefault',
+  ],
+};
+
+export interface ApplySpecPropertiesResult {
+  props: Record<string, unknown>;
+  applied: string[];
+  warnings: string[];
+}
+
+/**
+ * Patches spec properties onto one item's craft props, leaving everything else
+ * untouched.
+ */
+export function applySpecProperties(
+  props: Record<string, unknown>,
+  values: Record<string, unknown>,
+  kind: 'container' | 'text' | 'widget',
+): ApplySpecPropertiesResult {
+  const allowed = SPEC_PROPERTIES_BY_KIND[kind];
+  const patched = { ...props };
+  const applied: string[] = [];
+  const warnings: string[] = [];
+
+  for (const [name, value] of Object.entries(values)) {
+    if (!allowed.includes(name)) {
+      warnings.push(
+        `"${name}" is not a property of a ${kind}. Valid properties: ${allowed.join(', ')}.`,
+      );
+      continue;
+    }
+    if (name === 'padding') {
+      const normalized = normalizePadding(
+        value as number | [number, number, number, number],
+      );
+      if (normalized === undefined) {
+        warnings.push('"padding" must be a number or four numbers.');
+        continue;
+      }
+      patched.padding = normalized;
+      applied.push(name);
+      continue;
+    }
+    patched[SPEC_PROPERTY_TO_CRAFT_PROP[name]] = value;
+    applied.push(name);
+  }
+
+  return {
+    props: normalizeDimensionProps(patched, kind, warnings, props),
+    applied,
+    warnings,
+  };
+}
+
+/**
+ * Finds the tree item an id refers to.
+ *
+ * A widget can also be named by the node feeding it, since that is the handle
+ * the spec uses everywhere else and the one a caller is most likely to already
+ * have from inspect_graph.
+ */
+export function findLayoutItemId(
+  tree: SerializedCraftTree,
+  item: string,
+): string | undefined {
+  if (tree[item]) {
+    return item;
+  }
+  const elementId = getElementIdForNode(item);
+  return Object.keys(tree).find((id) => tree[id]?.props?.id === elementId);
+}
+
+/** The item kind, as the spec vocabulary names it, or undefined if unknown. */
+export function getSpecItemKind(
+  resolvedName: string | undefined,
+): 'container' | 'text' | 'widget' | undefined {
+  if (resolvedName === containerName) return 'container';
+  if (resolvedName === 'Text') return 'text';
+  if (resolvedName === DynamicWidgetName) return 'widget';
+  return undefined;
+}
+
 // ---------------------------------------------------------------------------
 // compileSurfaceSpec
 // ---------------------------------------------------------------------------
@@ -257,13 +393,35 @@ export function compileSurfaceSpec(
   const warnings: string[] = [];
   const tree: SerializedCraftTree = {};
   const seenWidgetIds = new Set<string>();
+  const usedItemIds = new Set<string>([RootName]);
+
+  // Keeps the id the caller sent so item identity survives a round trip.
+  function resolveItemId(item: SpecItemIdentity, label: string): string {
+    const wanted = item.id;
+    if (typeof wanted === 'string' && wanted !== '') {
+      if (!usedItemIds.has(wanted)) {
+        usedItemIds.add(wanted);
+        return wanted;
+      }
+      warnings.push(
+        `${label}: id "${wanted}" is used more than once in this spec; a fresh id was generated for the later one.`,
+      );
+    }
+    let generated = generateItemId();
+    while (usedItemIds.has(generated)) {
+      generated = generateItemId();
+    }
+    usedItemIds.add(generated);
+    return generated;
+  }
 
   function buildContainerItem(
     item: ContainerSpecItem,
     parent: string | undefined,
     defaults: Record<string, unknown>,
   ): { id: string; craftItem: SerializedCraftItem } {
-    const id = parent === undefined ? RootName : generateItemId();
+    const id =
+      parent === undefined ? RootName : resolveItemId(item, 'container');
     const isRoot = id === RootName;
 
     const overrides: Record<string, unknown> = {};
@@ -306,7 +464,12 @@ export function compileSurfaceSpec(
       overrides.mobileBehavior = item.mobileBehavior;
     }
 
-    const props = { ...defaults, ...overrides, ...(item.props ?? {}) };
+    const props = normalizeDimensionProps(
+      { ...defaults, ...overrides, ...(item.props ?? {}) },
+      `container${isRoot ? ' (root)' : ''}`,
+      warnings,
+      defaults,
+    );
 
     const craftItem: SerializedCraftItem =
       id === RootName
@@ -343,17 +506,25 @@ export function compileSurfaceSpec(
   }
 
   function buildTextItem(item: TextSpecItem, parent: string): string {
-    const id = generateItemId();
+    const id = resolveItemId(
+      item,
+      `text ${JSON.stringify(item.text.slice(0, 24))}`,
+    );
     const overrides = {
       text: item.text,
       ...pickDefined(item, ['fontSize', 'fontWeight', 'textAlign', 'color']),
     };
 
-    const props = {
-      ...textDefaultPropsForSpec,
-      ...overrides,
-      ...(item.props ?? {}),
-    };
+    const props = normalizeDimensionProps(
+      {
+        ...textDefaultPropsForSpec,
+        ...overrides,
+        ...(item.props ?? {}),
+      },
+      `text ${JSON.stringify(item.text.slice(0, 24))}`,
+      warnings,
+      textDefaultPropsForSpec,
+    );
 
     tree[id] = {
       type: { resolvedName: 'Text' },
@@ -399,19 +570,24 @@ export function compileSurfaceSpec(
     // always built fresh (declarative): shared defaults, then the node's own
     // preferred widget props (matching a sync-layer insert), then the spec's
     // explicit overrides.
-    const id = generateItemId();
+    const id = resolveItemId(item, `widget "${item.widget}"`);
     const craftItem: SerializedCraftItem = {
       type: { resolvedName: DynamicWidgetName },
       displayName: DynamicWidgetName,
       isCanvas: false,
-      props: {
-        ...dynamicWidgetDefaultProps,
-        ...(widgetPropsByNodeId?.get(item.widget) ?? {}),
-        id: elementId,
-        index: 0,
-        ...overrides,
-        ...(item.props ?? {}),
-      },
+      props: normalizeDimensionProps(
+        {
+          ...dynamicWidgetDefaultProps,
+          ...(widgetPropsByNodeId?.get(item.widget) ?? {}),
+          id: elementId,
+          index: 0,
+          ...overrides,
+          ...(item.props ?? {}),
+        },
+        `widget "${item.widget}"`,
+        warnings,
+        dynamicWidgetDefaultProps,
+      ),
       custom: {},
       hidden: false,
       parent,
@@ -525,6 +701,7 @@ export function decompileSurfaceTree(
     ]);
 
     const result: ContainerSpecItem = {
+      id,
       direction: (props.flexDirection as 'row' | 'column') ?? 'column',
       children: (item.nodes ?? []).map((childId) => decompileAny(childId)),
     };
@@ -575,6 +752,7 @@ export function decompileSurfaceTree(
     ]);
 
     const result: TextSpecItem = {
+      id,
       text: (props.text as string) ?? '',
     };
     if (diffed.fontSize !== undefined)
@@ -614,7 +792,7 @@ export function decompileSurfaceTree(
       'height',
     ]);
 
-    const result: WidgetSpecItem = { widget: nodeId };
+    const result: WidgetSpecItem = { id, widget: nodeId };
     if (diffed.showLabel !== undefined) {
       result.showLabel = diffed.showLabel as boolean;
     }

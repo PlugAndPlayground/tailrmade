@@ -23,11 +23,19 @@ import {
   surfaceElementVisibleSuffix,
   surfaceJsonSocketName,
 } from '../utils/constants_shared';
-import { SOCKET_NAME_DASHBOARD_CONTENT } from '../utils/layoutableHelpers';
 import {
+  heightName,
+  SOCKET_NAME_DASHBOARD_CONTENT,
+  widthName,
+} from '../utils/layoutableHelpers';
+import {
+  applySpecProperties,
   compileSurfaceSpec,
   ContainerSpecItem,
   decompileSurfaceTree,
+  findLayoutItemId,
+  getSpecItemKind,
+  SPEC_PROPERTIES_BY_KIND,
 } from '../nodes/layout/surfaceLayoutSpec';
 import {
   getElementIdForNode,
@@ -41,6 +49,10 @@ import { isLayoutableNode } from '../utils/interfaces';
 import type { UISurfaceNode } from '../nodes/layout/uiSurface';
 import { cloneAndTruncateContext } from './contextTruncation';
 import { DeferredReactType } from '../nodes/datatypes/deferredHtmlType';
+import {
+  normalizeDimension,
+  normalizeDimensionProps,
+} from '../utils/cssDimensions';
 import {
   AI_INSPECT_SOURCES,
   AIInspectSource,
@@ -86,6 +98,7 @@ type MCPToolName =
   | 'set_node_name'
   | 'inspect_surface'
   | 'inspect_ui'
+  | 'set_layout_value'
   | 'set_surface_layout'
   | 'set_default_surface';
 
@@ -150,6 +163,12 @@ interface InspectSurfaceInput {
 
 interface InspectUIInput {
   source?: AIInspectSource;
+}
+
+interface SetLayoutValueInput {
+  node_id: string;
+  item: string;
+  values: Record<string, unknown>;
 }
 
 interface SetSurfaceLayoutInput {
@@ -457,9 +476,33 @@ export class TailrmadeMCPServer {
         },
       },
       {
+        name: 'set_layout_value',
+        description: `Change individual layout properties of ONE item on a UI surface, leaving the rest of the layout untouched. Prefer this over set_surface_layout for any focused change - resizing a widget, changing a container's direction or padding, restyling a text block - because it cannot disturb anything it does not name. Address the item by the "id" that inspect_surface reports for it (a widget can also be addressed by its source node id). Valid properties per item kind - container: ${SPEC_PROPERTIES_BY_KIND.container.join(', ')}; text: ${SPEC_PROPERTIES_BY_KIND.text.join(', ')}; widget: ${SPEC_PROPERTIES_BY_KIND.widget.join(', ')}. Sizes are css strings ("240px", "100%", "auto"), never bare numbers.`,
+        input_schema: {
+          type: 'object',
+          properties: {
+            node_id: {
+              type: 'string',
+              description: 'the UI surface node',
+            },
+            item: {
+              type: 'string',
+              description:
+                'the layout item id from inspect_surface, "ROOT" for the root container, or a widget\'s source node id',
+            },
+            values: {
+              type: 'object',
+              description:
+                'the properties to change, e.g. {"height": "240px"}. Everything else keeps its current value.',
+            },
+          },
+          required: ['node_id', 'item', 'values'],
+        },
+      },
+      {
         name: 'set_surface_layout',
         description:
-          "Replace a UI surface's layout from a simplified declarative spec. Omitted properties reset to defaults; referenced unconnected widgets are connected automatically.",
+          'Replace a UI surface\'s ENTIRE layout from a simplified declarative spec, for building or restructuring a surface. Omitted properties reset to defaults, so to change one property of one item use set_layout_value instead - it cannot disturb the rest of the layout. Item ids from inspect_surface are preserved when sent back. Referenced unconnected widgets are connected automatically. width and height are css strings - "240px", "100%" or "auto" - never bare numbers.',
         input_schema: {
           type: 'object',
           properties: {
@@ -554,6 +597,10 @@ export class TailrmadeMCPServer {
           return this.inspectSurface(input as unknown as InspectSurfaceInput);
         case 'inspect_ui':
           return await this.inspectUI(input as unknown as InspectUIInput);
+        case 'set_layout_value':
+          return await this.setLayoutValue(
+            input as unknown as SetLayoutValueInput,
+          );
         case 'set_surface_layout':
           return await this.setSurfaceLayout(
             input as unknown as SetSurfaceLayoutInput,
@@ -1111,6 +1158,12 @@ export class TailrmadeMCPServer {
 
     const socket = targetNode?.getInputSocketByName(input.socket_name);
 
+    const { value, warnings: dimensionWarnings } = this.normalizeDimensionValue(
+      input.value,
+      input.socket_name,
+    );
+    input = { ...input, value };
+
     // setting the same value again would only create a no-op undo entry
     if (socket && JSON.stringify(socket.data) === JSON.stringify(input.value)) {
       return {
@@ -1160,7 +1213,38 @@ export class TailrmadeMCPServer {
         status: 'value_set',
         node_id: input.node_id,
         socket_name: input.socket_name,
+        ...(dimensionWarnings.length ? { warnings: dimensionWarnings } : {}),
       }),
+    };
+  }
+
+  // Repairs css dimensions on their way into a socket and notifies caller.
+  private normalizeDimensionValue(
+    value: unknown,
+    socketName: string,
+  ): { value: unknown; warnings: string[] } {
+    const warnings: string[] = [];
+
+    // a layout node's own Width/Height string socket
+    if (socketName === widthName || socketName === heightName) {
+      const normalized = normalizeDimension(value, socketName);
+      if (normalized.warning) {
+        warnings.push(normalized.warning);
+      }
+      return { value: normalized.value ?? 'auto', warnings };
+    }
+
+    // a widget layout object, such as a surface's "<name> layout" override
+    if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+      return { value, warnings };
+    }
+    return {
+      value: normalizeDimensionProps(
+        value as Record<string, unknown>,
+        socketName,
+        warnings,
+      ),
+      warnings,
     };
   }
 
@@ -1530,6 +1614,95 @@ export class TailrmadeMCPServer {
         layout: root,
         unknown_layout_items: unknownItems,
         other_surfaces: otherSurfaces,
+      }),
+    };
+  }
+
+  // Patches one item's layout properties in place.
+  private async setLayoutValue(
+    input: SetLayoutValueInput,
+  ): Promise<MCPToolResult> {
+    const node = PPGraph.currentGraph.nodes[input.node_id];
+    if (!node) {
+      return { content: `Node not found: ${input.node_id}`, is_error: true };
+    }
+    if (!node.isSurface()) {
+      return {
+        content: `Node ${input.node_id} is not a UI surface node`,
+        is_error: true,
+      };
+    }
+    if (
+      typeof input.values !== 'object' ||
+      input.values === null ||
+      Array.isArray(input.values)
+    ) {
+      return {
+        content:
+          'set_layout_value needs a "values" object, e.g. {"height": "240px"}',
+        is_error: true,
+      };
+    }
+
+    const surface = node as unknown as UISurfaceNode;
+    const tree = surface.getSurfaceTree();
+    const itemId = findLayoutItemId(tree, input.item);
+    if (itemId === undefined) {
+      return {
+        content: `No layout item "${input.item}" on surface ${input.node_id}. Use inspect_surface to read the current item ids.`,
+        is_error: true,
+      };
+    }
+
+    const item = tree[itemId];
+    const kind = getSpecItemKind(item?.type?.resolvedName);
+    if (kind === undefined) {
+      return {
+        content: `Layout item "${input.item}" is of an unrecognised kind and cannot be patched here. Use set_surface_layout.`,
+        is_error: true,
+      };
+    }
+
+    const patch = applySpecProperties(item.props ?? {}, input.values, kind);
+    if (patch.applied.length === 0) {
+      return {
+        content: `Nothing was changed. ${patch.warnings.join(' ')}`,
+        is_error: true,
+      };
+    }
+
+    const previousTreeJSON = JSON.stringify(tree);
+    const newTree = { ...tree, [itemId]: { ...item, props: patch.props } };
+    const newTreeJSON = JSON.stringify(newTree);
+
+    const args = new SetUISurfaceLayoutActionArgs(input.node_id, newTreeJSON);
+    const undoArgs = new SetUISurfaceLayoutActionArgs(
+      input.node_id,
+      previousTreeJSON,
+    );
+
+    const spinnerLabel = 'AI setting layout value';
+    InterfaceController.showSpinner(spinnerLabel);
+    try {
+      await PNPAction(
+        ACTIONS.SET_UI_SURFACE_LAYOUT,
+        args,
+        undoArgs,
+        undefined,
+        'ai',
+      );
+    } finally {
+      InterfaceController.hideSpinner(spinnerLabel);
+    }
+
+    return {
+      content: JSON.stringify({
+        status: 'layout_value_set',
+        node_id: input.node_id,
+        item: itemId,
+        item_kind: kind,
+        applied: patch.applied,
+        ...(patch.warnings.length ? { warnings: patch.warnings } : {}),
       }),
     };
   }

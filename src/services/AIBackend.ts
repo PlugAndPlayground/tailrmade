@@ -45,6 +45,7 @@ const MUTATION_TOOL_NAMES = new Set([
   'add_trigger_input',
   'set_trigger_type',
   'set_node_name',
+  'set_layout_value',
   'set_surface_layout',
   'set_default_surface',
 ]);
@@ -1344,7 +1345,7 @@ export class AIBackend {
   ): string | null {
     const name = String(toolUse.name || '');
     const input = (toolUse.arguments ?? {}) as any;
-    if (name === 'set_surface_layout') {
+    if (name === 'set_surface_layout' || name === 'set_layout_value') {
       return typeof input.node_id === 'string' ? input.node_id : null;
     }
     if (name === 'connect_sockets') {
@@ -1393,8 +1394,9 @@ Use the browser-local MCP tools to inspect and edit the live graph. Use them whe
 1. Inspect graph data instead of asking the user to provide it. Use inspect_selected_nodes or inspect_graph to find nodes, then inspect_nodes when details matter.
 2. Tool calls in one response execute in the order listed. The add_node tool description gives the highest existing ai-node number and the next safe ID. Start with that next ID and increment it for each additional node in the same response. In that same response, put add_node before any set_node_name, set_node_comment, set_socket_value, or connect_sockets calls that use its ID; do not wait for add_node's result. Put structure-changing socket values before calls that use the sockets they create.
 3. Add brief comments to CustomFunction and other non-obvious nodes. Share repeated values through one Constant node.
-4. Use inspect_ui to see the app as it actually renders. The layout json says what should be there; the screenshot shows what is, which is the only way to catch clipped or overflowing text, widgets that ended up in the wrong container, and widgets that render empty. After building or restyling a UI, look before you claim it works. A capture may also arrive unprompted after you change something - treat it the same way, act on what is wrong, and move on without re-inspecting when it is right.
-5. After using any mutation tool and before saying the task is complete, call inspect_warnings_and_errors. If warnings or errors remain, fix them when possible or clearly report what remains.
+4. To change part of a UI, use set_layout_value: it patches named properties on one item, addressed by the id inspect_surface reports, and cannot disturb anything it does not name. Reach for set_surface_layout only when building or restructuring a surface, since it replaces the whole layout and resets every property you leave out. Sizes are css strings everywhere - "240px", "100%", "auto" - never bare numbers.
+5. Use inspect_ui to see the app as it actually renders. The layout json says what should be there; the screenshot shows what is, which is the only way to catch clipped or overflowing text, widgets that ended up in the wrong container, and widgets that render empty. After building or restyling a UI, look before you claim it works. A capture may also arrive unprompted after you change something - treat it the same way, act on what is wrong, and move on without re-inspecting when it is right.
+6. After using any mutation tool and before saying the task is complete, call inspect_warnings_and_errors. If warnings or errors remain, fix them when possible or clearly report what remains.
 
 ## Available Node Types
 Each line is key (Name): description. [docs] marks extra AI documentation.
