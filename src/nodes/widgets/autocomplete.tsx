@@ -133,6 +133,10 @@ abstract class WidgetAutocompleteBase extends WidgetSelectableBase {
     ];
   }
 
+  public getCanvasControlSelectors(): string[] {
+    return ['.MuiInputBase-root', '.MuiInputLabel-root', '.MuiChip-root'];
+  }
+  
   public getWidgetContent(props: WidgetContentProps): React.ReactElement {
     const node = props.node as WidgetAutocompleteBase;
 

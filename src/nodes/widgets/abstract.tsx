@@ -8,6 +8,7 @@ import { WidgetProps } from '../../utils/interfaces';
 import { EnumStructure, EnumType } from '../datatypes/enumType';
 import { StringType } from '../datatypes/stringType';
 import { Density, useResolvedDensity, useThemeTokens } from '../../utils/theme';
+import { getCanvasGrabThroughSx } from '../../utils/nodeInteractivity';
 
 export const defaultProps: WidgetProps = {
   background: { r: 9, g: 13, b: 26, a: 0 },
@@ -333,10 +334,15 @@ export abstract class WidgetHybridBase extends HybridNode2 {
   public isWidget(): boolean {
     return true;
   }
+
+  // The parts of this widget's own markup that take pointer input on the canvas
+  public getCanvasControlSelectors(): string[] {
+    return [];
+  }
 }
 
 interface WidgetPaperProps {
-  node: HybridNode2;
+  node: WidgetHybridBase;
   inDashboard?: boolean;
   hasBackground?: boolean;
   children: React.ReactNode;
@@ -365,6 +371,9 @@ export const WidgetPaper = React.forwardRef<HTMLDivElement, WidgetPaperProps>(
             ? '100%'
             : `${(node as any).getHybridNodeHeight()}px`,
           padding: inDashboard ? 0 : `${4 * CANVAS_MARGIN}px`,
+          ...(inDashboard || node.isCanvasInteractionBlocked()
+            ? {}
+            : getCanvasGrabThroughSx(node.getCanvasControlSelectors())),
         }}
       >
         {children}

@@ -85,6 +85,10 @@ abstract class WidgetDropdownBase extends WidgetSelectableBase {
     ];
   }
 
+  public getCanvasControlSelectors(): string[] {
+    return ['.MuiInputBase-root', '.MuiInputLabel-root'];
+  }
+
   public getWidgetContent(props: WidgetContentProps): React.ReactElement {
     const node = props.node as WidgetDropdownBase;
     const size = useWidgetSize(props[sizeName]);

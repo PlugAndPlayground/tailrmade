@@ -133,6 +133,10 @@ export class WidgetTabs extends WidgetHybridBase {
     );
   };
 
+  public getCanvasControlSelectors(): string[] {
+    return ['.MuiButtonBase-root'];
+  }
+
   getWidgetContent(props: WidgetContentProps): React.ReactElement {
     const node = props.node as WidgetTabs;
     const options = props[tabsOptionsName] || [];

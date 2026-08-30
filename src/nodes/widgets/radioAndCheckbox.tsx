@@ -28,7 +28,6 @@ import {
   useWidgetSize,
   useSizeTokens,
 } from './abstract';
-import HybridNode2 from '../../classes/HybridNode2';
 import Socket from '../../classes/SocketClass';
 import { ArrayType } from '../datatypes/arrayType';
 import { StringType } from '../datatypes/stringType';
@@ -78,7 +77,10 @@ const OptionGroupFrame: React.FC<{
 }> = ({ props, tokens, children }) => {
   const node = props.node;
   return (
-    <WidgetPaper node={node as HybridNode2} inDashboard={props.inDashboard}>
+    <WidgetPaper
+      node={node as WidgetHybridBase}
+      inDashboard={props.inDashboard}
+    >
       <FormControl
         component="fieldset"
         disabled={props.disabled}
@@ -226,6 +228,10 @@ export class WidgetRadio extends WidgetHybridBase {
       ),
     );
   };
+
+  public getCanvasControlSelectors(): string[] {
+    return ['.MuiFormControlLabel-root'];
+  }
 
   getWidgetContent(props: WidgetContentProps): React.ReactElement {
     const node = props.node;
@@ -389,6 +395,10 @@ export class WidgetCheckbox extends WidgetHybridBase {
       ),
     );
   };
+
+  public getCanvasControlSelectors(): string[] {
+    return ['.MuiFormControlLabel-root'];
+  }
 
   getWidgetContent(props: WidgetContentProps): React.ReactElement {
     const node = props.node;

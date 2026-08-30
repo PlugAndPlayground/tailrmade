@@ -198,8 +198,12 @@ export class WidgetButton extends WidgetHybridBase {
     }
   };
 
+  public getCanvasControlSelectors(): string[] {
+    return ['.MuiButtonBase-root'];
+  }
+
   getWidgetContent(props: HybridWidgetContentProps): React.ReactElement {
-    const node = props.node;
+    const node = props.node as WidgetHybridBase;
     const isDisabled = props.disabled || props[disabledName];
     const variant = useResolvedButtonVariant(props[variantName]);
     const size = useWidgetSize(props[sizeName]);
@@ -392,8 +396,13 @@ export class WidgetButtonGroup extends WidgetHybridBase {
     );
   };
 
+  // every button in the group, toggle or plain
+  public getCanvasControlSelectors(): string[] {
+    return ['.MuiButtonBase-root'];
+  }
+
   getWidgetContent(props: HybridWidgetContentProps): React.ReactElement {
-    const node = props.node;
+    const node = props.node as WidgetHybridBase;
     const options = props[buttonGroupOptionsName] || [];
     const selectedIndex = Math.max(
       0,
@@ -680,8 +689,13 @@ export class WidgetSwitch extends WidgetHybridBase {
     );
   };
 
+  // the root is the whole track, not just the thumb
+  public getCanvasControlSelectors(): string[] {
+    return ['.MuiSwitch-root'];
+  }
+
   getWidgetContent(props: HybridWidgetContentProps): React.ReactElement {
-    const node = props.node;
+    const node = props.node as WidgetHybridBase;
     const size = useWidgetSize(props[sizeName]);
     const tokens = useSizeTokens(size);
 

@@ -114,6 +114,10 @@ export class WidgetColorPicker extends WidgetHybridBase {
     );
   }, 100);
 
+  public getCanvasControlSelectors(): string[] {
+    return ['.MuiButtonBase-root'];
+  }
+
   getWidgetContent(props: WidgetContentProps): React.ReactElement {
     const node = props.node as WidgetColorPicker;
     const ref = useRef<HTMLDivElement | null>(null);
