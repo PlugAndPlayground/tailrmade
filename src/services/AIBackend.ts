@@ -32,12 +32,7 @@ import {
   isAutoCaptureEnabled,
   type AIInspectSource,
 } from './AIVisionService';
-import {
-  endAILogRun,
-  logAIEvent,
-  startAILogRun,
-  truncateForAILog,
-} from './AIConversationLog';
+import { startAILogRun, truncateForAILog } from './AIConversationLog';
 
 const LOCAL_COMPANION_AI_BASE_URL = 'http://localhost:6655/ai';
 
@@ -57,18 +52,10 @@ const MUTATION_TOOL_NAMES = new Set([
   'set_default_surface',
 ]);
 
-/**
- * How many times one run may show itself the app without being asked to.
- * Each auto-capture forces another provider turn (the agent has to answer the
- * image), so an unbounded count would let a build loop spend the whole turn
- * budget looking at itself.
- */
+// How many times one run may show itself the app without being asked to.
 const MAX_AUTO_CAPTURES_PER_RUN = 4;
 
-/**
- * Images one turn may carry. The cross-turn history is pruned to the newest
- * capture anyway; this only bounds a turn that called inspect_ui repeatedly.
- */
+// Images one turn may carry. The cross-turn history is pruned to the newest capture anyway.
 const MAX_VISION_IMAGES_PER_TURN = 2;
 
 export { DEFAULT_MODEL, DEFAULT_MODEL_GEMINI } from './aiModels';
@@ -136,11 +123,7 @@ export interface AnthropicConversationMessage {
 
 export interface AIMessageContext {
   performActions?: boolean;
-  /**
-   * Extra text sent with the message but kept out of the conversation the user
-   * reads - the structure that pairs with a manually attached capture, which
-   * would otherwise bury their own prompt under a wall of json.
-   */
+  // The structure that pairs with a manually attached capture kept out of the conversation.
   attachmentContext?: string;
 }
 
@@ -550,6 +533,7 @@ export class AIBackend {
     const agentSpinnerLabel = 'AI agent working';
     InterfaceController.showSpinner(agentSpinnerLabel);
     TailrmadeMCPServer.getInstance().beginAgentTurn();
+    const aiLog = startAILogRun();
 
     try {
       this.awaitingResponseHash = hri.random();
@@ -612,9 +596,7 @@ export class AIBackend {
       let pendingAttachments: AIProviderAttachment[] | undefined;
       let autoCaptureCount = 0;
       const inspectionToolCounts = new Map<string, number>();
-      // With the preference off the agent is not merely stopped from capturing
-      // on its own - it is never offered the tool, so it cannot ask either. The
-      // user attaching a capture by hand is still their own call to make.
+      // With the preference off the agent is never offered the tool
       const canSeeTheApp = isAutoCaptureEnabled();
       const tools = TailrmadeMCPServer.getInstance()
         .listTools()
@@ -627,8 +609,7 @@ export class AIBackend {
         }));
 
       // dev-only transcript of the whole run, see AIConversationLog
-      startAILogRun();
-      logAIEvent({
+      aiLog.log({
         type: 'run_start',
         conversationID,
         model,
@@ -704,7 +685,7 @@ export class AIBackend {
           cacheReadInputTokens += Number(usage?.cacheReadInputTokens);
         }
 
-        logAIEvent({
+        aiLog.log({
           type: 'assistant_text',
           turn,
           text: truncateForAILog(turnResponse.text ?? ''),
@@ -778,7 +759,7 @@ export class AIBackend {
             applyAssistantText(assistantMessage);
           }
 
-          logAIEvent({
+          aiLog.log({
             type: 'tool_call',
             turn,
             tool: toolName,
@@ -792,7 +773,7 @@ export class AIBackend {
             toolName,
             toolUse.arguments || {},
           );
-          logAIEvent({
+          aiLog.log({
             type: 'tool_result',
             turn,
             tool: toolName,
@@ -838,8 +819,6 @@ export class AIBackend {
             autoCaptureCount++;
             turnImages.push(...captured.images);
             autoCaptureStructure = captured.content;
-            // taking a picture of the user's app is worth saying out loud,
-            // unlike the read-only inspections the transcript hides
             assistantMessage += '\n*Looked at the rendered UI.*';
             applyAssistantText(assistantMessage);
           }
@@ -852,10 +831,8 @@ export class AIBackend {
             data: this.stripImageDataPrefix(image),
           }));
           pendingMessage = this.buildVisionNote(autoCaptureStructure);
-          // the capture is written next to the transcript, so a run can be
-          // read back against what the model was actually looking at
           shownImages.forEach((image) =>
-            logAIEvent(
+            aiLog.log(
               {
                 type: 'vision',
                 turn,
@@ -901,7 +878,7 @@ export class AIBackend {
 
       const tokensUsed = tokenUsage?.totalTokens || 0;
       this.logAIUsage(getAIAgentProvider(model), model, tokensUsed);
-      logAIEvent({
+      aiLog.log({
         type: 'run_end',
         toolCallCount,
         autoCaptureCount,
@@ -928,7 +905,7 @@ export class AIBackend {
       };
     } catch (error) {
       delete this.requestAbortControllers[conversationID];
-      logAIEvent({ type: 'run_error', error: this.getErrorMessage(error) });
+      aiLog.log({ type: 'run_error', error: this.getErrorMessage(error) });
       this.applyLastAIMessageError(
         conversationID,
         'running the AI agent',
@@ -944,7 +921,6 @@ export class AIBackend {
       } catch (layoutError) {
         console.error('finishAgentTurn failed', layoutError);
       }
-      endAILogRun();
       InterfaceController.hideSpinner(agentSpinnerLabel);
     }
   }
@@ -1378,15 +1354,6 @@ export class AIBackend {
     return match ? match[1] : 'image/png'; // default to png if no match
   }
 
-  /**
-   * The text the injected capture travels with.
-   *
-   * An explicit inspect_ui call already answered with its own structure in the
-   * tool result, so that note only has to point at the image. An automatic
-   * capture has no tool result to hang off, so it carries the structure itself
-   * - which is the whole point of the pairing: the model can only call a label
-   * "overflowing" if it can name the widget the label belongs to.
-   */
   private buildVisionNote(structure?: string): string {
     if (structure === undefined) {
       return (
@@ -1426,11 +1393,6 @@ export class AIBackend {
     return null;
   }
 
-  /**
-   * The capture the composer's attach menu produces. It goes through the same
-   * inspect_ui tool the agent uses, so an image the user attaches by hand
-   * arrives paired with its structure just like one the agent took itself.
-   */
   public async captureUIForAI(
     source: AIInspectSource,
   ): Promise<{ dataURL: string; structure: string }> {
@@ -1465,8 +1427,8 @@ Use the browser-local MCP tools to inspect and edit the live graph. Use them whe
 1. Inspect graph data instead of asking the user to provide it. Use inspect_selected_nodes or inspect_graph to find nodes, then inspect_nodes when details matter.
 2. Tool calls in one response execute in the order listed. The add_node tool description gives the highest existing ai-node number and the next safe ID. Start with that next ID and increment it for each additional node in the same response. In that same response, put add_node before any set_node_name, set_node_comment, set_socket_value, or connect_sockets calls that use its ID; do not wait for add_node's result. Put structure-changing socket values before calls that use the sockets they create.
 3. Add brief comments to CustomFunction and other non-obvious nodes. Share repeated values through one Constant node.
-4. To change part of a UI, use set_layout_value: it patches named properties on one item, addressed by the id inspect_surface reports, and cannot disturb anything it does not name. Reach for set_surface_layout only when building or restructuring a surface, since it replaces the whole layout and resets every property you leave out. Sizes are css strings everywhere - "240px", "100%", "auto" - never bare numbers.
-5. Use inspect_ui to see the app as it actually renders. The layout json says what should be there; the screenshot shows what is, which is the only way to catch clipped or overflowing text, widgets that ended up in the wrong container, and widgets that render empty. After building or restyling a UI, look before you claim it works. A capture may also arrive unprompted after you change something - treat it the same way, act on what is wrong, and move on without re-inspecting when it is right.
+4. To change part of a UI, use set_layout_value: it patches named properties on one item, addressed by the id inspect_surface reports. Reach for set_surface_layout only when building or restructuring a surface. Sizes are css strings everywhere.
+5. Use inspect_ui to see the app as it actually renders. The layout json says what should be there; the screenshot shows what is.
 6. After using any mutation tool and before saying the task is complete, call inspect_warnings_and_errors. If warnings or errors remain, fix them when possible or clearly report what remains.
 
 ## Available Node Types

@@ -210,6 +210,22 @@ describe('surfaceLayoutSpec', () => {
       expect(warnings).toEqual([]);
     });
 
+    it('warns instead of silently dropping malformed container padding', () => {
+      const spec = {
+        direction: 'column',
+        padding: '8px',
+        children: [{ text: 'a' }],
+      } as unknown as ContainerSpecItem;
+
+      const { tree, warnings } = compileSurfaceSpec(spec, new Set());
+
+      // the container keeps its default padding instead of the malformed value
+      expect(tree[RootName].props.padding).toEqual([0, 0, 0, 0]);
+      expect(warnings).toHaveLength(1);
+      expect(warnings[0]).toMatch(/padding/);
+      expect(warnings[0]).toMatch(/number or four numbers/);
+    });
+
     it('throws listing valid ids when the spec references an unconnected widget', () => {
       const spec: ContainerSpecItem = {
         direction: 'column',
@@ -495,6 +511,23 @@ describe('applySpecProperties', () => {
     const result = applySpecProperties({}, { padding: 8 }, 'container');
 
     expect(result.props.padding).toEqual([8, 8, 8, 8]);
+  });
+
+  // each row is wrapped in its own array: jest only treats a flat table as
+  // single-argument rows while *some* row is a non-array, so an all-array
+  // table would silently start spreading the arrays as separate arguments
+  it.each([
+    ['8px'],
+    [[1, 2, 3]],
+    [[1, 2, 3, 4, 5]],
+    [[1, 2, '3', 4]],
+    [Number.NaN],
+  ])('refuses malformed padding %p', (padding) => {
+    const result = applySpecProperties({}, { padding }, 'container');
+
+    expect(result.props.padding).toBeUndefined();
+    expect(result.applied).toEqual([]);
+    expect(result.warnings[0]).toContain('must be a number or four numbers');
   });
 
   it('refuses a property the item kind does not have', () => {

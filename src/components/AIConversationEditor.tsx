@@ -477,12 +477,6 @@ interface Attachment {
   structure?: string;
 }
 
-/**
- * The capture sources that pair with a structure, and so go through inspect_ui
- * rather than straight to CaptureService. Screen sharing is deliberately
- * absent: there is no structure behind the user's desktop, and the agent is
- * never given it.
- */
 const INSPECT_SOURCE_FOR: Partial<Record<CaptureSource, AIInspectSource>> = {
   'User interface': 'dashboard',
   Graph: 'graph',
@@ -557,12 +551,6 @@ const AttachmentStrip = ({
   </Stack>
 );
 
-/**
- * Where an attachment can come from: every CaptureService source except
- * ReactUI, which has no meaning here since it needs a node output to render,
- * plus the file picker. Pasting needs no entry of its own, so it is only
- * advertised.
- */
 const CaptureMenu = ({
   anchorEl,
   onClose,
@@ -767,9 +755,6 @@ const AIConversationEditor = ({
 
     const prompt = inputValue.trim();
     const images = attachments.map((attachment) => attachment.dataURL);
-    // Kept out of `prompt` so the user's own message bubble stays readable;
-    // the agent gets it appended to the api text, like the selected-node
-    // context already is.
     const structured = attachments.filter((attachment) => attachment.structure);
     const attachmentContext = structured.length
       ? '\n\nStructure behind the attached images:\n' +

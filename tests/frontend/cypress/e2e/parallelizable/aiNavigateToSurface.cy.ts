@@ -32,6 +32,15 @@ describe('Navigate to UI surface: data flow and misconfiguration warnings', () =
     await tc.waitForPendingExecution();
   };
 
+  // a button wired into "Execute": a positive flank is what fires a trigger
+  const fireExecute = (tc, nodeId: string) => {
+    const trigger = tc
+      .getNodeByID(nodeId)
+      .getInputOrTriggerSocketByName('Execute', false);
+    trigger.data = 0;
+    trigger.data = 1;
+  };
+
   const configWarningsFor = (content: string, nodeId: string) =>
     JSON.parse(content).issues.filter(
       (i: { node_id: string; status_name: string }) =>
@@ -140,20 +149,55 @@ describe('Navigate to UI surface: data flow and misconfiguration warnings', () =
 
       // a button-per-destination pair: the target never changes, only the
       // event does, so the trigger must navigate every single time
-      const fire = (nodeId: string) => {
-        const trigger = tc
-          .getNodeByID(nodeId)
-          .getInputOrTriggerSocketByName('Execute', false);
-        trigger.data = 0;
-        trigger.data = 1;
-      };
-      fire('nav-go');
-      fire('nav-back');
-      fire('nav-go');
+      fireExecute(tc, 'nav-go');
+      fireExecute(tc, 'nav-back');
+      fireExecute(tc, 'nav-go');
       tc.toggleDashboard('OPEN');
     });
     cy.get('[data-cy="dashboard"] [data-cy="widget of NODE_nav-content-2"]')
       .filter(':visible')
       .should('exist');
+  });
+
+  // A graph saved with a v3 node carries a trigger that runs the node's chain,
+  // so it navigates through onExecute - where the lastNavigatedTarget guard
+  // added in v4 swallows the second press of a fixed-target button. Without
+  // the v3 -> v4 migration this test ends up on "Home".
+  it('keeps a v3 fixed-target button working after navigating elsewhere', () => {
+    doWithTestController(async (tc) => {
+      await buildTwoPages(tc, 'Home', 'Settings');
+      await tc.addNode('NavigateToPage', 'nav-v3', -200, 1100);
+      await tc.addNode('NavigateToPage', 'nav-home', -200, 1400);
+      await tc.waitForPendingExecution();
+      tc.setNodeInputValue('nav-v3', 'Surface', 'Settings');
+      tc.setNodeInputValue('nav-home', 'Surface', 'Home');
+
+      // what a v3 graph deserializes as: an "Execute" trigger with no custom
+      // function, which executes the node instead of calling navigateNow
+      const node = tc.getNodeByID('nav-v3');
+      const triggerType = node.getNodeTriggerSocketByName('Execute')
+        .dataType as { customFunctionString: string };
+      triggerType.customFunctionString = '';
+      await node.migrate(3);
+      expect(
+        triggerType.customFunctionString,
+        'v3 -> v4 rewires the trigger to navigateNow',
+      ).to.equal('navigateNow');
+
+      // press the button, leave, press it again - it has to still work
+      fireExecute(tc, 'nav-v3');
+      fireExecute(tc, 'nav-home');
+      fireExecute(tc, 'nav-v3');
+      tc.toggleDashboard('OPEN');
+    });
+    cy.get('[data-cy="dashboard"] [data-cy="widget of NODE_nav-content-2"]')
+      .filter(':visible')
+      .should('exist');
+    // :visible in the selector, so "the Home surface is not mounted at all"
+    // passes too - cy.get would fail its own existence check before a
+    // .filter() chain ever ran
+    cy.get(
+      '[data-cy="dashboard"] [data-cy="widget of NODE_nav-content-1"]:visible',
+    ).should('not.exist');
   });
 });

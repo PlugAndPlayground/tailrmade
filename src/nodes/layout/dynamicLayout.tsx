@@ -434,10 +434,6 @@ const ReactUICombineArrayComponent: React.FunctionComponent<any> = (props) => {
 
 const navigateToSurfaceInputName = 'Surface';
 const executeTriggerSocketName = 'Execute';
-// TriggerType calls this method by name instead of running the node's chain
-// (see TriggerType.onDataSet). It exists so an explicit trigger ALWAYS
-// navigates, while a data-flow update only navigates on an actual change of
-// the target - see navigateNow/onExecute.
 const navigateTriggerFunctionName = 'navigateNow';
 
 function getNavigateTriggerSocket(): PPSocket {
@@ -450,20 +446,11 @@ function getNavigateTriggerSocket(): PPSocket {
 
 /**
  * NavigateToPage - Utility node to navigate to/show a specific UI surface
- *
- * Navigates whenever its "Surface" input changes, which is the common wiring:
- * a tabs or dropdown widget drives the target directly, no trigger needed.
- * The "Execute" trigger stays available for the fixed-target case (a button
- * per destination), where the target never changes and only the event does.
  * Mutual exclusivity with sibling surfaces is driven by the target surface's
  * own Radio Group (see UISurfaceNode.getRadioGroup), so navigation doesn't
  * need to be told the group.
  */
 export class NavigateToPage extends PPNode {
-  // the last target this node navigated to successfully. A data-flow update
-  // navigates only when the target differs from it, so an unrelated upstream
-  // recompute cannot yank the user back to this page. Failed lookups are not
-  // recorded, so a target that starts matching later still navigates.
   private lastNavigatedTarget: string | undefined;
 
   public getName(): string {
@@ -479,29 +466,18 @@ export class NavigateToPage extends PPNode {
 drive it directly. Nothing happens on graph load - the default surface wins.
 
 ## The target must name a real surface
-"Surface" is matched against surface route slugs first, then surface names,
-exact and case-sensitive. A surface's name is its NODE name, and every surface
-starts out named "UI surface", so navigation cannot work until they are
-renamed:
 1. set_node_name each surface to a short unique name ("Home", "Settings").
 2. Feed this node exactly those strings.
-A target matching no surface navigates nowhere and puts a warning on this node
-(inspect_warnings_and_errors reports it and lists the names that do exist).
 
 ## Wiring
 - Tabs/dropdown for several destinations: set its options to the exact surface
-  names and connect its "Out" to "Surface". One Navigate node total, no
-  trigger, no trigger type to change.
+  names and connect its "Out" to "Surface".
 - One button per destination: set_socket_value "Surface" to the fixed target
-  and connect the button's "Out" to "Execute". A trigger always navigates,
-  even to the surface this node reached last.
+  and connect the button's "Out" to "Execute".
 
 ## What navigating does
-A top-level surface becomes the displayed page. An embedded page in a nav
-shell is shown and every surface sharing its non-empty "Radio Group" is
-hidden - so give every child page the same Radio Group and set each
-non-default child's "<child name> visible" socket on the parent to false.
-set_default_surface picks the surface the app opens on.`;
+- A top-level surface becomes the displayed page.
+- An embedded page in a nav shell is shown and every surface sharing the same "Radio Group" is hidden`;
   }
 
   public getTags(): string[] {
@@ -556,6 +532,15 @@ set_default_surface picks the surface the app opens on.`;
         this.removeSocket(oldNavigateSocket);
       }
     }
+    if (previousVersion < 4) {
+      const executeSocket = this.getNodeTriggerSocketByName(
+        executeTriggerSocketName,
+      );
+      if (executeSocket?.dataType instanceof TriggerType) {
+        executeSocket.dataType.customFunctionString =
+          navigateTriggerFunctionName;
+      }
+    }
   }
 
   public getUpdateBehaviour(): UpdateBehaviourClass {
@@ -575,20 +560,12 @@ set_default_surface picks the surface the app opens on.`;
     ];
   }
 
-  /**
-   * The "Execute" trigger fires this instead of running the node's chain (see
-   * getNavigateTriggerSocket). It navigates unconditionally: with a fixed
-   * target the event is the only thing that changes, so the button must still
-   * work after the user has navigated away by other means.
-   */
   public navigateNow(): void {
     this.navigateTo(this.getInputData(navigateToSurfaceInputName));
   }
 
   protected async onExecute(input: any, output: any): Promise<void> {
     const target = String(input[navigateToSurfaceInputName] ?? '').trim();
-    // Only an actual change navigates: an upstream node recomputing and
-    // pushing the same target through must not pull the user back here.
     if (target !== this.lastNavigatedTarget) {
       this.navigateTo(target);
     }
@@ -596,8 +573,6 @@ set_default_surface picks the surface the app opens on.`;
     await super.onExecute(input, output);
   }
 
-  // resolves a UI surface by route slug first, then by name, and reports what
-  // went wrong on the node itself - a miss is otherwise completely silent
   private navigateTo(rawTarget: unknown): void {
     if (!PPGraph.currentGraph.graphConfiguredAndReady) {
       return;

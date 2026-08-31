@@ -29,7 +29,6 @@ export interface AIProviderTurnRequest {
   state?: any;
   toolResults?: AIProviderToolResult[];
   message?: string;
-  /** images to send with `message`, in the provider's own content shape */
   attachments?: AIProviderAttachment[];
   options?: Record<string, unknown>;
 }
@@ -86,22 +85,9 @@ const options = (request: AIProviderTurnRequest, reserved: string[]) =>
 
 const imageUrl = (part: any) => `data:${part.mimeType};base64,${part.data}`;
 
-/**
- * Marks a message the app injected to show the model what it just built, so a
- * later turn can find the stale ones again. It is a visible prefix rather than
- * a side channel because the state array is handed straight to the provider -
- * anything not part of the wire format would be rejected.
- */
 export const VISION_NOTE_PREFIX = '[ui-capture]';
 
-/**
- * Strips the images out of earlier injected captures, leaving their note.
- *
- * The agent loop resends its whole message array every turn, so without this a
- * long UI-building run would re-upload every screenshot it ever took on every
- * one of up to sixty turns. Only the newest capture still shows the app; the
- * older notes stay so the model can see that it did look, and when.
- */
+// Strips the images out of earlier injected captures, leaving their note.
 export const withoutVisionImages = (
   items: any[],
   isImage: (part: any) => boolean,
@@ -197,10 +183,6 @@ function buildAnthropic(
   if (request.attachments?.length) {
     messages = withoutVisionImages(messages, isAnthropicImage);
   }
-  // One user turn carrying, in this order: every tool_result for the calls
-  // just made (they have to lead the turn that answers them), then the capture
-  // and its note. Merging rather than sending two user messages keeps the turn
-  // structure explicit instead of leaning on the api folding them together.
   const followUp = [
     ...(request.toolResults || []).map((result) => ({
       type: 'tool_result',
@@ -209,7 +191,6 @@ function buildAnthropic(
       is_error: result.isError,
     })),
     ...(request.attachments || []).map(anthropicImage),
-    // an empty text block is rejected outright, so only send a real one
     ...(request.message ? [{ type: 'text', text: request.message }] : []),
   ];
   if (followUp.length) {
@@ -263,8 +244,6 @@ function buildOpenAI(request: AIProviderTurnRequest): PreparedAIProviderTurn {
       output: result.content,
     });
   }
-  // function_call_output takes a string, so an image that answers a tool call
-  // rides in the user message just behind it instead
   if (request.attachments?.length) {
     input = withoutVisionImages(input, isOpenAIImage);
     input.push({

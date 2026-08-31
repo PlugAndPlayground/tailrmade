@@ -220,28 +220,6 @@ const AIConversationBrowser = () => {
           <Stack spacing={1} sx={{ mt: 1 }}>
             <FormControl fullWidth>
               <Typography variant="caption" sx={{ color: secondaryText }}>
-                Provider
-              </Typography>
-              <Select
-                variant="outlined"
-                data-cy="AI Agent Provider Select"
-                value={selectedProvider}
-                onChange={(event) => {
-                  const provider = event.target.value as AIAgentProvider;
-                  setSelectedModel(getDefaultAIModel(provider));
-                }}
-                sx={selectSx}
-              >
-                {AI_AGENT_PROVIDERS.map((provider) => (
-                  <MenuItem key={provider.value} value={provider.value}>
-                    {provider.label}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-
-            <FormControl fullWidth>
-              <Typography variant="caption" sx={{ color: secondaryText }}>
                 Run AI assistant
               </Typography>
               <Select
@@ -264,6 +242,28 @@ const AIConversationBrowser = () => {
                 <MenuItem value={EXECUTION_LOCATION_LOCAL}>
                   Local companion
                 </MenuItem>
+              </Select>
+            </FormControl>
+
+            <FormControl fullWidth>
+              <Typography variant="caption" sx={{ color: secondaryText }}>
+                Provider
+              </Typography>
+              <Select
+                variant="outlined"
+                data-cy="AI Agent Provider Select"
+                value={selectedProvider}
+                onChange={(event) => {
+                  const provider = event.target.value as AIAgentProvider;
+                  setSelectedModel(getDefaultAIModel(provider));
+                }}
+                sx={selectSx}
+              >
+                {AI_AGENT_PROVIDERS.map((provider) => (
+                  <MenuItem key={provider.value} value={provider.value}>
+                    {provider.label}
+                  </MenuItem>
+                ))}
               </Select>
             </FormControl>
 

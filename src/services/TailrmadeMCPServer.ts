@@ -1089,16 +1089,6 @@ export class TailrmadeMCPServer {
     };
   }
 
-  /**
-   * Removes links pointing INTO to_node. A link is addressed either by the
-   * input socket that holds it (to_socket) or by where it comes from
-   * (from_node) - the latter because a widget sits on a surface through a
-   * generated element socket whose name the caller has no reason to know.
-   *
-   * The surface cleans up after itself: UISurfaceNode.inputUnplugged drops the
-   * element socket together with its dependent "visible"/"layout" sockets and
-   * re-syncs the layout, so taking a widget off a page needs nothing else.
-   */
   private async disconnectSockets(
     input: DisconnectSocketsInput,
   ): Promise<MCPToolResult> {
@@ -1617,14 +1607,6 @@ export class TailrmadeMCPServer {
     };
   }
 
-  /**
-   * A screenshot of the running app paired with the structure behind it.
-   *
-   * The pixels alone say "this label is cut off"; the structure alone says
-   * "there is a Text widget here". Together the model can say which widget is
-   * cut off and reach for the socket that fixes it, so the two always travel
-   * as one result rather than as two tool calls the model has to correlate.
-   */
   private async inspectUI(input: InspectUIInput): Promise<MCPToolResult> {
     const source: AIInspectSource = input.source ?? 'dashboard';
     if (!AI_INSPECT_SOURCES.includes(source)) {
@@ -1635,8 +1617,6 @@ export class TailrmadeMCPServer {
     }
 
     const structure = this.getUIStructure(source);
-    // The structure is worth returning on its own, so a capture backend that
-    // cannot see the surface downgrades the result instead of failing it.
     let image: string | undefined;
     let captureNote: string;
     try {
@@ -1682,16 +1662,23 @@ export class TailrmadeMCPServer {
       };
     }
 
-    const hasSelection =
-      (PPGraph.currentGraph.selection?.selectedNodes?.length ?? 0) > 0;
-    if (source === 'selection' || hasSelection) {
+    if (source === 'selection') {
+      // an empty selection serializes to an empty subgraph, which reads like a
+      // broken tool rather than like an empty canvas selection - say so
+      if ((PPGraph.currentGraph.selection?.selectedNodes?.length ?? 0) === 0) {
+        return {
+          describes: 'no selection',
+          content:
+            'No nodes are selected. Use source "graph" to see the whole canvas.',
+        };
+      }
       return {
         describes: 'the serialized subgraph of the selected nodes',
         content: this.parseToolContent(this.inspectSelectedNodes()),
       };
     }
     return {
-      describes: 'every node in the graph, since nothing is selected',
+      describes: 'every node in the graph',
       content: this.parseToolContent(this.inspectGraph()),
     };
   }
@@ -1770,6 +1757,25 @@ export class TailrmadeMCPServer {
     };
   }
 
+  /**
+   * Refuses an edit to a layout the graph owns. A linked "Layout JSON" input
+   * rewrites the surface on every execution, so a write that got through here
+   * would report success and then be silently overwritten.
+   */
+  private layoutLockedError(
+    surface: UISurfaceNode,
+    nodeId: string,
+    toolName: MCPToolName,
+  ): MCPToolResult | undefined {
+    if (!surface.isLayoutLocked()) {
+      return undefined;
+    }
+    return {
+      content: `Surface ${nodeId} is layout-locked: its "Layout JSON" input socket has a link, so the graph owns this layout. Disconnect that link before using ${toolName}.`,
+      is_error: true,
+    };
+  }
+
   // Patches one item's layout properties in place.
   private async setLayoutValue(
     input: SetLayoutValueInput,
@@ -1797,6 +1803,14 @@ export class TailrmadeMCPServer {
     }
 
     const surface = node as unknown as UISurfaceNode;
+    const locked = this.layoutLockedError(
+      surface,
+      input.node_id,
+      'set_layout_value',
+    );
+    if (locked) {
+      return locked;
+    }
     const tree = surface.getSurfaceTree();
     const itemId = findLayoutItemId(tree, input.item);
     if (itemId === undefined) {
@@ -1878,11 +1892,13 @@ export class TailrmadeMCPServer {
 
     const surface = node as unknown as UISurfaceNode;
 
-    if (surface.isLayoutLocked()) {
-      return {
-        content: `Surface ${input.node_id} is layout-locked: its "Layout JSON" input socket has a link, so the graph owns this layout. Disconnect that link before using set_surface_layout.`,
-        is_error: true,
-      };
+    const locked = this.layoutLockedError(
+      surface,
+      input.node_id,
+      'set_surface_layout',
+    );
+    if (locked) {
+      return locked;
     }
 
     const spec = input.layout as ContainerSpecItem;

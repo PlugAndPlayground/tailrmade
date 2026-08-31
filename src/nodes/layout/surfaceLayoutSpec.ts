@@ -223,15 +223,21 @@ function generateItemId(): string {
 // ---------------------------------------------------------------------------
 
 function normalizePadding(
-  padding: number | [number, number, number, number] | undefined,
+  padding: unknown,
 ): [number, number, number, number] | undefined {
-  if (padding === undefined) {
-    return undefined;
-  }
-  if (typeof padding === 'number') {
+  if (typeof padding === 'number' && Number.isFinite(padding)) {
     return [padding, padding, padding, padding];
   }
-  return padding;
+  if (
+    Array.isArray(padding) &&
+    padding.length === 4 &&
+    padding.every(
+      (value) => typeof value === 'number' && Number.isFinite(value),
+    )
+  ) {
+    return padding as [number, number, number, number];
+  }
+  return undefined;
 }
 
 const SPEC_PROPERTY_TO_CRAFT_PROP: Record<string, string> = {
@@ -316,9 +322,7 @@ export function applySpecProperties(
       continue;
     }
     if (name === 'padding') {
-      const normalized = normalizePadding(
-        value as number | [number, number, number, number],
-      );
+      const normalized = normalizePadding(value);
       if (normalized === undefined) {
         warnings.push('"padding" must be a number or four numbers.');
         continue;
@@ -441,9 +445,17 @@ export function compileSurfaceSpec(
     if (item.gap !== undefined) {
       overrides.gap = item.gap;
     }
-    const padding = normalizePadding(item.padding);
-    if (padding !== undefined) {
-      overrides.padding = padding;
+    if (item.padding !== undefined) {
+      const padding = normalizePadding(item.padding);
+      if (padding === undefined) {
+        // dropping it silently leaves the caller waiting for a change that
+        // never renders - same message set_layout_value gives
+        warnings.push(
+          `container "${id}": "padding" must be a number or four numbers, so ${JSON.stringify(item.padding)} was ignored.`,
+        );
+      } else {
+        overrides.padding = padding;
+      }
     }
     if (item.background !== undefined) {
       overrides.background = item.background;

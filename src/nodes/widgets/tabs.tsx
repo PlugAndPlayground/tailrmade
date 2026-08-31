@@ -69,7 +69,7 @@ export class WidgetTabs extends WidgetHybridBase {
       ),
       getColorSocket(),
       getSizeSocket(),
-      new Socket(SOCKET_TYPE.OUT, outName, new StringType(), undefined, false),
+      new Socket(SOCKET_TYPE.OUT, outName, new StringType()),
       new Socket(SOCKET_TYPE.OUT, outIndexName, new NumberType()),
     ];
   }

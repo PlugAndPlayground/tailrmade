@@ -193,7 +193,6 @@ NODE name or route slug. The first surface is the default; change it with set_de
 Two patterns:
 1. Separate pages: several top-level surfaces share one navigation widget
 whose options are those surface NODE names, wired into "Navigate to UI surface".
-This is the simplest pattern.
 2. Nav shell with embedded pages: connect each child surface's ReactUI output
 into one main surface that holds the navigation, with a shared non-empty
 "Radio Group" so navigating shows one child and hides the rest. Children

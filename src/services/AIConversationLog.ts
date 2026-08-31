@@ -36,11 +36,11 @@ export type AILogEvent = {
   [key: string]: unknown;
 };
 
-// one file per run; the timestamp prefix keeps a directory listing in order
-let currentRunId: string | undefined;
-let sequence = 0;
-// posts are chained so the file keeps the order the events happened in
-let pending: Promise<unknown> = Promise.resolve();
+export interface AILogRun {
+  log(event: AILogEvent, image?: string): void;
+}
+
+const disabledRun: AILogRun = { log: () => undefined };
 
 export function truncateForAILog(value: unknown): unknown {
   if (typeof value !== 'string') {
@@ -52,46 +52,40 @@ export function truncateForAILog(value: unknown): unknown {
   return `${value.slice(0, MAX_FIELD_CHARS)}\n…[truncated, ${value.length} chars total]`;
 }
 
-export function startAILogRun(): string | undefined {
+export function startAILogRun(): AILogRun {
   if (!isEnabled) {
-    return undefined;
+    return disabledRun;
   }
-  currentRunId = new Date()
+  const timestamp = new Date()
     .toISOString()
     .replace(/[:.]/g, '-')
     .replace('Z', '');
-  sequence = 0;
-  return currentRunId;
-}
+  const runId = `${timestamp}-${Math.random().toString(36).slice(2, 10)}`;
+  let sequence = 0;
+  let pending: Promise<unknown> = Promise.resolve();
 
-/**
- * Records one event. Fire and forget - callers never await it and never see
- * an error from it.
- */
-export function logAIEvent(event: AILogEvent, image?: string): void {
-  if (!isEnabled || currentRunId === undefined) {
-    return;
-  }
-  const body = {
-    runId: currentRunId,
-    seq: sequence++,
-    at: new Date().toISOString(),
-    ...event,
-    // a data: URL is stripped to raw base64 by the dev server, which writes it
-    // next to the transcript and puts the file name in this entry instead
-    image,
+  return {
+    // Fire and forget. Each run owns its queue, id, and sequence, so an older
+    // request finishing cannot interfere with a newer request's transcript.
+    log(event: AILogEvent, image?: string): void {
+      const body = {
+        runId,
+        seq: sequence++,
+        at: new Date().toISOString(),
+        ...event,
+        // a data: URL is stripped to raw base64 by the dev server, which writes
+        // it next to the transcript and puts the file name in this entry instead
+        image,
+      };
+      pending = pending
+        .then(() =>
+          fetch(AI_LOG_ENDPOINT, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body),
+          }),
+        )
+        .catch(() => undefined);
+    },
   };
-  pending = pending
-    .then(() =>
-      fetch(AI_LOG_ENDPOINT, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-      }),
-    )
-    .catch(() => undefined);
-}
-
-export function endAILogRun(): void {
-  currentRunId = undefined;
 }
