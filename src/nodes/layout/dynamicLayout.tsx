@@ -461,10 +461,6 @@ It runs only when "Execute" fires, not from regular data-flow updates.
 For multi-view patterns, see the UI surface docs.`;
   }
 
-  public getTags(): string[] {
-    return ['Navigation'];
-  }
-
   public getVersion(): number {
     return 3;
   }

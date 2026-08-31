@@ -22,6 +22,7 @@ import { ensureVisible } from '../../pixi/utils-pixi';
 import InterfaceController, { ListenEvent } from '../../InterfaceController';
 import { getDefaultContainerBackground } from '../../nodes/datatypes/widgetLayoutType';
 import { NodeListOptionType } from '../Search';
+import { getNodeGroup } from '../nodeSearchConstants';
 import { getAllNodeTypes } from '../../nodes/allNodes';
 import { PlaceholderWidget } from './PlaceholderWidget';
 import { NODE_SOURCE } from '../../utils/constants';
@@ -403,7 +404,7 @@ export const Toolbox: React.FC<ToolboxProps> = ({ addToDashboard }) => {
         hasInputs: obj.hasInputs,
         tags: obj.tags,
         hasExample: obj.hasExample,
-        group: obj.tags?.[0],
+        group: getNodeGroup(obj.tags),
         optionType: NodeListOptionType.NODE,
       }))
       .sort((a, b) =>
