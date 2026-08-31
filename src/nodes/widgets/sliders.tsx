@@ -7,6 +7,7 @@ import {
   colorName,
   getColorSocket,
   getSizeSocket,
+  getWidgetControlProps,
   labelName,
   outName,
   sizeName,
@@ -188,6 +189,7 @@ export class WidgetSlider extends WidgetHybridBase {
             {displayValue}
           </Typography>
           <Slider
+            {...getWidgetControlProps(props.disabled)}
             color={color}
             disabled={props.disabled}
             size={getMuiSize(size)}

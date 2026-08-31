@@ -105,25 +105,17 @@ function hasInteractionRenderStateChanged(
   );
 }
 
-function getCurrentCanvasPointerEvents(node: HybridNode2): 'auto' | 'none' {
-  return getCanvasWidgetPointerEvents({
-    inDashboard: false,
-    selected: node.selected,
-    isOnlySelected: PPGraph.currentGraph.selection.isOnlySelectedNode(node),
-    isInteractionEnabled: node.isInteractionEnabled(),
-    node,
-  });
-}
-
-function isCanvasInteractionCurrentlyBlocked(node: HybridNode2): boolean {
-  return getCurrentCanvasPointerEvents(node) === 'none';
+function getCurrentCanvasContentPointerEvents(
+  node: HybridNode2,
+): 'auto' | 'none' {
+  return node.isCanvasInteractionBlocked() || node.isWidget() ? 'none' : 'auto';
 }
 
 function blockDisabledCanvasInteraction(
   node: HybridNode2,
   event: React.SyntheticEvent,
 ): void {
-  if (isCanvasInteractionCurrentlyBlocked(node)) {
+  if (node.isCanvasInteractionBlocked()) {
     event.preventDefault();
     event.stopPropagation();
   }
@@ -138,9 +130,7 @@ function CanvasHybridNodeContent<T extends HybridNode2>(
         sx={{
           width: '100%',
           height: '100%',
-          pointerEvents: isCanvasInteractionCurrentlyBlocked(props.node)
-            ? 'none'
-            : 'auto',
+          pointerEvents: getCurrentCanvasContentPointerEvents(props.node),
         }}
         onPointerDownCapture={(event) => {
           blockDisabledCanvasInteraction(props.node, event);
@@ -504,6 +494,23 @@ export default abstract class HybridNode2 extends PPNode implements Layoutable {
     ) {
       void this.disableInteraction();
     }
+  }
+
+  /**
+   * Whether this node's content must not respond to the pointer on the canvas:
+   * a widget that has joined a multi-selection, or a non-widget hybrid that is
+   * not in edit mode.
+   */
+  public isCanvasInteractionBlocked(): boolean {
+    return (
+      getCanvasWidgetPointerEvents({
+        inDashboard: false,
+        selected: this.selected,
+        isOnlySelected: PPGraph.currentGraph.selection.isOnlySelectedNode(this),
+        isInteractionEnabled: this.isInteractionEnabled(),
+        node: this,
+      }) === 'none'
+    );
   }
 
   public isInteractionEnabled(): boolean {

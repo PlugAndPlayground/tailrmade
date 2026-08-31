@@ -47,14 +47,14 @@ describe('node interactivity rules', () => {
     ).toBe('auto');
   });
 
-  it('only lets widget containers capture pointer events while singly selected', () => {
+  it('never lets widget containers capture pointer events', () => {
     expect(
       shouldCanvasContainerBeInteractive({
         isWidget: true,
         isOnlySelected: true,
         isInteractionEnabled: false,
       }),
-    ).toBe(true);
+    ).toBe(false);
 
     expect(
       shouldCanvasContainerBeInteractive({

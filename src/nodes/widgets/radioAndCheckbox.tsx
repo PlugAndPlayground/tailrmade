@@ -18,6 +18,7 @@ import {
   getColorSocket,
   getSizeSocket,
   getLabelSocket,
+  getWidgetControlProps,
   labelName,
   outName,
   defaultOptions,
@@ -28,7 +29,6 @@ import {
   useWidgetSize,
   useSizeTokens,
 } from './abstract';
-import HybridNode2 from '../../classes/HybridNode2';
 import Socket from '../../classes/SocketClass';
 import { ArrayType } from '../datatypes/arrayType';
 import { StringType } from '../datatypes/stringType';
@@ -78,7 +78,10 @@ const OptionGroupFrame: React.FC<{
 }> = ({ props, tokens, children }) => {
   const node = props.node;
   return (
-    <WidgetPaper node={node as HybridNode2} inDashboard={props.inDashboard}>
+    <WidgetPaper
+      node={node as WidgetHybridBase}
+      inDashboard={props.inDashboard}
+    >
       <FormControl
         component="fieldset"
         disabled={props.disabled}
@@ -247,6 +250,7 @@ export class WidgetRadio extends WidgetHybridBase {
         >
           {options.map((option, index) => (
             <FormControlLabel
+              {...getWidgetControlProps(props.disabled)}
               key={index}
               value={option}
               control={
@@ -409,6 +413,7 @@ export class WidgetCheckbox extends WidgetHybridBase {
         >
           {options.map((option, index) => (
             <FormControlLabel
+              {...getWidgetControlProps(props.disabled)}
               key={index}
               control={
                 <Checkbox
