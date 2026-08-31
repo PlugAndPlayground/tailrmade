@@ -16,6 +16,7 @@ import {
   getSizeSocket,
   getSizeSx,
   getLabelSocket,
+  getWidgetControlProps,
   labelName,
   optionsName,
   outName,
@@ -133,10 +134,6 @@ abstract class WidgetAutocompleteBase extends WidgetSelectableBase {
     ];
   }
 
-  public getCanvasControlSelectors(): string[] {
-    return ['.MuiInputBase-root', '.MuiInputLabel-root', '.MuiChip-root'];
-  }
-  
   public getWidgetContent(props: WidgetContentProps): React.ReactElement {
     const node = props.node as WidgetAutocompleteBase;
 
@@ -160,6 +157,7 @@ abstract class WidgetAutocompleteBase extends WidgetSelectableBase {
         <WidgetPaper node={node} inDashboard={props.inDashboard}>
           <FormControl variant={inputVariant} sx={{ width: '100%', ...sizeSx }}>
             <Autocomplete
+              {...getWidgetControlProps(isDisabled)}
               autoHighlight
               size={getMuiSize(size)}
               freeSolo={freeSolo}
@@ -204,6 +202,7 @@ abstract class WidgetAutocompleteBase extends WidgetSelectableBase {
       <WidgetPaper node={node} inDashboard={props.inDashboard}>
         <FormControl variant={inputVariant} sx={{ width: '100%', ...sizeSx }}>
           <Autocomplete
+            {...getWidgetControlProps(isDisabled)}
             multiple
             autoHighlight
             size={getMuiSize(size)}

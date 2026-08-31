@@ -6,6 +6,7 @@ import {
   colorName,
   getColorSocket,
   getSizeSocket,
+  getWidgetControlProps,
   labelName,
   outName,
   outIndexName,
@@ -133,10 +134,6 @@ export class WidgetTabs extends WidgetHybridBase {
     );
   };
 
-  public getCanvasControlSelectors(): string[] {
-    return ['.MuiButtonBase-root'];
-  }
-
   getWidgetContent(props: WidgetContentProps): React.ReactElement {
     const node = props.node as WidgetTabs;
     const options = props[tabsOptionsName] || [];
@@ -171,6 +168,9 @@ export class WidgetTabs extends WidgetHybridBase {
             scrollButtons={scrollable ? 'auto' : false}
             centered={!scrollable}
             allowScrollButtonsMobile={scrollable}
+            slotProps={{
+              scrollButtons: getWidgetControlProps(props.disabled),
+            }}
             // MUI's own textColor/indicatorColor only accept primary and
             // secondary, so the indicator and the selected label are driven
             // from the palette here instead - that way every role the Color
@@ -190,6 +190,7 @@ export class WidgetTabs extends WidgetHybridBase {
           >
             {options.map((option, index) => (
               <Tab
+                {...getWidgetControlProps(props.disabled)}
                 key={index}
                 data-cy={`${props.dataCyId}-tab-${index}`}
                 label={option}

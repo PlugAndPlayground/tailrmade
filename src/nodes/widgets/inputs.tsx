@@ -9,6 +9,7 @@ import {
   getSizeSocket,
   initialValueName,
   getLabelSocket,
+  getWidgetControlProps,
   labelName,
   outName,
   sizeName,
@@ -171,10 +172,6 @@ export class WidgetTextField extends WidgetHybridBase {
     // This could be used to trigger additional actions when field loses focus
   };
 
-  public getCanvasControlSelectors(): string[] {
-    return ['.MuiInputBase-root', '.MuiInputLabel-root'];
-  }
-
   getWidgetContent(props: WidgetContentProps): React.ReactElement {
     const node = props.node as WidgetTextField;
     const [internalValue, setInternalValue] = useState<string>(
@@ -208,6 +205,7 @@ export class WidgetTextField extends WidgetHybridBase {
         <Box sx={{ width: '100%' }}>
           <FormControl fullWidth>
             <TextField
+              {...getWidgetControlProps(props.disabled)}
               value={internalValue}
               label={props[labelName]}
               placeholder={placeholder}

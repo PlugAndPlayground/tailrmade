@@ -73,15 +73,18 @@ export function shouldAutoFocusWidgetContent(
   return !state.inDashboard && !state.disabled && state.isInteractionEnabled;
 }
 
-export const WIDGET_CONTROL_CLASS = 'widget-control';
+export const WIDGET_CONTROL_ATTRIBUTE = 'data-widget-control';
 const NOT_DISABLED = ':not(.Mui-disabled):not([disabled])';
-export function getCanvasGrabThroughSx(controlSelectors: string[]) {
-  const selector = [`.${WIDGET_CONTROL_CLASS}`, ...controlSelectors]
-    // emotion needs the & on every compound selector, not just the first one
-    .map((control) => `& ${control}${NOT_DISABLED}`)
-    .join(', ');
+export function getWidgetControlProps(disabled = false) {
+  return disabled ? {} : { [WIDGET_CONTROL_ATTRIBUTE]: true as const };
+}
 
-  return { [selector]: { pointerEvents: 'auto' } };
+export function getCanvasGrabThroughSx() {
+  return {
+    [`& [${WIDGET_CONTROL_ATTRIBUTE}]${NOT_DISABLED}`]: {
+      pointerEvents: 'auto',
+    },
+  };
 }
 
 export function shouldCanvasContainerBeInteractive(

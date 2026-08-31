@@ -18,6 +18,7 @@ import {
   getSizeSx,
   getSizeTokens,
   getLabelSocket,
+  getWidgetControlProps,
   labelName,
   optionsName,
   outName,
@@ -85,10 +86,6 @@ abstract class WidgetDropdownBase extends WidgetSelectableBase {
     ];
   }
 
-  public getCanvasControlSelectors(): string[] {
-    return ['.MuiInputBase-root', '.MuiInputLabel-root'];
-  }
-
   public getWidgetContent(props: WidgetContentProps): React.ReactElement {
     const node = props.node as WidgetDropdownBase;
     const size = useWidgetSize(props[sizeName]);
@@ -129,8 +126,11 @@ abstract class WidgetDropdownBase extends WidgetSelectableBase {
             ...sizeSx,
           }}
         >
-          <InputLabel>{props[labelName]}</InputLabel>
+          <InputLabel {...getWidgetControlProps(props.disabled)}>
+            {props[labelName]}
+          </InputLabel>
           <Select
+            {...getWidgetControlProps(props.disabled)}
             variant={inputVariant}
             color={color}
             disabled={props.disabled}

@@ -24,6 +24,7 @@ import {
   useSizeTokens,
   getMuiSize,
   getSizeSocket,
+  getWidgetControlProps,
   offValueName,
   onValueName,
   colorName,
@@ -198,10 +199,6 @@ export class WidgetButton extends WidgetHybridBase {
     }
   };
 
-  public getCanvasControlSelectors(): string[] {
-    return ['.MuiButtonBase-root'];
-  }
-
   getWidgetContent(props: HybridWidgetContentProps): React.ReactElement {
     const node = props.node as WidgetHybridBase;
     const isDisabled = props.disabled || props[disabledName];
@@ -212,6 +209,7 @@ export class WidgetButton extends WidgetHybridBase {
     return (
       <WidgetPaper node={node} inDashboard={props.inDashboard}>
         <Button
+          {...getWidgetControlProps(isDisabled)}
           data-cy={'button-' + props[labelName]}
           variant={variant}
           color={props[colorName]}
@@ -396,11 +394,6 @@ export class WidgetButtonGroup extends WidgetHybridBase {
     );
   };
 
-  // every button in the group, toggle or plain
-  public getCanvasControlSelectors(): string[] {
-    return ['.MuiButtonBase-root'];
-  }
-
   getWidgetContent(props: HybridWidgetContentProps): React.ReactElement {
     const node = props.node as WidgetHybridBase;
     const options = props[buttonGroupOptionsName] || [];
@@ -463,6 +456,7 @@ export class WidgetButtonGroup extends WidgetHybridBase {
 
                   return (
                     <Button
+                      {...getWidgetControlProps(props.disabled)}
                       key={index}
                       variant={
                         selectedIndex === index ? 'contained' : 'outlined'
@@ -564,6 +558,7 @@ export class WidgetButtonGroup extends WidgetHybridBase {
               >
                 {options.map((option, index) => (
                   <Button
+                    {...getWidgetControlProps(props.disabled)}
                     key={index}
                     onClick={() =>
                       void (node as WidgetButtonGroup).handleButtonClick(index)
@@ -689,11 +684,6 @@ export class WidgetSwitch extends WidgetHybridBase {
     );
   };
 
-  // the root is the whole track, not just the thumb
-  public getCanvasControlSelectors(): string[] {
-    return ['.MuiSwitch-root'];
-  }
-
   getWidgetContent(props: HybridWidgetContentProps): React.ReactElement {
     const node = props.node as WidgetHybridBase;
     const size = useWidgetSize(props[sizeName]);
@@ -718,6 +708,7 @@ export class WidgetSwitch extends WidgetHybridBase {
             }}
           >
             <Switch
+              {...getWidgetControlProps(props.disabled)}
               disabled={props.disabled}
               size="medium"
               checked={props[initialValueName]}

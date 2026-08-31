@@ -7,6 +7,7 @@ import {
   colorName,
   getColorSocket,
   getSizeSocket,
+  getWidgetControlProps,
   labelName,
   outName,
   sizeName,
@@ -143,10 +144,6 @@ export class WidgetSlider extends WidgetHybridBase {
     );
   };
 
-  public getCanvasControlSelectors(): string[] {
-    return ['.MuiSlider-root'];
-  }
-
   getWidgetContent(props: WidgetContentProps): React.ReactElement {
     const node = props.node as WidgetSlider;
     const min = props[minValueName];
@@ -192,6 +189,7 @@ export class WidgetSlider extends WidgetHybridBase {
             {displayValue}
           </Typography>
           <Slider
+            {...getWidgetControlProps(props.disabled)}
             color={color}
             disabled={props.disabled}
             size={getMuiSize(size)}

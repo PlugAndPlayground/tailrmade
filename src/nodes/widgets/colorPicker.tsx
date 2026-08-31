@@ -18,6 +18,7 @@ import {
   getSizeSocket,
   initialValueName,
   getLabelSocket,
+  getWidgetControlProps,
   labelName,
   outName,
   sizeName,
@@ -114,10 +115,6 @@ export class WidgetColorPicker extends WidgetHybridBase {
     );
   }, 100);
 
-  public getCanvasControlSelectors(): string[] {
-    return ['.MuiButtonBase-root'];
-  }
-
   getWidgetContent(props: WidgetContentProps): React.ReactElement {
     const node = props.node as WidgetColorPicker;
     const ref = useRef<HTMLDivElement | null>(null);
@@ -129,6 +126,7 @@ export class WidgetColorPicker extends WidgetHybridBase {
     return (
       <WidgetPaper ref={ref} node={node} inDashboard={props.inDashboard}>
         <Button
+          {...getWidgetControlProps(props.disabled)}
           disabled={props.disabled}
           variant="contained"
           size={getMuiSize(size)}

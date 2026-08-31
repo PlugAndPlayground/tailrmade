@@ -18,6 +18,7 @@ import {
   getColorSocket,
   getSizeSocket,
   getLabelSocket,
+  getWidgetControlProps,
   labelName,
   outName,
   defaultOptions,
@@ -229,10 +230,6 @@ export class WidgetRadio extends WidgetHybridBase {
     );
   };
 
-  public getCanvasControlSelectors(): string[] {
-    return ['.MuiFormControlLabel-root'];
-  }
-
   getWidgetContent(props: WidgetContentProps): React.ReactElement {
     const node = props.node;
     const options = props[optionsName];
@@ -253,6 +250,7 @@ export class WidgetRadio extends WidgetHybridBase {
         >
           {options.map((option, index) => (
             <FormControlLabel
+              {...getWidgetControlProps(props.disabled)}
               key={index}
               value={option}
               control={
@@ -396,10 +394,6 @@ export class WidgetCheckbox extends WidgetHybridBase {
     );
   };
 
-  public getCanvasControlSelectors(): string[] {
-    return ['.MuiFormControlLabel-root'];
-  }
-
   getWidgetContent(props: WidgetContentProps): React.ReactElement {
     const node = props.node;
     const options = props[optionsName];
@@ -419,6 +413,7 @@ export class WidgetCheckbox extends WidgetHybridBase {
         >
           {options.map((option, index) => (
             <FormControlLabel
+              {...getWidgetControlProps(props.disabled)}
               key={index}
               control={
                 <Checkbox
