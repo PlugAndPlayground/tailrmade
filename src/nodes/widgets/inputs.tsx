@@ -9,6 +9,7 @@ import {
   getSizeSocket,
   initialValueName,
   getLabelSocket,
+  getWidgetControlProps,
   labelName,
   outName,
   sizeName,
@@ -204,6 +205,7 @@ export class WidgetTextField extends WidgetHybridBase {
         <Box sx={{ width: '100%' }}>
           <FormControl fullWidth>
             <TextField
+              {...getWidgetControlProps(props.disabled)}
               value={internalValue}
               label={props[labelName]}
               placeholder={placeholder}

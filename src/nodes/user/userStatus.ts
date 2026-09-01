@@ -22,10 +22,6 @@ const AIUsage = 'AI Usage';
 const AILimit = 'AI Limit';
 
 export class UserStatus extends PPNode {
-  public getTags(): string[] {
-    return ['User', 'Status'].concat(super.getTags());
-  }
-
   public getName() {
     return 'User Status';
   }

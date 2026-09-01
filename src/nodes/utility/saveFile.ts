@@ -49,7 +49,7 @@ export class SaveFile extends PPNode {
   }
 
   public getTags(): string[] {
-    return ['App', 'Save', 'File'].concat(super.getTags());
+    return ['App', 'File'].concat(super.getTags());
   }
 
   getColor(): TRgba {

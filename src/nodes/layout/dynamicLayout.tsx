@@ -480,10 +480,6 @@ drive it directly. Nothing happens on graph load - the default surface wins.
 - An embedded page in a nav shell is shown and every surface sharing the same "Radio Group" is hidden`;
   }
 
-  public getTags(): string[] {
-    return ['Navigation'];
-  }
-
   public getVersion(): number {
     return 4;
   }

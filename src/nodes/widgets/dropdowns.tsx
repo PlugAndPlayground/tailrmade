@@ -18,6 +18,7 @@ import {
   getSizeSx,
   getSizeTokens,
   getLabelSocket,
+  getWidgetControlProps,
   labelName,
   optionsName,
   outName,
@@ -125,8 +126,11 @@ abstract class WidgetDropdownBase extends WidgetSelectableBase {
             ...sizeSx,
           }}
         >
-          <InputLabel>{props[labelName]}</InputLabel>
+          <InputLabel {...getWidgetControlProps(props.disabled)}>
+            {props[labelName]}
+          </InputLabel>
           <Select
+            {...getWidgetControlProps(props.disabled)}
             variant={inputVariant}
             color={color}
             disabled={props.disabled}

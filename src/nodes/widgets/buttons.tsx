@@ -25,6 +25,7 @@ import {
   useSizeTokens,
   getMuiSize,
   getSizeSocket,
+  getWidgetControlProps,
   offValueName,
   onValueName,
   colorName,
@@ -200,7 +201,7 @@ export class WidgetButton extends WidgetHybridBase {
   };
 
   getWidgetContent(props: HybridWidgetContentProps): React.ReactElement {
-    const node = props.node;
+    const node = props.node as WidgetHybridBase;
     const isDisabled = props.disabled || props[disabledName];
     const variant = useResolvedButtonVariant(props[variantName]);
     const size = useWidgetSize(props[sizeName]);
@@ -209,6 +210,7 @@ export class WidgetButton extends WidgetHybridBase {
     return (
       <WidgetPaper node={node} inDashboard={props.inDashboard}>
         <Button
+          {...getWidgetControlProps(isDisabled)}
           data-cy={'button-' + props[labelName]}
           variant={variant}
           color={props[colorName]}
@@ -377,7 +379,7 @@ export class WidgetButtonGroup extends WidgetSelectionBase {
   };
 
   getWidgetContent(props: HybridWidgetContentProps): React.ReactElement {
-    const node = props.node;
+    const node = props.node as WidgetHybridBase;
     const options = props[buttonGroupOptionsName] || [];
     const selectedIndex = Math.max(
       0,
@@ -438,6 +440,7 @@ export class WidgetButtonGroup extends WidgetSelectionBase {
 
                   return (
                     <Button
+                      {...getWidgetControlProps(props.disabled)}
                       key={index}
                       variant={
                         selectedIndex === index ? 'contained' : 'outlined'
@@ -539,6 +542,7 @@ export class WidgetButtonGroup extends WidgetSelectionBase {
               >
                 {options.map((option, index) => (
                   <Button
+                    {...getWidgetControlProps(props.disabled)}
                     key={index}
                     onClick={() =>
                       void (node as WidgetButtonGroup).handleButtonClick(index)
@@ -665,7 +669,7 @@ export class WidgetSwitch extends WidgetHybridBase {
   };
 
   getWidgetContent(props: HybridWidgetContentProps): React.ReactElement {
-    const node = props.node;
+    const node = props.node as WidgetHybridBase;
     const size = useWidgetSize(props[sizeName]);
     const tokens = useSizeTokens(size);
 
@@ -688,6 +692,7 @@ export class WidgetSwitch extends WidgetHybridBase {
             }}
           >
             <Switch
+              {...getWidgetControlProps(props.disabled)}
               disabled={props.disabled}
               size="medium"
               checked={props[initialValueName]}

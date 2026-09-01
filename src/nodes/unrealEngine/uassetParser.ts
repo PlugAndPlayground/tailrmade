@@ -21,10 +21,6 @@ export class UAssetParser extends PPNode {
     return 'Parses Unreal Engine .uasset files and returns JSON description of the file, uses the uasset-rs library';
   }
 
-  public getTags(): string[] {
-    return ['File', 'Unreal Engine', 'Parser'].concat(super.getTags());
-  }
-
   getColor(): TRgba {
     return TRgba.fromString(NODE_TYPE_COLOR.TRANSFORM);
   }

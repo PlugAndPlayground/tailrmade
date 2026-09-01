@@ -73,6 +73,20 @@ export function shouldAutoFocusWidgetContent(
   return !state.inDashboard && !state.disabled && state.isInteractionEnabled;
 }
 
+export const WIDGET_CONTROL_ATTRIBUTE = 'data-widget-control';
+const NOT_DISABLED = ':not(.Mui-disabled):not([disabled])';
+export function getWidgetControlProps(disabled = false) {
+  return disabled ? {} : { [WIDGET_CONTROL_ATTRIBUTE]: true as const };
+}
+
+export function getCanvasGrabThroughSx() {
+  return {
+    [`& [${WIDGET_CONTROL_ATTRIBUTE}]${NOT_DISABLED}`]: {
+      pointerEvents: 'auto',
+    },
+  };
+}
+
 export function shouldCanvasContainerBeInteractive(
   state: Pick<
     CanvasNodeInteractivityState,
@@ -80,7 +94,7 @@ export function shouldCanvasContainerBeInteractive(
   >,
 ): boolean {
   if (state.isWidget) {
-    return state.isInteractionEnabled || (state.isOnlySelected ?? false);
+    return false;
   }
 
   return state.isInteractionEnabled;

@@ -530,7 +530,7 @@ export class If_Else extends PPNode {
   }
 
   public getTags(): string[] {
-    return ['Logic', 'Conditional'].concat(super.getTags());
+    return ['Logic'].concat(super.getTags());
   }
 
   getColor(): TRgba {
@@ -628,7 +628,7 @@ export class IsValid extends PPNode {
   }
 
   public getTags(): string[] {
-    return ['Logic', 'Validation'].concat(super.getTags());
+    return ['Logic'].concat(super.getTags());
   }
 
   getColor(): TRgba {

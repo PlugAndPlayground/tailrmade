@@ -1,5 +1,6 @@
 import PPNode from '../classes/NodeClass';
 import { RegisteredNodeTypes } from '../utils/interfaces';
+import { getNodeGroup } from '../components/nodeSearchConstants';
 
 declare const require: (path: string) => any;
 
@@ -165,14 +166,14 @@ export const getAllNodesFormattedForInterface = (): any[] => {
           hasInputs: obj.hasInputs,
           tags: obj.tags,
           hasExample: obj.hasExample,
-          group: obj.tags[0],
+          group: getNodeGroup(obj.tags),
         };
       })
       .sort((a, b) =>
         a.name.localeCompare(b.name, 'en', { sensitivity: 'base' }),
       )
       .sort((a, b) =>
-        a.group?.localeCompare(b.group, 'en', {
+        a.group.localeCompare(b.group, 'en', {
           sensitivity: 'base',
         }),
       );

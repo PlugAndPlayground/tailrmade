@@ -323,7 +323,7 @@ export class MapNode extends ArrayFunctionCodeBasic {
   }
 
   public getTags(): string[] {
-    return ['Transform', 'Map'].concat(super.getTags());
+    return ['Transform'].concat(super.getTags());
   }
 
   public getDescription(): string {
@@ -967,10 +967,10 @@ export class ArrayContains extends PPNode {
     return 'Array Contains';
   }
   public getDescription(): string {
-    return 'Checks if an array contains a value';
+    return 'Checks if an array includes a value';
   }
   public getTags(): string[] {
-    return ['Array', 'Comparison', 'Include'];
+    return ['Array', 'Comparison'];
   }
   protected getDefaultIO(): Socket[] {
     return [
@@ -995,7 +995,7 @@ export class ArrayIndexOf extends PPNode {
     return 'Returns the index of a value in an array';
   }
   public getTags(): string[] {
-    return ['Array', 'Search', 'Index'];
+    return ['Array', 'Search'];
   }
   protected getDefaultIO(): Socket[] {
     return [

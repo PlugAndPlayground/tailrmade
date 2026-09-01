@@ -18,6 +18,7 @@ import {
   getSizeSocket,
   initialValueName,
   getLabelSocket,
+  getWidgetControlProps,
   labelName,
   outName,
   sizeName,
@@ -125,6 +126,7 @@ export class WidgetColorPicker extends WidgetHybridBase {
     return (
       <WidgetPaper ref={ref} node={node} inDashboard={props.inDashboard}>
         <Button
+          {...getWidgetControlProps(props.disabled)}
           disabled={props.disabled}
           variant="contained"
           size={getMuiSize(size)}
