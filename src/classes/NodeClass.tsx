@@ -1541,8 +1541,6 @@ ${Math.round(bounds.minX)}, ${Math.round(
     if (eventTarget == this) {
       const selection = PPGraph.currentGraph.selection;
       if (event.button == 2) {
-        // right click selects the node so the context menu acts on it,
-        // but keeps an existing selection this node is part of intact
         if (!this.selected) {
           selection.selectNodes([this], false);
         }
