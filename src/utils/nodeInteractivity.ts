@@ -3,7 +3,8 @@
 // - Canvas non-widget hybrids require explicit interaction mode before content becomes live
 // - A singly selected non-widget hybrid can enter interaction mode on enter, a confirming second click or double-click
 // - Interaction-enabled hybrids must drop back out when they stop being the sole selection
-// - Dashboard disabled/read-only state is enforced outside the widget content via the DashboardContentGate
+// - Dashboard blocking (edit mode, previews) and read-only state are both enforced OUTSIDE the
+//   widget content, by DashboardContentGate - pointer events via an overlay, keyboard via `inert`.
 
 export type CanvasNodeInteractivityState = {
   isWidget: boolean;
@@ -12,9 +13,7 @@ export type CanvasNodeInteractivityState = {
   isInteractionEnabled: boolean;
 };
 
-type WidgetPointerEventsInput = {
-  inDashboard: boolean;
-  disabled?: boolean;
+type CanvasInteractivityInput = {
   selected: boolean;
   isOnlySelected?: boolean;
   isInteractionEnabled: boolean;
@@ -23,9 +22,19 @@ type WidgetPointerEventsInput = {
   };
 };
 
+type DashboardInteractivityInput = {
+  disabled?: boolean;
+  blockInteraction?: boolean;
+};
+
+type WidgetPointerEventsInput = {
+  inDashboard: boolean;
+} & CanvasInteractivityInput &
+  DashboardInteractivityInput;
+
 type WidgetAutoFocusInput = Pick<
   WidgetPointerEventsInput,
-  'inDashboard' | 'disabled' | 'isInteractionEnabled'
+  'inDashboard' | 'disabled' | 'blockInteraction' | 'isInteractionEnabled'
 >;
 
 export const NODE_CLICK_DRAG_THRESHOLD_PX = 5;
@@ -50,7 +59,7 @@ export function getCanvasWidgetPointerEvents(
   state: WidgetPointerEventsInput,
 ): 'auto' | 'none' {
   if (state.inDashboard) {
-    return getDashboardContentPointerEvents(state.disabled);
+    return getDashboardContentPointerEvents(!isWidgetOperable(state));
   }
 
   return getCanvasNodePointerEvents({
@@ -67,10 +76,18 @@ export function getDashboardContentPointerEvents(
   return disabled ? 'none' : 'auto';
 }
 
+// Whether widget content may actually DO something - be edited, take focus,
+// start playing, accept a drop.
+export function isWidgetOperable(state: DashboardInteractivityInput): boolean {
+  return !state.disabled && !state.blockInteraction;
+}
+
 export function shouldAutoFocusWidgetContent(
   state: WidgetAutoFocusInput,
 ): boolean {
-  return !state.inDashboard && !state.disabled && state.isInteractionEnabled;
+  return (
+    !state.inDashboard && isWidgetOperable(state) && state.isInteractionEnabled
+  );
 }
 
 export const WIDGET_CONTROL_ATTRIBUTE = 'data-widget-control';

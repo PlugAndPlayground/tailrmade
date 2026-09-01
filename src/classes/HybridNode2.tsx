@@ -757,11 +757,12 @@ const DynamicWidgetContainerHybridNodeInner: React.FunctionComponent<
         maxWidth: props.maxWidth,
         maxHeight: props.maxHeight,
         overflow: getOverflowForSize(props.width, props.height),
-        pointerEvents: showDashboard && !props.disabled ? UNSET_VALUE : 'none',
+        pointerEvents: showDashboard ? UNSET_VALUE : 'none',
       }}
     >
       <DashboardContentGate
         disabled={props.disabled}
+        blockInteraction={props.blockInteraction}
         isSurfacePreview={props.isSurfacePreview}
       >
         <HybridNodeErrorBoundary node={props.property}>
@@ -779,6 +780,7 @@ const DynamicWidgetContainerHybridNodeInner: React.FunctionComponent<
             isSurfacePreview={props.isSurfacePreview}
             dataCyId={`${props.property.id}-dashboard${props.isSurfacePreview ? '-preview' : ''}`}
             disabled={props.disabled}
+            blockInteraction={props.blockInteraction}
             showDashboard={showDashboard}
             width={props.width}
             height={props.height}

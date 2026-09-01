@@ -47,6 +47,7 @@ import {
   VISIBILITY_ACTION,
 } from '../../utils/constants_shared';
 import { SOCKET_NAME_DASHBOARD_CONTENT } from '../../utils/layoutableHelpers';
+import { isWidgetOperable } from '../../utils/nodeInteractivity';
 import {
   SerializedCraftTree,
   slugifyUINodeRoute,
@@ -100,9 +101,9 @@ export const UISurfaceWidget: React.FunctionComponent<
   // is live in the DashboardEditor (that uses the craft Editor frame).
   // - Canvas preview (inDashboard false): always read-only.
   // - Embedded in another surface: read-only while that surface is being
-  //   edited (props.disabled is true in edit mode) so you dive in to edit it,
+  //   edited (edit mode sets blockInteraction) so you dive in to edit it,
   //   but interactive in view/app mode so the UI can be used.
-  const interactive = Boolean(props.inDashboard) && !props.disabled;
+  const interactive = Boolean(props.inDashboard) && isWidgetOperable(props);
   const rendered = (
     <SurfaceCanvasPreviewContext.Provider value={isCanvasPreview}>
       <SurfaceVisitedContext.Provider value={[...visited, node.id]}>

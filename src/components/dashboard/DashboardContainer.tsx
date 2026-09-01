@@ -262,7 +262,8 @@ export const DashboardContainer = (props: Partial<DynamicWidgetProps>) => {
       >
         {layoutableElement.getDashboardWrapper({
           index: index ?? 0,
-          disabled: isEditMode ? true : (disabled ?? false),
+          disabled: disabled ?? false,
+          blockInteraction: isEditMode,
           height: containerState.height,
           width: containerState.width,
           minWidth: containerState.minWidth,

@@ -146,7 +146,10 @@ export type WidgetProps = {
 
 export interface DashboardWidgetProps {
   index: number;
+  // the widget's own read-only state
   disabled: boolean;
+  // interaction is suppressed by whatever renders the widget
+  blockInteraction?: boolean;
   width: string;
   height: string;
   minWidth: string;
@@ -187,6 +190,7 @@ export interface WidgetContentProps {
 
   // Optional dashboard-specific props
   disabled?: boolean;
+  blockInteraction?: boolean;
   showDashboard?: boolean;
   width?: string;
   height?: string;

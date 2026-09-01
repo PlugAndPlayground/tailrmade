@@ -10,7 +10,10 @@ import { StringType } from '../datatypes/stringType';
 import { Density, useResolvedDensity, useThemeTokens } from '../../utils/theme';
 import { getCanvasGrabThroughSx } from '../../utils/nodeInteractivity';
 
-export { getWidgetControlProps } from '../../utils/nodeInteractivity';
+export {
+  getWidgetControlProps,
+  isWidgetOperable,
+} from '../../utils/nodeInteractivity';
 
 export const defaultProps: WidgetProps = {
   background: { r: 9, g: 13, b: 26, a: 0 },

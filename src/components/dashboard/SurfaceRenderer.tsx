@@ -107,7 +107,8 @@ const DashboardContainerPreview: React.FC<{
     >
       {layoutableElement.getDashboardWrapper({
         index: item.props.index ?? 0,
-        disabled: true,
+        disabled: item.props.disabled ?? false,
+        blockInteraction: true,
         isEditMode: false,
         isSurfacePreview: true,
         components: children,
@@ -197,7 +198,7 @@ export const SurfaceRenderer: React.FC<SurfaceRendererProps> = ({
             key={itemId}
             {...(dynamicWidgetDefaultProps as any)}
             {...item.props}
-            disabled={!interactive || item.props.disabled}
+            blockInteraction={!interactive}
             domId={domIdFor(itemId)}
             isEditMode={false}
             isSurfacePreview

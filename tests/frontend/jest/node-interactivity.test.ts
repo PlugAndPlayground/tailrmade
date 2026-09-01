@@ -1,6 +1,8 @@
 import {
   getCanvasNodePointerEvents,
   getCanvasWidgetPointerEvents,
+  isWidgetOperable,
+  shouldAutoFocusWidgetContent,
   shouldEnterHybridEditModeOnCanvasClick,
   shouldCanvasContainerBeInteractive,
   shouldNodeStayInteractionEnabled,
@@ -156,5 +158,53 @@ describe('node interactivity rules', () => {
         node: { isWidget: () => false },
       }),
     ).toBe('none');
+  });
+
+  it('blocks dashboard widget pointer events while interaction is blocked', () => {
+    // edit mode blocks WITHOUT disabling, so `disabled` stays false and the
+    // widget keeps rendering enabled - the blocking is a separate flag
+    expect(
+      getCanvasWidgetPointerEvents({
+        inDashboard: true,
+        disabled: false,
+        blockInteraction: true,
+        selected: false,
+        isOnlySelected: false,
+        isInteractionEnabled: false,
+        node: { isWidget: () => false },
+      }),
+    ).toBe('none');
+  });
+});
+
+describe('widget operability', () => {
+  it('is operable only when nothing blocks it', () => {
+    expect(isWidgetOperable({})).toBe(true);
+    expect(isWidgetOperable({ disabled: false, blockInteraction: false })).toBe(
+      true,
+    );
+  });
+
+  it('is not operable when the widget itself is read-only', () => {
+    expect(isWidgetOperable({ disabled: true })).toBe(false);
+  });
+
+  // the whole point of the split: edit mode must stop the widget DOING things
+  // without making it LOOK disabled, so `disabled` alone cannot answer this
+  it('is not operable while the surrounding editor blocks interaction', () => {
+    expect(isWidgetOperable({ disabled: false, blockInteraction: true })).toBe(
+      false,
+    );
+  });
+
+  it('does not auto-focus content that is blocked rather than disabled', () => {
+    expect(
+      shouldAutoFocusWidgetContent({
+        inDashboard: false,
+        disabled: false,
+        blockInteraction: true,
+        isInteractionEnabled: true,
+      }),
+    ).toBe(false);
   });
 });

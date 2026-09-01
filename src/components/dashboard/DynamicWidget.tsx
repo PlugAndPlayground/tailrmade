@@ -63,6 +63,7 @@ export interface DynamicWidgetProps extends DynamicWidgetBaseProps {
 export interface DynamicWidgetViewProps extends Partial<DynamicWidgetProps> {
   domId?: string;
   isEditMode?: boolean;
+  blockInteraction?: boolean;
   parentDirection?: FlexDirection;
   innerRef?: (ref: HTMLElement | null) => void;
   // extra props forwarded to getDashboardWrapper (e.g. visitedSurfaceIds)
@@ -80,6 +81,7 @@ export const DynamicWidgetView = (viewProps: DynamicWidgetViewProps) => {
   const {
     domId,
     isEditMode = false,
+    blockInteraction = false,
     parentDirection,
     innerRef,
     wrapperExtraProps,
@@ -155,7 +157,8 @@ export const DynamicWidgetView = (viewProps: DynamicWidgetViewProps) => {
       {layoutableElement.getDashboardWrapper({
         index,
         isEditMode,
-        disabled: isEditMode ? true : disabled,
+        disabled: disabled ?? false,
+        blockInteraction,
         height: style.height as string,
         width: style.width as string,
         minWidth,
@@ -268,6 +271,7 @@ export const DynamicWidget = (props: Partial<DynamicWidgetProps>) => {
       {...props}
       domId={id}
       isEditMode={isEditMode}
+      blockInteraction={isEditMode}
       parentDirection={parentDirection}
       innerRef={(ref) => ref && connect(drag(ref))}
       onDoubleClick={handleDive}

@@ -153,26 +153,99 @@ describe('UI surface editing in the dashboard', () => {
   });
 
   it('embedded surface is read-only in edit mode, interactive in view mode', () => {
-    // editing surface-1, which embeds surface-2
-    const embeddedRenderer =
-      '[data-cy="dashboard"] [data-cy="widget of NODE_ui-surface-2"] [data-cy="surface-renderer"]';
+    // editing surface-1, which embeds surface-2. Give surface-2 a widget of
+    // its own: an empty surface renders with no area, so "can a pointer reach
+    // the content" would have nothing to reach and would hold either way
+    doWithTestController(async (testController) => {
+      await testController.addNode('Label', 'test-label-2', -200, 900);
+      await testController.waitForPendingExecution();
+      await testController.connectNodesByID(
+        'test-label-2',
+        'ui-surface-2',
+        'ReactUI',
+      );
+      await testController.waitForPendingExecution();
+    });
 
-    // edit mode: the embedded surface content is read-only (dive in to edit)
-    cy.get(embeddedRenderer)
+    const embeddedWidget =
+      '[data-cy="dashboard"] [data-cy="widget of NODE_ui-surface-2"]';
+    // the dashboard keeps non-visible copies of a widget around (the canvas
+    // thumbnail, the surface's own preview), so every query pins to the live
+    // one the same way the tests above do
+    const liveRenderer = () =>
+      cy
+        .get(embeddedWidget)
+        .filter(':visible')
+        .first()
+        .find('[data-cy="surface-renderer"]')
+        .first();
+
+    // Assert the OUTCOME - can a pointer reach the embedded content? - rather
+    // than the mechanism that produces it. Edit mode blocks with a capturing
+    // overlay while view mode does not, so a test pinned to the renderer's own
+    // pointer-events would be testing an implementation detail that is now
+    // deliberately identical in both modes.
+    const expectContentReachable = (reachable: boolean) => {
+      liveRenderer().should(($renderer) => {
+        const rect = $renderer[0].getBoundingClientRect();
+        // a zero-sized renderer would make elementFromPoint answer about some
+        // unrelated element and pass the `false` case for the wrong reason
+        expect(
+          rect.width * rect.height,
+          'the embedded surface has area',
+        ).to.be.greaterThan(0);
+        const hit = $renderer[0].ownerDocument.elementFromPoint(
+          rect.left + rect.width / 2,
+          rect.top + rect.height / 2,
+        );
+        expect(
+          Boolean(hit && $renderer[0].contains(hit)),
+          reachable
+            ? 'a pointer over the embedded surface reaches its content'
+            : 'a pointer over the embedded surface is intercepted',
+        ).to.eq(reachable);
+      });
+    };
+
+    // ...and out of the KEYBOARD's reach too, which a pointer overlay on its
+    // own would not achieve - a tab stop inside a surface you are only laying
+    // out is still a way to type into it
+    const expectKeyboardBlocked = (blocked: boolean) => {
+      liveRenderer().should(($renderer) => {
+        expect(
+          Boolean($renderer[0].closest('[inert]')),
+          blocked
+            ? 'the embedded surface is inert, so it cannot be tabbed into'
+            : 'the embedded surface is reachable by keyboard',
+        ).to.eq(blocked);
+      });
+    };
+
+    // edit mode: interaction is prevented (dive in to edit it instead)
+    expectContentReachable(false);
+    expectKeyboardBlocked(true);
+
+    // ...while the widget itself stays a first-class editor citizen: still
+    // selectable, still draggable, still divable
+    cy.get(embeddedWidget).filter(':visible').first().click();
+    cy.get(embeddedWidget)
+      .filter(':visible')
       .first()
-      .should('have.css', 'pointer-events', 'none');
+      .should('have.css', 'cursor', 'move')
+      .dblclick();
+    cy.get('[data-cy="surface-crumb-ui-surface-2"]').should('exist');
+    cy.get('[data-cy="surface-crumb-ui-surface-1"]').click({ force: true });
+    cy.get('[data-cy="surface-crumb-ui-surface-2"]').should('not.exist');
 
     // view/app mode: the embedded surface becomes interactive so the UI works
     cy.get('[data-cy="toggle-edit-mode-btn"]').first().click({ force: true });
-    cy.get(embeddedRenderer)
-      .first()
-      .should('have.css', 'pointer-events', 'auto');
+    expectContentReachable(true);
+    expectKeyboardBlocked(false);
 
     // back to edit mode for the following tests
     cy.get('[data-cy="toggle-edit-mode-btn"]').first().click({ force: true });
-    cy.get(embeddedRenderer)
-      .first()
-      .should('have.css', 'pointer-events', 'none');
+    expectContentReachable(false);
+    expectKeyboardBlocked(true);
   });
 
   it('wiring the Layout JSON socket makes the editor read-only', () => {
