@@ -1776,6 +1776,29 @@ export class TailrmadeMCPServer {
     };
   }
 
+  private async applySurfaceLayout(
+    nodeId: string,
+    newTreeJSON: string,
+    previousTreeJSON: string,
+    spinnerLabel: string,
+  ): Promise<void> {
+    const args = new SetUISurfaceLayoutActionArgs(nodeId, newTreeJSON);
+    const undoArgs = new SetUISurfaceLayoutActionArgs(nodeId, previousTreeJSON);
+
+    InterfaceController.showSpinner(spinnerLabel);
+    try {
+      await PNPAction(
+        ACTIONS.SET_UI_SURFACE_LAYOUT,
+        args,
+        undoArgs,
+        undefined,
+        'ai',
+      );
+    } finally {
+      InterfaceController.hideSpinner(spinnerLabel);
+    }
+  }
+
   // Patches one item's layout properties in place.
   private async setLayoutValue(
     input: SetLayoutValueInput,
@@ -1841,25 +1864,12 @@ export class TailrmadeMCPServer {
     const newTree = { ...tree, [itemId]: { ...item, props: patch.props } };
     const newTreeJSON = JSON.stringify(newTree);
 
-    const args = new SetUISurfaceLayoutActionArgs(input.node_id, newTreeJSON);
-    const undoArgs = new SetUISurfaceLayoutActionArgs(
+    await this.applySurfaceLayout(
       input.node_id,
+      newTreeJSON,
       previousTreeJSON,
+      'AI setting layout value',
     );
-
-    const spinnerLabel = 'AI setting layout value';
-    InterfaceController.showSpinner(spinnerLabel);
-    try {
-      await PNPAction(
-        ACTIONS.SET_UI_SURFACE_LAYOUT,
-        args,
-        undoArgs,
-        undefined,
-        'ai',
-      );
-    } finally {
-      InterfaceController.hideSpinner(spinnerLabel);
-    }
 
     return {
       content: JSON.stringify({
@@ -2020,25 +2030,12 @@ export class TailrmadeMCPServer {
 
     const newTreeJSON = JSON.stringify(compiled.tree);
 
-    const args = new SetUISurfaceLayoutActionArgs(input.node_id, newTreeJSON);
-    const undoArgs = new SetUISurfaceLayoutActionArgs(
+    await this.applySurfaceLayout(
       input.node_id,
+      newTreeJSON,
       previousTreeJSON,
+      'AI setting surface layout',
     );
-
-    const spinnerLabel = 'AI setting surface layout';
-    InterfaceController.showSpinner(spinnerLabel);
-    try {
-      await PNPAction(
-        ACTIONS.SET_UI_SURFACE_LAYOUT,
-        args,
-        undoArgs,
-        undefined,
-        'ai',
-      );
-    } finally {
-      InterfaceController.hideSpinner(spinnerLabel);
-    }
 
     this.spawnEditEffect(node);
     await ensureVisible([node]);

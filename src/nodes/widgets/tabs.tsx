@@ -1,12 +1,11 @@
 import React from 'react';
 import { Box, Tab, Tabs } from '@mui/material';
 import {
-  WidgetHybridBase,
+  WidgetSelectionBase,
   WidgetPaper,
   colorName,
   getColorSocket,
   getSizeSocket,
-  labelName,
   outName,
   outIndexName,
   sizeName,
@@ -18,7 +17,6 @@ import { ArrayType } from '../datatypes/arrayType';
 import { NumberType } from '../datatypes/numberType';
 import { StringType } from '../datatypes/stringType';
 import { BooleanType } from '../datatypes/booleanType';
-import { BackPropagation } from '../../interfaces';
 import { SOCKET_TYPE } from '../../utils/constants';
 import { useThemeTokens } from '../../utils/theme';
 import { WidgetContentProps } from '../../utils/interfaces';
@@ -35,7 +33,7 @@ const scrollableName = 'Scrollable';
 
 const tabsDefaultValue = ['Tab 1', 'Tab 2', 'Tab 3'];
 
-export class WidgetTabs extends WidgetHybridBase {
+export class WidgetTabs extends WidgetSelectionBase {
   public getName(): string {
     return 'Tabs';
   }
@@ -86,29 +84,12 @@ export class WidgetTabs extends WidgetHybridBase {
     return outName;
   }
 
-  protected getBackPropagationTargets(): BackPropagation {
-    return {
-      SocketToGetValue: this.getInputSocketByName(selectedTabIndex),
-      SocketToGetOptions: this.getInputSocketByName(tabsOptionsName),
-      SocketToTakeName: this.getInputSocketByName(labelName),
-    };
+  protected getOptionsSocketName(): string {
+    return tabsOptionsName;
   }
 
-  protected async onExecute(
-    inputObject: any,
-    outputObject: any,
-  ): Promise<void> {
-    await super.onExecute(inputObject, outputObject);
-
-    const options = inputObject[tabsOptionsName];
-    const selectedIndex = Math.max(
-      0,
-      Math.min(options.length - 1, inputObject[selectedTabIndex]),
-    );
-
-    const selectedValue = options[selectedIndex];
-    this.setOutputData(outName, selectedValue);
-    this.setOutputData(outIndexName, selectedIndex);
+  protected getSelectedIndexSocketName(): string {
+    return selectedTabIndex;
   }
 
   handleOnChange = async (event, newValue) => {
