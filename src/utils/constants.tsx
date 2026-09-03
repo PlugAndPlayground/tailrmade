@@ -239,6 +239,9 @@ export const EDIT_ICON_TEXTURE = '../assets/Icon_Tune.svg';
 export const ADD_TO_DASHBOARD_ICON_TEXTURE =
   '../assets/Icon_AddToDashboard.svg';
 export const CONFIRMATION_ICON_TEXTURE = '../assets/Icon_Confirmation.svg';
+export const STATUS_ERROR_ICON_TEXTURE = '../assets/Icon_Error.svg';
+export const STATUS_WARNING_ICON_TEXTURE = '../assets/Icon_Warning.svg';
+export const STATUS_COMMENT_ICON_TEXTURE = '../assets/Icon_Comment.svg';
 
 export const ALIGNLEFT_TEXTURE = '../assets/Icon_AlignLeft.svg';
 export const ALIGNAUTO_TEXTURE = '../assets/Icon_AutoAlign.svg';

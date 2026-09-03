@@ -10,7 +10,6 @@ import { ArrayType } from '../datatypes/arrayType';
 import { StringType } from '../datatypes/stringType';
 import { CodeType } from '../datatypes/codeType';
 import { NumberType } from '../datatypes/numberType';
-import * as PIXI from 'pixi.js';
 import {
   CONSTANT_NAME,
   ENTIRE_OBJECT_NAME,
@@ -210,7 +209,6 @@ const MACRO_CALL_REGEX = /\bmacro\s*\(/;
 
 // customfunction does any number of inputs but only one output for simplicity
 export class CustomFunction extends PPNode {
-  modifiedBanner: PIXI.Graphics;
   previousUserInput = '';
   functionWithVariablesFromInputObject = '';
 
@@ -361,7 +359,6 @@ Parameter names become sockets and a link does not follow a renamed parameter â€
 
   public async onNodeAdded(source: TNodeSource): Promise<void> {
     await super.onNodeAdded(source);
-    this.modifiedBanner = this._StatusesRef.addChild(new PIXI.Graphics());
     // added this to make sure all sockets are in place before anything happens (caused visual issues on load before)
     if (this.getInputData(anyCodeName) !== undefined) {
       this.potentiallyUpdateFunctionAndSockets(this.getInputData(anyCodeName));

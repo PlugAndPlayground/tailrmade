@@ -79,6 +79,25 @@ import { DropShadowFilter, GlowFilter } from 'pixi-filters';
 import { getObjectsInsideBounds } from '../pixi/utils-pixi';
 import { BackPropagation, BackPropagationPayload } from '../interfaces';
 import { addDashboardContentOutput } from '../utils/layoutableHelpers';
+import { getStatusIconTexture, loadStatusIcons } from '../utils/statusIcons';
+
+// The error outline is measured in screen pixels rather than world units: a
+// world space outline thins out as you zoom out and is gone by the time you are
+// scanning a whole graph for problems, which is precisely when it has to be
+// findable. Divide these by the viewport scale at draw time. The badge is
+// deliberately NOT screen sized - it rides the canvas like any other node
+// detail, and you zoom in to click it.
+const ERROR_BOUNDARY_SCREEN_OFFSET = 3;
+const ERROR_BOUNDARY_SCREEN_WIDTH = 3;
+// Big enough that the icons are told apart by their contour - a disc against a
+// triangle - rather than by the detail inside them, which is what made them
+// hard to read at the old 16px.
+const STATUS_BADGE_RADIUS = 12;
+const COMMENT_BADGE_TINT = 0xffcc02;
+// how far the badge's click target reaches past its drawn edge
+const STATUS_BADGE_HIT_PADDING = 3;
+// between the badges themselves, and between the cluster and the node's edge
+const STATUS_BADGE_GAP = 4;
 
 export default class PPNode extends PIXI.Container implements IWarningHandler {
   _NodeNameRef: PIXI.Text;
@@ -87,10 +106,10 @@ export default class PPNode extends PIXI.Container implements IWarningHandler {
   _BackgroundGraphicsRef: PIXI.Graphics;
   _CommentRef: PIXI.Graphics;
   _StatusesRef: PIXI.Graphics;
+  _StatusBadgeRef: PIXI.Container;
   _ErrorBoundaryRef: PIXI.Graphics;
   _ForegroundRef: PIXI.Container;
   _SlowExecutionGraphics: PIXI.Graphics;
-  _UserCommentRef: PIXI.Container;
 
   _isHovering: boolean;
 
@@ -127,6 +146,9 @@ export default class PPNode extends PIXI.Container implements IWarningHandler {
 
   hasBeenAdded = false;
   hasBeenDrawn = false;
+  // whether drawErrorBoundary actually painted something, so the zoom refresh
+  // can skip clean nodes without re-deriving the status for every one of them
+  private errorBoundaryIsDrawn = false;
 
   executionFilter: GlowFilter | undefined = undefined;
   dropShadowFilter: DropShadowFilter | undefined = undefined;
@@ -223,11 +245,17 @@ export default class PPNode extends PIXI.Container implements IWarningHandler {
     this._CommentRef = this._BackgroundRef.addChild(new PIXI.Graphics());
     this._ErrorBoundaryRef = this._BackgroundRef.addChild(new PIXI.Graphics());
     this._StatusesRef = this._BackgroundRef.addChild(new PIXI.Graphics());
+    this._StatusBadgeRef = this._BackgroundRef.addChild(new PIXI.Container());
+    this._StatusBadgeRef.name = 'statusBadge';
 
     // only get default updateBehaviour when newly added
     if (source !== NODE_SOURCE.SERIALIZED) {
       this.updateBehaviour = this.getUpdateBehaviour();
     }
+
+    // shared promise, so this is one fetch for the whole graph rather than one
+    // per node - the badge draws synchronously and reads the cache
+    await loadStatusIcons();
 
     this.nodeSelectionHeader = new NodeHeaderClass();
     await this.nodeSelectionHeader.init();
@@ -245,10 +273,6 @@ export default class PPNode extends PIXI.Container implements IWarningHandler {
     this._ForegroundRef = new PIXI.Container();
     this.addChild(this._ForegroundRef);
     this._ForegroundRef.name = 'foreground';
-
-    this._UserCommentRef = new PIXI.Container();
-    this.addChild(this._UserCommentRef);
-    this._UserCommentRef.name = 'userComment';
 
     this.hasBeenAdded = true;
     this.getAllSockets().forEach((socket) => {
@@ -874,29 +898,33 @@ export default class PPNode extends PIXI.Container implements IWarningHandler {
     }
 
     this._ErrorBoundaryRef.clear();
-    if (
-      this.status.node.getSeverity() >= STATUS_SEVERITY.WARNING ||
-      this.status.socket.getSeverity() >= STATUS_SEVERITY.WARNING
-    ) {
-      const status =
-        this.status.node.getSeverity() >= STATUS_SEVERITY.WARNING
-          ? this.status.node
-          : this.status.socket;
-
-      this._ErrorBoundaryRef
-        .roundRect(
-          NODE_MARGIN - 3,
-          -3,
-          this.nodeWidth + 6,
-          this.nodeHeight + 6,
-          this.getRoundedCorners() ? NODE_CORNERRADIUS + 3 : 0,
-        )
-        .stroke({
-          width: 3,
-          color: status.getColor().hexNumber(),
-          alpha: 1,
-        });
+    this.errorBoundaryIsDrawn = false;
+    const status = this.getWorstStatus();
+    if (!status) {
+      return;
     }
+
+    // both the gap and the thickness are held constant on screen, so the ring
+    // reads the same at any zoom instead of thinning away to nothing
+    const scale = PPNode.currentViewportScale();
+    const offset = ERROR_BOUNDARY_SCREEN_OFFSET / scale;
+    // concentric with the node: its own radius plus however far out we sit
+    const nodeRadius = this.getCornerRadius();
+
+    this._ErrorBoundaryRef
+      .roundRect(
+        NODE_MARGIN - offset,
+        -offset,
+        this.nodeWidth + offset * 2,
+        this.nodeHeight + offset * 2,
+        nodeRadius ? nodeRadius + offset : 0,
+      )
+      .stroke({
+        width: ERROR_BOUNDARY_SCREEN_WIDTH / scale,
+        color: status.getColor().hexNumber(),
+        alpha: 1,
+      });
+    this.errorBoundaryIsDrawn = true;
   }
 
   public drawBackground(): void {
@@ -906,7 +934,7 @@ export default class PPNode extends PIXI.Container implements IWarningHandler {
         0,
         this.nodeWidth,
         this.nodeHeight,
-        this.getRoundedCorners() ? NODE_CORNERRADIUS : 0,
+        this.getCornerRadius(),
       )
       .fill({
         color: this.getColor().hexNumber(),
@@ -956,64 +984,276 @@ export default class PPNode extends PIXI.Container implements IWarningHandler {
     return this.headerHeight + triggerHeight + combinedInputOutput;
   }
 
+  // Every warning and error the node is carrying, worst first. The single
+  // source of truth for the border, the badge, the popover and the node list -
+  // status.custom is deliberately not in here, those are labels rather than
+  // messages (see drawStatuses).
+  //
+  // The sockets are read directly, not just through the aggregate they push up
+  // into status.socket. SocketClass.setStatus can only propagate once a socket
+  // knows which node it belongs to, so a parsing warning raised while a graph
+  // is still loading is dropped on the floor - leaving a socket that reports a
+  // problem sitting inside a node that looks perfectly clean. Deriving from the
+  // sockets themselves means every surface agrees whether or not the aggregate
+  // caught it.
+  public getWarningsAndErrors(): PNPStatus[] {
+    const collected: PNPStatus[] = [];
+    const consider = (status: PNPStatus) => {
+      if (status.getSeverity() >= STATUS_SEVERITY.WARNING) {
+        collected.push(status);
+      }
+    };
+    const aggregated = this.status.socket;
+    consider(this.status.node);
+    consider(aggregated);
+    this.getAllSockets().forEach((socket) => {
+      // when propagation did happen the aggregate quotes the socket's own
+      // message, and listing both would say the same thing twice
+      if (aggregated.message?.includes(socket.status.message)) {
+        return;
+      }
+      consider(socket.status);
+    });
+    return collected.sort((a, b) => b.getSeverity() - a.getSeverity());
+  }
+
+  public getWorstStatus(): PNPStatus | undefined {
+    return this.getWarningsAndErrors()[0];
+  }
+
+  protected static currentViewportScale(): number {
+    return PPGraph.currentGraph?.viewportScaleX || 1;
+  }
+
+  // Where the custom status pills begin, in node local space. Exposed so a
+  // subclass whose own content covers the node can shift them off it without
+  // having to know how the offset is built.
+  protected getStatusesStartY(): number {
+    return (
+      (this.countOfVisibleOutputSockets +
+        this.countOfVisibleNodeTriggerSockets) *
+        SOCKET_HEIGHT +
+      40
+    );
+  }
+
+  // Node local centre of the badge cluster: just off the node's right edge,
+  // level with the header. Outside rather than in the header because the icons
+  // read by silhouette, and a silhouette needs empty canvas around it - inside
+  // the node it competed with the fill, the title and the sockets. It also
+  // means a hybrid node needs no special case: its html covers all but a six
+  // pixel border, and this sits clear of the node entirely.
+  //
+  // The horizontal offset is in screen pixels, converted to world units here,
+  // because the error border it has to clear is measured in screen pixels too.
+  // A fixed world gap meant the border swept outwards past the badge as you
+  // zoomed out and swallowed it. Vertically it stays pinned to the header, so
+  // the cluster tracks the node rather than floating away from it.
+  protected getStatusBadgeCenter(radius: number): { x: number; y: number } {
+    const screenOffset =
+      ERROR_BOUNDARY_SCREEN_OFFSET + STATUS_BADGE_GAP + radius;
+    return {
+      x:
+        NODE_MARGIN +
+        this.nodeWidth +
+        screenOffset / PPNode.currentViewportScale(),
+      y: this.headerHeight / 2,
+    };
+  }
+
+  // Short, node authored labels only - 'Companion', 'Status: 200'. Warning and
+  // error prose is deliberately not drawn on the canvas any more: it is
+  // unbounded, so it overlapped neighbouring nodes, and any hybrid node
+  // painted over it. It is reached through the badge instead, on the html
+  // layer where it can be selected and copied - see drawStatusBadge.
   protected drawStatuses(): void {
     if (!this.hasBeenAdded) {
       return;
     }
 
     this._StatusesRef.clear();
-    this._StatusesRef.removeChildren();
-
-    let flattenedStatus = [];
-    for (const key in this.status) {
-      if (Array.isArray(this.status[key])) {
-        flattenedStatus = this.status[key].concat(flattenedStatus);
-      } else if (this.status[key].getSeverity() >= STATUS_SEVERITY.WARNING) {
-        flattenedStatus.push(this.status[key]);
-      }
-    }
+    // removeChildren on its own leaves every PIXI.Text holding the texture it
+    // rasterised its string into, so a node redrawing on a tick would allocate
+    // a fresh one each time and never release the last
+    this._StatusesRef.removeChildren().forEach((child) => child.destroy());
 
     const padding = 5;
-    let startY =
-      (this.countOfVisibleOutputSockets +
-        this.countOfVisibleNodeTriggerSockets) *
-        SOCKET_HEIGHT +
-      40;
-    const startX = this.nodeWidth - 60;
+    let startY = this.getStatusesStartY();
 
-    flattenedStatus.forEach((nStatus, index) => {
-      const color = nStatus.getColor();
+    // pills are right aligned inside the node and can never reach past its
+    // edge, which is what used to run them over whatever sat to the right
+    const maxPillWidth = Math.max(40, this.nodeWidth - 12);
+    // one style for the whole node rather than one per status - a TextStyle
+    // per Text is what made a node with several statuses expensive to redraw
+    const statusTextStyle = new TextStyle({
+      fontSize: 18,
+      fill: COLOR_MAIN,
+      wordWrap: true,
+      wordWrapWidth: maxPillWidth - padding * 2,
+    });
 
-      let shortenedMessage = nStatus.message;
-      const lines = nStatus.message.split('\n');
-      const maxLines = 3;
-      if (lines.length > maxLines) {
-        shortenedMessage = lines.slice(0, maxLines).join('\n');
-      }
-
+    this.status.custom.forEach((nStatus) => {
       const text = new PIXI.Text({
-        text: shortenedMessage,
-        style: new TextStyle({
-          fontSize: 18,
-          fill: COLOR_MAIN,
-        }),
+        text: nStatus.message,
+        style: statusTextStyle,
       });
-      text.x = startX + padding;
+      const pillWidth = Math.min(text.width + padding * 2, maxPillWidth);
+      const pillX = NODE_MARGIN + this.nodeWidth - pillWidth - 6;
+      text.x = pillX + padding;
       text.y = startY + padding;
       this._StatusesRef.addChild(text);
       this._StatusesRef
         .roundRect(
-          startX,
+          pillX,
           startY,
-          text.width + padding * 2,
+          pillWidth,
           text.height + padding * 2,
-          nStatus.getSeverity() >= STATUS_SEVERITY.WARNING
-            ? 0
-            : NODE_CORNERRADIUS,
+          NODE_CORNERRADIUS,
         )
-        .fill(color.hexNumber());
+        .fill(nStatus.getColor().hexNumber());
       startY += text.height + padding;
     });
+
+    this.drawStatusBadge();
+  }
+
+  // Presence, not prose. A bounded badge in the node header saying something
+  // needs attention, which opens the full message on the html layer when
+  // clicked. Severity is carried by shape as well as colour - red, orange and
+  // the comment yellow are indistinguishable to a red-green colourblind eye.
+  protected drawStatusBadge(): void {
+    this._StatusBadgeRef.removeChildren().forEach((child) => child.destroy());
+    this._StatusBadgeRef.eventMode = 'none';
+
+    const worst = this.getWorstStatus();
+    const hasComment = Boolean(this.comment);
+    if (!worst && !hasComment) {
+      return;
+    }
+
+    const radius = STATUS_BADGE_RADIUS;
+    // children sit around the container's anchor, which
+    // applyStatusBadgeTransform places and scales - so the cluster moves and
+    // resizes as one
+    let offsetX = 0;
+    // passive: the container itself is not a target, but its badges are
+    this._StatusBadgeRef.eventMode = 'passive';
+
+    const openPopover =
+      (kind: 'status' | 'comment') => (event: PIXI.FederatedPointerEvent) => {
+        // otherwise the node begins a drag and the popover never opens
+        event.stopPropagation();
+        InterfaceController.notifyListeners(
+          ListenEvent.NodeDetailPopoverRequested,
+          { nodeId: this.id, kind, x: event.global.x, y: event.global.y },
+        );
+      };
+
+    const icon = worst
+      ? getStatusIconTexture(
+          worst.getSeverity() >= STATUS_SEVERITY.ERROR ? 'error' : 'warning',
+        )
+      : undefined;
+    const commentIcon = hasComment
+      ? getStatusIconTexture('comment')
+      : undefined;
+
+    if (worst && icon) {
+      // A disc for an error, a triangle for a warning: two different
+      // silhouettes, so severity survives for anyone who cannot separate the
+      // red from the orange. The artwork is white with the exclamation punched
+      // out, so tinting it paints the whole badge in the severity colour and
+      // the node shows through the cut-out.
+      const badge = new PIXI.Container();
+      const sprite = new PIXI.Sprite(icon);
+      sprite.width = radius * 2;
+      sprite.height = radius * 2;
+      sprite.anchor.set(0.5);
+      sprite.tint = worst.getColor().hexNumber();
+      badge.addChild(sprite);
+      badge.x = offsetX;
+      badge.y = 0;
+      badge.eventMode = 'static';
+      badge.cursor = 'pointer';
+      // local to the scaled container, so this stays a constant target on
+      // screen. The node's own hit area is grown to reach out here as well, or
+      // pixi would prune the child before this is ever consulted - see
+      // isPointOnBadgeCluster.
+      badge.hitArea = new PIXI.Circle(0, 0, radius + STATUS_BADGE_HIT_PADDING);
+      badge.on('pointerdown', openPopover('status'));
+      this._StatusBadgeRef.addChild(badge);
+      // rightward, away from the node - offsetting the other way would put the
+      // comment bubble back on top of the node the cluster just stepped off
+      offsetX += radius * 2 + STATUS_BADGE_GAP;
+    }
+
+    if (commentIcon) {
+      // a speech bubble rather than a ring or a severity shape: a comment is
+      // an annotation, not a state that wants acting on, so it neither
+      // competes with the severity outline nor reads as a third severity
+      const bubble = new PIXI.Sprite(commentIcon);
+      bubble.width = radius * 2;
+      bubble.height = radius * 2;
+      bubble.anchor.set(0.5);
+      bubble.tint = COMMENT_BADGE_TINT;
+      bubble.x = offsetX;
+      bubble.y = 0;
+      bubble.eventMode = 'static';
+      bubble.cursor = 'pointer';
+      bubble.hitArea = new PIXI.Circle(0, 0, radius + STATUS_BADGE_HIT_PADDING);
+      bubble.on('pointerdown', openPopover('comment'));
+      this._StatusBadgeRef.addChild(bubble);
+    }
+
+    this.applyStatusBadgeTransform();
+  }
+
+  // The cluster is drawn at a constant size on screen, like the border it sits
+  // beside. Its children are laid out in screen pixels around the anchor, so
+  // one scale here holds the icons and the gaps between them together.
+  protected applyStatusBadgeTransform(): void {
+    const center = this.getStatusBadgeCenter(STATUS_BADGE_RADIUS);
+    this._StatusBadgeRef.x = center.x;
+    this._StatusBadgeRef.y = center.y;
+    this._StatusBadgeRef.scale.set(1 / PPNode.currentViewportScale());
+  }
+
+  // The cluster sits off the node's right edge, past the reach of the node's
+  // own hit rect, and pixi prunes children the parent's hit area does not
+  // cover - without this the badges would draw but never take a click. A box
+  // around the whole run rather than one badge: the comment sits to the right
+  // of the severity badge and is clickable in its own right. Kept allocation
+  // free, this runs on every pointer move for every node.
+  private isPointOnBadgeCluster(x: number, y: number): boolean {
+    const count = this._StatusBadgeRef.children.length;
+    if (!count) {
+      return false;
+    }
+    const scale = this._StatusBadgeRef.scale.x;
+    const reach = (STATUS_BADGE_RADIUS + STATUS_BADGE_HIT_PADDING) * scale;
+    // badges run rightward from the anchor, one width plus a gap apart
+    const spanRight =
+      (count - 1) * (STATUS_BADGE_RADIUS * 2 + STATUS_BADGE_GAP) * scale +
+      reach;
+    const dx = x - this._StatusBadgeRef.x;
+    const dy = y - this._StatusBadgeRef.y;
+    return dx >= -reach && dx <= spanRight && Math.abs(dy) <= reach;
+  }
+
+  // The border is measured in screen pixels, so it has to be re-stroked
+  // whenever the viewport scale changes - see GraphClass, which drives this
+  // from the viewport's own move event. The badge is world sized and needs
+  // nothing here.
+  public refreshZoomInvariantVisuals(): void {
+    if (!this.hasBeenAdded || this.destroyed) {
+      return;
+    }
+    if (this._StatusBadgeRef.children.length) {
+      this.applyStatusBadgeTransform();
+    }
+    if (this.errorBoundaryIsDrawn) {
+      this.drawErrorBoundary();
+    }
   }
 
   protected getHitArea(): PNPHitArea {
@@ -1021,6 +1261,9 @@ export default class PPNode extends PIXI.Container implements IWarningHandler {
     rect = PPNode.boundsToSelectionBounds(rect);
     return new PNPHitArea((x, y) => {
       if (rect.contains(x, y)) {
+        return true;
+      }
+      if (this.isPointOnBadgeCluster(x, y)) {
         return true;
       }
       // Pixi hit tests every node on every pointer move, so the socket scan
@@ -1088,7 +1331,6 @@ export default class PPNode extends PIXI.Container implements IWarningHandler {
     this._BackgroundGraphicsRef.clear();
     this.drawErrorBoundary();
     this.drawBackground();
-    this.drawUserComment();
 
     this.drawTriggers();
     this.drawSockets();
@@ -1139,12 +1381,22 @@ export default class PPNode extends PIXI.Container implements IWarningHandler {
       this.status[type] = status;
       this.drawStatuses();
       this.drawErrorBoundary();
+      this.notifyStatusChanged();
     }
   }
 
   public pushExclusiveCustomStatus(status: PNPStatus) {
     this.status.custom = [];
     this.status.custom.push(status);
+    this.notifyStatusChanged();
+  }
+
+  // Lets the node list and the status popover react to a status change
+  // instead of polling every node for one, which is what they used to do.
+  private notifyStatusChanged(): void {
+    InterfaceController.notifyListeners(ListenEvent.NodeStatusChanged, {
+      nodeId: this.id,
+    });
   }
 
   adaptToSocketErrors(): void {
@@ -1183,86 +1435,9 @@ ${Math.round(bounds.minX)}, ${Math.round(
     }
   }
 
-  drawUserComment(): void {
-    if (!this.hasBeenAdded || !this._UserCommentRef) {
-      return;
-    }
-
-    this._UserCommentRef.removeChildren();
-
-    if (!this.comment) {
-      return;
-    }
-
-    // yellow outline drawn onto _BackgroundGraphicsRef so it sits beneath sockets
-    const outlineOffset = 2;
-    this._BackgroundGraphicsRef
-      .roundRect(
-        NODE_MARGIN + outlineOffset,
-        outlineOffset,
-        this.nodeWidth - outlineOffset * 2,
-        this.nodeHeight - outlineOffset * 2,
-        this.getRoundedCorners()
-          ? Math.max(NODE_CORNERRADIUS - outlineOffset, 0)
-          : 0,
-      )
-      .stroke({ color: 0xffcc02, width: 2, alpha: 0.85 });
-
-    // full comment bubble (shown only on hover), centered above the node
-    const bubblePadding = 8;
-    const maxBubbleWidth = Math.max(this.nodeWidth, 200);
-
-    const commentText = new PIXI.Text({
-      text: this.comment,
-      style: new TextStyle({
-        fontSize: 12,
-        fill: '#1a1a1a',
-        align: 'left',
-        wordWrap: true,
-        wordWrapWidth: maxBubbleWidth - bubblePadding * 2,
-      }),
-    });
-    commentText.resolution = 2;
-
-    const bubbleWidth = commentText.width + bubblePadding * 2;
-    const bubbleHeight = commentText.height + bubblePadding * 2;
-    const nodeCenterX = NODE_MARGIN + this.nodeWidth / 2;
-    const bubbleX = nodeCenterX - bubbleWidth / 2;
-    const bubbleY = -bubbleHeight - 38;
-
-    const bubble = new PIXI.Container();
-    const bubbleBg = new PIXI.Graphics();
-
-    // bubble body
-    bubbleBg.roundRect(bubbleX, bubbleY, bubbleWidth, bubbleHeight, 6);
-    bubbleBg.fill({ color: 0xffcc02, alpha: 0.7 });
-
-    // small triangle pointing down, centered
-    const triX = nodeCenterX - 6;
-    const triY = bubbleY + bubbleHeight;
-    bubbleBg.moveTo(triX, triY);
-    bubbleBg.lineTo(triX + 6, triY + 6);
-    bubbleBg.lineTo(triX + 12, triY);
-    bubbleBg.closePath();
-    bubbleBg.fill({ color: 0xffcc02, alpha: 0.7 });
-
-    bubble.addChild(bubbleBg);
-
-    commentText.x = bubbleX + bubblePadding;
-    commentText.y = bubbleY + bubblePadding;
-    bubble.addChild(commentText);
-
-    bubble.visible = this._isHovering;
-    bubble.name = 'commentBubble';
-    bubble.eventMode = 'none';
-    this._UserCommentRef.addChild(bubble);
-
-    // ensure the comment layer never captures pointer events
-    this._UserCommentRef.eventMode = 'none';
-  }
-
   public setComment(text: string): void {
     this.comment = text;
+    // redraws the badge that now stands in for the old canvas bubble
     this.drawNodeShape();
   }
 
@@ -1802,8 +1977,6 @@ ${Math.round(bounds.minX)}, ${Math.round(
     this.updateBehaviour.graphics.redrawAnythingChanging();
     this.nodeSelectionHeader.redrawAnythingChanging(true);
     this.selectionFilterIn();
-
-    this.drawUserComment();
   }
 
   onPointerOut(): void {
@@ -1812,8 +1985,6 @@ ${Math.round(bounds.minX)}, ${Math.round(
     this.updateBehaviour.graphics.redrawAnythingChanging();
     this.nodeSelectionHeader.redrawAnythingChanging(false);
     this.selectionFilterOut();
-
-    this.drawUserComment();
   }
 
   onPointerClick(event: PIXI.FederatedPointerEvent): void {
@@ -1961,6 +2132,13 @@ ${Math.round(bounds.minX)}, ${Math.round(
 
   public getRoundedCorners(): boolean {
     return true;
+  }
+
+  // The corner radius to actually draw with. Use this rather than
+  // getRoundedCorners() anywhere the node's own shape is drawn, so the radius
+  // lives in one place.
+  public getCornerRadius(): number {
+    return this.getRoundedCorners() ? NODE_CORNERRADIUS : 0;
   }
 
   getPreferredInputSocketName(): string {
@@ -2378,6 +2556,7 @@ ${Math.round(bounds.minX)}, ${Math.round(
   protected clearStatuses() {
     this.status.custom = [];
     this.drawStatuses();
+    this.notifyStatusChanged();
   }
 
   protected pushExclusiveStatus(status: PNPCustomStatus) {
@@ -2386,6 +2565,7 @@ ${Math.round(bounds.minX)}, ${Math.round(
     );
     this.status.custom.push(status);
     this.drawStatuses();
+    this.notifyStatusChanged();
   }
 
   protected pushStatusCode(statusCode: number): void {

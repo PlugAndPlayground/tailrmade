@@ -57,7 +57,6 @@ const LeftRightDrawer: React.FC<LeftRightDrawerProps> = ({
 }) => {
   // State
   const [nodeFilter, setNodeFilter] = useState<string | null>(null);
-  const [graphFilter, setGraphFilter] = useState('nodes');
   const [graphFilterText, setGraphFilterText] = useState('');
   const [selectedNodes, setSelectedNodes] = useState(
     PPGraph?.currentGraph?.selection?.selectedNodes || [],
@@ -121,8 +120,6 @@ const LeftRightDrawer: React.FC<LeftRightDrawerProps> = ({
         selectedNodes={selectedNodes}
         nodeFilter={nodeFilter}
         setNodeFilter={setNodeFilter}
-        graphFilter={graphFilter}
-        setGraphFilter={setGraphFilter}
         graphFilterText={graphFilterText}
         setGraphFilterText={setGraphFilterText}
       />

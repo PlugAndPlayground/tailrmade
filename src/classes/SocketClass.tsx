@@ -264,6 +264,9 @@ export default class Socket
         } else {
           this.getNode().adaptToSocketErrors();
         }
+        // the node's border reads socket statuses directly, so it has to be
+        // re-derived even when the aggregated node status came out unchanged
+        this.getNode().drawErrorBoundary();
       }
     }
   }

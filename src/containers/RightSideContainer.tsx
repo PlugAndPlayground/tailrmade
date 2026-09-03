@@ -24,8 +24,6 @@ type RightSideContainerProps = {
   selectedNodes: any[];
   nodeFilter: string | null;
   setNodeFilter: (filter: string | null) => void;
-  graphFilter: string;
-  setGraphFilter: (filter: string) => void;
   graphFilterText: string;
   setGraphFilterText: (text: string) => void;
 };
@@ -36,8 +34,6 @@ const RightSideContainerInner: React.FC<RightSideContainerProps> = ({
   selectedNodes,
   nodeFilter,
   setNodeFilter,
-  graphFilter,
-  setGraphFilter,
   graphFilterText,
   setGraphFilterText,
 }) => {
@@ -73,8 +69,6 @@ const RightSideContainerInner: React.FC<RightSideContainerProps> = ({
       <NodeArrayContainer
         graphId={PPGraph.currentGraph?.id}
         selectedNodes={selectedNodes}
-        filter={graphFilter}
-        setFilter={setGraphFilter}
         filterText={graphFilterText}
         setFilterText={setGraphFilterText}
       />
@@ -83,8 +77,6 @@ const RightSideContainerInner: React.FC<RightSideContainerProps> = ({
     selectedNodes,
     nodeFilter,
     setNodeFilter,
-    graphFilter,
-    setGraphFilter,
     graphFilterText,
     setGraphFilterText,
   ]);
@@ -169,7 +161,6 @@ const areEqual = (
   return (
     prevProps.rightDrawerView === nextProps.rightDrawerView &&
     prevProps.nodeFilter === nextProps.nodeFilter &&
-    prevProps.graphFilter === nextProps.graphFilter &&
     prevProps.graphFilterText === nextProps.graphFilterText &&
     prevProps.selectedNodes.length === nextProps.selectedNodes.length &&
     prevProps.selectedNodes.every(
