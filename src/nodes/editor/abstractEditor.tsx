@@ -17,7 +17,6 @@ import { CustomFunction } from '../data/dataFunctions';
 import { BackPropagation } from '../../interfaces';
 import { AbstractType } from '../datatypes/abstractType';
 import { WidgetContentProps } from '../../utils/interfaces';
-import { isWidgetOperable } from '../../utils/nodeInteractivity';
 
 // Lazy load MonacoEditor
 const MonacoEditor = React.lazy(() =>
@@ -215,14 +214,14 @@ export abstract class CodeEditorAbstract extends HybridNode2 {
     const node = props.node as CodeEditorAbstract;
     const inputSocket = node.getInputSocketByName(editorInputSocketName);
     const value = inputSocket.getStringifiedData();
-    const isDashboardEditable = props.inDashboard && isWidgetOperable(props);
+    const isDashboardEditable = props.inDashboard && !(props.disabled ?? false);
     const isEditorInteractive = props.inDashboard
       ? isDashboardEditable
       : props.isInteractionEnabled;
     const readOnly =
       inputSocket.hasLink() ||
       (props.inDashboard
-        ? !isWidgetOperable(props)
+        ? (props.disabled ?? false)
         : !props.isInteractionEnabled);
 
     return (

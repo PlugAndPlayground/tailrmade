@@ -146,9 +146,11 @@ export type WidgetProps = {
 
 export interface DashboardWidgetProps {
   index: number;
-  // the widget's own read-only state
+  // the widget's own read-only state, set by the user on the widget
   disabled: boolean;
-  // interaction is suppressed by whatever renders the widget
+  // interaction is suppressed by whatever renders the widget (edit mode,
+  // previews). Consumed by DashboardContentGate only - it never reaches the
+  // widget content, which stays unaware of anything but its own `disabled`
   blockInteraction?: boolean;
   width: string;
   height: string;
@@ -190,7 +192,6 @@ export interface WidgetContentProps {
 
   // Optional dashboard-specific props
   disabled?: boolean;
-  blockInteraction?: boolean;
   showDashboard?: boolean;
   width?: string;
   height?: string;

@@ -1,7 +1,8 @@
+import * as fs from 'fs';
+import * as path from 'path';
 import {
   getCanvasNodePointerEvents,
   getCanvasWidgetPointerEvents,
-  isWidgetOperable,
   shouldAutoFocusWidgetContent,
   shouldEnterHybridEditModeOnCanvasClick,
   shouldCanvasContainerBeInteractive,
@@ -159,52 +160,36 @@ describe('node interactivity rules', () => {
       }),
     ).toBe('none');
   });
-
-  it('blocks dashboard widget pointer events while interaction is blocked', () => {
-    // edit mode blocks WITHOUT disabling, so `disabled` stays false and the
-    // widget keeps rendering enabled - the blocking is a separate flag
-    expect(
-      getCanvasWidgetPointerEvents({
-        inDashboard: true,
-        disabled: false,
-        blockInteraction: true,
-        selected: false,
-        isOnlySelected: false,
-        isInteractionEnabled: false,
-        node: { isWidget: () => false },
-      }),
-    ).toBe('none');
-  });
 });
 
-describe('widget operability', () => {
-  it('is operable only when nothing blocks it', () => {
-    expect(isWidgetOperable({})).toBe(true);
-    expect(isWidgetOperable({ disabled: false, blockInteraction: false })).toBe(
-      true,
-    );
-  });
+// The dashboard blocks interaction from OUTSIDE the widget, in
+// DashboardContentGate, so that edit mode can stop a widget from doing things
+// without it having to look disabled. That only holds as long as the flag
+// stays in the gate: the moment a widget reads it, the widget is back to
+// styling itself around someone else's mode.
+describe('interaction blocking stays out of the widgets', () => {
+  const SRC = path.join(__dirname, '../../../src');
 
-  it('is not operable when the widget itself is read-only', () => {
-    expect(isWidgetOperable({ disabled: true })).toBe(false);
-  });
+  const sourceFiles = (dir: string): string[] =>
+    fs.readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
+      const full = path.join(dir, entry.name);
+      if (entry.isDirectory()) return sourceFiles(full);
+      return /\.tsx?$/.test(entry.name) ? [full] : [];
+    });
 
-  // the whole point of the split: edit mode must stop the widget DOING things
-  // without making it LOOK disabled, so `disabled` alone cannot answer this
-  it('is not operable while the surrounding editor blocks interaction', () => {
-    expect(isWidgetOperable({ disabled: false, blockInteraction: true })).toBe(
-      false,
-    );
-  });
+  it.each(
+    sourceFiles(SRC)
+      .filter((file) =>
+        fs.readFileSync(file, 'utf8').includes('blockInteraction'),
+      )
+      .map((file) => path.relative(SRC, file)),
+  )('%s only hands blockInteraction to the gate', (relative) => {
+    const source = fs.readFileSync(path.join(SRC, relative), 'utf8');
+    const readsOutsideGate = source
+      .split(/<DashboardContentGate[\s\S]*?>/)
+      .join('')
+      .includes('props.blockInteraction');
 
-  it('does not auto-focus content that is blocked rather than disabled', () => {
-    expect(
-      shouldAutoFocusWidgetContent({
-        inDashboard: false,
-        disabled: false,
-        blockInteraction: true,
-        isInteractionEnabled: true,
-      }),
-    ).toBe(false);
+    expect(readsOutsideGate).toBe(false);
   });
 });

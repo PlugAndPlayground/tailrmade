@@ -780,7 +780,6 @@ const DynamicWidgetContainerHybridNodeInner: React.FunctionComponent<
             isSurfacePreview={props.isSurfacePreview}
             dataCyId={`${props.property.id}-dashboard${props.isSurfacePreview ? '-preview' : ''}`}
             disabled={props.disabled}
-            blockInteraction={props.blockInteraction}
             showDashboard={showDashboard}
             width={props.width}
             height={props.height}

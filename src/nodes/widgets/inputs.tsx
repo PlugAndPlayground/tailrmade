@@ -10,7 +10,6 @@ import {
   initialValueName,
   getLabelSocket,
   getWidgetControlProps,
-  isWidgetOperable,
   labelName,
   outName,
   sizeName,
@@ -194,7 +193,7 @@ export class WidgetTextField extends WidgetHybridBase {
     const type = props[typeName];
     const placeholder = props[placeholderName];
     const helperText = props[helperTextName];
-    const isInteractive = !props.inDashboard || isWidgetOperable(props);
+    const isInteractive = !(props.inDashboard && props.disabled);
 
     const size = useWidgetSize(props[sizeName]);
     const inputVariant = useResolvedInputVariant();

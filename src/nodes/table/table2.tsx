@@ -43,7 +43,6 @@ import ViewListIcon from '@mui/icons-material/ViewList';
 import { SOCKET_TYPE, customTheme } from '../../utils/constants';
 import {
   getCanvasWidgetPointerEvents,
-  isWidgetOperable,
   shouldAutoFocusWidgetContent,
 } from '../../utils/nodeInteractivity';
 import HybridNode2, {
@@ -1057,12 +1056,7 @@ export class Table2 extends HybridNode2 {
       return () => {
         cancelAnimationFrame(frameId);
       };
-    }, [
-      props.disabled,
-      props.blockInteraction,
-      props.inDashboard,
-      props.isInteractionEnabled,
-    ]);
+    }, [props.disabled, props.inDashboard, props.isInteractionEnabled]);
 
     const onHeaderMenuClick = useCallback((col: number, bounds: Rectangle) => {
       setColMenu({
@@ -1106,7 +1100,7 @@ export class Table2 extends HybridNode2 {
 
     const readOnly =
       node.getInputSocketByName(tableDataInputName).hasLink() ||
-      !isWidgetOperable(props);
+      (props.disabled ?? false);
 
     interface ColumnRenameState {
       isRenameModalOpen: boolean;

@@ -68,7 +68,6 @@ import { StringType } from '../datatypes/stringType';
 import { TRgba } from '../../utils/color';
 import {
   getCanvasWidgetPointerEvents,
-  isWidgetOperable,
   shouldAutoFocusWidgetContent,
 } from '../../utils/nodeInteractivity';
 import { convertToViewableString } from '../../utils/utils';
@@ -460,7 +459,7 @@ export class TextEditor2 extends HybridNode2 {
         FOCUS_COMMAND,
         () => {
           setPauseUpdate(true);
-          if (props.inDashboard && isWidgetOperable(props)) {
+          if (props.inDashboard && !props.disabled) {
             setIsDashboardFocused(true);
           }
           return false;
@@ -496,18 +495,13 @@ export class TextEditor2 extends HybridNode2 {
         unregisterBlur();
         unregisterEditable();
       };
-    }, [
-      props.disabled,
-      props.blockInteraction,
-      props.inDashboard,
-      applyPendingFocus,
-    ]);
+    }, [props.disabled, props.inDashboard, applyPendingFocus]);
 
     useEffect(() => {
-      if (!isWidgetOperable(props)) {
+      if (props.disabled) {
         setIsDashboardFocused(false);
       }
-    }, [props.disabled, props.blockInteraction]);
+    }, [props.disabled]);
 
     useEffect(() => {
       if (contentHeight && props[textEditorAutoHeightName]) {
@@ -516,12 +510,12 @@ export class TextEditor2 extends HybridNode2 {
     }, [contentHeight, props[textEditorAutoHeightName]]);
 
     const shouldShowToolbar = props.inDashboard
-      ? isDashboardFocused && isWidgetOperable(props)
+      ? isDashboardFocused && !(props.disabled ?? false)
       : props.isInteractionEnabled;
 
     useEffect(() => {
       if (props.inDashboard) {
-        makeEditorEditable(isWidgetOperable(props));
+        makeEditorEditable(!props.disabled);
       } else {
         makeEditorEditable(props.isInteractionEnabled);
       }
@@ -540,7 +534,6 @@ export class TextEditor2 extends HybridNode2 {
       props.isInteractionEnabled,
       props.inDashboard,
       props.disabled,
-      props.blockInteraction,
       applyPendingFocus,
     ]);
 
