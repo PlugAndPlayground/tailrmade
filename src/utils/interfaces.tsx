@@ -146,7 +146,12 @@ export type WidgetProps = {
 
 export interface DashboardWidgetProps {
   index: number;
+  // the widget's own read-only state, set by the user on the widget
   disabled: boolean;
+  // interaction is suppressed by whatever renders the widget (edit mode,
+  // previews). Consumed by DashboardContentGate only - it never reaches the
+  // widget content, which stays unaware of anything but its own `disabled`
+  blockInteraction?: boolean;
   width: string;
   height: string;
   minWidth: string;

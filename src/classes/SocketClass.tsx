@@ -16,6 +16,7 @@ import {
   WidgetProps,
 } from '../utils/interfaces';
 import { SOCKET_DASHBOARD_ICON } from '../components/dashboard/dashboardIcons';
+import { DashboardContentGate } from '../components/dashboard/DashboardContentGate';
 import PPGraph from './GraphClass';
 import PPNode from './NodeClass';
 import PPLink from './LinkClass';
@@ -752,6 +753,8 @@ type DashboardSocketWidgetContainerProps = {
   data: any;
   selectedNode: PPNode;
   disabled: boolean;
+  blockInteraction?: boolean;
+  isSurfacePreview?: boolean;
   width: string;
   height: string;
   minWidth: string;
@@ -787,14 +790,19 @@ export const DashboardSocketWidgetContainer: React.FunctionComponent<
         minWidth: props.minWidth,
         minHeight: props.minHeight,
         overflow: getOverflowForSize(props.width, props.height),
-        pointerEvents: props.disabled ? 'none' : 'auto',
       }}
     >
-      <SocketBody
-        referenceSocket={props.property}
-        selectedNode={props.selectedNode}
-        widget={widget}
-      />
+      <DashboardContentGate
+        disabled={props.disabled}
+        blockInteraction={props.blockInteraction}
+        isSurfacePreview={props.isSurfacePreview}
+      >
+        <SocketBody
+          referenceSocket={props.property}
+          selectedNode={props.selectedNode}
+          widget={widget}
+        />
+      </DashboardContentGate>
     </Box>
   );
 };

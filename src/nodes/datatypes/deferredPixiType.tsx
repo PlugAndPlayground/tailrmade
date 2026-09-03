@@ -123,6 +123,7 @@ const PixiOutputWidget: React.FunctionComponent<any> = (props) => {
 export type DynamicWidgetContainerNodeProps = {
   property: DRAW_Base;
   disabled: boolean;
+  blockInteraction?: boolean;
   width: string;
   height: string;
   backgroundColor?: string;

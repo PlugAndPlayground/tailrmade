@@ -109,6 +109,7 @@ export const DynamicWidgetContainerNode: React.FunctionComponent<
     >
       <DashboardContentGate
         disabled={props.disabled}
+        blockInteraction={props.blockInteraction}
         isSurfacePreview={props.isSurfacePreview}
       >
         <HybridNodeErrorBoundary node={props.property}>

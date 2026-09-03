@@ -757,11 +757,12 @@ const DynamicWidgetContainerHybridNodeInner: React.FunctionComponent<
         maxWidth: props.maxWidth,
         maxHeight: props.maxHeight,
         overflow: getOverflowForSize(props.width, props.height),
-        pointerEvents: showDashboard && !props.disabled ? UNSET_VALUE : 'none',
+        pointerEvents: showDashboard ? UNSET_VALUE : 'none',
       }}
     >
       <DashboardContentGate
         disabled={props.disabled}
+        blockInteraction={props.blockInteraction}
         isSurfacePreview={props.isSurfacePreview}
       >
         <HybridNodeErrorBoundary node={props.property}>

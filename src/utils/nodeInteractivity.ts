@@ -3,7 +3,9 @@
 // - Canvas non-widget hybrids require explicit interaction mode before content becomes live
 // - A singly selected non-widget hybrid can enter interaction mode on enter, a confirming second click or double-click
 // - Interaction-enabled hybrids must drop back out when they stop being the sole selection
-// - Dashboard disabled/read-only state is enforced outside the widget content via the DashboardContentGate
+// - Dashboard interaction is gated OUTSIDE the widget content, by DashboardContentGate -
+//   pointer events via an overlay, keyboard and focus via `inert`. Widget content never
+//   learns why it was blocked; `disabled` below is only ever the widget's OWN read-only state.
 
 export type CanvasNodeInteractivityState = {
   isWidget: boolean;
