@@ -450,7 +450,8 @@ export const createPixiApp = (
       style: COMMENT_TEXTSTYLE,
     });
     pixiDebugRef.resolution = 1;
-    pixiDebugRef.x = 4;
+    pixiDebugRef.x = 80;
+    pixiDebugRef.y = 80;
     overlayCommentContainer.current.addChild(pixiDebugRef);
 
     // add pixiApp to canvas

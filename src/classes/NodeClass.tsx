@@ -913,14 +913,14 @@ export default class PPNode extends PIXI.Container implements IWarningHandler {
 
     this._ErrorBoundaryRef
       .roundRect(
-        NODE_MARGIN - offset,
-        -offset,
-        this.nodeWidth + offset * 2,
-        this.nodeHeight + offset * 2,
+        NODE_MARGIN - offset * 1.5,
+        -offset * 1.5,
+        this.nodeWidth + offset * 3,
+        this.nodeHeight + offset * 3,
         nodeRadius ? nodeRadius + offset : 0,
       )
       .stroke({
-        width: ERROR_BOUNDARY_SCREEN_WIDTH / scale,
+        width: ERROR_BOUNDARY_SCREEN_WIDTH / Math.max(0.3, scale),
         color: status.getColor().hexNumber(),
         alpha: 1,
       });
