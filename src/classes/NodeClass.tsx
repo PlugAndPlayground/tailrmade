@@ -39,6 +39,7 @@ import {
   ERROR_COLOR,
   SUCCESS_COLOR,
   RightDrawerView,
+  DARK_HEX,
 } from '../utils/constants';
 import UpdateBehaviourClass from './UpdateBehaviourClass';
 import NodeHeaderClass from './NodeHeaderClass';
@@ -93,11 +94,13 @@ const ERROR_BOUNDARY_SCREEN_WIDTH = 3;
 // triangle - rather than by the detail inside them, which is what made them
 // hard to read at the old 16px.
 const STATUS_BADGE_RADIUS = 12;
-const COMMENT_BADGE_TINT = 0xffcc02;
 // how far the badge's click target reaches past its drawn edge
 const STATUS_BADGE_HIT_PADDING = 3;
 // between the badges themselves, and between the cluster and the node's edge
 const STATUS_BADGE_GAP = 4;
+// the cluster the badges live in, so a hit test can tell a click that landed on
+// a badge from any other click on the canvas - see NodeDetailPopover
+export const STATUS_BADGE_CONTAINER_NAME = 'statusBadge';
 
 export default class PPNode extends PIXI.Container implements IWarningHandler {
   _NodeNameRef: PIXI.Text;
@@ -246,7 +249,7 @@ export default class PPNode extends PIXI.Container implements IWarningHandler {
     this._ErrorBoundaryRef = this._BackgroundRef.addChild(new PIXI.Graphics());
     this._StatusesRef = this._BackgroundRef.addChild(new PIXI.Graphics());
     this._StatusBadgeRef = this._BackgroundRef.addChild(new PIXI.Container());
-    this._StatusBadgeRef.name = 'statusBadge';
+    this._StatusBadgeRef.name = STATUS_BADGE_CONTAINER_NAME;
 
     // only get default updateBehaviour when newly added
     if (source !== NODE_SOURCE.SERIALIZED) {
@@ -1195,7 +1198,7 @@ export default class PPNode extends PIXI.Container implements IWarningHandler {
       bubble.width = radius * 2;
       bubble.height = radius * 2;
       bubble.anchor.set(0.5);
-      bubble.tint = COMMENT_BADGE_TINT;
+      bubble.tint = DARK_HEX;
       bubble.x = offsetX;
       bubble.y = 0;
       bubble.eventMode = 'static';
@@ -1243,7 +1246,7 @@ export default class PPNode extends PIXI.Container implements IWarningHandler {
   // The border is measured in screen pixels, so it has to be re-stroked
   // whenever the viewport scale changes - see GraphClass, which drives this
   // from the viewport's own move event. The badge is world sized and needs
-  // nothing here.
+  // nothing here. Whether the sockets listen at all depends on the scale too.
   public refreshZoomInvariantVisuals(): void {
     if (!this.hasBeenAdded || this.destroyed) {
       return;
@@ -1254,6 +1257,9 @@ export default class PPNode extends PIXI.Container implements IWarningHandler {
     if (this.errorBoundaryIsDrawn) {
       this.drawErrorBoundary();
     }
+    this.getAllSockets().forEach((socket) =>
+      socket.refreshZoomInvariantInteractivity(),
+    );
   }
 
   protected getHitArea(): PNPHitArea {
@@ -1265,6 +1271,10 @@ export default class PPNode extends PIXI.Container implements IWarningHandler {
       }
       if (this.isPointOnBadgeCluster(x, y)) {
         return true;
+      }
+      // zoomed out far enough, the node itself is the only thing worth hitting
+      if (!Socket.hitTestingEnabled()) {
+        return false;
       }
       // Pixi hit tests every node on every pointer move, so the socket scan
       // has to be unreachable for nodes the pointer is nowhere near. Sockets
@@ -1893,6 +1903,7 @@ ${Math.round(bounds.minX)}, ${Math.round(
 
   OFFSET_TRANSLATION_ITERATION = 0.02;
   BLUR_CHANGE_ITERATION = 0.05;
+  HOVER_SHADOW_ALPHA = 0.3;
   MAX_HOVER_CHANGE_ITERATIONS = 10;
 
   protected visualOffsetXY(x: number, y: number) {
@@ -1935,6 +1946,7 @@ ${Math.round(bounds.minX)}, ${Math.round(
       this.dropShadowFilter = new DropShadowFilter({
         offset: new PIXI.Point(0.01, 0.01),
         blur: this.BLUR_CHANGE_ITERATION,
+        alpha: this.HOVER_SHADOW_ALPHA,
       });
       this.dropShadowFilter.resolution = 2;
     }

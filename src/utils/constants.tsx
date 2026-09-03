@@ -205,6 +205,8 @@ export const SOCKET_COLOR_HEX: string = TRgba.fromString(COLOR[0])
   .hex();
 export const SOCKET_HEIGHT = 24;
 export const SOCKET_WIDTH = 12;
+export const SOCKET_MIN_HITBOX_SCREEN_SIZE = 24;
+export const SOCKET_MIN_HIT_PITCH_SCREEN_SIZE = 5;
 export const SOCKET_CORNERRADIUS = 4;
 export const SOCKET_TEXTMARGIN = 8;
 export const SOCKET_TEXTMARGIN_TOP = 4;

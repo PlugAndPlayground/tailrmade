@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
+import * as PIXI from 'pixi.js';
 import {
   Box,
   ClickAwayListener,
@@ -9,13 +10,45 @@ import {
 } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import PPGraph from '../classes/GraphClass';
-import PPNode from '../classes/NodeClass';
+import PPNode, { STATUS_BADGE_CONTAINER_NAME } from '../classes/NodeClass';
 import InterfaceController, { ListenEvent } from '../InterfaceController';
 import { customTheme } from '../utils/constants';
+import { getObjectAtPoint } from '../utils/utils';
 import { CopyStatusButton, StatusDetail } from './StatusDetail';
 
 const POPOVER_WIDTH = 380;
 const MARGIN = 8;
+
+// where a click away landed, mouse, pen and touch alike
+const eventPoint = (event: any): PIXI.Point | undefined => {
+  const source =
+    typeof event?.clientX === 'number'
+      ? event
+      : (event?.touches?.[0] ?? event?.changedTouches?.[0]);
+  return typeof source?.clientX === 'number'
+    ? new PIXI.Point(source.clientX, source.clientY)
+    : undefined;
+};
+
+// A badge opens this popover from the canvas, and the same press reaches the
+// click away listener straight after - closing what the badge just opened. That
+// is what made moving from one badge to another take two clicks: the first one
+// opened the second badge's message and immediately closed it again. Clicks on
+// a badge are left to the badge, which toggles; everything else closes.
+const isOnStatusBadge = (event: any): boolean => {
+  const point = eventPoint(event);
+  if (!point || !PPGraph.currentGraph) {
+    return false;
+  }
+  let target: PIXI.Container | undefined = getObjectAtPoint(point);
+  while (target) {
+    if (target.name === STATUS_BADGE_CONTAINER_NAME) {
+      return true;
+    }
+    target = target.parent;
+  }
+  return false;
+};
 
 type PopoverKind = 'status' | 'comment';
 
@@ -122,7 +155,11 @@ export const NodeDetailPopover: React.FC = () => {
   return (
     <ThemeProvider theme={customTheme}>
       <ClickAwayListener
-        onClickAway={close}
+        onClickAway={(event) => {
+          if (!isOnStatusBadge(event)) {
+            close();
+          }
+        }}
         mouseEvent="onMouseDown"
         touchEvent="onTouchStart"
       >
@@ -176,7 +213,7 @@ export const NodeDetailPopover: React.FC = () => {
                 ? `Comment on ${state.node.nodeName}`
                 : state.node.nodeName}
             </Box>
-            {(state.kind === 'comment' || statuses.length > 1) && (
+            {(statuses.length > 1) && (
               <CopyStatusButton
                 text={copyText}
                 title={
@@ -186,13 +223,6 @@ export const NodeDetailPopover: React.FC = () => {
                 }
               />
             )}
-            <IconButton
-              size="small"
-              onClick={close}
-              data-cy="close-detail-popover"
-            >
-              <CloseIcon fontSize="inherit" />
-            </IconButton>
           </Box>
           <Divider sx={{ my: 0.5 }} />
           {state.kind === 'comment' ? (
