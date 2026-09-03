@@ -39,3 +39,6 @@ resolved_duplications.txt
 .env.sentry-build-plugin
 /test-results/
 /blob-report/
+
+# Any dev logs
+logs/

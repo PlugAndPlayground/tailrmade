@@ -23,11 +23,19 @@ import {
   surfaceElementVisibleSuffix,
   surfaceJsonSocketName,
 } from '../utils/constants_shared';
-import { SOCKET_NAME_DASHBOARD_CONTENT } from '../utils/layoutableHelpers';
 import {
+  heightName,
+  SOCKET_NAME_DASHBOARD_CONTENT,
+  widthName,
+} from '../utils/layoutableHelpers';
+import {
+  applySpecProperties,
   compileSurfaceSpec,
   ContainerSpecItem,
   decompileSurfaceTree,
+  findLayoutItemId,
+  getSpecItemKind,
+  SPEC_PROPERTIES_BY_KIND,
 } from '../nodes/layout/surfaceLayoutSpec';
 import {
   getElementIdForNode,
@@ -41,6 +49,16 @@ import { isLayoutableNode } from '../utils/interfaces';
 import type { UISurfaceNode } from '../nodes/layout/uiSurface';
 import { cloneAndTruncateContext } from './contextTruncation';
 import { DeferredReactType } from '../nodes/datatypes/deferredHtmlType';
+import {
+  normalizeDimension,
+  normalizeDimensionProps,
+} from '../utils/cssDimensions';
+import {
+  AI_INSPECT_SOURCES,
+  AIInspectSource,
+  captureForAI,
+  getDisplayedSurfaceNodeId,
+} from './AIVisionService';
 import { TriggerType } from '../nodes/datatypes/triggerType';
 
 export interface MCPToolDefinition {
@@ -56,6 +74,11 @@ export interface MCPToolDefinition {
 export interface MCPToolResult {
   content: string;
   is_error?: boolean;
+  /**
+   * Data urls the caller must show the model alongside `content`. Only
+   * inspect_ui sets this; see AIBackend for how they reach the conversation.
+   */
+  images?: string[];
 }
 
 type MCPToolName =
@@ -67,6 +90,7 @@ type MCPToolName =
   | 'describe_node'
   | 'add_node'
   | 'connect_sockets'
+  | 'disconnect_sockets'
   | 'set_socket_value'
   | 'set_node_comment'
   | 'set_update_behaviour'
@@ -74,6 +98,8 @@ type MCPToolName =
   | 'set_trigger_type'
   | 'set_node_name'
   | 'inspect_surface'
+  | 'inspect_ui'
+  | 'set_layout_value'
   | 'set_surface_layout'
   | 'set_default_surface';
 
@@ -87,6 +113,12 @@ interface ConnectSocketsInput {
   from_socket: string;
   to_node: string;
   to_socket: string;
+}
+
+interface DisconnectSocketsInput {
+  to_node: string;
+  to_socket?: string;
+  from_node?: string;
 }
 
 interface SetSocketValueInput {
@@ -134,6 +166,16 @@ interface DescribeNodeInput {
 
 interface InspectSurfaceInput {
   node_id: string;
+}
+
+interface InspectUIInput {
+  source?: AIInspectSource;
+}
+
+interface SetLayoutValueInput {
+  node_id: string;
+  item: string;
+  values: Record<string, unknown>;
 }
 
 interface SetSurfaceLayoutInput {
@@ -310,6 +352,31 @@ export class TailrmadeMCPServer {
         },
       },
       {
+        name: 'disconnect_sockets',
+        description:
+          'Remove a link. Give to_socket to unlink one named input, or from_node to unlink everything one node feeds into another - which is how a widget is taken off a UI surface (its element socket and the "<name> visible"/"<name> layout" companions go with it, and it leaves that surface\'s layout). The widget node itself stays in the graph, so connect it to another surface to move it there. Errors when no such link exists rather than reporting success.',
+        input_schema: {
+          type: 'object',
+          properties: {
+            to_node: {
+              type: 'string',
+              description: 'the node the link points at, e.g. the UI surface',
+            },
+            to_socket: {
+              type: 'string',
+              description:
+                'the input or trigger socket holding the link. Omit for a widget on a surface - element socket names are generated, so identify it with from_node instead.',
+            },
+            from_node: {
+              type: 'string',
+              description:
+                'the node the link comes from. On its own it removes every link from that node into to_node; alongside to_socket it is checked against the link actually there.',
+            },
+          },
+          required: ['to_node'],
+        },
+      },
+      {
         name: 'set_socket_value',
         description: 'Set an editable input socket value.',
         input_schema: {
@@ -426,9 +493,48 @@ export class TailrmadeMCPServer {
         },
       },
       {
+        name: 'inspect_ui',
+        description:
+          'Look at the app as it is actually rendered right now. Returns a screenshot paired with the structure behind it, so you can cross-reference what is drawn against what should exist: overflowing or clipped labels, widgets that landed in the wrong container, and empty states that the layout JSON alone cannot reveal. Use it to check your own work after changing a UI, and whenever the user describes something visual. Sources: "dashboard" (default) is the live user interface; "graph" is the node canvas and its wiring; "selection" is the currently selected nodes. The user\'s screen outside the app is never captured.',
+        input_schema: {
+          type: 'object',
+          properties: {
+            source: {
+              type: 'string',
+              enum: [...AI_INSPECT_SOURCES],
+              description: 'Defaults to "dashboard".',
+            },
+          },
+        },
+      },
+      {
+        name: 'set_layout_value',
+        description: `Change individual layout properties of ONE item on a UI surface, leaving the rest of the layout untouched. Prefer this over set_surface_layout for any focused change - resizing a widget, changing a container's direction or padding, restyling a text block - because it cannot disturb anything it does not name. Address the item by the "id" that inspect_surface reports for it (a widget can also be addressed by its source node id). Valid properties per item kind - container: ${SPEC_PROPERTIES_BY_KIND.container.join(', ')}; text: ${SPEC_PROPERTIES_BY_KIND.text.join(', ')}; widget: ${SPEC_PROPERTIES_BY_KIND.widget.join(', ')}. Sizes are css strings ("240px", "100%", "auto"), never bare numbers.`,
+        input_schema: {
+          type: 'object',
+          properties: {
+            node_id: {
+              type: 'string',
+              description: 'the UI surface node',
+            },
+            item: {
+              type: 'string',
+              description:
+                'the layout item id from inspect_surface, "ROOT" for the root container, or a widget\'s source node id',
+            },
+            values: {
+              type: 'object',
+              description:
+                'the properties to change, e.g. {"height": "240px"}. Everything else keeps its current value.',
+            },
+          },
+          required: ['node_id', 'item', 'values'],
+        },
+      },
+      {
         name: 'set_surface_layout',
         description:
-          "Replace a UI surface's layout from a simplified declarative spec. Omitted properties reset to defaults; referenced unconnected widgets are connected automatically.",
+          'Replace a UI surface\'s ENTIRE layout from a simplified declarative spec, for building or restructuring a surface. Omitted properties reset to defaults, so to change one property of one item use set_layout_value instead - it cannot disturb the rest of the layout. Item ids from inspect_surface are preserved when sent back. Referenced unconnected widgets are connected automatically. width and height are css strings - "240px", "100%" or "auto" - never bare numbers.',
         input_schema: {
           type: 'object',
           properties: {
@@ -501,6 +607,10 @@ export class TailrmadeMCPServer {
           return await this.connectSockets(
             input as unknown as ConnectSocketsInput,
           );
+        case 'disconnect_sockets':
+          return await this.disconnectSockets(
+            input as unknown as DisconnectSocketsInput,
+          );
         case 'set_socket_value':
           return await this.setSocketValue(
             input as unknown as SetSocketValueInput,
@@ -521,6 +631,12 @@ export class TailrmadeMCPServer {
           return this.setNodeName(input as unknown as SetNodeNameInput);
         case 'inspect_surface':
           return this.inspectSurface(input as unknown as InspectSurfaceInput);
+        case 'inspect_ui':
+          return await this.inspectUI(input as unknown as InspectUIInput);
+        case 'set_layout_value':
+          return await this.setLayoutValue(
+            input as unknown as SetLayoutValueInput,
+          );
         case 'set_surface_layout':
           return await this.setSurfaceLayout(
             input as unknown as SetSurfaceLayoutInput,
@@ -973,6 +1089,112 @@ export class TailrmadeMCPServer {
     };
   }
 
+  private async disconnectSockets(
+    input: DisconnectSocketsInput,
+  ): Promise<MCPToolResult> {
+    const targetNode = PPGraph.currentGraph.nodes[input.to_node];
+    if (!targetNode) {
+      return { content: `Node not found: ${input.to_node}`, is_error: true };
+    }
+    if (!input.to_socket && !input.from_node) {
+      return {
+        content:
+          'disconnect_sockets needs to_socket (the input holding the link) or from_node (the node feeding it).',
+        is_error: true,
+      };
+    }
+    if (input.from_node && !PPGraph.currentGraph.nodes[input.from_node]) {
+      return { content: `Node not found: ${input.from_node}`, is_error: true };
+    }
+
+    const linkedSockets = targetNode
+      .getAllInputSockets()
+      .filter((socket) => socket.links.length > 0);
+
+    let sockets = linkedSockets;
+    if (input.to_socket) {
+      sockets = sockets.filter((socket) => socket.name === input.to_socket);
+      if (sockets.length === 0) {
+        return {
+          content: `No link into "${input.to_socket}" on ${input.to_node}.${this.describeIncomingLinks(linkedSockets)}`,
+          is_error: true,
+        };
+      }
+    }
+    if (input.from_node) {
+      sockets = sockets.filter(
+        (socket) =>
+          socket.links[0].getSource().getNode().id === input.from_node,
+      );
+      if (sockets.length === 0) {
+        return {
+          content: `No link from ${input.from_node} into ${input.to_node}${input.to_socket ? ` "${input.to_socket}"` : ''}.${this.describeIncomingLinks(linkedSockets)}`,
+          is_error: true,
+        };
+      }
+    }
+
+    const disconnected: Array<{
+      from: { node_id: string; socket: string };
+      to: { node_id: string; socket: string };
+    }> = [];
+    const spinnerLabel = 'AI disconnecting sockets';
+    InterfaceController.showSpinner(spinnerLabel);
+    try {
+      for (const socket of sockets) {
+        const source = socket.links[0].getSource();
+        // ConnectSocketsActionArgs both ways round: the undo of a disconnect
+        // is the connect that puts this exact link back
+        const args = new ConnectSocketsActionArgs(
+          source.getNode().id,
+          source.name,
+          input.to_node,
+          socket.name,
+        );
+        await PNPAction(
+          ACTIONS.DISCONNECT_SOCKETS,
+          args,
+          args,
+          undefined,
+          'ai',
+        );
+        disconnected.push({
+          from: { node_id: source.getNode().id, socket: source.name },
+          to: { node_id: input.to_node, socket: socket.name },
+        });
+      }
+    } finally {
+      InterfaceController.hideSpinner(spinnerLabel);
+    }
+
+    const affectedNodes = [input.to_node, input.from_node]
+      .map((id) => (id ? PPGraph.currentGraph.nodes[id] : undefined))
+      .filter((node): node is PPNode => Boolean(node));
+    affectedNodes.forEach((node) => this.spawnEditEffect(node));
+    if (affectedNodes.length > 0) {
+      await ensureVisible(affectedNodes);
+    }
+
+    return {
+      content: JSON.stringify({
+        status: 'disconnected',
+        links: disconnected,
+      }),
+    };
+  }
+
+  // what IS wired into the node, so a missed link can be corrected in one step
+  private describeIncomingLinks(sockets: Socket[]): string {
+    if (sockets.length === 0) {
+      return ' Nothing is connected to it.';
+    }
+    const described = sockets.map(
+      (socket) =>
+        `"${socket.name}" <- ${socket.links[0].getSource().getNode().id}`,
+    );
+    return ` Connected inputs: ${described.join(', ')}.`;
+  }
+
   // Decides how a connect_sockets call that targets a UI surface should be
   // handled. Non-surface connections return { kind: 'not_surface_widget' } and
   // pass through unchanged. A widget -> surface connection gets a fresh,
@@ -1078,6 +1300,12 @@ export class TailrmadeMCPServer {
 
     const socket = targetNode?.getInputSocketByName(input.socket_name);
 
+    const { value, warnings: dimensionWarnings } = this.normalizeDimensionValue(
+      input.value,
+      input.socket_name,
+    );
+    input = { ...input, value };
+
     // setting the same value again would only create a no-op undo entry
     if (socket && JSON.stringify(socket.data) === JSON.stringify(input.value)) {
       return {
@@ -1127,7 +1355,38 @@ export class TailrmadeMCPServer {
         status: 'value_set',
         node_id: input.node_id,
         socket_name: input.socket_name,
+        ...(dimensionWarnings.length ? { warnings: dimensionWarnings } : {}),
       }),
+    };
+  }
+
+  // Repairs css dimensions on their way into a socket and notifies caller.
+  private normalizeDimensionValue(
+    value: unknown,
+    socketName: string,
+  ): { value: unknown; warnings: string[] } {
+    const warnings: string[] = [];
+
+    // a layout node's own Width/Height string socket
+    if (socketName === widthName || socketName === heightName) {
+      const normalized = normalizeDimension(value, socketName);
+      if (normalized.warning) {
+        warnings.push(normalized.warning);
+      }
+      return { value: normalized.value ?? 'auto', warnings };
+    }
+
+    // a widget layout object, such as a surface's "<name> layout" override
+    if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+      return { value, warnings };
+    }
+    return {
+      value: normalizeDimensionProps(
+        value as Record<string, unknown>,
+        socketName,
+        warnings,
+      ),
+      warnings,
     };
   }
 
@@ -1348,6 +1607,94 @@ export class TailrmadeMCPServer {
     };
   }
 
+  private async inspectUI(input: InspectUIInput): Promise<MCPToolResult> {
+    const source: AIInspectSource = input.source ?? 'dashboard';
+    if (!AI_INSPECT_SOURCES.includes(source)) {
+      return {
+        content: `inspect_ui source must be one of ${AI_INSPECT_SOURCES.join(', ')}`,
+        is_error: true,
+      };
+    }
+
+    const structure = this.getUIStructure(source);
+    let image: string | undefined;
+    let captureNote: string;
+    try {
+      const captured = await captureForAI(source);
+      image = captured.dataURL;
+      captureNote = `The attached image is the ${captured.note}.`;
+    } catch (error) {
+      captureNote =
+        'No image could be taken: ' +
+        (error instanceof Error ? error.message : String(error)) +
+        ' The structure below is still current.';
+    }
+
+    return {
+      content: JSON.stringify({
+        source,
+        image: captureNote,
+        structure_of: structure.describes,
+        structure: structure.content,
+      }),
+      ...(image ? { images: [image] } : {}),
+    };
+  }
+
+  /** What the image is a picture of, in the serialisation the edit tools take. */
+  private getUIStructure(source: AIInspectSource): {
+    describes: string;
+    content: unknown;
+  } {
+    if (source === 'dashboard') {
+      const nodeId = getDisplayedSurfaceNodeId();
+      if (!nodeId) {
+        return {
+          describes: 'no surface',
+          content: 'No UI surface is being displayed.',
+        };
+      }
+      return {
+        describes: `the layout of UI surface ${nodeId}, as set_surface_layout takes it`,
+        content: this.parseToolContent(
+          this.inspectSurface({ node_id: nodeId }),
+        ),
+      };
+    }
+
+    if (source === 'selection') {
+      // an empty selection serializes to an empty subgraph, which reads like a
+      // broken tool rather than like an empty canvas selection - say so
+      if ((PPGraph.currentGraph.selection?.selectedNodes?.length ?? 0) === 0) {
+        return {
+          describes: 'no selection',
+          content:
+            'No nodes are selected. Use source "graph" to see the whole canvas.',
+        };
+      }
+      return {
+        describes: 'the serialized subgraph of the selected nodes',
+        content: this.parseToolContent(this.inspectSelectedNodes()),
+      };
+    }
+    return {
+      describes: 'every node in the graph',
+      content: this.parseToolContent(this.inspectGraph()),
+    };
+  }
+
+  /**
+   * Inlines an inspection tool's json so the pair arrives as one object rather
+   * than as json escaped inside json.
+   */
+  private parseToolContent(result: MCPToolResult): unknown {
+    try {
+      return JSON.parse(result.content);
+    } catch {
+      return result.content;
+    }
+  }
+
   private inspectSurface(input: InspectSurfaceInput): MCPToolResult {
     const node = PPGraph.currentGraph.nodes[input.node_id];
     if (!node) {
@@ -1410,6 +1757,132 @@ export class TailrmadeMCPServer {
     };
   }
 
+  /**
+   * Refuses an edit to a layout the graph owns. A linked "Layout JSON" input
+   * rewrites the surface on every execution, so a write that got through here
+   * would report success and then be silently overwritten.
+   */
+  private layoutLockedError(
+    surface: UISurfaceNode,
+    nodeId: string,
+    toolName: MCPToolName,
+  ): MCPToolResult | undefined {
+    if (!surface.isLayoutLocked()) {
+      return undefined;
+    }
+    return {
+      content: `Surface ${nodeId} is layout-locked: its "Layout JSON" input socket has a link, so the graph owns this layout. Disconnect that link before using ${toolName}.`,
+      is_error: true,
+    };
+  }
+
+  private async applySurfaceLayout(
+    nodeId: string,
+    newTreeJSON: string,
+    previousTreeJSON: string,
+    spinnerLabel: string,
+  ): Promise<void> {
+    const args = new SetUISurfaceLayoutActionArgs(nodeId, newTreeJSON);
+    const undoArgs = new SetUISurfaceLayoutActionArgs(nodeId, previousTreeJSON);
+
+    InterfaceController.showSpinner(spinnerLabel);
+    try {
+      await PNPAction(
+        ACTIONS.SET_UI_SURFACE_LAYOUT,
+        args,
+        undoArgs,
+        undefined,
+        'ai',
+      );
+    } finally {
+      InterfaceController.hideSpinner(spinnerLabel);
+    }
+  }
+
+  // Patches one item's layout properties in place.
+  private async setLayoutValue(
+    input: SetLayoutValueInput,
+  ): Promise<MCPToolResult> {
+    const node = PPGraph.currentGraph.nodes[input.node_id];
+    if (!node) {
+      return { content: `Node not found: ${input.node_id}`, is_error: true };
+    }
+    if (!node.isSurface()) {
+      return {
+        content: `Node ${input.node_id} is not a UI surface node`,
+        is_error: true,
+      };
+    }
+    if (
+      typeof input.values !== 'object' ||
+      input.values === null ||
+      Array.isArray(input.values)
+    ) {
+      return {
+        content:
+          'set_layout_value needs a "values" object, e.g. {"height": "240px"}',
+        is_error: true,
+      };
+    }
+
+    const surface = node as unknown as UISurfaceNode;
+    const locked = this.layoutLockedError(
+      surface,
+      input.node_id,
+      'set_layout_value',
+    );
+    if (locked) {
+      return locked;
+    }
+    const tree = surface.getSurfaceTree();
+    const itemId = findLayoutItemId(tree, input.item);
+    if (itemId === undefined) {
+      return {
+        content: `No layout item "${input.item}" on surface ${input.node_id}. Use inspect_surface to read the current item ids.`,
+        is_error: true,
+      };
+    }
+
+    const item = tree[itemId];
+    const kind = getSpecItemKind(item?.type?.resolvedName);
+    if (kind === undefined) {
+      return {
+        content: `Layout item "${input.item}" is of an unrecognised kind and cannot be patched here. Use set_surface_layout.`,
+        is_error: true,
+      };
+    }
+
+    const patch = applySpecProperties(item.props ?? {}, input.values, kind);
+    if (patch.applied.length === 0) {
+      return {
+        content: `Nothing was changed. ${patch.warnings.join(' ')}`,
+        is_error: true,
+      };
+    }
+
+    const previousTreeJSON = JSON.stringify(tree);
+    const newTree = { ...tree, [itemId]: { ...item, props: patch.props } };
+    const newTreeJSON = JSON.stringify(newTree);
+
+    await this.applySurfaceLayout(
+      input.node_id,
+      newTreeJSON,
+      previousTreeJSON,
+      'AI setting layout value',
+    );
+
+    return {
+      content: JSON.stringify({
+        status: 'layout_value_set',
+        node_id: input.node_id,
+        item: itemId,
+        item_kind: kind,
+        applied: patch.applied,
+        ...(patch.warnings.length ? { warnings: patch.warnings } : {}),
+      }),
+    };
+  }
+
   private async setSurfaceLayout(
     input: SetSurfaceLayoutInput,
   ): Promise<MCPToolResult> {
@@ -1429,11 +1902,13 @@ export class TailrmadeMCPServer {
 
     const surface = node as unknown as UISurfaceNode;
 
-    if (surface.isLayoutLocked()) {
-      return {
-        content: `Surface ${input.node_id} is layout-locked: its "Layout JSON" input socket has a link, so the graph owns this layout. Disconnect that link before using set_surface_layout.`,
-        is_error: true,
-      };
+    const locked = this.layoutLockedError(
+      surface,
+      input.node_id,
+      'set_surface_layout',
+    );
+    if (locked) {
+      return locked;
     }
 
     const spec = input.layout as ContainerSpecItem;
@@ -1555,25 +2030,12 @@ export class TailrmadeMCPServer {
 
     const newTreeJSON = JSON.stringify(compiled.tree);
 
-    const args = new SetUISurfaceLayoutActionArgs(input.node_id, newTreeJSON);
-    const undoArgs = new SetUISurfaceLayoutActionArgs(
+    await this.applySurfaceLayout(
       input.node_id,
+      newTreeJSON,
       previousTreeJSON,
+      'AI setting surface layout',
     );
-
-    const spinnerLabel = 'AI setting surface layout';
-    InterfaceController.showSpinner(spinnerLabel);
-    try {
-      await PNPAction(
-        ACTIONS.SET_UI_SURFACE_LAYOUT,
-        args,
-        undoArgs,
-        undefined,
-        'ai',
-      );
-    } finally {
-      InterfaceController.hideSpinner(spinnerLabel);
-    }
 
     this.spawnEditEffect(node);
     await ensureVisible([node]);

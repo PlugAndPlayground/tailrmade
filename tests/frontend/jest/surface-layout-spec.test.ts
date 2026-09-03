@@ -1,6 +1,8 @@
 import {
+  applySpecProperties,
   compileSurfaceSpec,
   decompileSurfaceTree,
+  findLayoutItemId,
   ContainerSpecItem,
 } from '../../../src/nodes/layout/surfaceLayoutSpec';
 import {
@@ -11,6 +13,57 @@ import {
 import type { SerializedCraftTree } from '../../../src/utils/surfaceTree';
 
 describe('surfaceLayoutSpec', () => {
+  describe('compileSurfaceSpec dimensions', () => {
+    // a numeric height compiled straight into the tree and then crashed the
+    // dashboard on render with `height.endsWith is not a function`
+    it('reads a numeric widget height as pixels and warns', () => {
+      const { tree, warnings } = compileSurfaceSpec(
+        {
+          direction: 'column',
+          children: [{ widget: 'widget-a', height: 240 as unknown as string }],
+        },
+        new Set(['widget-a']),
+      );
+
+      const widget = Object.values(tree).find(
+        (item) => item.type.resolvedName === DynamicWidgetName,
+      );
+      expect(widget?.props.height).toBe('240px');
+      expect(warnings).toHaveLength(1);
+      expect(warnings[0]).toContain('widget "widget-a"');
+    });
+
+    it('drops an unusable container dimension back to the default', () => {
+      const { tree, warnings } = compileSurfaceSpec(
+        {
+          direction: 'column',
+          children: [],
+          height: 'tall' as unknown as string,
+        },
+        new Set(),
+      );
+
+      expect(tree[RootName].props.height).toBe('auto');
+      expect(warnings[0]).toContain('ignored');
+    });
+
+    it('catches a dimension smuggled in through the props passthrough', () => {
+      const { tree, warnings } = compileSurfaceSpec(
+        {
+          direction: 'column',
+          children: [{ widget: 'widget-a', props: { height: 120 } }],
+        },
+        new Set(['widget-a']),
+      );
+
+      const widget = Object.values(tree).find(
+        (item) => item.type.resolvedName === DynamicWidgetName,
+      );
+      expect(widget?.props.height).toBe('120px');
+      expect(warnings).toHaveLength(1);
+    });
+  });
+
   describe('compileSurfaceSpec', () => {
     it('compiles a nested spec into a structurally valid tree', () => {
       const spec: ContainerSpecItem = {
@@ -155,6 +208,22 @@ describe('surfaceLayoutSpec', () => {
       const nestedId = tree[RootName].nodes[0];
       expect(tree[nestedId].props.flexDirection).toBe('row');
       expect(warnings).toEqual([]);
+    });
+
+    it('warns instead of silently dropping malformed container padding', () => {
+      const spec = {
+        direction: 'column',
+        padding: '8px',
+        children: [{ text: 'a' }],
+      } as unknown as ContainerSpecItem;
+
+      const { tree, warnings } = compileSurfaceSpec(spec, new Set());
+
+      // the container keeps its default padding instead of the malformed value
+      expect(tree[RootName].props.padding).toEqual([0, 0, 0, 0]);
+      expect(warnings).toHaveLength(1);
+      expect(warnings[0]).toMatch(/padding/);
+      expect(warnings[0]).toMatch(/number or four numbers/);
     });
 
     it('throws listing valid ids when the spec references an unconnected widget', () => {
@@ -336,7 +405,183 @@ describe('surfaceLayoutSpec', () => {
 
       const { root, unknownItems } = decompileSurfaceTree(tree);
       expect(unknownItems).toEqual([]);
-      expect(root).toEqual(spec);
+      // decompile now stamps each item with its tree id, which a hand-written
+      // spec has no way to predict; everything else must match exactly
+      expect(stripIds(root)).toEqual(spec);
     });
+
+    it('keeps every item id when a decompiled spec is compiled again', () => {
+      const spec: ContainerSpecItem = {
+        direction: 'column',
+        children: [
+          { text: 'Title' },
+          {
+            direction: 'row',
+            children: [{ widget: 'widget-a' }, { widget: 'widget-b' }],
+          },
+        ],
+      };
+
+      const first = compileSurfaceSpec(spec, new Set(['widget-a', 'widget-b']));
+      const { root } = decompileSurfaceTree(first.tree);
+      const second = compileSurfaceSpec(
+        root,
+        new Set(['widget-a', 'widget-b']),
+      );
+
+      // the point of ids: an edited spec written back leaves the surface's
+      // item identity alone instead of re-keying every item
+      expect(Object.keys(second.tree).sort()).toEqual(
+        Object.keys(first.tree).sort(),
+      );
+      expect(second.warnings).toEqual([]);
+    });
+
+    it('refuses a duplicated id rather than dropping an item', () => {
+      const { tree, warnings } = compileSurfaceSpec(
+        {
+          id: RootName,
+          direction: 'column',
+          children: [
+            { id: 'sameId123', text: 'one' },
+            { id: 'sameId123', text: 'two' },
+          ],
+        },
+        new Set(),
+      );
+
+      expect(tree[RootName].nodes).toHaveLength(2);
+      expect(Object.keys(tree)).toHaveLength(3);
+      expect(warnings[0]).toContain('used more than once');
+    });
+  });
+});
+
+/** a decompiled spec carries tree ids a hand-written one cannot predict */
+function stripIds<T>(item: T): T {
+  if (Array.isArray(item)) {
+    return item.map(stripIds) as unknown as T;
+  }
+  if (item === null || typeof item !== 'object') {
+    return item;
+  }
+  const { id, ...rest } = item as Record<string, unknown>;
+  return Object.fromEntries(
+    Object.entries(rest).map(([key, value]) => [key, stripIds(value)]),
+  ) as T;
+}
+
+describe('applySpecProperties', () => {
+  const widgetProps = { width: '100%', height: 'auto', showLabel: false };
+
+  it('changes only what it was given', () => {
+    const result = applySpecProperties(
+      widgetProps,
+      { height: '240px' },
+      'widget',
+    );
+
+    expect(result.props).toEqual({
+      width: '100%',
+      height: '240px',
+      showLabel: false,
+    });
+    expect(result.applied).toEqual(['height']);
+    expect(result.warnings).toEqual([]);
+  });
+
+  it('does not mutate the props it was given', () => {
+    applySpecProperties(widgetProps, { height: '240px' }, 'widget');
+
+    expect(widgetProps.height).toBe('auto');
+  });
+
+  it('translates the spec vocabulary to craft props', () => {
+    const result = applySpecProperties(
+      { flexDirection: 'column', alignItems: 'flex-start' },
+      { direction: 'row', align: 'center' },
+      'container',
+    );
+
+    expect(result.props.flexDirection).toBe('row');
+    expect(result.props.alignItems).toBe('center');
+  });
+
+  it('expands the padding shorthand', () => {
+    const result = applySpecProperties({}, { padding: 8 }, 'container');
+
+    expect(result.props.padding).toEqual([8, 8, 8, 8]);
+  });
+
+  // each row is wrapped in its own array: jest only treats a flat table as
+  // single-argument rows while *some* row is a non-array, so an all-array
+  // table would silently start spreading the arrays as separate arguments
+  it.each([
+    ['8px'],
+    [[1, 2, 3]],
+    [[1, 2, 3, 4, 5]],
+    [[1, 2, '3', 4]],
+    [Number.NaN],
+  ])('refuses malformed padding %p', (padding) => {
+    const result = applySpecProperties({}, { padding }, 'container');
+
+    expect(result.props.padding).toBeUndefined();
+    expect(result.applied).toEqual([]);
+    expect(result.warnings[0]).toContain('must be a number or four numbers');
+  });
+
+  it('refuses a property the item kind does not have', () => {
+    const result = applySpecProperties(
+      widgetProps,
+      { direction: 'row' },
+      'widget',
+    );
+
+    expect(result.applied).toEqual([]);
+    expect(result.warnings[0]).toContain('not a property of a widget');
+    expect(result.warnings[0]).toContain('height');
+  });
+
+  it('corrects a numeric dimension instead of storing it', () => {
+    const result = applySpecProperties(widgetProps, { height: 240 }, 'widget');
+
+    expect(result.props.height).toBe('240px');
+    expect(result.warnings[0]).toContain('not a css value');
+  });
+
+  it('keeps the previous value when a dimension cannot be salvaged', () => {
+    const result = applySpecProperties(
+      widgetProps,
+      { height: 'tall' },
+      'widget',
+    );
+
+    expect(result.props.height).toBe('auto');
+    expect(result.warnings[0]).toContain('ignored');
+  });
+});
+
+describe('findLayoutItemId', () => {
+  const { tree } = compileSurfaceSpec(
+    {
+      direction: 'column',
+      children: [{ text: 'Title' }, { widget: 'ai-node-3' }],
+    },
+    new Set(['ai-node-3']),
+  );
+  const widgetItemId = tree[RootName].nodes[1];
+
+  it('finds an item by its own tree id', () => {
+    expect(findLayoutItemId(tree, widgetItemId)).toBe(widgetItemId);
+    expect(findLayoutItemId(tree, RootName)).toBe(RootName);
+  });
+
+  it('finds a widget by the node feeding it', () => {
+    expect(findLayoutItemId(tree, 'ai-node-3')).toBe(widgetItemId);
+  });
+
+  it('returns undefined for an id that is on neither', () => {
+    expect(findLayoutItemId(tree, 'ai-node-9')).toBeUndefined();
+    expect(findLayoutItemId(tree, 'nope')).toBeUndefined();
   });
 });

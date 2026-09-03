@@ -6,6 +6,12 @@ export interface AIProviderTool {
   inputSchema: Record<string, unknown>;
 }
 
+/** A base64 image the next user message should carry. */
+export interface AIProviderAttachment {
+  mimeType: string;
+  data: string;
+}
+
 export interface AIProviderToolResult {
   callId: string;
   name: string;
@@ -23,6 +29,7 @@ export interface AIProviderTurnRequest {
   state?: any;
   toolResults?: AIProviderToolResult[];
   message?: string;
+  attachments?: AIProviderAttachment[];
   options?: Record<string, unknown>;
 }
 
@@ -78,6 +85,63 @@ const options = (request: AIProviderTurnRequest, reserved: string[]) =>
 
 const imageUrl = (part: any) => `data:${part.mimeType};base64,${part.data}`;
 
+export const VISION_NOTE_PREFIX = '[ui-capture]';
+
+// Strips the images out of earlier injected captures, leaving their note.
+export const withoutVisionImages = (
+  items: any[],
+  isImage: (part: any) => boolean,
+  key: 'content' | 'parts' = 'content',
+): any[] =>
+  items.map((item) => {
+    const parts = item?.[key];
+    if (!Array.isArray(parts) || !parts.some(isImage)) {
+      return item;
+    }
+    const note = parts.find(
+      (part) =>
+        typeof part?.text === 'string' &&
+        part.text.startsWith(VISION_NOTE_PREFIX),
+    );
+    if (!note) {
+      return item;
+    }
+    return {
+      ...item,
+      [key]: parts
+        .filter((part) => !isImage(part))
+        .map((part) =>
+          part === note
+            ? {
+                ...part,
+                text: `${part.text}\n(Image dropped from context: a newer capture has replaced it.)`,
+              }
+            : part,
+        ),
+    };
+  });
+
+const anthropicImage = (part: any) => ({
+  type: 'image',
+  source: { type: 'base64', media_type: part.mimeType, data: part.data },
+});
+const openAIImage = (part: any) => ({
+  type: 'input_image',
+  image_url: imageUrl(part),
+});
+const kimiImage = (part: any) => ({
+  type: 'image_url',
+  image_url: { url: imageUrl(part) },
+});
+const geminiImage = (part: any) => ({
+  inlineData: { mimeType: part.mimeType, data: part.data },
+});
+
+const isAnthropicImage = (part: any) => part?.type === 'image';
+const isOpenAIImage = (part: any) => part?.type === 'input_image';
+const isKimiImage = (part: any) => part?.type === 'image_url';
+const isGeminiImage = (part: any) => part?.inlineData !== undefined;
+
 const mapMessages = (
   messages: any[],
   image: (part: any) => unknown,
@@ -110,32 +174,27 @@ function buildAnthropic(
   request: AIProviderTurnRequest,
 ): PreparedAIProviderTurn {
   const usePromptCache = Boolean(request.tools?.length);
-  const messages = request.state?.messages
+  let messages = request.state?.messages
     ? [...request.state.messages]
-    : mapMessages(
-        request.messages || [],
-        (part) => ({
-          type: 'image',
-          source: {
-            type: 'base64',
-            media_type: part.mimeType,
-            data: part.data,
-          },
-        }),
-        (part) => ({ type: 'text', text: part.text || '' }),
-      );
-  if (request.message)
-    messages.push({ role: 'user', content: request.message });
-  if (request.toolResults?.length) {
-    messages.push({
-      role: 'user',
-      content: request.toolResults.map((result) => ({
-        type: 'tool_result',
-        tool_use_id: result.callId,
-        content: result.content,
-        is_error: result.isError,
-      })),
-    });
+    : mapMessages(request.messages || [], anthropicImage, (part) => ({
+        type: 'text',
+        text: part.text || '',
+      }));
+  if (request.attachments?.length) {
+    messages = withoutVisionImages(messages, isAnthropicImage);
+  }
+  const followUp = [
+    ...(request.toolResults || []).map((result) => ({
+      type: 'tool_result',
+      tool_use_id: result.callId,
+      content: result.content,
+      is_error: result.isError,
+    })),
+    ...(request.attachments || []).map(anthropicImage),
+    ...(request.message ? [{ type: 'text', text: request.message }] : []),
+  ];
+  if (followUp.length) {
+    messages.push({ role: 'user', content: followUp });
   }
   return {
     state: { messages },
@@ -172,20 +231,32 @@ function buildAnthropic(
 }
 
 function buildOpenAI(request: AIProviderTurnRequest): PreparedAIProviderTurn {
-  const input = request.state?.input
+  let input = request.state?.input
     ? [...request.state.input]
-    : mapMessages(
-        request.messages || [],
-        (part) => ({ type: 'input_image', image_url: imageUrl(part) }),
-        (part) => ({ type: 'input_text', text: part.text || '' }),
-      );
-  if (request.message) input.push({ role: 'user', content: request.message });
+    : mapMessages(request.messages || [], openAIImage, (part) => ({
+        type: 'input_text',
+        text: part.text || '',
+      }));
   for (const result of request.toolResults || []) {
     input.push({
       type: 'function_call_output',
       call_id: result.callId,
       output: result.content,
     });
+  }
+  if (request.attachments?.length) {
+    input = withoutVisionImages(input, isOpenAIImage);
+    input.push({
+      role: 'user',
+      content: [
+        ...request.attachments.map(openAIImage),
+        ...(request.message
+          ? [{ type: 'input_text', text: request.message }]
+          : []),
+      ],
+    });
+  } else if (request.message) {
+    input.push({ role: 'user', content: request.message });
   }
   return {
     state: { input },
@@ -211,29 +282,35 @@ function buildOpenAI(request: AIProviderTurnRequest): PreparedAIProviderTurn {
 }
 
 function buildKimi(request: AIProviderTurnRequest): PreparedAIProviderTurn {
-  const messages = request.state?.messages
+  let messages = request.state?.messages
     ? [...request.state.messages]
     : [
         ...(request.systemPrompt
           ? [{ role: 'system', content: request.systemPrompt }]
           : []),
-        ...mapMessages(
-          request.messages || [],
-          (part) => ({
-            type: 'image_url',
-            image_url: { url: imageUrl(part) },
-          }),
-          (part) => ({ type: 'text', text: part.text || '' }),
-        ),
+        ...mapMessages(request.messages || [], kimiImage, (part) => ({
+          type: 'text',
+          text: part.text || '',
+        })),
       ];
-  if (request.message)
-    messages.push({ role: 'user', content: request.message });
   for (const result of request.toolResults || []) {
     messages.push({
       role: 'tool',
       tool_call_id: result.callId,
       content: result.content,
     });
+  }
+  if (request.attachments?.length) {
+    messages = withoutVisionImages(messages, isKimiImage);
+    messages.push({
+      role: 'user',
+      content: [
+        ...request.attachments.map(kimiImage),
+        ...(request.message ? [{ type: 'text', text: request.message }] : []),
+      ],
+    });
+  } else if (request.message) {
+    messages.push({ role: 'user', content: request.message });
   }
   const tools = openAITools(request.tools || []).map(
     ({ type, ...definition }) => ({ type, function: definition }),
@@ -258,29 +335,32 @@ function buildKimi(request: AIProviderTurnRequest): PreparedAIProviderTurn {
 }
 
 function buildGemini(request: AIProviderTurnRequest): PreparedAIProviderTurn {
-  const contents = request.state?.contents
+  let contents = request.state?.contents
     ? [...request.state.contents]
     : mapMessages(
         request.messages || [],
-        (part) => ({
-          inlineData: { mimeType: part.mimeType, data: part.data },
-        }),
+        geminiImage,
         (part) => ({ text: part.text || '' }),
         (role) => (role === 'assistant' ? 'model' : 'user'),
       ).map(({ role, content }) => ({ role, parts: content }));
-  if (request.message)
-    contents.push({ role: 'user', parts: [{ text: request.message }] });
-  if (request.toolResults?.length) {
-    contents.push({
-      role: 'user',
-      parts: request.toolResults.map((result) => ({
-        functionResponse: {
-          ...(result.callId.startsWith('gemini-') ? {} : { id: result.callId }),
-          name: result.name,
-          response: { output: result.content, isError: !!result.isError },
-        },
-      })),
-    });
+  if (request.attachments?.length) {
+    contents = withoutVisionImages(contents, isGeminiImage, 'parts');
+  }
+  // functionResponse carries no inline data of its own, but a part list can
+  // hold both, so the capture rides in the same user turn as the responses
+  const followUp = [
+    ...(request.toolResults || []).map((result) => ({
+      functionResponse: {
+        ...(result.callId.startsWith('gemini-') ? {} : { id: result.callId }),
+        name: result.name,
+        response: { output: result.content, isError: !!result.isError },
+      },
+    })),
+    ...(request.attachments || []).map(geminiImage),
+    ...(request.message ? [{ text: request.message }] : []),
+  ];
+  if (followUp.length) {
+    contents.push({ role: 'user', parts: followUp });
   }
   return {
     state: { contents },

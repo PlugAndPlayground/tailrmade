@@ -10,8 +10,9 @@ import { NumberType } from '../datatypes/numberType';
 import { ColorType } from '../datatypes/colorType';
 import { BooleanType } from '../datatypes/booleanType';
 import { getDefaultWidgetLayoutValue } from '../datatypes/widgetLayoutType';
-import { getExecuteTriggerSocket } from '../state/storage';
+import { TriggerType } from '../datatypes/triggerType';
 import PPGraph from '../../classes/GraphClass';
+import { NodeConfigurationWarning, PNPSuccess } from '../../classes/ErrorClass';
 import {
   DashboardWidgetProps,
   IOverlay,
@@ -19,10 +20,13 @@ import {
   MobileBehavior,
   WidgetContentProps,
   WidgetProps,
+  isSurfaceNode,
 } from '../../utils/interfaces';
 import {
+  DEFAULT_UPDATE_FREQUENCY,
   SOCKETNAME_BACKGROUNDCOLOR,
   SOCKET_TYPE,
+  TRIGGER_TYPE_OPTIONS,
   UNSET_VALUE,
 } from '../../utils/constants';
 import { widthName, heightName } from '../../utils/layoutableHelpers';
@@ -431,39 +435,54 @@ const ReactUICombineArrayComponent: React.FunctionComponent<any> = (props) => {
 
 const navigateToSurfaceInputName = 'Surface';
 const executeTriggerSocketName = 'Execute';
+const navigateTriggerFunctionName = 'navigateNow';
+
+function getNavigateTriggerSocket(): PPSocket {
+  return new PPSocket(
+    SOCKET_TYPE.TRIGGER,
+    executeTriggerSocketName,
+    new TriggerType(TRIGGER_TYPE_OPTIONS[0].text, navigateTriggerFunctionName),
+  );
+}
 
 /**
  * NavigateToPage - Utility node to navigate to/show a specific UI surface
- *
- * Fired via its "Execute" trigger socket - connect a widget output (e.g. a
- * button's "Out") to it to navigate to a specific surface by name or route.
  * Mutual exclusivity with sibling surfaces is driven by the target surface's
  * own Radio Group (see UISurfaceNode.getRadioGroup), so navigation doesn't
  * need to be told the group.
  */
 export class NavigateToPage extends PPNode {
+  private lastNavigatedTarget: string | undefined;
+
   public getName(): string {
-    return 'Navigate to surface';
+    return 'Navigate to UI surface';
   }
 
   public getDescription(): string {
-    return 'Shows a UI surface by name or route when its Execute trigger fires.';
+    return 'Shows a UI surface by their node name or route when the target changes or its Execute trigger fires.';
   }
 
   public getAIDocs(): string {
-    return `"Surface" matches route slugs first, then surface names (exact and
-case-sensitive). Prefer short surface names; use routes only for URL slugs.
+    return `Navigates when "Surface" changes, so a tabs or dropdown widget can
+drive it directly. Nothing happens on graph load - the default surface wins.
 
-It runs only when "Execute" fires, not from regular data-flow updates.
-- Button: connect "Out" to "Execute" (default positiveFlank).
-- Tabs/selectors: connect "Out" to "Surface" and "Index" to "Execute"; set
-  Execute to "change" and use surface names as the options.
+## The target must name a real surface
+1. set_node_name each surface to a short unique name ("Home", "Settings").
+2. Feed this node exactly those strings.
 
-For multi-view patterns, see the UI surface docs.`;
+## Wiring
+- Tabs/dropdown for several destinations: set its options to the exact surface
+  names and connect its "Out" to "Surface".
+- One button per destination: set_socket_value "Surface" to the fixed target
+  and connect the button's "Out" to "Execute".
+
+## What navigating does
+- A top-level surface becomes the displayed page.
+- An embedded page in a nav shell is shown and every surface sharing the same "Radio Group" is hidden`;
   }
 
   public getVersion(): number {
-    return 3;
+    return 4;
   }
 
   public async migrate(previousVersion: number): Promise<void> {
@@ -482,7 +501,7 @@ For multi-view patterns, see the UI surface docs.`;
       if (
         this.getNodeTriggerSocketByName(executeTriggerSocketName) === undefined
       ) {
-        this.addSocket(getExecuteTriggerSocket());
+        this.addSocket(getNavigateTriggerSocket());
       }
       const oldNavigateSocket = this.getInputSocketByName('Navigate');
       if (oldNavigateSocket) {
@@ -510,12 +529,19 @@ For multi-view patterns, see the UI surface docs.`;
         this.removeSocket(oldNavigateSocket);
       }
     }
+    if (previousVersion < 4) {
+      const executeSocket = this.getNodeTriggerSocketByName(
+        executeTriggerSocketName,
+      );
+      if (executeSocket?.dataType instanceof TriggerType) {
+        executeSocket.dataType.customFunctionString =
+          navigateTriggerFunctionName;
+      }
+    }
   }
 
   public getUpdateBehaviour(): UpdateBehaviourClass {
-    // Never execute automatically - only when triggered via execution chain
-    // This is a trigger-based action node, not a data-flow node
-    return new UpdateBehaviourClass(false, false, false, 1000, this);
+    return new UpdateBehaviourClass(false, true, false, 1000, this);
   }
 
   protected getDefaultIO(): PPSocket[] {
@@ -524,25 +550,80 @@ For multi-view patterns, see the UI surface docs.`;
         SOCKET_TYPE.IN,
         navigateToSurfaceInputName,
         new StringType(),
-        'Home',
+        '',
         true,
       ),
-      getExecuteTriggerSocket(),
+      getNavigateTriggerSocket(),
     ];
   }
 
-  protected async onExecute(input: any, output: any): Promise<void> {
-    const target = input[navigateToSurfaceInputName];
+  public navigateNow(): void {
+    this.navigateTo(this.getInputData(navigateToSurfaceInputName));
+  }
 
-    // The node never executes from data-flow updates (see
-    // getUpdateBehaviour) - it only runs when the "Execute" trigger fires
-    // or a user manually runs it, so there is no need to also gate on a
-    // "should navigate" flag here.
-    if (target) {
-      // resolve a UI surface by route slug first, then by name
-      InterfaceController.navigateToSurface(target);
+  protected async onExecute(input: any, output: any): Promise<void> {
+    const target = String(input[navigateToSurfaceInputName] ?? '').trim();
+    if (target !== this.lastNavigatedTarget) {
+      this.navigateTo(target);
     }
 
     await super.onExecute(input, output);
+  }
+
+  private navigateTo(rawTarget: unknown): void {
+    if (!PPGraph.currentGraph.graphConfiguredAndReady) {
+      return;
+    }
+    const target = String(rawTarget ?? '').trim();
+    if (!target) {
+      this.setStatus(
+        new NodeConfigurationWarning(
+          `No target set. Give "${navigateToSurfaceInputName}" a UI surface name or route slug.${this.listSurfaces()}`,
+        ),
+      );
+      return;
+    }
+
+    if (InterfaceController.navigateToSurface(target) === 'not-found') {
+      this.setStatus(
+        new NodeConfigurationWarning(
+          `No UI surface named "${target}" (names are case-sensitive) and no surface with that route slug.${this.listSurfaces()}`,
+        ),
+      );
+      return;
+    }
+
+    this.lastNavigatedTarget = target;
+    const ambiguous = this.getSurfaces().filter(
+      (surface) => surface.getDashboardName() === target,
+    );
+    if (ambiguous.length > 1) {
+      this.setStatus(
+        new NodeConfigurationWarning(
+          `${ambiguous.length} UI surfaces are named "${target}", so navigation always shows the first one. Give each surface its own name.`,
+        ),
+      );
+      return;
+    }
+    this.setStatus(new PNPSuccess());
+  }
+
+  private getSurfaces() {
+    return Object.values(PPGraph.currentGraph?.nodes ?? {}).filter(
+      isSurfaceNode,
+    );
+  }
+
+  private listSurfaces(): string {
+    const surfaces = this.getSurfaces();
+    if (surfaces.length === 0) {
+      return ' This graph has no UI surfaces.';
+    }
+    const described = surfaces.map((surface) => {
+      const route = surface.getRouteSlug();
+      const name = `"${surface.getDashboardName()}"`;
+      return route ? `${name} (route "${route}")` : name;
+    });
+    return ` Available surfaces: ${described.join(', ')}.`;
   }
 }

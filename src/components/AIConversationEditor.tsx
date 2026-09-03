@@ -41,6 +41,7 @@ import {
   capture,
 } from '../services/CaptureService';
 import { downscaleImageForAI } from '../utils/imageDownscale';
+import { AIInspectSource, setAIPanelOpen } from '../services/AIVisionService';
 
 const panelBorder = '1px solid rgba(255,255,255,0.16)';
 const panelSurface = 'rgba(255,255,255,0.08)';
@@ -472,7 +473,15 @@ const MessageBubble = ({
 interface Attachment {
   label: string;
   dataURL: string;
+  /** the layout/graph json the image is a picture of, when there is one */
+  structure?: string;
 }
+
+const INSPECT_SOURCE_FOR: Partial<Record<CaptureSource, AIInspectSource>> = {
+  'User interface': 'dashboard',
+  Graph: 'graph',
+  'Node selection': 'selection',
+};
 
 /** The row of thumbnails for the images queued onto the next message. */
 const AttachmentStrip = ({
@@ -542,12 +551,6 @@ const AttachmentStrip = ({
   </Stack>
 );
 
-/**
- * Where an attachment can come from: every CaptureService source except
- * ReactUI, which has no meaning here since it needs a node output to render,
- * plus the file picker. Pasting needs no entry of its own, so it is only
- * advertised.
- */
 const CaptureMenu = ({
   anchorEl,
   onClose,
@@ -669,11 +672,32 @@ const AIConversationEditor = ({
     });
   }, [messages]);
 
+  // Auto-capture is gated on the panel being mounted, so the agent can only
+  // look at the app while the user is looking at the agent.
+  useEffect(() => {
+    setAIPanelOpen(true);
+    return () => setAIPanelOpen(false);
+  }, []);
+
   // the same CaptureService the Screenshot node uses. Runs from the click, so
   // the Screen source has the user gesture its permission prompt needs.
   const handleCapture = async (source: CaptureSource) => {
     setCaptureMenuAnchor(null);
+    const inspectSource = INSPECT_SOURCE_FOR[source];
     try {
+      if (inspectSource) {
+        const inspected =
+          await AIBackend.getInstance().captureUIForAI(inspectSource);
+        setAttachments((current) => [
+          ...current,
+          {
+            label: source,
+            dataURL: inspected.dataURL,
+            structure: inspected.structure,
+          },
+        ]);
+        return;
+      }
       const result = await capture(source);
       const dataURL = await downscaleImageForAI(result.dataURL);
       setAttachments((current) => [...current, { label: source, dataURL }]);
@@ -731,6 +755,15 @@ const AIConversationEditor = ({
 
     const prompt = inputValue.trim();
     const images = attachments.map((attachment) => attachment.dataURL);
+    const structured = attachments.filter((attachment) => attachment.structure);
+    const attachmentContext = structured.length
+      ? '\n\nStructure behind the attached images:\n' +
+        structured
+          .map(
+            (attachment) => `"${attachment.label}":\n${attachment.structure}`,
+          )
+          .join('\n\n')
+      : undefined;
     setInputValue('');
     setAttachments([]);
     setIsLoading(true);
@@ -742,6 +775,7 @@ const AIConversationEditor = ({
         selectedModel,
         {
           performActions,
+          attachmentContext,
         },
         true,
         16384,

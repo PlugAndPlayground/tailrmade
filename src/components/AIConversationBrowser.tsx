@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import {
   Box,
+  Collapse,
   Divider,
   FormControl,
   FormControlLabel,
@@ -15,6 +16,8 @@ import {
 import {
   Add as AddIcon,
   AutoAwesome as AutoAwesomeIcon,
+  KeyboardArrowDown as KeyboardArrowDownIcon,
+  TuneOutlined as SettingsIcon,
 } from '@mui/icons-material';
 import { AIBackend } from '../services/AIBackend';
 import InterfaceController, { ListenEvent } from '../InterfaceController';
@@ -57,6 +60,20 @@ const selectSx = {
   '& .MuiSelect-select': { py: 0.9 },
 };
 
+const toggleSx = {
+  m: 0,
+  px: 1,
+  py: 0.25,
+  minHeight: 38,
+  justifyContent: 'space-between',
+  bgcolor: panelSurface,
+  border: panelBorder,
+  '& .MuiFormControlLabel-label': {
+    color: '#fff',
+    fontSize: '0.84rem',
+  },
+};
+
 const AIConversationBrowser = () => {
   const backendConversationNames = Object.keys(
     AIBackend.getInstance().conversations,
@@ -76,6 +93,11 @@ const AIConversationBrowser = () => {
     ? preferences.aiLocation
     : EXECUTION_LOCATION_LOCAL;
   const [performActions, setPerformActions] = useState(true);
+  const [showSettings, setShowSettings] = useState(false);
+  const activeModelLabel =
+    getAIModelsForProvider(selectedProvider).find(
+      (model) => model.value === selectedModel,
+    )?.label ?? selectedModel;
 
   useEffect(() => {
     const syncConversations = () => {
@@ -123,10 +145,38 @@ const AIConversationBrowser = () => {
             <Typography variant="subtitle1" sx={{ lineHeight: 1.1 }}>
               AI Helper
             </Typography>
-            <Typography variant="caption" sx={{ color: secondaryText }}>
-              Agent workspace
+            <Typography
+              variant="caption"
+              data-cy="AI Active Model Label"
+              sx={{
+                color: secondaryText,
+                display: 'block',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {activeModelLabel}
             </Typography>
           </Box>
+          <Tooltip title={showSettings ? 'Hide settings' : 'Settings'}>
+            <IconButton
+              aria-label="Toggle settings"
+              data-cy="AI Settings Toggle"
+              aria-expanded={showSettings}
+              onClick={() => setShowSettings((shown) => !shown)}
+              sx={{
+                color: '#fff',
+                border: panelBorder,
+                bgcolor: showSettings ? 'rgba(255,255,255,0.18)' : panelSurface,
+                '&:hover': {
+                  bgcolor: 'rgba(255,255,255,0.13)',
+                },
+              }}
+            >
+              <SettingsIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
           <Tooltip title="New conversation">
             <IconButton
               aria-label="New conversation"
@@ -148,28 +198,6 @@ const AIConversationBrowser = () => {
         <Stack spacing={1} sx={{ mt: 1.5 }}>
           <FormControl fullWidth>
             <Typography variant="caption" sx={{ color: secondaryText }}>
-              Provider
-            </Typography>
-            <Select
-              variant="outlined"
-              data-cy="AI Agent Provider Select"
-              value={selectedProvider}
-              onChange={(event) => {
-                const provider = event.target.value as AIAgentProvider;
-                setSelectedModel(getDefaultAIModel(provider));
-              }}
-              sx={selectSx}
-            >
-              {AI_AGENT_PROVIDERS.map((provider) => (
-                <MenuItem key={provider.value} value={provider.value}>
-                  {provider.label}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-
-          <FormControl fullWidth>
-            <Typography variant="caption" sx={{ color: secondaryText }}>
               Conversation
             </Typography>
             <Select
@@ -186,78 +214,115 @@ const AIConversationBrowser = () => {
               ))}
             </Select>
           </FormControl>
-
-          <FormControl fullWidth>
-            <Typography variant="caption" sx={{ color: secondaryText }}>
-              Run AI assistant
-            </Typography>
-            <Select
-              variant="outlined"
-              data-cy="AI Execution Location Select"
-              value={aiLocation}
-              onChange={(event) =>
-                savePreferences({
-                  aiLocation: event.target.value as ExecutionLocation,
-                })
-              }
-              sx={selectSx}
-            >
-              <MenuItem value={EXECUTION_LOCATION_CLOUD} disabled={!CLOUD_MODE}>
-                Cloud
-              </MenuItem>
-              <MenuItem value={EXECUTION_LOCATION_LOCAL}>
-                Local companion
-              </MenuItem>
-            </Select>
-          </FormControl>
-
-          <FormControl fullWidth>
-            <Typography variant="caption" sx={{ color: secondaryText }}>
-              Model
-            </Typography>
-            <Select
-              variant="outlined"
-              data-cy="AI Agent Model Select"
-              value={selectedModel}
-              onChange={(event) => setSelectedModel(event.target.value)}
-              sx={selectSx}
-            >
-              {getAIModelsForProvider(selectedProvider).map((model) => (
-                <MenuItem key={model.value} value={model.value}>
-                  {model.label}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-
-          <FormControlLabel
-            sx={{
-              m: 0,
-              px: 1,
-              py: 0.25,
-              minHeight: 38,
-              justifyContent: 'space-between',
-              bgcolor: panelSurface,
-              border: panelBorder,
-              '& .MuiFormControlLabel-label': {
-                color: '#fff',
-                fontSize: '0.84rem',
-              },
-            }}
-            label="Perform actions"
-            labelPlacement="start"
-            control={
-              <Switch
-                checked={performActions}
-                onChange={(event) => setPerformActions(event.target.checked)}
-                inputProps={{
-                  'aria-label': 'Perform actions',
-                  'data-cy': 'AI Perform Actions Toggle',
-                }}
-              />
-            }
-          />
         </Stack>
+
+        <Collapse in={showSettings} data-cy="AI Settings">
+          <Stack spacing={1} sx={{ mt: 1 }}>
+            <FormControl fullWidth>
+              <Typography variant="caption" sx={{ color: secondaryText }}>
+                Run AI assistant
+              </Typography>
+              <Select
+                variant="outlined"
+                data-cy="AI Execution Location Select"
+                value={aiLocation}
+                onChange={(event) =>
+                  savePreferences({
+                    aiLocation: event.target.value as ExecutionLocation,
+                  })
+                }
+                sx={selectSx}
+              >
+                <MenuItem
+                  value={EXECUTION_LOCATION_CLOUD}
+                  disabled={!CLOUD_MODE}
+                >
+                  Cloud
+                </MenuItem>
+                <MenuItem value={EXECUTION_LOCATION_LOCAL}>
+                  Local companion
+                </MenuItem>
+              </Select>
+            </FormControl>
+
+            <FormControl fullWidth>
+              <Typography variant="caption" sx={{ color: secondaryText }}>
+                Provider
+              </Typography>
+              <Select
+                variant="outlined"
+                data-cy="AI Agent Provider Select"
+                value={selectedProvider}
+                onChange={(event) => {
+                  const provider = event.target.value as AIAgentProvider;
+                  setSelectedModel(getDefaultAIModel(provider));
+                }}
+                sx={selectSx}
+              >
+                {AI_AGENT_PROVIDERS.map((provider) => (
+                  <MenuItem key={provider.value} value={provider.value}>
+                    {provider.label}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+
+            <FormControl fullWidth>
+              <Typography variant="caption" sx={{ color: secondaryText }}>
+                Model
+              </Typography>
+              <Select
+                variant="outlined"
+                data-cy="AI Agent Model Select"
+                value={selectedModel}
+                onChange={(event) => setSelectedModel(event.target.value)}
+                sx={selectSx}
+              >
+                {getAIModelsForProvider(selectedProvider).map((model) => (
+                  <MenuItem key={model.value} value={model.value}>
+                    {model.label}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+
+            <FormControlLabel
+              sx={toggleSx}
+              label="Perform actions"
+              labelPlacement="start"
+              control={
+                <Switch
+                  checked={performActions}
+                  onChange={(event) => setPerformActions(event.target.checked)}
+                  inputProps={{
+                    'aria-label': 'Perform actions',
+                    'data-cy': 'AI Perform Actions Toggle',
+                  }}
+                />
+              }
+            />
+
+            <Tooltip title="Let the assistant look at your app to check its own work - automatically after it changes something, and on request. Only the app being edited is ever captured, never your screen. Off means it cannot look at all; you can still attach a capture yourself.">
+              <FormControlLabel
+                sx={toggleSx}
+                label="Let the AI see the app"
+                labelPlacement="start"
+                control={
+                  <Switch
+                    checked={preferences.aiAutoCapture !== false}
+                    onChange={(event) =>
+                      savePreferences({ aiAutoCapture: event.target.checked })
+                    }
+                    inputProps={{
+                      'aria-label': 'Let the AI see the app',
+                      'data-cy': 'AI Auto Capture Toggle',
+                    }}
+                  />
+                }
+              />
+            </Tooltip>
+          </Stack>
+        </Collapse>
       </Box>
 
       <Divider />
