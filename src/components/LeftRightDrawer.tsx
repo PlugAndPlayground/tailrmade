@@ -42,14 +42,52 @@ export const ResizeHandle = ({ isLeft, onPointerDown }) => {
   );
 };
 
-// How much of the screen a sheet takes. Two positions rather than a
-// drag-to-resize: the panels below are lists and forms that are read top-down,
-// so what a user wants is "let me see more of this" and then "give me the
-// canvas back", which is a tap, not a drag.
-const SHEET_HEIGHT = {
-  peek: '55dvh',
-  expanded: '88dvh',
-} as const;
+// How much of the screen a sheet takes, as a fraction of the window - a
+// fraction rather than a pixel height so it survives a rotation, and so the
+// grabber's drag has something resolution-independent to move.
+//
+// The two snap positions are what the grabber TAPS between; dragging it puts
+// the sheet anywhere in [MIN, MAX]. Both are needed: the panels are lists and
+// forms read top-down, so "show me more" is usually a tap - but how much more
+// depends on the panel, the phone and the row you are looking at, which only a
+// drag can express.
+const clampSheet = (fraction: number): number =>
+  Math.min(SHEET_MAX, Math.max(SHEET_MIN, fraction));
+
+const SHEET_PEEK = 0.62;
+const SHEET_EXPANDED = 0.88;
+const SHEET_MIN = 0.25;
+const SHEET_MAX = 0.92;
+
+// The two panels want different heights - a node list is worth more of the
+// screen than an inspector you are reading against the canvas - and which is
+// right depends on the phone, so the dragged height is remembered per side.
+// Session, not local: it belongs to this sitting, like the device preview mode.
+const sheetHeightKey = (isLeft: boolean): string =>
+  `tm-sheet-height-${isLeft ? 'left' : 'right'}`;
+
+const loadSheetFraction = (isLeft: boolean): number => {
+  try {
+    const stored = Number(sessionStorage.getItem(sheetHeightKey(isLeft)));
+    if (Number.isFinite(stored) && stored > 0) {
+      return clampSheet(stored);
+    }
+  } catch {
+    // sessionStorage unavailable - fall through to the default
+  }
+  return SHEET_PEEK;
+};
+
+const saveSheetFraction = (isLeft: boolean, fraction: number): void => {
+  try {
+    sessionStorage.setItem(sheetHeightKey(isLeft), String(fraction));
+  } catch {
+    // non-fatal - the height just won't survive a reload
+  }
+};
+
+// below this the press was a tap, not a drag - a finger on a grabber wanders
+const SHEET_TAP_SLOP_PX = 4;
 
 /**
  * Whether the side panels should render as bottom sheets rather than columns.
@@ -100,9 +138,12 @@ const LeftRightDrawer: React.FC<LeftRightDrawerProps> = ({
 
   // Hooks
   const bottomSheet = useBottomSheetPanels();
-  // a sheet is short, and the inspector's forms are long - so it has two
-  // heights rather than one compromise between them
-  const [sheetExpanded, setSheetExpanded] = useState(false);
+  // a sheet is short and the panels below it are long, so how tall it should be
+  // is the user's call, not a constant
+  const [sheetFraction, setSheetFraction] = useState(() =>
+    loadSheetFraction(isLeft),
+  );
+  const [sheetDragging, setSheetDragging] = useState(false);
 
   const side = isLeft ? DrawerSide.LEFT : DrawerSide.RIGHT;
   const drawerWidth = overlayState[side].width;
@@ -170,7 +211,49 @@ const LeftRightDrawer: React.FC<LeftRightDrawerProps> = ({
   const backgroundColor = getDrawerBackground();
 
   const asSheet = bottomSheet && isOpen;
-  const sheetHeight = sheetExpanded ? SHEET_HEIGHT.expanded : SHEET_HEIGHT.peek;
+  const sheetHeight = `${(sheetFraction * 100).toFixed(2)}dvh`;
+
+  // Drag the grabber to size the sheet; a press that does not travel is a tap,
+  // which snaps between the two presets. One handler for both because on a
+  // touch screen they are the same gesture until the finger moves.
+  const handleSheetPointerDown = (
+    event: React.PointerEvent<HTMLDivElement>,
+  ) => {
+    const startY = event.clientY;
+    const startFraction = sheetFraction;
+    const windowHeight = window.innerHeight;
+    let travelled = false;
+
+    const onMove = (moveEvent: PointerEvent) => {
+      // up is taller, so the delta is inverted
+      const dy = startY - moveEvent.clientY;
+      if (Math.abs(dy) > SHEET_TAP_SLOP_PX) {
+        travelled = true;
+        setSheetDragging(true);
+      }
+      setSheetFraction(clampSheet(startFraction + dy / windowHeight));
+    };
+
+    const onEnd = () => {
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onEnd);
+      window.removeEventListener('pointercancel', onEnd);
+      setSheetDragging(false);
+      setSheetFraction((current) => {
+        const next = travelled
+          ? current
+          : current > (SHEET_PEEK + SHEET_EXPANDED) / 2
+            ? SHEET_PEEK
+            : SHEET_EXPANDED;
+        saveSheetFraction(isLeft, next);
+        return next;
+      });
+    };
+
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onEnd);
+    window.addEventListener('pointercancel', onEnd);
+  };
 
   return (
     <>
@@ -203,7 +286,10 @@ const LeftRightDrawer: React.FC<LeftRightDrawerProps> = ({
                 // the sheet reaches the bottom edge of the screen, which on a
                 // phone is where the home indicator lives
                 paddingBottom: 'env(safe-area-inset-bottom)',
-                transition: 'height 0.225s cubic-bezier(0, 0, 0.2, 1)',
+                // an eased height would lag a finger that is setting it
+                transition: sheetDragging
+                  ? 'none'
+                  : 'height 0.225s cubic-bezier(0, 0, 0.2, 1)',
               }
             : { transition: 'width 0.225s cubic-bezier(0, 0, 0.2, 1)' }),
           boxSizing: 'border-box',
@@ -222,9 +308,11 @@ const LeftRightDrawer: React.FC<LeftRightDrawerProps> = ({
             {asSheet && (
               <Box
                 data-cy="panel-sheet-handle"
-                role="button"
-                aria-label={sheetExpanded ? 'Collapse panel' : 'Expand panel'}
-                onClick={() => setSheetExpanded((expanded) => !expanded)}
+                role="separator"
+                aria-label="Resize panel"
+                aria-orientation="horizontal"
+                aria-valuenow={Math.round(sheetFraction * 100)}
+                onPointerDown={handleSheetPointerDown}
                 sx={{
                   flex: 'none',
                   // the sheet's own control, so it gets the same touch floor
@@ -233,8 +321,10 @@ const LeftRightDrawer: React.FC<LeftRightDrawerProps> = ({
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  cursor: 'pointer',
-                  touchAction: 'manipulation',
+                  cursor: 'ns-resize',
+                  // the browser must not scroll anything while the finger is
+                  // sizing the sheet
+                  touchAction: 'none',
                 }}
               >
                 <Box
@@ -242,7 +332,9 @@ const LeftRightDrawer: React.FC<LeftRightDrawerProps> = ({
                     width: '36px',
                     height: '4px',
                     borderRadius: '2px',
-                    bgcolor: 'rgba(255, 255, 255, 0.4)',
+                    bgcolor: sheetDragging
+                      ? 'rgba(255, 255, 255, 0.75)'
+                      : 'rgba(255, 255, 255, 0.4)',
                   }}
                 />
               </Box>

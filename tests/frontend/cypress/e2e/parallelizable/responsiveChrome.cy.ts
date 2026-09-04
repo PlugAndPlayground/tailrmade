@@ -14,6 +14,10 @@ const PHONE = { width: 390, height: 844 };
 
 const RAIL_WIDTH = 48;
 
+// the 44px grabber plus a single-row tab bar, with a little slack - enough to
+// fail if the tabs go back to being two rows tall
+const MAX_SHEET_CHROME_PX = 100;
+
 const openInspector = () =>
   doWithTestController((testController) =>
     testController.toggleRightSideDrawer(VISIBILITY_ACTION.OPEN),
@@ -141,6 +145,52 @@ describe('responsive shell chrome', () => {
     openMenuPanel();
     cy.get('#graphs-list').should('be.visible');
     cy.get('[data-cy="inspector-column"]').should('be.visible');
+  });
+
+  // The sheet is short, so what sits above its content is a real budget rather
+  // than a detail: the grabber plus the tabs. Stacked icon-over-label tabs are
+  // 72px and blew it on their own, which is what made the sheet feel empty.
+  it('keeps the chrome above the content inside its budget', () => {
+    cy.viewport(PHONE.width, PHONE.height);
+    openInspector();
+
+    settledSheetHeight().then((sheetHeight) => {
+      cy.get('[data-cy="inspector-content"]').should(($content) => {
+        const chrome = sheetHeight - $content[0].getBoundingClientRect().height;
+        expect(chrome, 'grabber + tabs above the content').to.be.lessThan(
+          MAX_SHEET_CHROME_PX,
+        );
+      });
+    });
+  });
+
+  it('resizes the sheet by dragging the grabber', () => {
+    cy.viewport(PHONE.width, PHONE.height);
+    openInspector();
+
+    settledSheetHeight().then((startHeight) => {
+      // dragging the grabber upwards makes the sheet taller
+      cy.get('[data-cy="panel-sheet-handle"]')
+        .trigger('pointerdown', {
+          clientY: 400,
+          eventConstructor: 'PointerEvent',
+        })
+        .then(() => {
+          cy.window().trigger('pointermove', {
+            clientY: 200,
+            eventConstructor: 'PointerEvent',
+          });
+          cy.window().trigger('pointerup', {
+            eventConstructor: 'PointerEvent',
+          });
+        });
+
+      cy.get('[data-cy="inspector-column"]').should(($panel) => {
+        expect($panel[0].getBoundingClientRect().height).to.be.greaterThan(
+          startHeight + 100,
+        );
+      });
+    });
   });
 
   // the rail has no inspector button, so this is the only way to open it -

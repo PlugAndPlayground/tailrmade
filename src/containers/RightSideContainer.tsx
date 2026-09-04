@@ -17,6 +17,7 @@ import PPGraph from '../classes/GraphClass';
 import { NodeArrayContainer } from './NodeArrayContainer';
 import { customTheme, RightDrawerView } from '../utils/constants';
 import { ThemeSettings } from '../components/dashboard/ThemePanel';
+import { useBottomSheetPanels } from '../components/LeftRightDrawer';
 
 type RightSideContainerProps = {
   rightDrawerView: RightDrawerView;
@@ -44,6 +45,14 @@ const RightSideContainerInner: React.FC<RightSideContainerProps> = ({
   const handleTabChange = (_, newValue) => {
     setRightDrawerView(newValue);
   };
+
+  // Stacked icon-over-label tabs are 72px tall. In a sheet that is 72px of the
+  // little height there is, spent twice over on the same three words, so the
+  // icon moves beside the label and the row comes back to a normal 48.
+  const inSheet = useBottomSheetPanels();
+  const tabProps = inSheet
+    ? ({ iconPosition: 'start' } as const)
+    : ({} as const);
 
   const interfaceInspectorComponent = useMemo(
     () => <DashboardInspectorWrapper />,
@@ -113,35 +122,55 @@ const RightSideContainerInner: React.FC<RightSideContainerProps> = ({
         id="inspector-container-right"
         spacing={0}
         sx={{
-          height: '100vh',
+          // fills whatever the panel gives it rather than naming the window's
+          // height, which it is only entitled to as a docked column. Flexbox
+          // was already shrinking the 100vh this replaced, so this changes no
+          // layout - it just stops the next reader believing the panel owns
+          // the viewport.
+          height: '100%',
+          minHeight: 0,
         }}
       >
         <Tabs
           value={rightDrawerView}
           onChange={handleTabChange}
           variant="fullWidth"
-          sx={{ borderBottom: 1, borderColor: 'divider' }}
+          sx={{
+            flexShrink: 0,
+            borderBottom: 1,
+            borderColor: 'divider',
+            ...(inSheet && {
+              minHeight: 48,
+              '& .MuiTab-root': { minHeight: 48, py: 0, px: 1, gap: 0.5 },
+            }),
+          }}
         >
           <Tab
+            {...tabProps}
             icon={<PolylineIcon fontSize="small" />}
-            label="Graph (3)"
+            label={inSheet ? 'Graph' : 'Graph (3)'}
             value={RightDrawerView.GRAPH}
             data-cy="graph-inspector-tab"
           />
           <Tab
+            {...tabProps}
             icon={<DashboardIcon fontSize="small" />}
-            label="User interface (4)"
+            label={inSheet ? 'Interface' : 'User interface (4)'}
             value={RightDrawerView.INTERFACE}
             data-cy="interface-settings-tab"
           />
           <Tab
+            {...tabProps}
             icon={<SquareIcon fontSize="small" />}
-            label="App (5)"
+            label={inSheet ? 'App' : 'App (5)'}
             value={RightDrawerView.APP}
             data-cy="app-info-tab"
           />
         </Tabs>
-        <Box sx={{ flex: 1, overflow: 'auto', p: 2 }}>
+        <Box
+          data-cy="inspector-content"
+          sx={{ flex: 1, minHeight: 0, overflow: 'auto', p: 2 }}
+        >
           {rightDrawerView === RightDrawerView.INTERFACE ? (
             interfaceInspectorComponent
           ) : rightDrawerView === RightDrawerView.GRAPH ? (
