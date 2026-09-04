@@ -96,16 +96,24 @@ export function shareOptions(): any {
 
 interface ShareContextMenuProps {
   anchorPosition: { top: number; left: number };
+  // Which corner of the menu the anchor point is. The rail opens it downwards
+  // from a button on the left edge; the bottom bar has to open it upwards, or
+  // the menu would be drawn off the bottom of the screen.
+  anchorCorner?: 'top-left' | 'bottom-left';
   onClose: () => void;
 }
 
 const ShareContextMenu: React.FC<ShareContextMenuProps> = (props) => {
+  const opensUpwards = props.anchorCorner === 'bottom-left';
   return (
     <Paper
       sx={{
         position: 'fixed',
         top: props.anchorPosition.top,
         left: props.anchorPosition.left,
+        // measured from its own height rather than a guess at the menu's
+        // length, which changes with whether the app is saved to the cloud
+        transform: opensUpwards ? 'translateY(-100%)' : undefined,
         zIndex: 1400,
       }}
     >

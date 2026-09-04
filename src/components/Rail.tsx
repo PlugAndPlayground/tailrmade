@@ -11,7 +11,6 @@ import {
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
-import CloseIcon from '@mui/icons-material/Close';
 import DashboardIcon from '@mui/icons-material/Dashboard';
 import HistoryIcon from '@mui/icons-material/History';
 import MenuIcon from '@mui/icons-material/Menu';
@@ -21,7 +20,7 @@ import QuestionMarkIcon from '@mui/icons-material/QuestionMark';
 import ShareIcon from '@mui/icons-material/Share';
 import PPStorage from '../PPStorage';
 import InterfaceController, { ListenEvent } from '../InterfaceController';
-import Authentication from '../firebase/Authentication';
+import AuthDialog from './AuthDialog';
 import SocialIcons from './SocialIcons';
 import ShareContextMenu from './contextmenus/ShareContextMenu';
 import { StyledButton } from './StyledButton';
@@ -408,56 +407,10 @@ export const Rail: React.FunctionComponent<RailProps> = React.memo((props) => {
         )}
       </Box>
 
-      {/* Authentication Dialog */}
-      {CLOUD_MODE && authDialogOpen && (
-        <Box
-          sx={{
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            backgroundColor: 'rgba(0, 0, 0, 0.5)',
-            zIndex: 1400,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            pointerEvents: 'auto',
-          }}
-          onClick={() => setAuthDialogOpen(false)}
-        >
-          <Box
-            onClick={(e) => e.stopPropagation()}
-            sx={{
-              width: '100%',
-              maxWidth: '500px',
-              maxHeight: '90dvh',
-              overflowY: 'auto',
-              position: 'relative',
-            }}
-          >
-            <IconButton
-              aria-label="close"
-              onClick={() => setAuthDialogOpen(false)}
-              sx={{
-                position: 'absolute',
-                top: 48,
-                right: 32,
-                padding: 1,
-                bgcolor: 'transparent',
-                zIndex: 1,
-                '& svg': {
-                  fontSize: '18px',
-                },
-              }}
-              data-cy="close-auth-modal-button"
-            >
-              <CloseIcon />
-            </IconButton>
-            <Authentication />
-          </Box>
-        </Box>
-      )}
+      <AuthDialog
+        open={authDialogOpen}
+        onClose={() => setAuthDialogOpen(false)}
+      />
     </>
   );
 });

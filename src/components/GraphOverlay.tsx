@@ -15,6 +15,7 @@ import { canonicalTreeString } from '../utils/surfaceTree';
 import { nextDrawerVisibility } from '../utils/drawerVisibility';
 import InterfaceController, { ListenEvent } from '../InterfaceController';
 import ShellLayout from './ShellLayout';
+import { useIsStackLayout, useStackView } from '../utils/layoutModel';
 import { DrawerSide, IOverlay, isSurfaceNode } from '../utils/interfaces';
 import {
   DASHBOARD_DEFAULT,
@@ -65,6 +66,8 @@ const GraphOverlay: React.FunctionComponent<GraphOverlayProps> = (props) => {
   });
   const [isEditMode, setIsEditMode] = useState(false);
   const appView = overlayState[DrawerSide.DASHBOARD].fullscreen;
+  const stackLayout = useIsStackLayout();
+  const stackView = useStackView();
   const preAppViewStateRef = useRef<{
     overlay: IOverlay;
     isEditMode: boolean;
@@ -112,11 +115,15 @@ const GraphOverlay: React.FunctionComponent<GraphOverlayProps> = (props) => {
       rightSide: overlayState.rightSide,
     });
 
-    if (
-      (appView ||
-        (overlayState.dashboard.maximized && overlayState.dashboard.visible)) &&
-      PPGraph.currentGraph.app.ticker.started
-    ) {
+    // Under the stack layout the canvas is behind a full-screen view unless it
+    // IS the view, and a pixi ticker running behind an opaque panel is pure
+    // battery on the one device where that is felt.
+    const canvasIsHidden = stackLayout
+      ? stackView !== 'canvas'
+      : appView ||
+        (overlayState.dashboard.maximized && overlayState.dashboard.visible);
+
+    if (canvasIsHidden && PPGraph.currentGraph.app.ticker.started) {
       PPGraph.currentGraph.app.ticker.stop();
       console.log('stopped main app ticker');
     } else if (!PPGraph.currentGraph.app.ticker.started) {
@@ -127,7 +134,7 @@ const GraphOverlay: React.FunctionComponent<GraphOverlayProps> = (props) => {
       });
       console.log('started main app ticker');
     }
-  }, [overlayState, appView]);
+  }, [overlayState, appView, stackLayout, stackView]);
 
   const toggleDrawer = useCallback(
     (

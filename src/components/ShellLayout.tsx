@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Box, IconButton, Tooltip } from '@mui/material';
 import PPGraph from '../classes/GraphClass';
 import InterfaceController from '../InterfaceController';
@@ -8,6 +8,12 @@ import DashboardColumn from './dashboard/GraphOverlayDashboard';
 import { TMIconNoShadow } from '../utils/icons';
 import { useResolvedAppTheme } from '../utils/theme/store';
 import { useIsSmallScreen } from '../utils/utils';
+import { useIsStackLayout, useStackView } from '../utils/layoutModel';
+import { BottomBar, BOTTOM_BAR_HEIGHT } from './BottomBar';
+import AuthDialog from './AuthDialog';
+import { LeftsideContainer } from '../containers/LeftsideContainer';
+import { DashboardEditor } from './dashboard/DashboardEditor';
+import { getDashboardBackground, LeftDrawerView } from '../utils/constants';
 import { DrawerSide, IOverlay } from '../utils/interfaces';
 import { SHELL_CONSTANTS } from '../utils/constants';
 import { VISIBILITY_ACTION } from '../utils/constants_shared';
@@ -27,11 +33,73 @@ type ShellLayoutProps = {
 
 const ShellLayout: React.FunctionComponent<ShellLayoutProps> = (props) => {
   const smallScreen = useIsSmallScreen();
+  const stackLayout = useIsStackLayout();
+  const stackView = useStackView();
+  const [authDialogOpen, setAuthDialogOpen] = useState(false);
   const { appView, overlayState } = props;
   const appTokens = useResolvedAppTheme().tokens;
   const isDashboardMaximised =
     overlayState[DrawerSide.DASHBOARD].visible &&
     overlayState[DrawerSide.DASHBOARD].maximized;
+
+  // ---- stack layout -------------------------------------------------------
+  // One full-screen view at a time above a bottom bar. The rail, both drawers
+  // and the dashboard column are all absent - not hidden, not narrowed, not
+  // turned into sheets. Nothing overlaps, so nothing needs to negotiate.
+  //
+  // 'canvas' renders nothing at all: the pixi canvas is behind the whole shell
+  // already, so showing it is a matter of putting nothing in front of it.
+  if (stackLayout) {
+    return (
+      <>
+        {stackView !== 'canvas' && (
+          <Box
+            data-cy="stack-view"
+            data-stack-view={stackView}
+            sx={{
+              position: 'fixed',
+              left: 0,
+              right: 0,
+              top: 0,
+              // clears the bar, so a view never renders under its own
+              // navigation
+              bottom: `calc(${BOTTOM_BAR_HEIGHT}px + env(safe-area-inset-bottom))`,
+              zIndex: 20,
+              display: 'flex',
+              flexDirection: 'column',
+              overflow: 'hidden',
+              background: getDashboardBackground().toString(),
+              pointerEvents: 'auto',
+            }}
+          >
+            {stackView === 'ui' && (
+              <DashboardEditor
+                isVisible
+                isEditMode={false}
+                // the phone's UI view IS app view - there is no editor chrome
+                // to keep, so the distinction stops existing below the line
+                appView
+                overlayState={overlayState}
+                updateOverlayState={props.updateOverlayState}
+              />
+            )}
+            {stackView === 'ai' && (
+              <LeftsideContainer activeView={LeftDrawerView.AI} />
+            )}
+            {stackView === 'apps' && (
+              <LeftsideContainer activeView={LeftDrawerView.GRAPHS} />
+            )}
+          </Box>
+        )}
+
+        <BottomBar onRequestSignIn={() => setAuthDialogOpen(true)} />
+        <AuthDialog
+          open={authDialogOpen}
+          onClose={() => setAuthDialogOpen(false)}
+        />
+      </>
+    );
+  }
 
   // the row must not swallow pointer events - the canvas behind it has to
   // stay interactive through the canvas strip
