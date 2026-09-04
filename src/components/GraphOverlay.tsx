@@ -15,6 +15,7 @@ import { canonicalTreeString } from '../utils/surfaceTree';
 import { nextDrawerVisibility } from '../utils/drawerVisibility';
 import InterfaceController, { ListenEvent } from '../InterfaceController';
 import ShellLayout from './ShellLayout';
+import { useBottomSheetPanels } from './LeftRightDrawer';
 import { DrawerSide, IOverlay, isSurfaceNode } from '../utils/interfaces';
 import {
   DASHBOARD_DEFAULT,
@@ -65,6 +66,7 @@ const GraphOverlay: React.FunctionComponent<GraphOverlayProps> = (props) => {
   });
   const [isEditMode, setIsEditMode] = useState(false);
   const appView = overlayState[DrawerSide.DASHBOARD].fullscreen;
+  const bottomSheetPanels = useBottomSheetPanels();
   const preAppViewStateRef = useRef<{
     overlay: IOverlay;
     isEditMode: boolean;
@@ -141,22 +143,51 @@ const GraphOverlay: React.FunctionComponent<GraphOverlayProps> = (props) => {
       }
 
       const drawer = overlayState[side];
+      const visible = nextDrawerVisibility({
+        action,
+        isVisible: drawer.visible,
+        requestedView: content,
+        activeView: drawer.activeView,
+      });
+
+      // As columns the two panels are neighbours and both can stay open. As
+      // bottom sheets they occupy the same strip along the bottom, so only one
+      // may be - opening one closes the other, the way a phone sheet does.
+      const otherSide =
+        side === DrawerSide.LEFT ? DrawerSide.RIGHT : DrawerSide.LEFT;
+      const closeOther =
+        bottomSheetPanels && visible && overlayState[otherSide].visible;
 
       updateOverlayState({
         [side]: {
           ...drawer,
-          visible: nextDrawerVisibility({
-            action,
-            isVisible: drawer.visible,
-            requestedView: content,
-            activeView: drawer.activeView,
-          }),
+          visible,
           ...(content != null && { activeView: content }),
         },
+        ...(closeOther && {
+          [otherSide]: { ...overlayState[otherSide], visible: false },
+        }),
       });
     },
-    [overlayState, updateOverlayState],
+    [bottomSheetPanels, overlayState, updateOverlayState],
   );
+
+  // ...and the window can cross the breakpoint with both already open, which
+  // no toggle went through
+  useEffect(() => {
+    if (
+      bottomSheetPanels &&
+      overlayState[DrawerSide.LEFT].visible &&
+      overlayState[DrawerSide.RIGHT].visible
+    ) {
+      updateOverlayState({
+        [DrawerSide.RIGHT]: {
+          ...overlayState[DrawerSide.RIGHT],
+          visible: false,
+        },
+      });
+    }
+  }, [bottomSheetPanels, overlayState, updateOverlayState]);
 
   const toggleLeftSideDrawer = useCallback(
     (action: VISIBILITY_ACTION, content?: LeftDrawerView) =>
