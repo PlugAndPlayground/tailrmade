@@ -1,3 +1,4 @@
+import { VISIBILITY_ACTION } from '../../../../../src/utils/constants_shared';
 import { clearGraph, doWithTestController, openNewGraph } from '../helpers';
 
 // The shell has two layouts and one rule choosing between them: can this
@@ -123,6 +124,82 @@ describe('responsive shell', () => {
         .each(($button) => {
           expect($button[0].getBoundingClientRect().height).to.be.at.least(44);
         });
+    });
+  });
+
+  // Between md and lg two panels leave the canvas ~500px and a third leaves
+  // under 200 - narrower than a single node, so the canvas stops being
+  // something you can work against.
+  describe('the two-panel cap on tablet landscape', () => {
+    const openAll = () =>
+      doWithTestController((tc) => {
+        tc.toggleLeftSideDrawer(VISIBILITY_ACTION.OPEN);
+        tc.toggleRightSideDrawer(VISIBILITY_ACTION.OPEN);
+        tc.toggleDashboard(VISIBILITY_ACTION.OPEN);
+      });
+
+    // A `.then` reads the DOM once, before React has committed the toggles.
+    // `.should` retries the whole callback until the layout settles.
+    const expectOpenPanels = (expected: number) =>
+      cy.get('[data-cy="shell-layout"]').should(($shell) => {
+        const open = [
+          'menu-panel-column',
+          'inspector-column',
+          'dashboard-column',
+        ].filter((name) => {
+          const el = $shell[0].querySelector(`[data-cy="${name}"]`);
+          return el ? el.getBoundingClientRect().width > 1 : false;
+        });
+        expect(open.length, `open panels (${open.join(', ')})`).to.equal(
+          expected,
+        );
+      });
+
+    afterEach(() => {
+      cy.viewport(DESKTOP.width, DESKTOP.height);
+      doWithTestController((tc) => {
+        tc.toggleLeftSideDrawer(VISIBILITY_ACTION.CLOSE);
+        tc.toggleRightSideDrawer(VISIBILITY_ACTION.CLOSE);
+        tc.toggleDashboard(VISIBILITY_ACTION.CLOSE);
+      });
+    });
+
+    it('keeps at most two open', () => {
+      cy.viewport(TABLET_LANDSCAPE.width, TABLET_LANDSCAPE.height);
+      openAll();
+      expectOpenPanels(2);
+    });
+
+    // the panel you just asked for is the one worth keeping
+    it('closes the oldest rather than the newest', () => {
+      cy.viewport(TABLET_LANDSCAPE.width, TABLET_LANDSCAPE.height);
+      doWithTestController((tc) =>
+        tc.toggleLeftSideDrawer(VISIBILITY_ACTION.OPEN),
+      );
+      cy.get('[data-cy="menu-panel-column"]').should('be.visible');
+      doWithTestController((tc) =>
+        tc.toggleRightSideDrawer(VISIBILITY_ACTION.OPEN),
+      );
+      doWithTestController((tc) => tc.toggleDashboard(VISIBILITY_ACTION.OPEN));
+
+      cy.get('[data-cy="dashboard-column"]').should('be.visible');
+      cy.get('[data-cy="menu-panel-column"]').should('not.be.visible');
+    });
+
+    it('lifts the cap on a desktop', () => {
+      cy.viewport(DESKTOP.width, DESKTOP.height);
+      openAll();
+      expectOpenPanels(3);
+    });
+
+    // the window can cross the breakpoint with all three already open, which
+    // no toggle went through
+    it('applies the cap when the window shrinks into the band', () => {
+      cy.viewport(DESKTOP.width, DESKTOP.height);
+      openAll();
+      expectOpenPanels(3);
+      cy.viewport(TABLET_LANDSCAPE.width, TABLET_LANDSCAPE.height);
+      expectOpenPanels(2);
     });
   });
 

@@ -49,6 +49,19 @@ export const useMaxOpenPanels = (): number => {
   return belowLarge ? 2 : Infinity;
 };
 
+/**
+ * True in the columns layout while width is still scarce - the band where the
+ * panel cap applies. Chrome that is merely roomy on a desktop is expensive
+ * here, so this is what panel contents check before spending height on
+ * decoration.
+ */
+export const useIsNarrowColumns = (): boolean => {
+  const theme = useTheme();
+  const belowLarge = useMediaQuery(theme.breakpoints.down('lg'));
+  const stack = useIsStackLayout();
+  return belowLarge && !stack;
+};
+
 // --- what the stack is showing -------------------------------------------
 //
 // Only meaningful under the stack layout. It is deliberately NOT derived from

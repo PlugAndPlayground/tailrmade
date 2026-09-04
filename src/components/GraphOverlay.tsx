@@ -15,7 +15,16 @@ import { canonicalTreeString } from '../utils/surfaceTree';
 import { nextDrawerVisibility } from '../utils/drawerVisibility';
 import InterfaceController, { ListenEvent } from '../InterfaceController';
 import ShellLayout from './ShellLayout';
-import { useIsStackLayout, useStackView } from '../utils/layoutModel';
+import {
+  useIsStackLayout,
+  useMaxOpenPanels,
+  useStackView,
+} from '../utils/layoutModel';
+import {
+  CAPPED_PANELS,
+  nextPanelOrder,
+  panelsToClose,
+} from '../utils/panelCap';
 import { DrawerSide, IOverlay, isSurfaceNode } from '../utils/interfaces';
 import {
   DASHBOARD_DEFAULT,
@@ -68,6 +77,9 @@ const GraphOverlay: React.FunctionComponent<GraphOverlayProps> = (props) => {
   const appView = overlayState[DrawerSide.DASHBOARD].fullscreen;
   const stackLayout = useIsStackLayout();
   const stackView = useStackView();
+  const maxOpenPanels = useMaxOpenPanels();
+  // oldest first; see nextPanelOrder for why the order has to be remembered
+  const panelOrderRef = useRef<DrawerSide[]>([]);
   const preAppViewStateRef = useRef<{
     overlay: IOverlay;
     isEditMode: boolean;
@@ -135,6 +147,31 @@ const GraphOverlay: React.FunctionComponent<GraphOverlayProps> = (props) => {
       console.log('started main app ticker');
     }
   }, [overlayState, appView, stackLayout, stackView]);
+
+  // Enforcing the cap here rather than inside each toggle: a panel opens from a
+  // drawer toggle, from the dashboard toggle and from a keyboard shortcut, and
+  // the window can also be resized across the breakpoint with all three already
+  // open - which no toggle went through at all.
+  useEffect(() => {
+    if (stackLayout) {
+      return;
+    }
+    const openNow = CAPPED_PANELS.filter((side) => overlayState[side].visible);
+    const order = nextPanelOrder(panelOrderRef.current, openNow);
+    const closing = panelsToClose(order, maxOpenPanels);
+    panelOrderRef.current = order.filter((side) => !closing.includes(side));
+
+    if (closing.length > 0) {
+      updateOverlayState(
+        Object.fromEntries(
+          closing.map((side) => [
+            side,
+            { ...overlayState[side], visible: false },
+          ]),
+        ),
+      );
+    }
+  }, [overlayState, maxOpenPanels, stackLayout, updateOverlayState]);
 
   const toggleDrawer = useCallback(
     (
