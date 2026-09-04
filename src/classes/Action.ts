@@ -2,7 +2,7 @@ import PPGraph from './GraphClass';
 import PPNode from './NodeClass';
 import Socket from './SocketClass';
 import _ from 'lodash';
-import { isSurfaceNode, TSocketType } from '../utils/interfaces';
+import { DisplacedLink, isSurfaceNode, TSocketType } from '../utils/interfaces';
 import InterfaceController, { ListenEvent } from '../InterfaceController';
 import { hri } from 'human-readable-ids';
 import * as PIXI from 'pixi.js';
@@ -17,11 +17,13 @@ import PPStorage from '../PPStorage';
 const macroNameName = 'Macro';
 
 export class SerializableAction {
-  action: (any) => Promise<void>;
+  // undoArgs is handed to the action so it can record what the change
+  // displaced (see connectSockets) - the undo half gets the same object
+  action: (args: any, undoArgs?: any) => Promise<void>;
   undoAction: (any) => Promise<void>;
   name: string;
   constructor(
-    inAction: (any) => Promise<void>,
+    inAction: (args: any, undoArgs?: any) => Promise<void>,
     inUndoAction: (any) => Promise<void>,
     inName: string,
   ) {
@@ -212,7 +214,7 @@ export class ActionHandler {
   static async performRawAction(action: BakedAction, doAction = true) {
     this.redoList = [];
     if (doAction) {
-      await action.serializableAction.action(action.args);
+      await action.serializableAction.action(action.args, action.undoArgs);
     }
 
     // consecutive actions sharing a checksum within the merge window are
@@ -238,36 +240,74 @@ export class ActionHandler {
     InterfaceController.notifyListeners(ListenEvent.UnsavedChanges, true);
     this.notifyHistoryChanged();
   }
-  static async undo() {
+  // returns whether the entry was actually undone - a failed undo stays on
+  // the undo stack, so callers that loop must stop instead of retrying
+  static async undo(): Promise<boolean> {
     // move top of undo stack to top of redo stack
     const lastAction = this.undoList.pop();
     if (lastAction) {
       const message = 'Undo: ' + lastAction.serializableAction.name;
       InterfaceController.showSpinner(message);
-      await lastAction.serializableAction.undoAction(lastAction.undoArgs);
-      this.redoList.push(lastAction);
-      InterfaceController.hideSpinner(message);
-      this.notifyHistoryChanged();
+      try {
+        await lastAction.serializableAction.undoAction(lastAction.undoArgs);
+        this.redoList.push(lastAction);
+        return true;
+      } catch (error) {
+        // the entry is already popped - putting it back keeps it reachable
+        // instead of dropping it from both stacks
+        this.undoList.push(lastAction);
+        this.reportHistoryFailure('undo', lastAction, error);
+      } finally {
+        InterfaceController.hideSpinner(message);
+        this.notifyHistoryChanged();
+      }
     } else {
       InterfaceController.showSnackBar(
         'Not possible to undo, nothing in undo stack',
       );
     }
+    return false;
   }
-  static async redo() {
+  static async redo(): Promise<boolean> {
     const lastUndo = this.redoList.pop();
     if (lastUndo) {
       const message = 'Redo: ' + lastUndo.serializableAction.name;
       InterfaceController.showSpinner(message);
-      await lastUndo.serializableAction.action(lastUndo.args);
-      this.undoList.push(lastUndo);
-      InterfaceController.hideSpinner(message);
-      this.notifyHistoryChanged();
+      try {
+        await lastUndo.serializableAction.action(
+          lastUndo.args,
+          lastUndo.undoArgs,
+        );
+        this.undoList.push(lastUndo);
+        return true;
+      } catch (error) {
+        this.redoList.push(lastUndo);
+        this.reportHistoryFailure('redo', lastUndo, error);
+      } finally {
+        InterfaceController.hideSpinner(message);
+        this.notifyHistoryChanged();
+      }
     } else {
       InterfaceController.showSnackBar(
         'Not possible to redo, nothing in redo stack',
       );
     }
+    return false;
+  }
+
+  private static reportHistoryFailure(
+    direction: 'undo' | 'redo',
+    action: BakedAction,
+    error: unknown,
+  ): void {
+    console.error(
+      `Could not ${direction} "${action.serializableAction.name}"`,
+      error,
+    );
+    InterfaceController.showSnackBar(
+      `Could not ${direction} "${action.serializableAction.name}"`,
+      { variant: 'warning' },
+    );
   }
 
   static async goToHistoryIndex(appliedCount: number): Promise<void> {
@@ -276,12 +316,18 @@ export class ActionHandler {
       Math.min(appliedCount, this.undoList.length + this.redoList.length),
     );
 
+    // a failed step leaves the entry where it was, so bail out rather than
+    // spinning on it forever
     while (this.undoList.length > targetAppliedCount) {
-      await this.undo();
+      if (!(await this.undo())) {
+        return;
+      }
     }
 
     while (this.undoList.length < targetAppliedCount) {
-      await this.redo();
+      if (!(await this.redo())) {
+        return;
+      }
     }
   }
 
@@ -352,6 +398,9 @@ export class ConnectSocketsActionArgs {
   sourceSocketName: string;
   targetNodeID: string;
   targetSocketName: string;
+  // filled in by the connect action when it displaced an existing link, so
+  // the undo can restore it instead of leaving the input empty
+  displacedLink?: DisplacedLink;
 
   constructor(
     sourceNodeID: string,
@@ -573,7 +622,16 @@ export class ACTIONS {
   }
 
   static connectSockets(): SerializableAction {
-    const action = async (args: ConnectSocketsActionArgs) => {
+    const action = async (
+      args: ConnectSocketsActionArgs,
+      undoArgs?: ConnectSocketsActionArgs,
+    ) => {
+      if (undoArgs !== undefined) {
+        undoArgs.displacedLink = PPGraph.currentGraph.getInputLinkSource(
+          args.targetNodeID,
+          args.targetSocketName,
+        );
+      }
       await PPGraph.currentGraph.linkConnect(
         args.sourceNodeID,
         args.sourceSocketName,
@@ -582,13 +640,18 @@ export class ACTIONS {
         true,
       );
     };
-    const undoAction = (args: ConnectSocketsActionArgs): Promise<void> => {
+    const undoAction = async (args: ConnectSocketsActionArgs) => {
       PPGraph.currentGraph.linkDisconnect(
         args.targetNodeID,
         args.targetSocketName,
         true,
       );
-      return Promise.resolve();
+      // rewiring an occupied input silently dropped the link that was there
+      await PPGraph.currentGraph.restoreInputLink(
+        args.displacedLink,
+        args.targetNodeID,
+        args.targetSocketName,
+      );
     };
     return {
       action,

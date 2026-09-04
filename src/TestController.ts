@@ -142,11 +142,52 @@ export default class TestController {
     }
   }
 
+  // undoable connect (goes through the action handler)
+  async connectNodesByIDAction(
+    node1ID: string,
+    node2ID: string,
+    node1Socket: string,
+    node2Socket: string,
+  ): Promise<void> {
+    await PPGraph.currentGraph.perform_action_Connect(
+      this.getOutputSocketByIDandName(node1ID, node1Socket),
+      this.getInputSocketByIDandName(node2ID, node2Socket),
+    );
+  }
+
   async disconnectLink(
     endNodeID: string,
     inputSocketName: string,
   ): Promise<void> {
     await PPGraph.currentGraph.linkDisconnect(endNodeID, inputSocketName, true);
+  }
+
+  // presses on a socket the way the pointer does, starting a wire drag
+  async pressOnSocket(
+    nodeID: string,
+    socketName: string,
+    ctrlKey = false,
+  ): Promise<void> {
+    const socket = this.getSocketByNodeIDAndSocketName(nodeID, socketName)!;
+    await PPGraph.currentGraph.socketPointerDown(socket, {
+      ctrlKey,
+      global: new PIXI.Point(0, 0),
+    } as any);
+  }
+
+  getSelectedSocket(): Socket | undefined {
+    return PPGraph.currentGraph.selectedSocket;
+  }
+
+  // the source node of whatever link occupies an input socket, if any
+  getInputLinkSourceNodeID(
+    nodeID: string,
+    inputSocketName: string,
+  ): string | undefined {
+    const socket = PPGraph.currentGraph.nodes[
+      nodeID
+    ]?.getInputOrTriggerSocketByName(inputSocketName, false);
+    return socket?.links[0]?.getSource().getNode().id;
   }
 
   getSocketLinks(nodeID: string, socketName: string): PPLink[] {
@@ -349,6 +390,10 @@ export default class TestController {
 
   clearActionHistory() {
     ActionHandler.clear();
+  }
+
+  getActionHistory() {
+    return ActionHandler.getHistorySnapshot();
   }
 
   setShowUnsavedChangesWarning(show: boolean) {

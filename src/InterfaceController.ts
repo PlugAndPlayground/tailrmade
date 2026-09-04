@@ -612,7 +612,7 @@ class ConsoleController {
   static executeCommand(command: string): void {
     switch (command.toLowerCase()) {
       case 'clear': {
-        void PPGraph.currentGraph.clear();
+        void PPGraph.currentGraph.perform_action_ClearGraph();
         break;
       }
       case 'resetbgcolor': {
