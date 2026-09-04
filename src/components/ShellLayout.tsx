@@ -11,6 +11,7 @@ import { useIsSmallScreen } from '../utils/utils';
 import { useIsStackLayout, useStackView } from '../utils/layoutModel';
 import { BottomBar, BOTTOM_BAR_HEIGHT } from './BottomBar';
 import AuthDialog from './AuthDialog';
+import CanvasPeek from './CanvasPeek';
 import { LeftsideContainer } from '../containers/LeftsideContainer';
 import { DashboardEditor } from './dashboard/DashboardEditor';
 import { getDashboardBackground, LeftDrawerView } from '../utils/constants';
@@ -91,6 +92,8 @@ const ShellLayout: React.FunctionComponent<ShellLayoutProps> = (props) => {
             )}
           </Box>
         )}
+
+        {stackView === 'canvas' && <CanvasPeek />}
 
         <BottomBar onRequestSignIn={() => setAuthDialogOpen(true)} />
         <AuthDialog

@@ -1,4 +1,4 @@
-import { openNewGraph } from '../helpers';
+import { clearGraph, doWithTestController, openNewGraph } from '../helpers';
 
 // The shell has two layouts and one rule choosing between them: can this
 // window hold a row of columns? Below md it cannot, and everything that used
@@ -123,6 +123,82 @@ describe('responsive shell', () => {
         .each(($button) => {
           expect($button[0].getBoundingClientRect().height).to.be.at.least(44);
         });
+    });
+  });
+
+  // Exploring is in scope on a phone and editing is not, but reading a node's
+  // values sits between them - and it is the difference between a canvas you
+  // can navigate and one you can understand.
+  describe('reading a node on the canvas', () => {
+    beforeEach(() => {
+      cy.viewport(PHONE.width, PHONE.height);
+      clearGraph();
+      cy.get('[data-cy="bottom-bar-canvas"]').click();
+    });
+
+    it('shows nothing until something is selected', () => {
+      cy.get('[data-cy="canvas-peek"]').should('not.exist');
+    });
+
+    it('names the node and lists its values', () => {
+      doWithTestController(async (tc) => {
+        await tc.addNode('Constant', 'PEEK1');
+        tc.selectNodesById(['PEEK1']);
+      });
+
+      cy.get('[data-cy="canvas-peek"]').should('be.visible');
+      cy.get('[data-cy="canvas-peek-name"]').should('not.be.empty');
+      // a name and a hint alone would not be worth a panel - the values are
+      // the reason it exists
+      cy.get('[data-cy="canvas-peek-row"]').should('have.length.at.least', 1);
+    });
+
+    // the whole point of it not being the inspector
+    it('offers nothing editable', () => {
+      doWithTestController(async (tc) => {
+        await tc.addNode('Constant', 'PEEK2');
+        tc.selectNodesById(['PEEK2']);
+      });
+
+      cy.get('[data-cy="canvas-peek"]').should('be.visible');
+      cy.get('[data-cy="canvas-peek"]').find('input').should('not.exist');
+      cy.get('[data-cy="canvas-peek"]').find('textarea').should('not.exist');
+      cy.get('[data-cy="canvas-peek"]')
+        .find('[contenteditable="true"]')
+        .should('not.exist');
+    });
+
+    // the reference the phone owes the reader: where it stops, and where it
+    // carries on
+    it('says where editing happens', () => {
+      doWithTestController(async (tc) => {
+        await tc.addNode('Constant', 'PEEK3');
+        tc.selectNodesById(['PEEK3']);
+      });
+      cy.get('[data-cy="canvas-peek-desktop-hint"]').should('be.visible');
+    });
+
+    it('closes without deselecting anything else', () => {
+      doWithTestController(async (tc) => {
+        await tc.addNode('Constant', 'PEEK4');
+        tc.selectNodesById(['PEEK4']);
+      });
+      cy.get('[data-cy="canvas-peek-close"]').click();
+      cy.get('[data-cy="canvas-peek"]').should('not.exist');
+    });
+
+    it('stays clear of the bottom bar', () => {
+      doWithTestController(async (tc) => {
+        await tc.addNode('Constant', 'PEEK5');
+        tc.selectNodesById(['PEEK5']);
+      });
+      cy.get('[data-cy="canvas-peek"]').then(($peek) => {
+        cy.get('[data-cy="bottom-bar"]').then(($bar) => {
+          expect($peek[0].getBoundingClientRect().bottom).to.be.at.most(
+            $bar[0].getBoundingClientRect().top,
+          );
+        });
+      });
     });
   });
 });
