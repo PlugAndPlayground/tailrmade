@@ -1,5 +1,12 @@
 import React from 'react';
-import { Dialog, DialogContent, DialogTitle, IconButton } from '@mui/material';
+import {
+  Dialog,
+  DialogContent,
+  DialogTitle,
+  IconButton,
+  useMediaQuery,
+  useTheme,
+} from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import PPGraph from '../../classes/GraphClass';
 import { ListenEvent } from '../../InterfaceController';
@@ -34,6 +41,13 @@ type ModalNodeLike = {
 };
 
 const ModalDialogOverlay: React.FC<{ node: ModalNodeLike }> = ({ node }) => {
+  // a modal's surface is authored at a desktop width, and the Paper below
+  // shrink-wraps it with `overflow: hidden` - on a phone that clips the
+  // content rather than scrolling it. Below sm the dialog takes the screen
+  // instead, which is what a phone modal should be anyway.
+  const theme = useTheme();
+  const fullScreen = useMediaQuery(theme.breakpoints.down('sm'));
+
   const open = Boolean(node.getInputData(modalOpenSocketName));
   if (!open) {
     return null;
@@ -81,14 +95,22 @@ const ModalDialogOverlay: React.FC<{ node: ModalNodeLike }> = ({ node }) => {
       // surface's own ROOT size (see UIModalNode.getDefaultIO's Layout JSON
       // default) instead of a size forced from here
       maxWidth={false}
+      fullScreen={fullScreen}
       disableEscapeKeyDown={!dismissOnEscape}
       onClose={handleClose}
       data-cy={`modal dialog of NODE_${node.id}`}
       PaperProps={{
         sx: {
-          overflow: 'hidden',
+          // full screen has nowhere left to shrink-wrap to, so the surface has
+          // to be able to scroll inside the sheet instead of being clipped
+          overflow: fullScreen ? 'auto' : 'hidden',
+          overscrollBehavior: 'contain',
           background,
           backgroundImage: 'none',
+          ...(fullScreen && {
+            paddingTop: 'env(safe-area-inset-top)',
+            paddingBottom: 'env(safe-area-inset-bottom)',
+          }),
         },
       }}
     >

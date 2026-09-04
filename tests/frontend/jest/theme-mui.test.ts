@@ -101,6 +101,74 @@ describe('theme identity', () => {
   });
 });
 
+describe('touch targets', () => {
+  const COARSE = '@media (pointer: coarse)';
+  const coarseRule = (slot: unknown): Record<string, unknown> =>
+    (slot as Record<string, Record<string, unknown>>)[COARSE];
+
+  // the floor exists so a creator cannot accidentally ship a control that is
+  // too small to hit with a thumb - the density steps are a visual choice and
+  // XS/S land well under the 44px both platforms publish
+  it('floors every tappable control at 44px on a coarse pointer', () => {
+    const options = tokensToThemeOptions(resolvedWith({ density: 'XS' }));
+    const components = options.components!;
+    (
+      ['MuiButton', 'MuiIconButton', 'MuiCheckbox', 'MuiRadio'] as const
+    ).forEach((name) => {
+      const rule = coarseRule(components[name]?.styleOverrides?.root);
+      expect(rule).toEqual({ minWidth: '44px', minHeight: '44px' });
+    });
+  });
+
+  // Switch grows by height+padding instead of a min box, so that the track
+  // keeps its designed thickness rather than stretching into a tall pill
+  it('grows the switch around its track rather than stretching it', () => {
+    const components = tokensToThemeOptions(resolvedWith({}))!.components!;
+    const medium = coarseRule(components.MuiSwitch?.styleOverrides?.root);
+    const small = coarseRule(components.MuiSwitch?.styleOverrides?.sizeSmall);
+    // height minus the two paddings is the track: 14px medium, 10px small
+    expect(medium).toEqual({
+      height: '44px',
+      paddingTop: '15px',
+      paddingBottom: '15px',
+    });
+    expect(small).toEqual({
+      height: '44px',
+      paddingTop: '17px',
+      paddingBottom: '17px',
+    });
+  });
+
+  // MUI drops MenuItem's 48px floor above the sm breakpoint, which is a window
+  // measurement - the finger does not get more precise on a tablet
+  it('keeps menu rows tappable regardless of window width', () => {
+    const components = tokensToThemeOptions(resolvedWith({}))!.components!;
+    expect(coarseRule(components.MuiMenuItem?.styleOverrides?.root)).toEqual({
+      minHeight: 48,
+    });
+  });
+
+  it('leaves precise pointers exactly as they were', () => {
+    const components = tokensToThemeOptions(resolvedWith({}))!.components!;
+    // every floor lives INSIDE the media query - nothing leaks to the root
+    (
+      [
+        'MuiButton',
+        'MuiIconButton',
+        'MuiCheckbox',
+        'MuiRadio',
+        'MuiSwitch',
+      ] as const
+    ).forEach((name) => {
+      const root = components[name]?.styleOverrides?.root as Record<
+        string,
+        unknown
+      >;
+      expect(Object.keys(root)).toEqual([COARSE]);
+    });
+  });
+});
+
 describe('density inheritance', () => {
   it('follows what it inherits when the widget says Inherit', () => {
     expect(resolveDensity('Inherit', 'L')).toBe('L');

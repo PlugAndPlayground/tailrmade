@@ -192,6 +192,19 @@ export class WidgetColorPicker extends WidgetHybridBase {
           anchorEl={ref.current}
           placement="top"
           transition
+          // the picker is ~240px of fixed-size swatches and is anchored to a
+          // widget that can sit anywhere on the surface. Without these it is
+          // simply drawn off the top or side of a phone screen, with no way to
+          // scroll to it - flip finds a side that fits, preventOverflow slides
+          // it back inside the viewport when no side fully does.
+          modifiers={[
+            { name: 'flip', enabled: true },
+            {
+              name: 'preventOverflow',
+              enabled: true,
+              options: { padding: 8, altAxis: true },
+            },
+          ]}
           sx={{ zIndex: 10 }}
         >
           {({ TransitionProps }) => (

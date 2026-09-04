@@ -40,6 +40,44 @@ const DENSITY_DEFAULTS: Record<
   XL: { size: 'medium', margin: 'normal' },
 };
 
+// --- touch targets --------------------------------------------------------
+// A deployed app is used with a finger as often as with a mouse, and the
+// density steps a creator picks are visual choices, not hit-area ones: at XS/S
+// a Checkbox is a 30px box and a Switch a 38px one, both well under the 44px
+// minimum both Apple and Google publish.
+//
+// Rather than making every widget defend itself, the floor lives here, on the
+// APP theme, so it reaches every control a creator can place at once. It is
+// gated on `pointer: coarse` - the media query is about the primary input
+// device, not the screen size - so a desktop app renders byte-identically to
+// before and the pointer-precise density steps stay intact where they are
+// usable.
+export const TOUCH_TARGET_PX = 44;
+const COARSE = '@media (pointer: coarse)';
+
+// grows the hit area without moving the glyph: ButtonBase centres its content,
+// so a min box just pads the ripple outwards around an unchanged icon
+const coarseMinBox = {
+  [COARSE]: {
+    minWidth: `${TOUCH_TARGET_PX}px`,
+    minHeight: `${TOUCH_TARGET_PX}px`,
+  },
+};
+
+// Switch cannot use coarseMinBox: its root has an explicit width/height and the
+// track fills the CONTENT box, so growing the box alone would stretch the track
+// into a tall pill. Height and padding move together instead, which leaves the
+// track at its designed 14px (medium) / 10px (small) and turns the extra space
+// into slack around the thumb - and the thumb's input already spans the full
+// root width, so the whole pill is tappable.
+const coarseSwitchRoot = (trackHeight: number) => ({
+  [COARSE]: {
+    height: `${TOUCH_TARGET_PX}px`,
+    paddingTop: `${(TOUCH_TARGET_PX - trackHeight) / 2}px`,
+    paddingBottom: `${(TOUCH_TARGET_PX - trackHeight) / 2}px`,
+  },
+});
+
 const fontStack = (family: string, fallbacks: string[]): string =>
   [`"${family}"`, ...fallbacks].join(', ');
 
@@ -91,14 +129,41 @@ export const tokensToThemeOptions = (resolved: ResolvedTheme): ThemeOptions => {
       MuiPaper: { styleOverrides: { root: { backgroundImage: 'none' } } },
       MuiButton: {
         defaultProps: { variant: tokens.buttonVariant, size: density.size },
+        styleOverrides: { root: coarseMinBox },
       },
       MuiButtonGroup: { defaultProps: { size: density.size } },
-      MuiCheckbox: { defaultProps: { size: density.size } },
+      MuiCheckbox: {
+        defaultProps: { size: density.size },
+        styleOverrides: { root: coarseMinBox },
+      },
       MuiFab: { defaultProps: { size: density.size } },
-      MuiIconButton: { defaultProps: { size: density.size } },
-      MuiRadio: { defaultProps: { size: density.size } },
-      MuiSwitch: { defaultProps: { size: density.size } },
+      MuiIconButton: {
+        defaultProps: { size: density.size },
+        styleOverrides: { root: coarseMinBox },
+      },
+      MuiRadio: {
+        defaultProps: { size: density.size },
+        styleOverrides: { root: coarseMinBox },
+      },
+      MuiSwitch: {
+        defaultProps: { size: density.size },
+        styleOverrides: {
+          root: coarseSwitchRoot(14),
+          sizeSmall: coarseSwitchRoot(10),
+        },
+      },
       MuiTable: { defaultProps: { size: density.size } },
+      // MUI drops MenuItem's 48px floor to `auto` above the sm breakpoint, so a
+      // dropdown opened on a tablet has ~36px rows. The floor is about the
+      // finger, not the window, so put it back for coarse pointers.
+      MuiMenuItem: {
+        styleOverrides: { root: { [COARSE]: { minHeight: 48 } } },
+      },
+      MuiTab: {
+        styleOverrides: {
+          root: { [COARSE]: { minHeight: `${TOUCH_TARGET_PX}px` } },
+        },
+      },
       MuiFormControl: {
         defaultProps: {
           variant: tokens.inputVariant,

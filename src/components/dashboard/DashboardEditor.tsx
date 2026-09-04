@@ -998,6 +998,10 @@ export const DashboardEditor: React.FC<DashboardEditorProps> = ({
         minWidth: 0,
         minHeight: 0,
         overflowY: 'auto',
+        // a scroll that runs out here must not hand the rest of the gesture to
+        // the page: on iOS that is the rubber-band/pull-to-refresh that makes a
+        // full-screen app feel like a web page rather than an app
+        overscrollBehavior: 'contain',
         background: `${getDashboardBackground()}`,
         position: 'relative',
       }}
@@ -1093,6 +1097,22 @@ export const DashboardEditor: React.FC<DashboardEditorProps> = ({
                     minWidth: 0,
                     bgcolor: 'background.default',
                     color: 'text.primary',
+                    // no 300ms wait before a tap becomes a click, and no grey
+                    // flash box around every widget the finger lands on
+                    touchAction: 'manipulation',
+                    WebkitTapHighlightColor: 'transparent',
+                    // app view is the only layout that reaches the physical
+                    // edges of the screen (see viewport-fit=cover in
+                    // template.html), so it is the only one that has to keep
+                    // content out from under the notch and home indicator.
+                    // Padding rather than margin: the app's own background
+                    // still paints into the inset, only the widgets move.
+                    ...(appView && {
+                      pt: 'env(safe-area-inset-top)',
+                      pb: 'env(safe-area-inset-bottom)',
+                      pl: 'env(safe-area-inset-left)',
+                      pr: 'env(safe-area-inset-right)',
+                    }),
                   }}
                 >
                   <Frame>
