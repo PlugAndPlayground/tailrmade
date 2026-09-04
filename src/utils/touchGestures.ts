@@ -15,11 +15,13 @@
 // ViewConfiguration long-press timeout is 500ms.
 export const LONG_PRESS_MS = 500;
 
-// Deliberately larger than the 5px used for a mouse click (see
-// NODE_CLICK_DRAG_THRESHOLD_PX): a finger holding still on glass still wanders
-// several pixels, and a tolerance that tight would turn most long presses into
-// pans.
-export const LONG_PRESS_MOVE_TOLERANCE_PX = 10;
+// How far a finger may wander before it counts as travelling. Deliberately
+// larger than the 5px used for a mouse click (see NODE_CLICK_DRAG_THRESHOLD_PX):
+// a finger holding still on glass still moves several pixels, and a tolerance
+// that tight would turn most long presses into pans. One constant, because a
+// press that has moved too far to be a long press is exactly a press that has
+// moved far enough to be a pan.
+export const TOUCH_DRAG_SLOP_PX = 10;
 
 export type TouchGestureOutcome =
   // no touch gesture was in flight (a mouse, a pen, a second finger)
@@ -54,7 +56,7 @@ export class TouchGesture<TPayload> {
   constructor(
     private readonly onLongPress: (payload: TPayload) => void,
     private readonly longPressMs: number = LONG_PRESS_MS,
-    private readonly tolerancePx: number = LONG_PRESS_MOVE_TOLERANCE_PX,
+    private readonly tolerancePx: number = TOUCH_DRAG_SLOP_PX,
   ) {}
 
   /**
@@ -166,4 +168,75 @@ export function shouldDrawSelectionMarquee(sample: {
   button: number;
 }): boolean {
   return sample.button === 0 && sample.pointerType !== 'touch';
+}
+
+/**
+ * A touch that landed on a canvas widget's HTML and might have meant the
+ * canvas behind it.
+ *
+ * On the canvas, a widget's controls are the only part of it that takes
+ * pointer events (see getCanvasGrabThroughSx) - everything else is
+ * `pointer-events: none` so that the press falls through to PIXI and drags the
+ * node. That leaves the controls as dead spots for panning: a finger that
+ * lands on a button has no way to reach the canvas, and on a tablet the
+ * buttons are a good part of what is on screen.
+ *
+ * So the gesture is left with the control until it travels, and handed to the
+ * canvas after that. Movement is reported as a per-move DELTA rather than a
+ * total, because the caller applies it to a viewport that is moving underneath
+ * the finger - a total would be measured against a coordinate space that no
+ * longer exists.
+ */
+export class TouchPanHandoff {
+  private last: { x: number; y: number } | undefined;
+  private origin: { x: number; y: number } | undefined;
+  private panning = false;
+
+  constructor(private readonly slopPx: number = TOUCH_DRAG_SLOP_PX) {}
+
+  start(clientX: number, clientY: number): void {
+    this.origin = { x: clientX, y: clientY };
+    this.last = { x: clientX, y: clientY };
+    this.panning = false;
+  }
+
+  /**
+   * How far the canvas should move, or undefined while the control still owns
+   * the gesture.
+   *
+   * The move that crosses the threshold reports the whole distance travelled
+   * so far, not just its own step: the finger has already moved that far, and
+   * dropping it would make the canvas jump backwards under it.
+   */
+  move(
+    clientX: number,
+    clientY: number,
+  ): { dx: number; dy: number } | undefined {
+    if (!this.origin || !this.last) {
+      return undefined;
+    }
+    if (!this.panning) {
+      const travelled = Math.hypot(
+        clientX - this.origin.x,
+        clientY - this.origin.y,
+      );
+      if (travelled <= this.slopPx) {
+        return undefined;
+      }
+      this.panning = true;
+    }
+    const delta = { dx: clientX - this.last.x, dy: clientY - this.last.y };
+    this.last = { x: clientX, y: clientY };
+    return delta;
+  }
+
+  /** True once the canvas took the gesture - the control must not fire. */
+  get hasPanned(): boolean {
+    return this.panning;
+  }
+
+  end(): void {
+    this.origin = undefined;
+    this.last = undefined;
+  }
 }

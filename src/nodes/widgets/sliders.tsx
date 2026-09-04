@@ -7,7 +7,7 @@ import {
   colorName,
   getColorSocket,
   getSizeSocket,
-  getWidgetControlProps,
+  getWidgetDragControlProps,
   labelName,
   outName,
   sizeName,
@@ -199,7 +199,9 @@ export class WidgetSlider extends WidgetHybridBase {
             {displayValue}
           </Typography>
           <Slider
-            {...getWidgetControlProps(props.disabled)}
+            // a slider's drag is its value, so it keeps a travelling finger
+            // instead of handing it to the canvas as a pan
+            {...getWidgetDragControlProps(props.disabled)}
             color={color}
             disabled={props.disabled}
             size={getMuiSize(size)}

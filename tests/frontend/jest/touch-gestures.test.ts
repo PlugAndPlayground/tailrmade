@@ -1,8 +1,9 @@
 import {
-  LONG_PRESS_MOVE_TOLERANCE_PX,
+  TOUCH_DRAG_SLOP_PX,
   LONG_PRESS_MS,
   shouldDrawSelectionMarquee,
   TouchGesture,
+  TouchPanHandoff,
 } from '../../../src/utils/touchGestures';
 
 const touch = (clientX = 0, clientY = 0) => ({
@@ -40,14 +41,14 @@ describe("long press as the finger's right click", () => {
 
   it('tolerates the wander of a finger holding still', () => {
     gesture.start(touch(100, 100), 'node-a');
-    gesture.move(100 + LONG_PRESS_MOVE_TOLERANCE_PX, 100);
+    gesture.move(100 + TOUCH_DRAG_SLOP_PX, 100);
     jest.advanceTimersByTime(LONG_PRESS_MS);
     expect(fired).toEqual(['node-a']);
   });
 
   it('gives up as soon as the finger travels - that is a pan', () => {
     gesture.start(touch(100, 100), 'node-a');
-    gesture.move(100 + LONG_PRESS_MOVE_TOLERANCE_PX + 1, 100);
+    gesture.move(100 + TOUCH_DRAG_SLOP_PX + 1, 100);
     jest.advanceTimersByTime(LONG_PRESS_MS * 4);
     expect(fired).toEqual([]);
     expect(gesture.end()).toBe('drag');
@@ -122,5 +123,45 @@ describe('marquee vs pan', () => {
     expect(
       shouldDrawSelectionMarquee({ pointerType: 'mouse', button: 2 }),
     ).toBe(false);
+  });
+});
+
+describe('reaching the canvas through a widget control', () => {
+  let handoff: TouchPanHandoff;
+  beforeEach(() => {
+    handoff = new TouchPanHandoff();
+    handoff.start(100, 100);
+  });
+
+  it('leaves a press with the control it landed on', () => {
+    expect(handoff.move(100 + TOUCH_DRAG_SLOP_PX, 100)).toBeUndefined();
+    expect(handoff.hasPanned).toBe(false);
+  });
+
+  // the finger has already travelled that far - reporting only the last step
+  // would leave the canvas lagging behind it by the whole slop distance
+  it('hands over the full distance travelled on the move that commits', () => {
+    const delta = handoff.move(100 + TOUCH_DRAG_SLOP_PX + 5, 100);
+    expect(delta).toEqual({ dx: TOUCH_DRAG_SLOP_PX + 5, dy: 0 });
+    expect(handoff.hasPanned).toBe(true);
+  });
+
+  // the caller applies each delta to a viewport that is moving under the
+  // finger, so anything measured from the original press would double-count
+  it('reports each later move as a step, not as a total', () => {
+    handoff.move(200, 100);
+    expect(handoff.move(210, 130)).toEqual({ dx: 10, dy: 30 });
+    expect(handoff.move(205, 130)).toEqual({ dx: -5, dy: 0 });
+  });
+
+  it('keeps panning once committed, even back inside the slop', () => {
+    handoff.move(200, 200);
+    expect(handoff.move(100, 100)).toEqual({ dx: -100, dy: -100 });
+    expect(handoff.hasPanned).toBe(true);
+  });
+
+  it('reports nothing after the gesture ends', () => {
+    handoff.end();
+    expect(handoff.move(500, 500)).toBeUndefined();
   });
 });

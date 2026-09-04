@@ -37,7 +37,9 @@ import {
   getCanvasWidgetPointerEvents,
   shouldCanvasContainerBeInteractive,
   shouldNodeStayInteractionEnabled,
+  WIDGET_DRAG_CONTROL_ATTRIBUTE,
 } from '../utils/nodeInteractivity';
+import { TouchPanHandoff } from '../utils/touchGestures';
 import { DeferredReactTypeInterface } from '../nodes/datatypes/deferredHtmlType';
 import { uniqueId } from 'lodash';
 const backgroundColor = TRgba.fromString(COLOR_WHITE);
@@ -121,6 +123,102 @@ function blockDisabledCanvasInteraction(
   }
 }
 
+/**
+ * Lets a finger reach the canvas through a widget's controls.
+ *
+ * A widget's controls are the only part of IT that takes pointer events on the
+ * canvas - the rest is `pointer-events: none` so a press falls through to PIXI
+ * and drags the node. With a mouse that is fine, because the pointer is
+ * precise enough to aim between the controls. With a finger the controls are
+ * dead spots you cannot pan from, and on a tablet they are much of what is on
+ * screen.
+ *
+ * So the control keeps the gesture until the finger travels, and the canvas
+ * takes it after that. The viewport is moved directly rather than through
+ * pixi-viewport's drag plugin, which never saw the press: the press landed on
+ * an HTML element above the canvas, so PIXI was never told about it. The cost
+ * of that shortcut is no deceleration on release, which a pan that started on
+ * a button was never going to have anyway.
+ */
+function startCanvasTouchPan(
+  event: React.PointerEvent,
+  node: HybridNode2,
+): void {
+  if (event.pointerType !== 'touch' || !event.isPrimary) {
+    return;
+  }
+  // Only widgets. A non-widget hybrid takes pointer events across its WHOLE
+  // content, and only once the user has deliberately put it into interaction
+  // mode - inside a text or code editor a drag is a scroll or a selection, and
+  // the user has already said which of the two they wanted.
+  if (!node.isWidget()) {
+    return;
+  }
+  // a slider's drag IS its value - taking that away would leave it unusable
+  const target = event.target as Element | null;
+  if (target?.closest?.(`[${WIDGET_DRAG_CONTROL_ATTRIBUTE}]`)) {
+    return;
+  }
+
+  const viewport = PPGraph.currentGraph?.viewport;
+  if (!viewport) {
+    return;
+  }
+  const { pointerId } = event;
+  const handoff = new TouchPanHandoff();
+  handoff.start(event.clientX, event.clientY);
+
+  // The control fires on the CLICK that follows the release, so once the canvas
+  // has taken the gesture that click has to be swallowed - otherwise a pan that
+  // happened to end back over the button also presses it.
+  //
+  // Disarmed on the next pointerdown rather than on a timer: a click always
+  // arrives before the next press, so this is exact, where a timer would be
+  // betting on the browser dispatching click in the same task as pointerup.
+  const disarmSwallow = (): void => {
+    window.removeEventListener('click', swallowClick, true);
+    window.removeEventListener('pointerdown', disarmSwallow, true);
+  };
+  const swallowClick = (clickEvent: MouseEvent): void => {
+    clickEvent.preventDefault();
+    clickEvent.stopPropagation();
+    disarmSwallow();
+  };
+
+  const onMove = (moveEvent: PointerEvent): void => {
+    if (moveEvent.pointerId !== pointerId) {
+      return;
+    }
+    const delta = handoff.move(moveEvent.clientX, moveEvent.clientY);
+    if (!delta) {
+      return;
+    }
+    viewport.x += delta.dx;
+    viewport.y += delta.dy;
+    // what pixi-viewport's own drag emits - it is what repositions the HTML
+    // overlays and the background tiles
+    viewport.emit('moved', { viewport, type: 'drag' });
+  };
+
+  const onEnd = (endEvent: PointerEvent): void => {
+    if (endEvent.pointerId !== pointerId) {
+      return;
+    }
+    window.removeEventListener('pointermove', onMove);
+    window.removeEventListener('pointerup', onEnd, true);
+    window.removeEventListener('pointercancel', onEnd, true);
+    if (handoff.hasPanned) {
+      window.addEventListener('click', swallowClick, { capture: true });
+      window.addEventListener('pointerdown', disarmSwallow, true);
+    }
+    handoff.end();
+  };
+
+  window.addEventListener('pointermove', onMove);
+  window.addEventListener('pointerup', onEnd, true);
+  window.addEventListener('pointercancel', onEnd, true);
+}
+
 function CanvasHybridNodeContent<T extends HybridNode2>(
   props: CanvasHybridNodeContentProps<T>,
 ): React.ReactElement {
@@ -134,6 +232,7 @@ function CanvasHybridNodeContent<T extends HybridNode2>(
         }}
         onPointerDownCapture={(event) => {
           blockDisabledCanvasInteraction(props.node, event);
+          startCanvasTouchPan(event, props.node);
         }}
         onClickCapture={(event) => {
           blockDisabledCanvasInteraction(props.node, event);

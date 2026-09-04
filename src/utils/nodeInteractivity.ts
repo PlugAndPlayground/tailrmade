@@ -76,15 +76,43 @@ export function shouldAutoFocusWidgetContent(
 }
 
 export const WIDGET_CONTROL_ATTRIBUTE = 'data-widget-control';
+
+// A control whose DRAG is its whole point - the slider. Everything else marked
+// as a control wants a tap, so on the canvas a travelling finger is far more
+// likely to have meant "pan" than "press", and is handed to the canvas
+// instead (see startCanvasTouchPan). A drag control has to keep it.
+export const WIDGET_DRAG_CONTROL_ATTRIBUTE = 'data-widget-drag-control';
+
 const NOT_DISABLED = ':not(.Mui-disabled):not([disabled])';
 export function getWidgetControlProps(disabled = false) {
   return disabled ? {} : { [WIDGET_CONTROL_ATTRIBUTE]: true as const };
+}
+
+export function getWidgetDragControlProps(disabled = false) {
+  return disabled
+    ? {}
+    : {
+        [WIDGET_CONTROL_ATTRIBUTE]: true as const,
+        [WIDGET_DRAG_CONTROL_ATTRIBUTE]: true as const,
+      };
 }
 
 export function getCanvasGrabThroughSx() {
   return {
     [`& [${WIDGET_CONTROL_ATTRIBUTE}]${NOT_DISABLED}`]: {
       pointerEvents: 'auto',
+      // The canvas itself is `touch-action: none` (PIXI sets it), but these
+      // controls are HTML on top of it and are not. Without this the browser
+      // treats a drag that starts on one as a scroll of the nearest scrollable
+      // ancestor - the hybrid container is `overflow: auto` - so the widget's
+      // own content slides around inside its node and neither the control nor
+      // the canvas ever sees the gesture.
+      touchAction: 'none',
+      // and iOS answers a long press on HTML with its selection callout, which
+      // would land on top of the node's own long-press context menu
+      WebkitTouchCallout: 'none',
+      WebkitUserSelect: 'none',
+      userSelect: 'none',
     },
   };
 }
