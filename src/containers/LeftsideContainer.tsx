@@ -200,10 +200,7 @@ export const LeftsideContainer = (props: { activeView: LeftDrawerView }) => {
         spacing={1}
         sx={{
           fontFamily: "'Roboto', 'Helvetica', 'Arial', 'sans-serif'",
-          // see the note in RightSideContainer - the panel is only entitled to
-          // the window's height as a docked column, and as a sheet it is not one
-          height: '100%',
-          minHeight: 0,
+          height: '100dvh',
           // the rail is a sibling column of the shell now, so it no longer
           // needs to be cleared out of the way here
           padding: 0,
@@ -490,11 +487,7 @@ const GraphsContent = () => {
           bgcolor: 'background.default',
           position: 'relative',
           overflow: 'auto',
-          // the 176px of chrome above it is only knowable by measuring the
-          // window, which is the wrong thing to measure - take whatever is
-          // left of the panel instead
-          flex: 1,
-          minHeight: 0,
+          maxHeight: 'calc(100dvh - 176px)',
           paddingLeft: '8px !important',
         }}
       >
