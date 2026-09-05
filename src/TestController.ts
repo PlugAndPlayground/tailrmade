@@ -16,6 +16,10 @@ import {
 } from './classes/Action';
 import type { ActionSource } from './classes/Action';
 import NodeHeaderClass from './classes/NodeHeaderClass';
+import {
+  COMMENT_BADGE_NAME,
+  STATUS_BADGE_NAME,
+} from './classes/NodeStatusBadges';
 import FlowLogic from './classes/FlowLogic';
 import { BackendGateway } from './services/BackendGateway';
 import { DASHBOARD_DEFAULT, LeftDrawerView } from './utils/constants';
@@ -230,6 +234,23 @@ export default class TestController {
 
     const pos = header.screenPointButtonCenter(buttonName);
     if (!pos) return null;
+    return [pos.x, pos.y];
+  }
+
+  getStatusBadgeCenter(
+    nodeID: string,
+    kind: 'status' | 'comment',
+  ): [number, number] | null {
+    const node = this.getNodeByID(nodeID);
+    if (!node) return null;
+
+    const badge = findChildByName(
+      node,
+      kind === 'status' ? STATUS_BADGE_NAME : COMMENT_BADGE_NAME,
+    );
+    if (!badge) return null;
+
+    const pos = badge.getGlobalPosition();
     return [pos.x, pos.y];
   }
 

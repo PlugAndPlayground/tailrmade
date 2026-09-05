@@ -15,6 +15,8 @@ const STATUS_BADGE_RADIUS = 12;
 const STATUS_BADGE_HIT_PADDING = 3;
 const STATUS_BADGE_GAP = 4;
 export const STATUS_BADGE_CONTAINER_NAME = 'statusBadge';
+export const STATUS_BADGE_NAME = 'statusBadgeIcon';
+export const COMMENT_BADGE_NAME = 'commentBadgeIcon';
 
 export interface StatusBadgeHost {
   id: TNodeId;
@@ -97,6 +99,7 @@ export class NodeStatusBadges {
       sprite.anchor.set(0.5);
       sprite.tint = worst.getColor().hexNumber();
       badge.addChild(sprite);
+      badge.name = STATUS_BADGE_NAME;
       badge.x = offsetX;
       badge.y = 0;
       badge.eventMode = 'static';
@@ -112,6 +115,7 @@ export class NodeStatusBadges {
       bubble.width = radius * 2;
       bubble.height = radius * 2;
       bubble.anchor.set(0.5);
+      bubble.name = COMMENT_BADGE_NAME;
       bubble.tint = DARK_HEX;
       bubble.x = offsetX;
       bubble.y = 0;
