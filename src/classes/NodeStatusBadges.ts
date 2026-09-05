@@ -68,19 +68,8 @@ export class NodeStatusBadges {
       return;
     }
 
-    const radius = STATUS_BADGE_RADIUS;
     let offsetX = 0;
     this.container.eventMode = 'passive';
-
-    const openPopover =
-      (kind: 'status' | 'comment') => (event: PIXI.FederatedPointerEvent) => {
-        // otherwise the node begins a drag and the popover never opens
-        event.stopPropagation();
-        InterfaceController.notifyListeners(
-          ListenEvent.NodeDetailPopoverRequested,
-          { nodeId: this.host.id, kind, x: event.global.x, y: event.global.y },
-        );
-      };
 
     const icon = worst
       ? getStatusIconTexture(
@@ -92,41 +81,67 @@ export class NodeStatusBadges {
       : undefined;
 
     if (worst && icon) {
-      const badge = new PIXI.Container();
-      const sprite = new PIXI.Sprite(icon);
-      sprite.width = radius * 2;
-      sprite.height = radius * 2;
-      sprite.anchor.set(0.5);
-      sprite.tint = worst.getColor().hexNumber();
-      badge.addChild(sprite);
-      badge.name = STATUS_BADGE_NAME;
-      badge.x = offsetX;
-      badge.y = 0;
-      badge.eventMode = 'static';
-      badge.cursor = 'pointer';
-      badge.hitArea = new PIXI.Circle(0, 0, radius + STATUS_BADGE_HIT_PADDING);
-      badge.on('pointerdown', openPopover('status'));
-      this.container.addChild(badge);
-      offsetX += radius * 2 + STATUS_BADGE_GAP;
+      this.addBadge({
+        texture: icon,
+        name: STATUS_BADGE_NAME,
+        kind: 'status',
+        tint: worst.getColor().hexNumber(),
+        offsetX,
+      });
+      offsetX += STATUS_BADGE_RADIUS * 2 + STATUS_BADGE_GAP;
     }
 
     if (commentIcon) {
-      const bubble = new PIXI.Sprite(commentIcon);
-      bubble.width = radius * 2;
-      bubble.height = radius * 2;
-      bubble.anchor.set(0.5);
-      bubble.name = COMMENT_BADGE_NAME;
-      bubble.tint = DARK_HEX;
-      bubble.x = offsetX;
-      bubble.y = 0;
-      bubble.eventMode = 'static';
-      bubble.cursor = 'pointer';
-      bubble.hitArea = new PIXI.Circle(0, 0, radius + STATUS_BADGE_HIT_PADDING);
-      bubble.on('pointerdown', openPopover('comment'));
-      this.container.addChild(bubble);
+      this.addBadge({
+        texture: commentIcon,
+        name: COMMENT_BADGE_NAME,
+        kind: 'comment',
+        tint: DARK_HEX,
+        offsetX,
+      });
     }
 
     this.applyTransform();
+  }
+
+  private addBadge({
+    texture,
+    name,
+    kind,
+    tint,
+    offsetX,
+  }: {
+    texture: PIXI.Texture;
+    name: string;
+    kind: 'status' | 'comment';
+    tint: number;
+    offsetX: number;
+  }): void {
+    const radius = STATUS_BADGE_RADIUS;
+    const badge = new PIXI.Sprite(texture);
+    badge.width = radius * 2;
+    badge.height = radius * 2;
+    badge.anchor.set(0.5);
+    badge.name = name;
+    badge.tint = tint;
+    badge.x = offsetX;
+    badge.y = 0;
+    badge.eventMode = 'static';
+    badge.cursor = 'pointer';
+    badge.hitArea = new PIXI.Circle(0, 0, radius + STATUS_BADGE_HIT_PADDING);
+    badge.on('pointerdown', (event: PIXI.FederatedPointerEvent) => {
+      event.stopPropagation();
+      InterfaceController.notifyListeners(
+        ListenEvent.NodeDetailPopoverRequested,
+        {
+          nodeId: this.host.id,
+          kind,
+          x: event.global.x,
+          y: event.global.y,
+        },
+      );
+    });
+    this.container.addChild(badge);
   }
 
   applyTransform(): void {
