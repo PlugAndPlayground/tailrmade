@@ -4,13 +4,12 @@ import {
   Box,
   ClickAwayListener,
   Divider,
-  IconButton,
   Paper,
   ThemeProvider,
 } from '@mui/material';
-import CloseIcon from '@mui/icons-material/Close';
 import PPGraph from '../classes/GraphClass';
-import PPNode, { STATUS_BADGE_CONTAINER_NAME } from '../classes/NodeClass';
+import PPNode from '../classes/NodeClass';
+import { STATUS_BADGE_CONTAINER_NAME } from '../classes/NodeStatusBadges';
 import InterfaceController, { ListenEvent } from '../InterfaceController';
 import { customTheme } from '../utils/constants';
 import { getObjectAtPoint } from '../utils/utils';
@@ -30,11 +29,6 @@ const eventPoint = (event: any): PIXI.Point | undefined => {
     : undefined;
 };
 
-// A badge opens this popover from the canvas, and the same press reaches the
-// click away listener straight after - closing what the badge just opened. That
-// is what made moving from one badge to another take two clicks: the first one
-// opened the second badge's message and immediately closed it again. Clicks on
-// a badge are left to the badge, which toggles; everything else closes.
 const isOnStatusBadge = (event: any): boolean => {
   const point = eventPoint(event);
   if (!point || !PPGraph.currentGraph) {
@@ -59,20 +53,6 @@ type PopoverState = {
   y: number;
 };
 
-/**
- * A node's warnings and errors, or its comment, on the html layer.
- *
- * There is exactly one of these for the whole app, mounted once and hidden when
- * nothing is open - the cost does not grow with the number of nodes carrying
- * something to say, which is what a per node html overlay would have done. The
- * canvas only ever draws the bounded badge that opens this.
- *
- * It is pinned where it opened rather than tracking the node: text that moves
- * while the viewport pans cannot be selected, and selecting the text is the
- * entire point of moving it off the canvas. It is also the reason the comment
- * no longer draws as a pixi bubble - that text scaled away as you zoomed out,
- * sat under any hybrid node it overlapped, and could not be copied.
- */
 export const NodeDetailPopover: React.FC = () => {
   const [state, setState] = useState<PopoverState | undefined>(undefined);
 
@@ -104,8 +84,6 @@ export const NodeDetailPopover: React.FC = () => {
       ),
     );
 
-    // a status that clears while its message is on screen should not leave a
-    // stale message behind
     ids.push(
       InterfaceController.addListener(ListenEvent.NodeStatusChanged, (data) => {
         setState((current) => {
@@ -123,7 +101,6 @@ export const NodeDetailPopover: React.FC = () => {
       }),
     );
 
-    // the node itself can go away underneath the popover
     ids.push(
       InterfaceController.addListener(ListenEvent.GraphChanged, () => close()),
     );
@@ -176,7 +153,6 @@ export const NodeDetailPopover: React.FC = () => {
             p: 1,
             borderRadius: 1,
             boxShadow: '0 2px 12px rgba(0, 0, 0, 0.45)',
-            // kept on screen whichever corner of the canvas the node sits in
             left: Math.max(
               MARGIN,
               Math.min(
@@ -213,7 +189,7 @@ export const NodeDetailPopover: React.FC = () => {
                 ? `Comment on ${state.node.nodeName}`
                 : state.node.nodeName}
             </Box>
-            {(statuses.length > 1) && (
+            {statuses.length > 1 && (
               <CopyStatusButton
                 text={copyText}
                 title={
@@ -232,8 +208,6 @@ export const NodeDetailPopover: React.FC = () => {
                 px: 0.5,
                 py: 0.5,
                 fontSize: '13px',
-                // the comment is the whole point of this popover - it has to be
-                // selectable, and its newlines have to survive
                 userSelect: 'text',
                 cursor: 'text',
                 whiteSpace: 'pre-wrap',

@@ -2,28 +2,49 @@ import React, { useState } from 'react';
 import { Box, IconButton, Tooltip } from '@mui/material';
 import CheckIcon from '@mui/icons-material/Check';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
-import ErrorIcon from '@mui/icons-material/Error';
-// the filled circle and triangle, matching Icon_Error.svg / Icon_Warning.svg
-// drawn on the canvas - the list should teach the same two silhouettes
-import WarningIcon from '@mui/icons-material/Warning';
 import { PNPStatus } from '../classes/ErrorClass';
-import { STATUS_SEVERITY } from '../utils/constants';
+import {
+  STATUS_ERROR_ICON_TEXTURE,
+  STATUS_SEVERITY,
+  STATUS_WARNING_ICON_TEXTURE,
+} from '../utils/constants';
 import { writeTextToClipboard } from '../utils/utils';
 
 export const isError = (status: PNPStatus): boolean =>
   status.getSeverity() >= STATUS_SEVERITY.ERROR;
 
-// Severity as a shape, not only a colour - the error red, the warning orange
-// and the comment yellow are not separable to a red-green colourblind eye.
+const ICON_SIZE = {
+  inherit: '1em',
+  small: '20px',
+  medium: '24px',
+} as const;
+
 export const StatusSeverityIcon: React.FC<{
   status: PNPStatus;
   fontSize?: 'inherit' | 'small' | 'medium';
-}> = ({ status, fontSize = 'small' }) => {
-  const sx = { color: status.getColor().hex(), verticalAlign: 'middle' };
-  return isError(status) ? (
-    <ErrorIcon fontSize={fontSize} sx={sx} />
-  ) : (
-    <WarningIcon fontSize={fontSize} sx={sx} />
+  color?: string;
+}> = ({ status, fontSize = 'small', color }) => {
+  const source = isError(status)
+    ? STATUS_ERROR_ICON_TEXTURE
+    : STATUS_WARNING_ICON_TEXTURE;
+  const size = ICON_SIZE[fontSize];
+  const mask = `url(${source}) no-repeat center / contain`;
+  return (
+    <Box
+      component="span"
+      role="img"
+      aria-label={isError(status) ? 'Error' : 'Warning'}
+      sx={{
+        display: 'inline-block',
+        verticalAlign: 'middle',
+        flexShrink: 0,
+        width: size,
+        height: size,
+        bgcolor: color ?? status.getColor().hex(),
+        mask,
+        WebkitMask: mask,
+      }}
+    />
   );
 };
 
@@ -39,8 +60,6 @@ export const CopyStatusButton: React.FC<{ text: string; title?: string }> = ({
         size="small"
         data-cy="status-copy-button"
         onClick={(event) => {
-          // the row underneath is a click target of its own (it jumps the
-          // canvas to the node), and copying should not also move the view
           event.stopPropagation();
           writeTextToClipboard(text);
           setCopied(true);
@@ -59,16 +78,9 @@ export const CopyStatusButton: React.FC<{ text: string; title?: string }> = ({
 
 type StatusDetailProps = {
   status: PNPStatus;
-  // the node list already names the node in the row above, the popover does not
   showName?: boolean;
 };
 
-/**
- * One warning or error, rendered so it can actually be dealt with: the message
- * is real selectable text rather than a canvas texture or a `title` attribute,
- * and it comes with a copy button so it can be pasted into a search. Shared by
- * the node list rows and the canvas status popover so the two cannot drift.
- */
 export const StatusDetail: React.FC<StatusDetailProps> = ({
   status,
   showName = true,

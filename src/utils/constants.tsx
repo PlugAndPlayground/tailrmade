@@ -273,6 +273,9 @@ export const NODE_HEADER_TEXTMARGIN_TOP = 4;
 export const NODE_WIDTH = 160;
 export const NODE_CORNERRADIUS = 8;
 
+export const ERROR_BOUNDARY_SCREEN_OFFSET = 3;
+export const ERROR_BOUNDARY_SCREEN_WIDTH = 3;
+
 export const SMALL_NODE_WIDTH = 115;
 
 export const CONTEXTMENU_WIDTH = 288;

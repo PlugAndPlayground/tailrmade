@@ -81,6 +81,9 @@ const RightSideContainerInner: React.FC<RightSideContainerProps> = ({
     setGraphFilterText,
   ]);
 
+  const showsNodeList =
+    rightDrawerView === RightDrawerView.GRAPH && selectedNodes.length === 0;
+
   const appInspectorComponent = useMemo(() => {
     return (
       <Stack spacing={2}>
@@ -133,7 +136,20 @@ const RightSideContainerInner: React.FC<RightSideContainerProps> = ({
             data-cy="app-info-tab"
           />
         </Tabs>
-        <Box sx={{ flex: 1, overflow: 'auto', p: 2 }}>
+        {/* The node list's search field is sticky, and a padded scroll
+            container parks a sticky child below its padding - rows then
+            scroll visibly through the strip above the field. So that view
+            gets no top padding here and brings it along on the field
+            itself, where it is part of what the field covers. */}
+        <Box
+          sx={{
+            flex: 1,
+            overflow: 'auto',
+            px: 2,
+            pb: 2,
+            pt: showsNodeList ? 0 : 2,
+          }}
+        >
           {rightDrawerView === RightDrawerView.INTERFACE ? (
             interfaceInspectorComponent
           ) : rightDrawerView === RightDrawerView.GRAPH ? (

@@ -1,5 +1,6 @@
 import React, { memo, useCallback, useEffect, useMemo, useState } from 'react';
 import {
+  Autocomplete,
   Box,
   Collapse,
   IconButton,
@@ -10,7 +11,6 @@ import {
   TextField,
   Typography,
 } from '@mui/material';
-import ClearIcon from '@mui/icons-material/Clear';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import throttle from 'lodash/throttle';
 import PPGraph from './../classes/GraphClass';
@@ -25,48 +25,39 @@ import {
 } from './../utils/constants';
 import { TRgba } from './../utils/color';
 import { StatusDetail } from '../components/StatusDetail';
+import { TagChip } from '../components/TagChip';
 
-// A tag filter is carried inside the search text as "tag:<name>" rather than
-// as its own piece of state. It costs nothing to thread through the drawer, it
-// survives the remount when a node is selected and deselected (the search text
-// is lifted for exactly that reason), it is visible to the user, and the
-// search field's existing clear button already turns it off.
-export const TAG_FILTER_PREFIX = 'tag:';
+const TAG_FILTER_PREFIX = 'tag:';
 
-export const buildTagFilter = (tag: string): string =>
+const buildTagFilter = (tag: string): string =>
   `${TAG_FILTER_PREFIX}${tag}`;
 
-// The tag being filtered on, or undefined when the text is an ordinary search.
-export const getActiveTag = (filterText: string): string | undefined => {
-  const trimmed = (filterText ?? '').trim();
-  if (!trimmed.toLowerCase().startsWith(TAG_FILTER_PREFIX)) {
-    return undefined;
+type ParsedFilter = { tags: string[]; text: string };
+
+const parseFilterText = (filterText: string): ParsedFilter => {
+  let rest = filterText ?? '';
+  const tags: string[] = [];
+  let token = /^\s*tag:(\S+)(\s|$)/i.exec(rest);
+  while (token) {
+    tags.push(token[1]);
+    rest = rest.slice(token[0].length);
+    token = /^\s*tag:(\S+)(\s|$)/i.exec(rest);
   }
-  const tag = trimmed.slice(TAG_FILTER_PREFIX.length).trim();
-  return tag || undefined;
+  return { tags, text: rest };
 };
 
-// How far the row's background is pulled toward the severity colour. Enough to
-// pick a row out while scanning the list, not enough to fight the node colour
-// on the left edge or hurt the contrast of the text sitting on it.
+export const buildFilterText = (tags: string[], text: string): string =>
+  tags.map((tag) => `${buildTagFilter(tag)} `).join('') + text;
+
 const ROW_SEVERITY_TINT = 0.08;
-
 const ROW_BACKGROUND = TRgba.fromString(MAIN_COLOR).darken(0.6);
-
-// Severity is expressed as a tag rather than as its own filter row, so
-// "show me the broken ones" goes through exactly the same mechanism as any
-// other tag - which is what let the All/Errors/Warnings toggle group go away.
-export const STATUS_TAG = {
+const STATUS_TAG = {
   ERROR: 'Error',
   WARNING: 'Warning',
 } as const;
 
-type StatusTag = { label: string; color: string };
+type StatusTag = { label: string; color?: string };
 
-// Whether the problem sits on the node or on one of its sockets is not in the
-// tag: the border and badge already say a node needs attention, and the split
-// only matters once you are reading the message, where each status names its
-// own origin ("Socket Parsing Warning" against "Node Execution Error").
 const getStatusTags = (node: PPNode): StatusTag[] => {
   const statuses = node.getWarningsAndErrors();
   const tags: StatusTag[] = [];
@@ -77,8 +68,6 @@ const getStatusTags = (node: PPNode): StatusTag[] => {
   const warning = statuses.find(
     (status) => status.getSeverity() === STATUS_SEVERITY.WARNING,
   );
-  // both, when a node carries one of each: filtering by Warning should still
-  // find a node that also has an error
   if (error) {
     tags.push({ label: STATUS_TAG.ERROR, color: error.getColor().hex() });
   }
@@ -93,94 +82,60 @@ const getAllTagLabels = (node: PPNode): string[] =>
     .map((tag) => tag.label)
     .concat(node.getTags());
 
-const EmptyNodeState: React.FC<{ filterText: string }> = ({ filterText }) => (
-  <Box
-    sx={{
-      p: 2,
-      textAlign: 'center',
-      color: 'text.secondary',
-    }}
-  >
-    {getActiveTag(filterText) ? (
-      <Typography variant="body2">
-        No nodes tagged &quot;{getActiveTag(filterText)}&quot;
-      </Typography>
-    ) : filterText ? (
-      <Typography variant="body2">
-        No nodes found for &quot;{filterText}&quot;
-      </Typography>
-    ) : (
-      <Typography variant="body2">This graph has no nodes yet</Typography>
-    )}
-  </Box>
-);
+const getAvailableTags = (nodes: PPNode[]): StatusTag[] => {
+  const statusTags = new Map<string, StatusTag>();
+  const nodeTags = new Set<string>();
+  nodes.forEach((node) => {
+    getStatusTags(node).forEach((tag) => {
+      if (!statusTags.has(tag.label)) {
+        statusTags.set(tag.label, tag);
+      }
+    });
+    node.getTags().forEach((tag) => nodeTags.add(tag));
+  });
+  const severityTags = [STATUS_TAG.ERROR, STATUS_TAG.WARNING]
+    .map((label) => statusTags.get(label))
+    .filter((tag): tag is StatusTag => tag !== undefined);
+  return [
+    ...severityTags,
+    ...[...nodeTags].sort().map((label) => ({ label, color: undefined })),
+  ];
+};
 
-// Every tag in the row is one of these - severity tags and the node's own tags
-// alike - so they look and behave the same and a single click filters by any
-// of them.
-const TagChip = (props: {
-  label: string;
-  color?: string;
-  isActive: boolean;
-  onClick: (label: string) => void;
-}) => {
-  const background = props.color ?? 'rgba(255,255,255,0.2)';
+const EmptyNodeState: React.FC<{ filter: ParsedFilter }> = ({ filter }) => {
+  const tagged = filter.tags.length
+    ? `tagged ${filter.tags.map((tag) => `"${tag}"`).join(' + ')}`
+    : '';
+  const searched = filter.text.trim() ? `matching "${filter.text.trim()}"` : '';
   return (
     <Box
-      component="button"
-      type="button"
-      title={
-        props.isActive
-          ? `Stop filtering by "${props.label}"`
-          : `Show only nodes tagged "${props.label}"`
-      }
-      data-cy={`node-tag-${props.label}`}
-      onClick={(event: React.MouseEvent<HTMLButtonElement>) => {
-        // the row itself jumps the canvas to the node
-        event.stopPropagation();
-        props.onClick(props.label);
-      }}
       sx={{
-        font: 'inherit',
-        fontSize: '12px',
-        fontWeight: 400,
-        color: props.color
-          ? TRgba.fromString(props.color).getContrastTextColor().hex()
-          : 'inherit',
-        border: 'none',
-        // was `cornerRadius`, which is not a css property and so never
-        // rounded anything
-        borderRadius: '4px',
-        background,
-        px: 0.5,
-        whiteSpace: 'nowrap',
-        cursor: 'pointer',
-        '.Mui-focused &': {
-          display: 'none',
-        },
-        // a severity chip is the point of the row, so it stays at full
-        // strength; a plain tag is quieter until you hover or select it
-        opacity: props.color || props.isActive ? 1 : 0.5,
-        outline: props.isActive ? '1px solid rgba(255,255,255,0.9)' : 'none',
-        '&:hover': {
-          opacity: 1,
-        },
+        p: 2,
+        textAlign: 'center',
+        color: 'text.secondary',
       }}
     >
-      {props.label}
+      <Typography variant="body2">
+        {tagged || searched
+          ? `No nodes ${[tagged, searched].filter(Boolean).join(' and ')}`
+          : 'This graph has no nodes yet'}
+      </Typography>
     </Box>
   );
 };
 
+const tagTitle = (label: string, selected: boolean) =>
+  selected
+    ? `Stop filtering by "${label}"`
+    : `Show only nodes tagged "${label}"`;
+
 type NodeItemProps = {
   property: PPNode;
-  // bumped whenever any node's status changes, so the memo below lets a row
-  // through - this replaced a 100ms poll running in every single row
   statusVersion: number;
   expanded: boolean;
   onToggleExpanded: (nodeId: string) => void;
-  activeTag: string | undefined;
-  onTagClick: (tag: string) => void;
+  selectedTags: string[];
+  onTagClick: (event: React.SyntheticEvent, tag: string) => void;
 };
 
 const NodeItem = memo(
@@ -188,14 +143,13 @@ const NodeItem = memo(
     const node = props.property;
     const statuses = node.getWarningsAndErrors();
     const statusTags = getStatusTags(node);
-    // getWarningsAndErrors is sorted worst first, so an error wins over a
-    // warning on a node carrying both - the same colour the badge and the
-    // canvas border are already using for it
     const rowBackground = statuses.length
       ? ROW_BACKGROUND.mix(statuses[0].getColor(), ROW_SEVERITY_TINT)
       : ROW_BACKGROUND;
-    const isActive = (label: string) =>
-      props.activeTag?.toLowerCase() === label.toLowerCase();
+    const isSelected = (label: string) =>
+      props.selectedTags.some(
+        (tag) => tag.toLowerCase() === label.toLowerCase(),
+      );
 
     return (
       <ListItem
@@ -276,11 +230,6 @@ ${(node as any)
               >
                 {node.name}
               </Box>
-              {/* every tag sits here on the right, against the expand
-                  button, rather than trailing the node name. Three groups
-                  rather than one flat row: the node's own tags, then the
-                  severity tags set apart from them, then the chevron pulled
-                  in tight against whatever it will expand. */}
               <Box
                 sx={{ display: 'flex', alignItems: 'center', flexShrink: 0 }}
               >
@@ -289,8 +238,10 @@ ${(node as any)
                     <TagChip
                       key={`${part}-${index}`}
                       label={part}
-                      isActive={isActive(part)}
+                      selected={isSelected(part)}
                       onClick={props.onTagClick}
+                      title={tagTitle(part, isSelected(part))}
+                      data-cy={`node-tag-${part}`}
                     />
                   ))}
                 </Box>
@@ -298,8 +249,6 @@ ${(node as any)
                   sx={{
                     display: 'flex',
                     gap: '2px',
-                    // set apart from the node's own tags: these two read as a
-                    // different kind of thing and should not run together
                     ml: statusTags.length && node.getTags().length ? '10px' : 0,
                   }}
                 >
@@ -308,8 +257,10 @@ ${(node as any)
                       key={tag.label}
                       label={tag.label}
                       color={tag.color}
-                      isActive={isActive(tag.label)}
+                      selected={isSelected(tag.label)}
                       onClick={props.onTagClick}
+                      title={tagTitle(tag.label, isSelected(tag.label))}
+                      data-cy={`node-tag-${tag.label}`}
                     />
                   ))}
                 </Box>
@@ -325,8 +276,6 @@ ${(node as any)
                       props.onToggleExpanded(node.id);
                     }}
                     sx={{
-                      // MUI's own small size pads 5px all round, and the round
-                      // hover target reads as distance from the chip beside it
                       p: '2px',
                       ml: '1px',
                       fontSize: '18px',
@@ -381,24 +330,24 @@ ${(node as any)
       prevProps.property === nextProps.property &&
       prevProps.statusVersion === nextProps.statusVersion &&
       prevProps.expanded === nextProps.expanded &&
-      prevProps.activeTag === nextProps.activeTag
+      prevProps.selectedTags === nextProps.selectedTags
     );
   },
 );
 
 type NodesContentProps = {
   nodes: PPNode[];
-  filterText: string;
+  filter: ParsedFilter;
   statusVersion: number;
   expandedIds: Set<string>;
   onToggleExpanded: (nodeId: string) => void;
-  activeTag: string | undefined;
-  onTagClick: (tag: string) => void;
+  selectedTags: string[];
+  onTagClick: (event: React.SyntheticEvent, tag: string) => void;
 };
 
 const NodesContent: React.FC<NodesContentProps> = (props) => {
   if (!props.nodes.length) {
-    return <EmptyNodeState filterText={props.filterText} />;
+    return <EmptyNodeState filter={props.filter} />;
   }
   return (
     <List
@@ -406,7 +355,7 @@ const NodesContent: React.FC<NodesContentProps> = (props) => {
         width: '100%',
         bgcolor: 'background.paper',
         marginTop: 0,
-        padding: 0
+        padding: 0,
       }}
     >
       {props.nodes.map((property) => (
@@ -416,7 +365,7 @@ const NodesContent: React.FC<NodesContentProps> = (props) => {
           statusVersion={props.statusVersion}
           expanded={props.expandedIds.has(property.id)}
           onToggleExpanded={props.onToggleExpanded}
-          activeTag={props.activeTag}
+          selectedTags={props.selectedTags}
           onTagClick={props.onTagClick}
         />
       ))}
@@ -437,20 +386,36 @@ export const NodeArrayContainer: React.FunctionComponent<
   const [nodesInGraph, setNodesInGraph] = useState<PPNode[]>([]);
   const [statusVersion, setStatusVersion] = useState(0);
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+  const [isTagListOpen, setIsTagListOpen] = useState(false);
 
-  const handleFilterChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    props.setFilterText(event.target.value);
-  };
+  const filter = useMemo(
+    () => parseFilterText(props.filterText),
+    [props.filterText],
+  );
 
-  const activeTag = getActiveTag(props.filterText);
+  const setFilter = useCallback(
+    (tags: string[], text: string) => {
+      props.setFilterText(buildFilterText(tags, text));
+    },
+    [props.setFilterText],
+  );
 
   const onTagClick = useCallback(
-    (tag: string) => {
-      props.setFilterText((current) =>
-        getActiveTag(current)?.toLowerCase() === tag.toLowerCase()
-          ? ''
-          : buildTagFilter(tag),
-      );
+    (event: React.SyntheticEvent, tag: string) => {
+      props.setFilterText((current) => {
+        const parsed = parseFilterText(current);
+        const isSelected = parsed.tags.some(
+          (selected) => selected.toLowerCase() === tag.toLowerCase(),
+        );
+        return buildFilterText(
+          isSelected
+            ? parsed.tags.filter(
+                (selected) => selected.toLowerCase() !== tag.toLowerCase(),
+              )
+            : [...parsed.tags, tag],
+          parsed.text,
+        );
+      });
     },
     [props.setFilterText],
   );
@@ -472,19 +437,17 @@ export const NodeArrayContainer: React.FunctionComponent<
     }
   }, []);
 
-  // Searches the status messages as well as the node's identity, so a node can
-  // be found by the error it is reporting - "CORS", "404" - which is usually
-  // all one remembers of it.
-  const customFilter = (item: PPNode, filterText: string) => {
-    const tag = getActiveTag(filterText);
-    if (tag) {
-      // an exact match, unlike the free text search below: clicking a tag
-      // should mean that tag, not every tag containing those letters
-      return getAllTagLabels(item).some(
-        (candidate) => candidate.toLowerCase() === tag.toLowerCase(),
+  const customFilter = (item: PPNode, parsed: ParsedFilter) => {
+    if (parsed.tags.length) {
+      const labels = getAllTagLabels(item).map((label) => label.toLowerCase());
+      const matchesTags = parsed.tags.every((tag) =>
+        labels.includes(tag.toLowerCase()),
       );
+      if (!matchesTags) {
+        return false;
+      }
     }
-    const filter = filterText.toLowerCase();
+    const filter = parsed.text.trim().toLowerCase();
     if (!filter) {
       return true;
     }
@@ -510,17 +473,51 @@ export const NodeArrayContainer: React.FunctionComponent<
     return order;
   };
 
-  // statusVersion is a real dependency: severity drives both the filter and
-  // the sort, so the list has to be rebuilt when a status changes
   const filteredNodes = useMemo(() => {
     return nodesInGraph
-      .filter((node) => customFilter(node, props.filterText))
+      .filter((node) => customFilter(node, filter))
       .sort(customSort);
-  }, [nodesInGraph, props.filterText, statusVersion]);
+  }, [nodesInGraph, filter, statusVersion]);
+
+  const availableTags = useMemo(
+    () => getAvailableTags(nodesInGraph),
+    [nodesInGraph, statusVersion],
+  );
+
+  const tagColors = useMemo(
+    () =>
+      Object.fromEntries(availableTags.map((tag) => [tag.label, tag.color])),
+    [availableTags],
+  );
+
+  const tagOptions = useMemo(
+    () => [
+      ...availableTags.map((tag) => tag.label),
+      ...filter.tags.filter(
+        (tag) =>
+          !availableTags.some(
+            (available) => available.label.toLowerCase() === tag.toLowerCase(),
+          ),
+      ),
+    ],
+    [availableTags, filter.tags],
+  );
+
+  const matchingTagOptions = useMemo(() => {
+    const text = filter.text.trim().toLowerCase();
+    if (!text) {
+      return [];
+    }
+    return tagOptions.filter(
+      (label) =>
+        label.toLowerCase().startsWith(text) &&
+        !filter.tags.some(
+          (selected) => selected.toLowerCase() === label.toLowerCase(),
+        ),
+    );
+  }, [tagOptions, filter]);
 
   useEffect(() => {
-    // One listener for the whole list rather than a timer per row. Throttled
-    // because a node that re-executes on a tick pushes a status every time.
     const bumpVersion = throttle(() => setStatusVersion((v) => v + 1), 200, {
       leading: true,
       trailing: true,
@@ -557,56 +554,119 @@ export const NodeArrayContainer: React.FunctionComponent<
     <Stack spacing={0.25}>
       <Box
         sx={{
-          // the search used to scroll away with the list, so filtering a long
-          // graph meant scrolling back up to change the term
           position: 'sticky',
           top: 0,
           zIndex: 2,
-          // the drawer's own colour, or the rows show through behind it
           bgcolor: `${getDrawerBackground()}`,
+          pt: 2,
           pb: 0.25,
         }}
       >
-        <TextField
-          hiddenLabel
-          placeholder={`Search nodes and messages`}
-          data-cy="inspector-node-search-input"
-          variant="filled"
+        <Autocomplete
+          multiple
           fullWidth
-          value={props.filterText}
-          onChange={handleFilterChange}
-          slotProps={{
-            input: {
-              disableUnderline: true,
-              endAdornment: props.filterText ? (
-                <IconButton
-                  size="small"
-                  onClick={() => props.setFilterText('')}
-                >
-                  <ClearIcon />
-                </IconButton>
-              ) : undefined,
-            },
+          options={tagOptions}
+          value={filter.tags}
+          inputValue={filter.text}
+          filterOptions={() => matchingTagOptions}
+          clearOnBlur={false}
+          forcePopupIcon={false}
+          open={isTagListOpen && matchingTagOptions.length > 0}
+          onOpen={() => setIsTagListOpen(true)}
+          onClose={() => setIsTagListOpen(false)}
+          onChange={(event, tags, reason) => {
+            if (reason === 'clear') {
+              props.setFilterText('');
+            } else if (reason === 'selectOption') {
+              setFilter(tags as string[], '');
+            } else {
+              setFilter(tags as string[], filter.text);
+            }
           }}
+          onInputChange={(event, value, reason) => {
+            if (reason === 'input') {
+              setFilter(filter.tags, value);
+            } else if (reason === 'clear') {
+              props.setFilterText('');
+            }
+          }}
+          isOptionEqualToValue={(option, value) =>
+            option.toLowerCase() === value.toLowerCase()
+          }
+          renderValue={(tags, getItemProps) =>
+            tags.map((tag, index) => {
+              const { key, ...itemProps } = getItemProps({ index });
+              return (
+                <TagChip
+                  {...itemProps}
+                  key={key}
+                  label={tag}
+                  color={tagColors[tag]}
+                  data-cy={`node-filter-tag-${tag}`}
+                />
+              );
+            })
+          }
+          renderOption={(optionProps, option) => {
+            const { key, ...restOfProps } = optionProps;
+            return (
+              <li key={key} {...restOfProps}>
+                <TagChip label={option} color={tagColors[option]} />
+              </li>
+            );
+          }}
+          renderInput={({ slotProps = {} as any, ...params }) => (
+            <TextField
+              {...params}
+              hiddenLabel
+              placeholder={
+                filter.tags.length ? '' : `Search nodes and messages`
+              }
+              data-cy="inspector-node-search-input"
+              variant="filled"
+              slotProps={{
+                ...slotProps,
+                input: {
+                  ...slotProps.input,
+                  disableUnderline: true,
+                },
+              }}
+              sx={{
+                fontSize: '16px',
+                opacity: 0.8,
+                bgcolor: 'background.paper',
+                '&&&& input': {
+                  paddingBottom: '8px',
+                  paddingTop: '9px',
+                  color: TRgba.fromString(MAIN_COLOR)
+                    .getContrastTextColor()
+                    .hex(),
+                },
+                '&& .MuiInputBase-root': {
+                  flexWrap: 'wrap',
+                  alignItems: 'center',
+                  rowGap: '4px',
+                },
+              }}
+            />
+          )}
           sx={{
-            fontSize: '16px',
-            opacity: 0.8,
-            bgcolor: 'background.paper',
-            '&&&& input': {
-              paddingBottom: '8px',
-              paddingTop: '9px',
-              color: TRgba.fromString(MAIN_COLOR).getContrastTextColor().hex(),
+            '& .MuiAutocomplete-tag': {
+              marginTop: 0,
+              marginBottom: 0,
+              marginLeft: 0,
+              marginRight: '4px',
             },
           }}
         />
       </Box>
       <NodesContent
         nodes={filteredNodes}
-        filterText={props.filterText}
+        filter={filter}
         statusVersion={statusVersion}
         expandedIds={expandedIds}
         onToggleExpanded={onToggleExpanded}
-        activeTag={activeTag}
+        selectedTags={filter.tags}
         onTagClick={onTagClick}
       />
     </Stack>

@@ -8,8 +8,8 @@ import LockIcon from '@mui/icons-material/Lock';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
-import WarningIcon from '@mui/icons-material/Warning';
 import DashboardCustomizeIcon from '@mui/icons-material/DashboardCustomize';
+import { StatusSeverityIcon } from './../components/StatusDetail';
 import InterfaceController, { ListenEvent } from './../InterfaceController';
 import {
   COLOR_WARNING,
@@ -365,12 +365,13 @@ const SocketHeader = React.memo(
               {referenceSocket.name}
             </Box>
             {props.hasError && (
-              <WarningIcon
-                sx={{
-                  fontSize: '16px',
-                  pl: 0.5,
-                }}
-              />
+              <Box sx={{ pl: 0.5, display: 'flex', fontSize: '16px' }}>
+                <StatusSeverityIcon
+                  status={referenceSocket.status}
+                  fontSize="inherit"
+                  color="currentColor"
+                />
+              </Box>
             )}
           </Box>
           <IconButton

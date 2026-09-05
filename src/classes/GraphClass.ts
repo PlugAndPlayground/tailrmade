@@ -531,10 +531,7 @@ export default class PPGraph {
   }
 
   // The error outline and the status badge are sized in screen pixels, so they
-  // have to be re-applied whenever the viewport scale changes. Driven off
-  // 'moved' rather than 'zoomed' because that also covers the programmatic
-  // paths (viewport.fit, viewport.animate) that zoom to fit uses; the cached
-  // scale makes it a no-op for a plain pan.
+  // have to be re-applied whenever the viewport scale changes.
   private lastZoomInvariantScale = 0;
 
   private refreshZoomInvariantNodeVisuals(): void {

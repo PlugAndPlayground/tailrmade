@@ -49,7 +49,12 @@ import {
   convertToViewableString,
   parseValueAndAttachWarnings,
 } from '../utils/utils';
-import { NodeExecutionWarning, PNPStatus, PNPSuccess } from './ErrorClass';
+import {
+  NodeExecutionWarning,
+  PNPStatus,
+  PNPSuccess,
+  SocketParsingWarning,
+} from './ErrorClass';
 import { PNPHitArea } from './selection/PNPHitArea';
 import { getOverflowForSize } from '../utils/layoutableHelpers';
 
@@ -248,29 +253,33 @@ export default class Socket
       this.addChild(this._ValueSpecificGraphics);
     }
   }
+  public getStatusLabel(): string {
+    return `${this.isInput() ? 'input' : 'output'}: ${this.name}`;
+  }
 
   public setStatus(status: PNPStatus) {
     const currentMessage = this.status.message;
     const newMessage = status.message;
     if (currentMessage !== newMessage) {
+      if (status instanceof SocketParsingWarning) {
+        status.setSocketLabel(this.getStatusLabel());
+      }
       this.status = status;
       if (this.getNode() !== undefined) {
         this.redraw();
         if (status.getSeverity() >= STATUS_SEVERITY.WARNING) {
           this.getNode().setStatus(
-            new NodeExecutionWarning(
-              `Parsing warning on ${this.isInput() ? 'input' : 'output'}: ${
-                this.name
-              }
+            status instanceof SocketParsingWarning
+              ? status
+              : new NodeExecutionWarning(
+                  `Parsing warning on ${this.getStatusLabel()}
   ${newMessage}`,
-            ),
+                ),
             'socket',
           );
         } else {
           this.getNode().adaptToSocketErrors();
         }
-        // the node's border reads socket statuses directly, so it has to be
-        // re-derived even when the aggregated node status came out unchanged
         this.getNode().drawErrorBoundary();
       }
     }
