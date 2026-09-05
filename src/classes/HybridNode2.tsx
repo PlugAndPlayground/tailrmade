@@ -171,11 +171,6 @@ export default abstract class HybridNode2 extends PPNode implements Layoutable {
     undefined;
   dashboardRenderFunctions: Record<string, any> = {}; // store all rendered instances by IDs so that we can tell all to re-render when we want to
 
-  // The html container covers all but a six pixel border of the node, so the
-  // status pills go underneath it and the badge sits just outside the top
-  // edge. The pill offset is absolute: it used to be written as
-  // `nodeHeight - _StatusesRef.y`, which subtracted the offset it had just
-  // set and so flipped between nodeHeight and 0 on alternate redraws.
   protected drawStatuses(): void {
     super.drawStatuses();
     this._StatusesRef.y = this.nodeHeight + 4 - this.getStatusesStartY();
