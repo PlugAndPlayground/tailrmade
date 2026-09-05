@@ -633,7 +633,6 @@ export const NodeArrayContainer: React.FunctionComponent<
               }}
               sx={{
                 fontSize: '16px',
-                opacity: 0.8,
                 bgcolor: 'background.paper',
                 '&&&& input': {
                   paddingBottom: '8px',
