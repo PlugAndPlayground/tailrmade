@@ -17,19 +17,20 @@ import PPStorage from '../PPStorage';
 const macroNameName = 'Macro';
 
 export class SerializableAction {
-  // undoArgs is handed to the action so it can record what the change
-  // displaced (see connectSockets) - the undo half gets the same object
-  action: (args: any, undoArgs?: any) => Promise<void>;
+  action: (args: any) => Promise<void>;
   undoAction: (any) => Promise<void>;
+  captureUndoArgs?: (args: any) => any | Promise<any>;
   name: string;
   constructor(
-    inAction: (args: any, undoArgs?: any) => Promise<void>,
+    inAction: (args: any) => Promise<void>,
     inUndoAction: (any) => Promise<void>,
     inName: string,
+    inCaptureUndoArgs?: (args: any) => any | Promise<any>,
   ) {
     this.action = inAction;
     this.undoAction = inUndoAction;
     this.name = inName;
+    this.captureUndoArgs = inCaptureUndoArgs;
   }
 }
 
@@ -210,11 +211,19 @@ export class ActionHandler {
     );
   }
 
+  private static async executeAction(action: BakedAction): Promise<void> {
+    const captureUndoArgs = action.serializableAction.captureUndoArgs;
+    if (captureUndoArgs !== undefined) {
+      action.undoArgs = await captureUndoArgs(action.args);
+    }
+    await action.serializableAction.action(action.args);
+  }
+
   // ONLY use this if its a UI only action, otherwise have to use PNPAction for action to be possible to synchronize over network
   static async performRawAction(action: BakedAction, doAction = true) {
     this.redoList = [];
     if (doAction) {
-      await action.serializableAction.action(action.args, action.undoArgs);
+      await this.executeAction(action);
     }
 
     // consecutive actions sharing a checksum within the merge window are
@@ -227,6 +236,8 @@ export class ActionHandler {
       Date.now() - lastAction.lastMergedTime <= ACTION_GROUP_WINDOW_MS
     ) {
       lastAction.serializableAction.action = action.serializableAction.action;
+      lastAction.serializableAction.captureUndoArgs =
+        action.serializableAction.captureUndoArgs;
       lastAction.args = action.args;
       lastAction.source = action.source;
       lastAction.lastMergedTime = Date.now();
@@ -274,10 +285,7 @@ export class ActionHandler {
       const message = 'Redo: ' + lastUndo.serializableAction.name;
       InterfaceController.showSpinner(message);
       try {
-        await lastUndo.serializableAction.action(
-          lastUndo.args,
-          lastUndo.undoArgs,
-        );
+        await this.executeAction(lastUndo);
         this.undoList.push(lastUndo);
         return true;
       } catch (error) {
@@ -398,9 +406,6 @@ export class ConnectSocketsActionArgs {
   sourceSocketName: string;
   targetNodeID: string;
   targetSocketName: string;
-  // filled in by the connect action when it displaced an existing link, so
-  // the undo can restore it instead of leaving the input empty
-  displacedLink?: DisplacedLink;
 
   constructor(
     sourceNodeID: string,
@@ -414,6 +419,12 @@ export class ConnectSocketsActionArgs {
     this.targetSocketName = targetSocketName;
   }
 }
+
+type ConnectSocketsUndoArgs = {
+  targetNodeID: string;
+  targetSocketName: string;
+  displacedLink?: DisplacedLink;
+};
 export class SetCommentActionArgs {
   nodeID: string;
   comment: string;
@@ -622,16 +633,7 @@ export class ACTIONS {
   }
 
   static connectSockets(): SerializableAction {
-    const action = async (
-      args: ConnectSocketsActionArgs,
-      undoArgs?: ConnectSocketsActionArgs,
-    ) => {
-      if (undoArgs !== undefined) {
-        undoArgs.displacedLink = PPGraph.currentGraph.getInputLinkSource(
-          args.targetNodeID,
-          args.targetSocketName,
-        );
-      }
+    const action = async (args: ConnectSocketsActionArgs) => {
       await PPGraph.currentGraph.linkConnect(
         args.sourceNodeID,
         args.sourceSocketName,
@@ -640,7 +642,17 @@ export class ACTIONS {
         true,
       );
     };
-    const undoAction = async (args: ConnectSocketsActionArgs) => {
+    const captureUndoArgs = (
+      args: ConnectSocketsActionArgs,
+    ): ConnectSocketsUndoArgs => ({
+      targetNodeID: args.targetNodeID,
+      targetSocketName: args.targetSocketName,
+      displacedLink: PPGraph.currentGraph.getInputLinkSource(
+        args.targetNodeID,
+        args.targetSocketName,
+      ),
+    });
+    const undoAction = async (args: ConnectSocketsUndoArgs) => {
       PPGraph.currentGraph.linkDisconnect(
         args.targetNodeID,
         args.targetSocketName,
@@ -656,6 +668,7 @@ export class ACTIONS {
     return {
       action,
       undoAction,
+      captureUndoArgs,
       name: 'Connect Sockets',
     };
   }

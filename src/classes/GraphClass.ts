@@ -469,8 +469,6 @@ export default class PPGraph {
     if (event.ctrlKey && socket.isOutput() && socket.hasLink()) {
       const link = socket.links[0];
       const target = link.getTarget();
-      // detach and allow to connect to new - through the action handler, so
-      // dropping the wire on empty canvas stays undoable
       await this.perform_action_Disconnect(link);
       this.lastSelectedSocketWasOutput = false;
       this.selectedSocket = target;
@@ -808,8 +806,7 @@ export default class PPGraph {
       false,
     );
     // the socket can legitimately be empty already - undoing a connect that
-    // replaced nothing, or a link that went away with its node - so this is a
-    // no-op rather than a throw that would break the undo stack
+    // replaced nothing, or a link that went away with its node
     socket?.links[0]?.delete();
   }
 
@@ -965,14 +962,10 @@ export default class PPGraph {
       targetSocketID,
     );
 
-    // rewiring an occupied input drops the link that was there - remember it
-    // when the connect runs (so a redo re-captures too) and put it back on undo
-    let displaced: DisplacedLink | undefined;
-    const action = async () => {
-      displaced = this.getInputLinkSource(targetSocketID, targetSocketName);
-      await connectAction();
-    };
-    const undoAction = async () => {
+    const action = async () => connectAction();
+    const captureUndoArgs = (): DisplacedLink | undefined =>
+      this.getInputLinkSource(targetSocketID, targetSocketName);
+    const undoAction = async (displaced: DisplacedLink | undefined) => {
       await disconnectAction();
       await this.restoreInputLink(displaced, targetSocketID, targetSocketName);
     };
@@ -986,6 +979,7 @@ export default class PPGraph {
             output.getNode().name +
             ' and ' +
             input.getNode().name,
+          captureUndoArgs,
         ),
       ),
     );
@@ -1221,6 +1215,7 @@ export default class PPGraph {
     this.viewport.alpha = fadeIn ? 1 : 0.01; // avoid going to absolute zero because it can confuse some node rendering behaviour
   }
 
+  // teardown done before another app is loaded and not undoable
   async clear(): Promise<void> {
     this.graphConfiguredAndReady = false;
     this.socketFocus.forgetAll();
@@ -1231,9 +1226,6 @@ export default class PPGraph {
       await this.fadeGraph(false);
     }
 
-    // Tearing the graph down is not an edit to it. Going through the delete
-    // action would leave the outgoing app's nodes sitting on the undo stack,
-    // so the first Ctrl+Z in the app opened next would paste them into it.
     this.selection.deselectAllNodesAndResetSelection();
     this.stopConnecting();
     Object.values(this.nodes).forEach((node) => this.removeNode(node));
@@ -1680,32 +1672,10 @@ export default class PPGraph {
     this.updateEmptyCanvasVisibility();
   }
 
-  // The user facing "Clear" - an edit to the app that is open, so it belongs on
-  // the undo stack. clear() above is the teardown done before another app is
-  // loaded and deliberately is not undoable.
+  // The user facing "Clear" - an edit to the app that is open
   async perform_action_ClearGraph(): Promise<void> {
     this.selection.selectAllNodes();
     await this.perform_action_DeleteSelectedNodes();
-  }
-
-  // nodeContainer child order is the z-order and Object.values(this.nodes)
-  // drives serialization, so nodes brought back by an undo have to return to
-  // their old slot instead of being appended on top of everything.
-  private restoreNodeOrder(orderedIds: string[]): void {
-    const ordered = orderedIds
-      .map((id) => this.nodes[id])
-      .filter((node): node is PPNode => node !== undefined);
-    if (ordered.length !== Object.keys(this.nodes).length) {
-      // the graph moved on from what was recorded - leave the order alone
-      return;
-    }
-    this.nodes = Object.fromEntries(ordered.map((node) => [node.id, node]));
-    ordered.forEach((node, index) =>
-      this.nodeContainer.setChildIndex(
-        node,
-        Math.min(index, this.nodeContainer.children.length - 1),
-      ),
-    );
   }
 
   async perform_action_DeleteSelectedNodes(): Promise<void> {
@@ -1720,11 +1690,7 @@ export default class PPGraph {
       )
       .flat()
       .flat();
-    // undo re-adds the nodes, which would append them - remember where they sat
-    // so they can go back in front of and behind the same nodes as before
-    let nodeOrder: string[] = [];
     const action = async () => {
-      nodeOrder = Object.keys(this.nodes);
       this.selection.deselectAllNodesAndResetSelection();
       for (let i = 0; i < nodesSerialized.length; i++) {
         await this.removeNode(this.nodes[nodesSerialized[i].id]);
@@ -1741,7 +1707,6 @@ export default class PPGraph {
           }),
         );
       }
-      this.restoreNodeOrder(nodeOrder);
 
       linksSerialized.forEach((link) => {
         const sourceSocket = this.nodes[

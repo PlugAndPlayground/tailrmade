@@ -153,9 +153,6 @@ export default class PPStorage {
   }
 
   async createEmptyGraph(): Promise<string> {
-    // Reset the dashboard before emptying the graph. clear() ends with the
-    // graph announced as configured and ready, so a dashboard still in edit
-    // mode would see an empty app and auto-create a surface node into it.
     const currentOverlayState = InterfaceController.getOverlayState();
     InterfaceController.updateOverlayState({
       ...currentOverlayState,

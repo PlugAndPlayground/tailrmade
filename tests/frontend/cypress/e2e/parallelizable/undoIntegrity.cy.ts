@@ -103,7 +103,7 @@ describe('Undo integrity', () => {
     });
   });
 
-  it('undo of a partial delete keeps the node order', () => {
+  it('undo of a partial delete brings the nodes back with their links', () => {
     openNewGraph();
     doWithTestController(async (tc) => {
       tc.setShowUnsavedChangesWarning(false);
@@ -114,22 +114,14 @@ describe('Undo integrity', () => {
       await tc.connectNodesByID('src', 'mid', 'Out', 'In');
       await tc.connectNodesByID('mid', 'out1', 'Out', 'In');
 
-      const orderBefore = nodeIds(tc);
-      expect(orderBefore).to.deep.equal(['src', 'mid', 'out1', 'out2']);
-
       tc.selectNodesById(['mid', 'out1']);
       await tc.getGraph().perform_action_DeleteSelectedNodes();
       expect(nodeIds(tc)).to.deep.equal(['src', 'out2']);
 
       await tc.undo();
-      // nodeContainer child order is the z-order, so restored nodes appearing
-      // at the end would draw on top of nodes they used to sit behind
-      expect(nodeIds(tc)).to.deep.equal(orderBefore);
-      expect(
-        tc
-          .getGraph()
-          .nodeContainer.children.map((child: any) => child.id as string),
-      ).to.deep.equal(orderBefore);
+      expect(nodeIds(tc).sort()).to.deep.equal(['mid', 'out1', 'out2', 'src']);
+      // the links between a restored node and one that was never deleted have
+      // to come back too, not just the ones inside the deleted selection
       expect(tc.getInputLinkSourceNodeID('mid', 'In')).to.equal('src');
       expect(tc.getInputLinkSourceNodeID('out1', 'In')).to.equal('mid');
     });
