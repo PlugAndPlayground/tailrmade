@@ -205,6 +205,8 @@ export const SOCKET_COLOR_HEX: string = TRgba.fromString(COLOR[0])
   .hex();
 export const SOCKET_HEIGHT = 24;
 export const SOCKET_WIDTH = 12;
+export const SOCKET_MIN_HITBOX_SCREEN_SIZE = 24;
+export const SOCKET_MIN_HIT_PITCH_SCREEN_SIZE = 5;
 export const SOCKET_CORNERRADIUS = 4;
 export const SOCKET_TEXTMARGIN = 8;
 export const SOCKET_TEXTMARGIN_TOP = 4;
@@ -239,6 +241,9 @@ export const EDIT_ICON_TEXTURE = '../assets/Icon_Tune.svg';
 export const ADD_TO_DASHBOARD_ICON_TEXTURE =
   '../assets/Icon_AddToDashboard.svg';
 export const CONFIRMATION_ICON_TEXTURE = '../assets/Icon_Confirmation.svg';
+export const STATUS_ERROR_ICON_TEXTURE = '../assets/Icon_Error.svg';
+export const STATUS_WARNING_ICON_TEXTURE = '../assets/Icon_Warning.svg';
+export const STATUS_COMMENT_ICON_TEXTURE = '../assets/Icon_Comment.svg';
 
 export const ALIGNLEFT_TEXTURE = '../assets/Icon_AlignLeft.svg';
 export const ALIGNAUTO_TEXTURE = '../assets/Icon_AutoAlign.svg';
@@ -267,6 +272,9 @@ export const NODE_HEADER_TEXTMARGIN_LEFT = SOCKET_WIDTH / 2 + 14;
 export const NODE_HEADER_TEXTMARGIN_TOP = 4;
 export const NODE_WIDTH = 160;
 export const NODE_CORNERRADIUS = 8;
+
+export const ERROR_BOUNDARY_SCREEN_OFFSET = 3;
+export const ERROR_BOUNDARY_SCREEN_WIDTH = 3;
 
 export const SMALL_NODE_WIDTH = 115;
 

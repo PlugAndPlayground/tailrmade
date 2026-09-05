@@ -206,12 +206,23 @@ export class NodeExecutionWarning extends PNPWarning {
 }
 
 export class SocketParsingWarning extends PNPWarning {
-  constructor(message?: string) {
+  // Which socket the warning came from.
+  socketLabel?: string;
+
+  constructor(message?: string, socketLabel?: string) {
     super(message);
+    this.setSocketLabel(socketLabel);
+  }
+
+  public setSocketLabel(socketLabel?: string): void {
+    this.socketLabel = socketLabel;
+    this.name = this.getName();
   }
 
   public getName(): string {
-    return 'Socket Parsing Warning';
+    return this.socketLabel
+      ? `Socket Parsing Warning (${this.socketLabel})`
+      : 'Socket Parsing Warning';
   }
 
   public getDescription(): string {

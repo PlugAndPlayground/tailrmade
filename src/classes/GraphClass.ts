@@ -194,7 +194,10 @@ export default class PPGraph {
     );
     this.viewport.addEventListener('click', this.onPointerClick.bind(this));
 
-    this.viewport.addEventListener('moved', () => this.socketFocus.refresh());
+    this.viewport.addEventListener('moved', () => {
+      this.socketFocus.refresh();
+      this.refreshZoomInvariantNodeVisuals();
+    });
     this.viewport.addEventListener('pointermove', (event) =>
       this.onViewportMove(event),
     );
@@ -525,6 +528,21 @@ export default class PPGraph {
 
   get viewportScaleX(): number {
     return this.viewport.scale.x;
+  }
+
+  // The error outline and the status badge are sized in screen pixels, so they
+  // have to be re-applied whenever the viewport scale changes.
+  private lastZoomInvariantScale = 0;
+
+  private refreshZoomInvariantNodeVisuals(): void {
+    const scale = this.viewportScaleX;
+    if (scale === this.lastZoomInvariantScale) {
+      return;
+    }
+    this.lastZoomInvariantScale = scale;
+    Object.values(this.nodes).forEach((node) =>
+      node.refreshZoomInvariantVisuals(),
+    );
   }
 
   get showExecutionVisualisation(): boolean {

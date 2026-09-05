@@ -1,7 +1,8 @@
-import React, { memo, useCallback, useEffect, useState } from 'react';
-import useInterval from 'use-interval';
+import React, { memo, useCallback, useEffect, useMemo, useState } from 'react';
 import {
+  Autocomplete,
   Box,
+  Collapse,
   IconButton,
   List,
   ListItem,
@@ -10,126 +11,179 @@ import {
   TextField,
   Typography,
 } from '@mui/material';
-import ClearIcon from '@mui/icons-material/Clear';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import throttle from 'lodash/throttle';
 import PPGraph from './../classes/GraphClass';
 import PPNode from './../classes/NodeClass';
-import { PNPStatus } from './../classes/ErrorClass';
 import InterfaceController, { ListenEvent } from './../InterfaceController';
 import { ensureVisible, zoomToFitNodes } from './../pixi/utils-pixi';
-import { ONCLICK_DOUBLECLICK, STATUS_SEVERITY } from './../utils/constants';
+import {
+  getDrawerBackground,
+  MAIN_COLOR,
+  ONCLICK_DOUBLECLICK,
+  STATUS_SEVERITY,
+} from './../utils/constants';
 import { TRgba } from './../utils/color';
-import { MAIN_COLOR } from '../utils/constants';
+import { StatusDetail } from '../components/StatusDetail';
+import { TagChip } from '../components/TagChip';
 
-const EmptyNodeState: React.FC<{ filterText: string }> = ({ filterText }) => (
-  <Box
-    sx={{
-      display: 'flex',
-      flexDirection: 'column',
-      alignItems: 'center',
-      justifyContent: 'center',
-      minHeight: '40vh',
-      textAlign: 'center',
-      userSelect: 'none',
-      px: 2,
-      lineHeight: 1.5,
-      bgcolor: 'background.paper',
-    }}
-  >
-    {filterText ? (
-      <>
-        <Typography variant="body1" color="text.secondary">
-          No matching nodes found
-        </Typography>
-      </>
-    ) : (
-      <>
-        <Typography variant="body1" color="text.secondary">
-          Double click on canvas to add nodes
-        </Typography>
-      </>
-    )}
-  </Box>
-);
+const TAG_FILTER_PREFIX = 'tag:';
 
-const NodesContent = memo(
-  (props: any) => {
-    return (
-      <>
-        {props.nodes.length > 0 ? (
-          <List>
-            {props.nodes.map((property) => {
-              return (
-                <NodeItem
-                  key={property.id}
-                  property={property}
-                  index={property.id}
-                  sx={{
-                    listStyleType: 'none',
-                  }}
-                />
-              );
-            })}
-          </List>
-        ) : (
-          <EmptyNodeState filterText={props.filterText} />
-        )}
-      </>
-    );
-  },
-  (prevProps, nextProps) => {
-    return prevProps.nodes.length === nextProps.nodes.length;
-  },
-);
+const buildTagFilter = (tag: string): string =>
+  `${TAG_FILTER_PREFIX}${tag}`;
+
+type ParsedFilter = { tags: string[]; text: string };
+
+const parseFilterText = (filterText: string): ParsedFilter => {
+  let rest = filterText ?? '';
+  const tags: string[] = [];
+  let token = /^\s*tag:(\S+)(\s|$)/i.exec(rest);
+  while (token) {
+    tags.push(token[1]);
+    rest = rest.slice(token[0].length);
+    token = /^\s*tag:(\S+)(\s|$)/i.exec(rest);
+  }
+  return { tags, text: rest };
+};
+
+export const buildFilterText = (tags: string[], text: string): string =>
+  tags.map((tag) => `${buildTagFilter(tag)} `).join('') + text;
+
+const ROW_SEVERITY_TINT = 0.08;
+const ROW_BACKGROUND = TRgba.fromString(MAIN_COLOR).darken(0.6);
+const STATUS_TAG = {
+  ERROR: 'Error',
+  WARNING: 'Warning',
+} as const;
+
+type StatusTag = { label: string; color?: string };
+
+const getStatusTags = (node: PPNode): StatusTag[] => {
+  const statuses = node.getWarningsAndErrors();
+  const tags: StatusTag[] = [];
+  // fatal counts as an error - it is the same "this is broken" bucket
+  const error = statuses.find(
+    (status) => status.getSeverity() >= STATUS_SEVERITY.ERROR,
+  );
+  const warning = statuses.find(
+    (status) => status.getSeverity() === STATUS_SEVERITY.WARNING,
+  );
+  if (error) {
+    tags.push({ label: STATUS_TAG.ERROR, color: error.getColor().hex() });
+  }
+  if (warning) {
+    tags.push({ label: STATUS_TAG.WARNING, color: warning.getColor().hex() });
+  }
+  return tags;
+};
+
+const getAllTagLabels = (node: PPNode): string[] =>
+  getStatusTags(node)
+    .map((tag) => tag.label)
+    .concat(node.getTags());
+
+const getAvailableTags = (nodes: PPNode[]): StatusTag[] => {
+  const statusTags = new Map<string, StatusTag>();
+  const nodeTags = new Set<string>();
+  nodes.forEach((node) => {
+    getStatusTags(node).forEach((tag) => {
+      if (!statusTags.has(tag.label)) {
+        statusTags.set(tag.label, tag);
+      }
+    });
+    node.getTags().forEach((tag) => nodeTags.add(tag));
+  });
+  const severityTags = [STATUS_TAG.ERROR, STATUS_TAG.WARNING]
+    .map((label) => statusTags.get(label))
+    .filter((tag): tag is StatusTag => tag !== undefined);
+  return [
+    ...severityTags,
+    ...[...nodeTags].sort().map((label) => ({ label, color: undefined })),
+  ];
+};
+
+const EmptyNodeState: React.FC<{ filter: ParsedFilter }> = ({ filter }) => {
+  const tagged = filter.tags.length
+    ? `tagged ${filter.tags.map((tag) => `"${tag}"`).join(' + ')}`
+    : '';
+  const searched = filter.text.trim() ? `matching "${filter.text.trim()}"` : '';
+  return (
+    <Box
+      sx={{
+        p: 2,
+        textAlign: 'center',
+        color: 'text.secondary',
+      }}
+    >
+      <Typography variant="body2">
+        {tagged || searched
+          ? `No nodes ${[tagged, searched].filter(Boolean).join(' and ')}`
+          : 'This graph has no nodes yet'}
+      </Typography>
+    </Box>
+  );
+};
+
+const tagTitle = (label: string, selected: boolean) =>
+  selected
+    ? `Stop filtering by "${label}"`
+    : `Show only nodes tagged "${label}"`;
+
+type NodeItemProps = {
+  property: PPNode;
+  statusVersion: number;
+  expanded: boolean;
+  onToggleExpanded: (nodeId: string) => void;
+  selectedTags: string[];
+  onTagClick: (event: React.SyntheticEvent, tag: string) => void;
+};
 
 const NodeItem = memo(
-  (props: any) => {
-    const [nodeStatus, setNodeStatus] = useState(
-      props.property.status.node as PNPStatus,
-    );
-    const [socketStatus, setSocketStatus] = useState(
-      props.property.status.socket as PNPStatus,
-    );
-
-    useInterval(() => {
-      const newNodeStatus = props.property.status.node as PNPStatus;
-      const newSocketStatus = props.property.status.node as PNPStatus;
-      if (socketStatus !== newSocketStatus || nodeStatus !== newNodeStatus) {
-        setNodeStatus(props.property.status.node as PNPStatus);
-        setSocketStatus(props.property.status.socket as PNPStatus);
-      }
-    }, 100);
+  (props: NodeItemProps) => {
+    const node = props.property;
+    const statuses = node.getWarningsAndErrors();
+    const statusTags = getStatusTags(node);
+    const rowBackground = statuses.length
+      ? ROW_BACKGROUND.mix(statuses[0].getColor(), ROW_SEVERITY_TINT)
+      : ROW_BACKGROUND;
+    const isSelected = (label: string) =>
+      props.selectedTags.some(
+        (tag) => tag.toLowerCase() === label.toLowerCase(),
+      );
 
     return (
       <ListItem
-        key={props.property.id}
+        key={node.id}
         sx={{
           p: 0,
+          flexDirection: 'column',
+          alignItems: 'stretch',
           '&:hover + .MuiListItemSecondaryAction-root': {
             visibility: 'visible',
           },
-          bgcolor: `${TRgba.fromString(MAIN_COLOR).darken(0.6)}`,
+          bgcolor: `${rowBackground}`,
           margin: '2px 0',
-          borderLeft: `16px solid ${props.property.getColor()}`,
+          borderLeft: `16px solid ${node.getColor()}`,
         }}
         title={
-          props.property.type === 'Macro'
-            ? `${props.property.id}
-${props.property
+          node.type === 'Macro'
+            ? `${node.id}
+${(node as any)
   .getInsideNodes()
-  .map((item) => item.name)
+  .map((item: PPNode) => item.name)
   .join()}`
-            : props.property.id
+            : node.id
         }
         onPointerEnter={(event: React.MouseEvent<HTMLLIElement>) => {
           event.stopPropagation();
-          const nodeToJumpTo = PPGraph.currentGraph.nodes[props.property.id];
+          const nodeToJumpTo = PPGraph.currentGraph.nodes[node.id];
           if (nodeToJumpTo) {
             PPGraph.currentGraph.selection.drawSingleFocus(nodeToJumpTo);
           }
         }}
         onClick={(event: React.MouseEvent<HTMLLIElement>) => {
           event.stopPropagation();
-          const nodeToJumpTo = PPGraph.currentGraph.nodes[props.property.id];
+          const nodeToJumpTo = PPGraph.currentGraph.nodes[node.id];
           if (nodeToJumpTo) {
             void ensureVisible([nodeToJumpTo]);
             setTimeout(() => {
@@ -168,43 +222,72 @@ ${props.property
               <Box
                 sx={{
                   flexGrow: 1,
+                  minWidth: 0,
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
                 }}
               >
+                {node.name}
+              </Box>
+              <Box
+                sx={{ display: 'flex', alignItems: 'center', flexShrink: 0 }}
+              >
+                <Box sx={{ display: 'flex', gap: '2px' }}>
+                  {node.getTags().map((part, index) => (
+                    <TagChip
+                      key={`${part}-${index}`}
+                      label={part}
+                      selected={isSelected(part)}
+                      onClick={props.onTagClick}
+                      title={tagTitle(part, isSelected(part))}
+                      data-cy={`node-tag-${part}`}
+                    />
+                  ))}
+                </Box>
                 <Box
                   sx={{
-                    display: 'inline',
+                    display: 'flex',
+                    gap: '2px',
+                    ml: statusTags.length && node.getTags().length ? '10px' : 0,
                   }}
                 >
-                  {props.property.name}
+                  {statusTags.map((tag) => (
+                    <TagChip
+                      key={tag.label}
+                      label={tag.label}
+                      color={tag.color}
+                      selected={isSelected(tag.label)}
+                      onClick={props.onTagClick}
+                      title={tagTitle(tag.label, isSelected(tag.label))}
+                      data-cy={`node-tag-${tag.label}`}
+                    />
+                  ))}
                 </Box>
-                {nodeStatus.getSeverity() >= STATUS_SEVERITY.WARNING && (
-                  <StatusTag name="Node" status={nodeStatus} />
-                )}
-                {socketStatus.getSeverity() >= STATUS_SEVERITY.WARNING && (
-                  <StatusTag name="Socket" status={socketStatus} />
-                )}
-              </Box>
-              <Box>
-                {props.property.getTags().map((part, index) => (
-                  <Box
-                    key={index}
+                {statuses.length > 0 && (
+                  <IconButton
+                    data-cy="expand-node-status"
+                    aria-label={
+                      props.expanded ? 'Hide message' : 'Show message'
+                    }
+                    onClick={(event) => {
+                      // the row itself jumps the canvas to the node
+                      event.stopPropagation();
+                      props.onToggleExpanded(node.id);
+                    }}
                     sx={{
-                      fontSize: '12px',
-                      background: 'rgba(255,255,255,0.2)',
-                      cornerRadius: '4px',
-                      marginLeft: '2px',
-                      px: 0.5,
-                      display: 'inline',
-                      '.Mui-focused &': {
-                        display: 'none',
-                      },
-                      opacity: 0.5,
-                      fontWeight: 400,
+                      p: '2px',
+                      ml: '1px',
+                      fontSize: '18px',
+                      transform: props.expanded
+                        ? 'rotate(180deg)'
+                        : 'rotate(0deg)',
+                      transition: 'transform 0.15s',
                     }}
                   >
-                    {part}
-                  </Box>
-                ))}
+                    <ExpandMoreIcon fontSize="inherit" />
+                  </IconButton>
+                )}
               </Box>
             </Box>
             <Box
@@ -219,50 +302,80 @@ ${props.property
                   display: 'inline',
                 }}
               >
-                {props.property.name === props.property.getName()
-                  ? ''
-                  : props.property.getName()}
+                {node.name === node.getName() ? '' : node.getName()}
               </Box>
             </Box>
           </Stack>
         </ListItemButton>
+        {statuses.length > 0 && (
+          <Collapse in={props.expanded} unmountOnExit>
+            <Box
+              sx={{
+                px: 1,
+                pb: 1,
+                bgcolor: 'rgba(0,0,0,0.25)',
+              }}
+            >
+              {statuses.map((status, index) => (
+                <StatusDetail key={`${status.id}-${index}`} status={status} />
+              ))}
+            </Box>
+          </Collapse>
+        )}
       </ListItem>
     );
   },
   (prevProps, nextProps) => {
-    const sameNodeStatus =
-      prevProps.property.status.node === nextProps.property.status.node;
-    const sameSocketStatus =
-      prevProps.property.status.socket === nextProps.property.status.socket;
-    return sameNodeStatus && sameSocketStatus;
+    return (
+      prevProps.property === nextProps.property &&
+      prevProps.statusVersion === nextProps.statusVersion &&
+      prevProps.expanded === nextProps.expanded &&
+      prevProps.selectedTags === nextProps.selectedTags
+    );
   },
 );
 
-const StatusTag = (props) => {
+type NodesContentProps = {
+  nodes: PPNode[];
+  filter: ParsedFilter;
+  statusVersion: number;
+  expandedIds: Set<string>;
+  onToggleExpanded: (nodeId: string) => void;
+  selectedTags: string[];
+  onTagClick: (event: React.SyntheticEvent, tag: string) => void;
+};
+
+const NodesContent: React.FC<NodesContentProps> = (props) => {
+  if (!props.nodes.length) {
+    return <EmptyNodeState filter={props.filter} />;
+  }
   return (
-    <Box
-      title={`${props.status.getName()}
-${props.status.message}`}
+    <List
       sx={{
-        fontSize: '12px',
-        background: props.status.getColor().hex(),
-        marginLeft: '8px',
-        px: 0.5,
-        py: '2px',
-        display: 'inline',
-        fontWeight: 400,
+        width: '100%',
+        bgcolor: 'background.paper',
+        marginTop: 0,
+        padding: 0,
       }}
     >
-      {props.name}
-    </Box>
+      {props.nodes.map((property) => (
+        <NodeItem
+          key={property.id}
+          property={property}
+          statusVersion={props.statusVersion}
+          expanded={props.expandedIds.has(property.id)}
+          onToggleExpanded={props.onToggleExpanded}
+          selectedTags={props.selectedTags}
+          onTagClick={props.onTagClick}
+        />
+      ))}
+    </List>
   );
 };
 
 type NodeArrayContainerProps = {
   graphId: string;
   selectedNodes: PPNode[];
-  filter: string;
-  setFilter: React.Dispatch<React.SetStateAction<string>>;
   filterText: string;
   setFilterText: React.Dispatch<React.SetStateAction<string>>;
 };
@@ -271,45 +384,84 @@ export const NodeArrayContainer: React.FunctionComponent<
   NodeArrayContainerProps
 > = (props) => {
   const [nodesInGraph, setNodesInGraph] = useState<PPNode[]>([]);
-  const [filteredNodes, setFilteredNodes] = useState<PPNode[]>([]);
-  const showNodes = props.filter === 'nodes' || props.filter == null;
-  const showGraphInfo = props.filter === 'graph-info' || props.filter == null;
+  const [statusVersion, setStatusVersion] = useState(0);
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+  const [isTagListOpen, setIsTagListOpen] = useState(false);
 
-  const handleFilterChange = (event) => {
-    props.setFilterText(event.target.value);
-  };
+  const filter = useMemo(
+    () => parseFilterText(props.filterText),
+    [props.filterText],
+  );
 
-  const handleFilter = (
-    event: React.MouseEvent<HTMLElement>,
-    newFilter: string | null,
-  ) => {
-    props.setFilter(newFilter);
-  };
+  const setFilter = useCallback(
+    (tags: string[], text: string) => {
+      props.setFilterText(buildFilterText(tags, text));
+    },
+    [props.setFilterText],
+  );
 
-  const updateNodes = (currentGraph: PPGraph) => {
+  const onTagClick = useCallback(
+    (event: React.SyntheticEvent, tag: string) => {
+      props.setFilterText((current) => {
+        const parsed = parseFilterText(current);
+        const isSelected = parsed.tags.some(
+          (selected) => selected.toLowerCase() === tag.toLowerCase(),
+        );
+        return buildFilterText(
+          isSelected
+            ? parsed.tags.filter(
+                (selected) => selected.toLowerCase() !== tag.toLowerCase(),
+              )
+            : [...parsed.tags, tag],
+          parsed.text,
+        );
+      });
+    },
+    [props.setFilterText],
+  );
+
+  const onToggleExpanded = useCallback((nodeId: string) => {
+    setExpandedIds((current) => {
+      const next = new Set(current);
+      if (!next.delete(nodeId)) {
+        next.add(nodeId);
+      }
+      return next;
+    });
+  }, []);
+
+  const updateNodes = useCallback(() => {
+    const currentGraph = PPGraph.currentGraph;
     if (currentGraph) {
-      const nodes = Object.values(currentGraph.nodes);
-      if (nodes) {
-        nodes.sort(customSort);
-        setNodesInGraph(nodes);
-        setFilteredNodes(nodes);
+      setNodesInGraph(Object.values(currentGraph.nodes));
+    }
+  }, []);
+
+  const customFilter = (item: PPNode, parsed: ParsedFilter) => {
+    if (parsed.tags.length) {
+      const labels = getAllTagLabels(item).map((label) => label.toLowerCase());
+      const matchesTags = parsed.tags.every((tag) =>
+        labels.includes(tag.toLowerCase()),
+      );
+      if (!matchesTags) {
+        return false;
       }
     }
-  };
-
-  const filterNodes = (nodes: PPNode[]) => {
-    const filteredItems = nodes.filter((node) =>
-      customFilter(node, props.filterText),
+    const filter = parsed.text.trim().toLowerCase();
+    if (!filter) {
+      return true;
+    }
+    const fields: Array<'name' | 'type' | 'id'> = ['name', 'type', 'id'];
+    return (
+      fields.some((field) =>
+        String(item[field] ?? '')
+          .toLowerCase()
+          .includes(filter),
+      ) ||
+      item
+        .getWarningsAndErrors()
+        .some((status) => status.message?.toLowerCase().includes(filter))
     );
-    filteredItems.sort(customSort);
-    setFilteredNodes(filteredItems);
-  };
-
-  // Custom filter function searching specified fields
-  const customFilter = (item, filterText) => {
-    const filter = filterText.toLowerCase();
-    const fields = ['name', 'type', 'id'];
-    return fields.some((field) => item[field].toLowerCase().includes(filter));
   };
 
   const customSort = (a: PPNode, b: PPNode) => {
@@ -321,74 +473,201 @@ export const NodeArrayContainer: React.FunctionComponent<
     return order;
   };
 
-  const updateNodesAndInfo = useCallback(() => {
-    const currentGraph = PPGraph.currentGraph;
-    if (currentGraph) {
-      updateNodes(currentGraph);
-      filterNodes(nodesInGraph);
+  const filteredNodes = useMemo(() => {
+    return nodesInGraph
+      .filter((node) => customFilter(node, filter))
+      .sort(customSort);
+  }, [nodesInGraph, filter, statusVersion]);
+
+  const availableTags = useMemo(
+    () => getAvailableTags(nodesInGraph),
+    [nodesInGraph, statusVersion],
+  );
+
+  const tagColors = useMemo(
+    () =>
+      Object.fromEntries(availableTags.map((tag) => [tag.label, tag.color])),
+    [availableTags],
+  );
+
+  const tagOptions = useMemo(
+    () => [
+      ...availableTags.map((tag) => tag.label),
+      ...filter.tags.filter(
+        (tag) =>
+          !availableTags.some(
+            (available) => available.label.toLowerCase() === tag.toLowerCase(),
+          ),
+      ),
+    ],
+    [availableTags, filter.tags],
+  );
+
+  const matchingTagOptions = useMemo(() => {
+    const text = filter.text.trim().toLowerCase();
+    if (!text) {
+      return [];
     }
-  }, [PPGraph.currentGraph]);
+    return tagOptions.filter(
+      (label) =>
+        label.toLowerCase().startsWith(text) &&
+        !filter.tags.some(
+          (selected) => selected.toLowerCase() === label.toLowerCase(),
+        ),
+    );
+  }, [tagOptions, filter]);
 
   useEffect(() => {
-    // data has id and name
-    const ids = [];
-    ids.push(
-      InterfaceController.addListener(ListenEvent.GraphChanged, () => {
-        updateNodesAndInfo();
-      }),
-    );
+    const bumpVersion = throttle(() => setStatusVersion((v) => v + 1), 200, {
+      leading: true,
+      trailing: true,
+    });
 
-    updateNodesAndInfo();
+    const ids = [
+      InterfaceController.addListener(ListenEvent.GraphChanged, () => {
+        updateNodes();
+      }),
+      InterfaceController.addListener(
+        ListenEvent.NodeStatusChanged,
+        bumpVersion,
+      ),
+    ];
+
+    updateNodes();
 
     return () => {
+      bumpVersion.cancel();
       InterfaceController.removeListeners(ids);
     };
-  }, []);
+  }, [updateNodes]);
 
   useEffect(() => {
-    updateNodesAndInfo();
+    updateNodes();
   }, [
+    updateNodes,
     PPGraph.currentGraph?.nodes,
     PPGraph.currentGraph?.nodes !== undefined &&
       Object.keys(PPGraph.currentGraph?.nodes).length,
   ]);
 
-  useEffect(() => {
-    filterNodes(nodesInGraph);
-  }, [props.filterText, nodesInGraph]);
-
   return (
     <Stack spacing={0.25}>
-      <TextField
-        hiddenLabel
-        placeholder={`Search nodes`}
-        data-cy="inspector-node-search-input"
-        variant="filled"
-        fullWidth
-        value={props.filterText}
-        onChange={handleFilterChange}
-        slotProps={{
-          input: {
-            disableUnderline: true,
-            endAdornment: props.filterText ? (
-              <IconButton size="small" onClick={() => props.setFilterText('')}>
-                <ClearIcon />
-              </IconButton>
-            ) : undefined,
-          },
-        }}
+      <Box
         sx={{
-          fontSize: '16px',
-          opacity: 0.8,
-          bgcolor: 'background.paper',
-          '&&&& input': {
-            paddingBottom: '8px',
-            paddingTop: '9px',
-            color: TRgba.fromString(MAIN_COLOR).getContrastTextColor().hex(),
-          },
+          position: 'sticky',
+          top: 0,
+          zIndex: 2,
+          bgcolor: `${getDrawerBackground()}`,
+          pt: 2,
+          pb: 0.25,
         }}
+      >
+        <Autocomplete
+          multiple
+          fullWidth
+          options={tagOptions}
+          value={filter.tags}
+          inputValue={filter.text}
+          filterOptions={() => matchingTagOptions}
+          clearOnBlur={false}
+          forcePopupIcon={false}
+          open={isTagListOpen && matchingTagOptions.length > 0}
+          onOpen={() => setIsTagListOpen(true)}
+          onClose={() => setIsTagListOpen(false)}
+          onChange={(event, tags, reason) => {
+            if (reason === 'clear') {
+              props.setFilterText('');
+            } else if (reason === 'selectOption') {
+              setFilter(tags as string[], '');
+            } else {
+              setFilter(tags as string[], filter.text);
+            }
+          }}
+          onInputChange={(event, value, reason) => {
+            if (reason === 'input') {
+              setFilter(filter.tags, value);
+            } else if (reason === 'clear') {
+              props.setFilterText('');
+            }
+          }}
+          isOptionEqualToValue={(option, value) =>
+            option.toLowerCase() === value.toLowerCase()
+          }
+          renderValue={(tags, getItemProps) =>
+            tags.map((tag, index) => {
+              const { key, ...itemProps } = getItemProps({ index });
+              return (
+                <TagChip
+                  {...itemProps}
+                  key={key}
+                  label={tag}
+                  color={tagColors[tag]}
+                  data-cy={`node-filter-tag-${tag}`}
+                />
+              );
+            })
+          }
+          renderOption={(optionProps, option) => {
+            const { key, ...restOfProps } = optionProps;
+            return (
+              <li key={key} {...restOfProps}>
+                <TagChip label={option} color={tagColors[option]} />
+              </li>
+            );
+          }}
+          renderInput={({ slotProps = {} as any, ...params }) => (
+            <TextField
+              {...params}
+              hiddenLabel
+              placeholder={
+                filter.tags.length ? '' : `Search nodes and messages`
+              }
+              data-cy="inspector-node-search-input"
+              variant="filled"
+              slotProps={{
+                ...slotProps,
+                input: {
+                  ...slotProps.input,
+                  disableUnderline: true,
+                },
+              }}
+              sx={{
+                fontSize: '16px',
+                bgcolor: 'background.paper',
+                '&&&& input': {
+                  paddingBottom: '8px',
+                  paddingTop: '9px',
+                  color: TRgba.fromString(MAIN_COLOR)
+                    .getContrastTextColor()
+                    .hex(),
+                },
+                '&& .MuiInputBase-root': {
+                  flexWrap: 'wrap',
+                  alignItems: 'center',
+                  rowGap: '4px',
+                },
+              }}
+            />
+          )}
+          sx={{
+            '& .MuiAutocomplete-tag': {
+              marginTop: 0,
+              marginBottom: 0,
+              marginLeft: 0,
+              marginRight: '4px',
+            },
+          }}
+        />
+      </Box>
+      <NodesContent
+        nodes={filteredNodes}
+        filter={filter}
+        statusVersion={statusVersion}
+        expandedIds={expandedIds}
+        onToggleExpanded={onToggleExpanded}
+        selectedTags={filter.tags}
+        onTagClick={onTagClick}
       />
-      <NodesContent nodes={filteredNodes} filterText={props.filterText} />
     </Stack>
   );
 };

@@ -39,6 +39,8 @@ import {
   ERROR_COLOR,
   SUCCESS_COLOR,
   RightDrawerView,
+  ERROR_BOUNDARY_SCREEN_OFFSET,
+  ERROR_BOUNDARY_SCREEN_WIDTH,
 } from '../utils/constants';
 import UpdateBehaviourClass from './UpdateBehaviourClass';
 import NodeHeaderClass from './NodeHeaderClass';
@@ -67,6 +69,7 @@ import {
   PNPError,
   PNPStatus,
   PNPSuccess,
+  SocketParsingWarning,
 } from './ErrorClass';
 import { shouldEnterHybridEditModeOnCanvasClick } from '../utils/nodeInteractivity';
 import {
@@ -79,6 +82,8 @@ import { DropShadowFilter, GlowFilter } from 'pixi-filters';
 import { getObjectsInsideBounds } from '../pixi/utils-pixi';
 import { BackPropagation, BackPropagationPayload } from '../interfaces';
 import { addDashboardContentOutput } from '../utils/layoutableHelpers';
+import { loadStatusIcons } from '../utils/statusIcons';
+import { NodeStatusBadges } from './NodeStatusBadges';
 
 export default class PPNode extends PIXI.Container implements IWarningHandler {
   _NodeNameRef: PIXI.Text;
@@ -87,10 +92,10 @@ export default class PPNode extends PIXI.Container implements IWarningHandler {
   _BackgroundGraphicsRef: PIXI.Graphics;
   _CommentRef: PIXI.Graphics;
   _StatusesRef: PIXI.Graphics;
+  statusBadges: NodeStatusBadges;
   _ErrorBoundaryRef: PIXI.Graphics;
   _ForegroundRef: PIXI.Container;
   _SlowExecutionGraphics: PIXI.Graphics;
-  _UserCommentRef: PIXI.Container;
 
   _isHovering: boolean;
 
@@ -127,6 +132,9 @@ export default class PPNode extends PIXI.Container implements IWarningHandler {
 
   hasBeenAdded = false;
   hasBeenDrawn = false;
+  // whether drawErrorBoundary actually painted something, so the zoom refresh
+  // can skip clean nodes without re-deriving the status for every one of them
+  private errorBoundaryIsDrawn = false;
 
   executionFilter: GlowFilter | undefined = undefined;
   dropShadowFilter: DropShadowFilter | undefined = undefined;
@@ -223,11 +231,14 @@ export default class PPNode extends PIXI.Container implements IWarningHandler {
     this._CommentRef = this._BackgroundRef.addChild(new PIXI.Graphics());
     this._ErrorBoundaryRef = this._BackgroundRef.addChild(new PIXI.Graphics());
     this._StatusesRef = this._BackgroundRef.addChild(new PIXI.Graphics());
+    this.statusBadges = new NodeStatusBadges(this, this._BackgroundRef);
 
     // only get default updateBehaviour when newly added
     if (source !== NODE_SOURCE.SERIALIZED) {
       this.updateBehaviour = this.getUpdateBehaviour();
     }
+
+    await loadStatusIcons();
 
     this.nodeSelectionHeader = new NodeHeaderClass();
     await this.nodeSelectionHeader.init();
@@ -245,10 +256,6 @@ export default class PPNode extends PIXI.Container implements IWarningHandler {
     this._ForegroundRef = new PIXI.Container();
     this.addChild(this._ForegroundRef);
     this._ForegroundRef.name = 'foreground';
-
-    this._UserCommentRef = new PIXI.Container();
-    this.addChild(this._UserCommentRef);
-    this._UserCommentRef.name = 'userComment';
 
     this.hasBeenAdded = true;
     this.getAllSockets().forEach((socket) => {
@@ -874,29 +881,30 @@ export default class PPNode extends PIXI.Container implements IWarningHandler {
     }
 
     this._ErrorBoundaryRef.clear();
-    if (
-      this.status.node.getSeverity() >= STATUS_SEVERITY.WARNING ||
-      this.status.socket.getSeverity() >= STATUS_SEVERITY.WARNING
-    ) {
-      const status =
-        this.status.node.getSeverity() >= STATUS_SEVERITY.WARNING
-          ? this.status.node
-          : this.status.socket;
-
-      this._ErrorBoundaryRef
-        .roundRect(
-          NODE_MARGIN - 3,
-          -3,
-          this.nodeWidth + 6,
-          this.nodeHeight + 6,
-          this.getRoundedCorners() ? NODE_CORNERRADIUS + 3 : 0,
-        )
-        .stroke({
-          width: 3,
-          color: status.getColor().hexNumber(),
-          alpha: 1,
-        });
+    this.errorBoundaryIsDrawn = false;
+    const status = this.getWorstStatus();
+    if (!status) {
+      return;
     }
+
+    const scale = PPNode.currentViewportScale();
+    const offset = ERROR_BOUNDARY_SCREEN_OFFSET / scale;
+    const nodeRadius = this.getCornerRadius();
+
+    this._ErrorBoundaryRef
+      .roundRect(
+        NODE_MARGIN - offset * 1.5,
+        -offset * 1.5,
+        this.nodeWidth + offset * 3,
+        this.nodeHeight + offset * 3,
+        nodeRadius ? nodeRadius + offset : 0,
+      )
+      .stroke({
+        width: ERROR_BOUNDARY_SCREEN_WIDTH / Math.max(0.3, scale),
+        color: status.getColor().hexNumber(),
+        alpha: 1,
+      });
+    this.errorBoundaryIsDrawn = true;
   }
 
   public drawBackground(): void {
@@ -906,7 +914,7 @@ export default class PPNode extends PIXI.Container implements IWarningHandler {
         0,
         this.nodeWidth,
         this.nodeHeight,
-        this.getRoundedCorners() ? NODE_CORNERRADIUS : 0,
+        this.getCornerRadius(),
       )
       .fill({
         color: this.getColor().hexNumber(),
@@ -956,64 +964,106 @@ export default class PPNode extends PIXI.Container implements IWarningHandler {
     return this.headerHeight + triggerHeight + combinedInputOutput;
   }
 
+  public getWarningsAndErrors(): PNPStatus[] {
+    const collected: PNPStatus[] = [];
+    const consider = (status: PNPStatus) => {
+      if (status.getSeverity() >= STATUS_SEVERITY.WARNING) {
+        collected.push(status);
+      }
+    };
+    const aggregated = this.status.socket;
+    consider(this.status.node);
+    consider(aggregated);
+    this.getAllSockets().forEach((socket) => {
+      const isTheAggregate =
+        aggregated === socket.status ||
+        (!(aggregated instanceof SocketParsingWarning) &&
+          aggregated.message?.includes(socket.status.message));
+      if (isTheAggregate) {
+        return;
+      }
+      consider(socket.status);
+    });
+    return collected.sort((a, b) => b.getSeverity() - a.getSeverity());
+  }
+
+  public getWorstStatus(): PNPStatus | undefined {
+    return this.getWarningsAndErrors()[0];
+  }
+
+  protected static currentViewportScale(): number {
+    return PPGraph.currentGraph?.viewportScaleX || 1;
+  }
+
+  // Where the custom status pills begin, in node local space. Exposed so a
+  // subclass whose own content covers the node can shift them off it without
+  // having to know how the offset is built.
+  protected getStatusesStartY(): number {
+    return (
+      (this.countOfVisibleOutputSockets +
+        this.countOfVisibleNodeTriggerSockets) *
+        SOCKET_HEIGHT +
+      40
+    );
+  }
+
   protected drawStatuses(): void {
     if (!this.hasBeenAdded) {
       return;
     }
 
     this._StatusesRef.clear();
-    this._StatusesRef.removeChildren();
-
-    let flattenedStatus = [];
-    for (const key in this.status) {
-      if (Array.isArray(this.status[key])) {
-        flattenedStatus = this.status[key].concat(flattenedStatus);
-      } else if (this.status[key].getSeverity() >= STATUS_SEVERITY.WARNING) {
-        flattenedStatus.push(this.status[key]);
-      }
-    }
+    this._StatusesRef.removeChildren().forEach((child) => child.destroy());
 
     const padding = 5;
-    let startY =
-      (this.countOfVisibleOutputSockets +
-        this.countOfVisibleNodeTriggerSockets) *
-        SOCKET_HEIGHT +
-      40;
-    const startX = this.nodeWidth - 60;
+    let startY = this.getStatusesStartY();
 
-    flattenedStatus.forEach((nStatus, index) => {
-      const color = nStatus.getColor();
+    const maxPillWidth = Math.max(40, this.nodeWidth - 12);
+    const statusTextStyle = new TextStyle({
+      fontSize: 18,
+      fill: COLOR_MAIN,
+      wordWrap: true,
+      wordWrapWidth: maxPillWidth - padding * 2,
+    });
 
-      let shortenedMessage = nStatus.message;
-      const lines = nStatus.message.split('\n');
-      const maxLines = 3;
-      if (lines.length > maxLines) {
-        shortenedMessage = lines.slice(0, maxLines).join('\n');
-      }
-
+    this.status.custom.forEach((nStatus) => {
       const text = new PIXI.Text({
-        text: shortenedMessage,
-        style: new TextStyle({
-          fontSize: 18,
-          fill: COLOR_MAIN,
-        }),
+        text: nStatus.message,
+        style: statusTextStyle,
       });
-      text.x = startX + padding;
+      const pillWidth = Math.min(text.width + padding * 2, maxPillWidth);
+      const pillX = NODE_MARGIN + this.nodeWidth - pillWidth - 6;
+      text.x = pillX + padding;
       text.y = startY + padding;
       this._StatusesRef.addChild(text);
       this._StatusesRef
         .roundRect(
-          startX,
+          pillX,
           startY,
-          text.width + padding * 2,
+          pillWidth,
           text.height + padding * 2,
-          nStatus.getSeverity() >= STATUS_SEVERITY.WARNING
-            ? 0
-            : NODE_CORNERRADIUS,
+          NODE_CORNERRADIUS,
         )
-        .fill(color.hexNumber());
+        .fill(nStatus.getColor().hexNumber());
       startY += text.height + padding;
     });
+
+    this.statusBadges.draw();
+  }
+
+  public refreshZoomInvariantVisuals(): void {
+    if (!this.hasBeenAdded || this.destroyed) {
+      return;
+    }
+    if (this.statusBadges.isDrawn) {
+      this.statusBadges.applyTransform();
+    }
+    if (this.errorBoundaryIsDrawn) {
+      this.drawErrorBoundary();
+    }
+    this.getAllSockets().forEach((socket) =>
+      socket.refreshZoomInvariantInteractivity(),
+    );
   }
 
   protected getHitArea(): PNPHitArea {
@@ -1022,6 +1072,13 @@ export default class PPNode extends PIXI.Container implements IWarningHandler {
     return new PNPHitArea((x, y) => {
       if (rect.contains(x, y)) {
         return true;
+      }
+      if (this.statusBadges.containsPoint(x, y)) {
+        return true;
+      }
+      // zoomed out far enough, the node itself is the only thing worth hitting
+      if (!Socket.hitTestingEnabled()) {
+        return false;
       }
       // Pixi hit tests every node on every pointer move, so the socket scan
       // has to be unreachable for nodes the pointer is nowhere near. Sockets
@@ -1088,7 +1145,6 @@ export default class PPNode extends PIXI.Container implements IWarningHandler {
     this._BackgroundGraphicsRef.clear();
     this.drawErrorBoundary();
     this.drawBackground();
-    this.drawUserComment();
 
     this.drawTriggers();
     this.drawSockets();
@@ -1139,12 +1195,20 @@ export default class PPNode extends PIXI.Container implements IWarningHandler {
       this.status[type] = status;
       this.drawStatuses();
       this.drawErrorBoundary();
+      this.notifyStatusChanged();
     }
   }
 
   public pushExclusiveCustomStatus(status: PNPStatus) {
     this.status.custom = [];
     this.status.custom.push(status);
+    this.notifyStatusChanged();
+  }
+
+  private notifyStatusChanged(): void {
+    InterfaceController.notifyListeners(ListenEvent.NodeStatusChanged, {
+      nodeId: this.id,
+    });
   }
 
   adaptToSocketErrors(): void {
@@ -1181,84 +1245,6 @@ ${Math.round(bounds.minX)}, ${Math.round(
 
       this._CommentRef.addChild(debugText);
     }
-  }
-
-  drawUserComment(): void {
-    if (!this.hasBeenAdded || !this._UserCommentRef) {
-      return;
-    }
-
-    this._UserCommentRef.removeChildren();
-
-    if (!this.comment) {
-      return;
-    }
-
-    // yellow outline drawn onto _BackgroundGraphicsRef so it sits beneath sockets
-    const outlineOffset = 2;
-    this._BackgroundGraphicsRef
-      .roundRect(
-        NODE_MARGIN + outlineOffset,
-        outlineOffset,
-        this.nodeWidth - outlineOffset * 2,
-        this.nodeHeight - outlineOffset * 2,
-        this.getRoundedCorners()
-          ? Math.max(NODE_CORNERRADIUS - outlineOffset, 0)
-          : 0,
-      )
-      .stroke({ color: 0xffcc02, width: 2, alpha: 0.85 });
-
-    // full comment bubble (shown only on hover), centered above the node
-    const bubblePadding = 8;
-    const maxBubbleWidth = Math.max(this.nodeWidth, 200);
-
-    const commentText = new PIXI.Text({
-      text: this.comment,
-      style: new TextStyle({
-        fontSize: 12,
-        fill: '#1a1a1a',
-        align: 'left',
-        wordWrap: true,
-        wordWrapWidth: maxBubbleWidth - bubblePadding * 2,
-      }),
-    });
-    commentText.resolution = 2;
-
-    const bubbleWidth = commentText.width + bubblePadding * 2;
-    const bubbleHeight = commentText.height + bubblePadding * 2;
-    const nodeCenterX = NODE_MARGIN + this.nodeWidth / 2;
-    const bubbleX = nodeCenterX - bubbleWidth / 2;
-    const bubbleY = -bubbleHeight - 38;
-
-    const bubble = new PIXI.Container();
-    const bubbleBg = new PIXI.Graphics();
-
-    // bubble body
-    bubbleBg.roundRect(bubbleX, bubbleY, bubbleWidth, bubbleHeight, 6);
-    bubbleBg.fill({ color: 0xffcc02, alpha: 0.7 });
-
-    // small triangle pointing down, centered
-    const triX = nodeCenterX - 6;
-    const triY = bubbleY + bubbleHeight;
-    bubbleBg.moveTo(triX, triY);
-    bubbleBg.lineTo(triX + 6, triY + 6);
-    bubbleBg.lineTo(triX + 12, triY);
-    bubbleBg.closePath();
-    bubbleBg.fill({ color: 0xffcc02, alpha: 0.7 });
-
-    bubble.addChild(bubbleBg);
-
-    commentText.x = bubbleX + bubblePadding;
-    commentText.y = bubbleY + bubblePadding;
-    bubble.addChild(commentText);
-
-    bubble.visible = this._isHovering;
-    bubble.name = 'commentBubble';
-    bubble.eventMode = 'none';
-    this._UserCommentRef.addChild(bubble);
-
-    // ensure the comment layer never captures pointer events
-    this._UserCommentRef.eventMode = 'none';
   }
 
   public setComment(text: string): void {
@@ -1722,6 +1708,7 @@ ${Math.round(bounds.minX)}, ${Math.round(
 
   OFFSET_TRANSLATION_ITERATION = 0.02;
   BLUR_CHANGE_ITERATION = 0.05;
+  HOVER_SHADOW_ALPHA = 0.3;
   MAX_HOVER_CHANGE_ITERATIONS = 10;
 
   protected visualOffsetXY(x: number, y: number) {
@@ -1764,6 +1751,7 @@ ${Math.round(bounds.minX)}, ${Math.round(
       this.dropShadowFilter = new DropShadowFilter({
         offset: new PIXI.Point(0.01, 0.01),
         blur: this.BLUR_CHANGE_ITERATION,
+        alpha: this.HOVER_SHADOW_ALPHA,
       });
       this.dropShadowFilter.resolution = 2;
     }
@@ -1806,8 +1794,6 @@ ${Math.round(bounds.minX)}, ${Math.round(
     this.updateBehaviour.graphics.redrawAnythingChanging();
     this.nodeSelectionHeader.redrawAnythingChanging(true);
     this.selectionFilterIn();
-
-    this.drawUserComment();
   }
 
   onPointerOut(): void {
@@ -1816,8 +1802,6 @@ ${Math.round(bounds.minX)}, ${Math.round(
     this.updateBehaviour.graphics.redrawAnythingChanging();
     this.nodeSelectionHeader.redrawAnythingChanging(false);
     this.selectionFilterOut();
-
-    this.drawUserComment();
   }
 
   onPointerClick(event: PIXI.FederatedPointerEvent): void {
@@ -1965,6 +1949,10 @@ ${Math.round(bounds.minX)}, ${Math.round(
 
   public getRoundedCorners(): boolean {
     return true;
+  }
+
+  public getCornerRadius(): number {
+    return this.getRoundedCorners() ? NODE_CORNERRADIUS : 0;
   }
 
   getPreferredInputSocketName(): string {
@@ -2382,6 +2370,7 @@ ${Math.round(bounds.minX)}, ${Math.round(
   protected clearStatuses() {
     this.status.custom = [];
     this.drawStatuses();
+    this.notifyStatusChanged();
   }
 
   protected pushExclusiveStatus(status: PNPCustomStatus) {
@@ -2390,6 +2379,7 @@ ${Math.round(bounds.minX)}, ${Math.round(
     );
     this.status.custom.push(status);
     this.drawStatuses();
+    this.notifyStatusChanged();
   }
 
   protected pushStatusCode(statusCode: number): void {

@@ -10,6 +10,7 @@ import ErrorFallback from './components/ErrorFallback';
 import PixiContainer from './containers/PixiContainer';
 import { onOpenFileBrowser, StyledDropzone } from './dragAndDrop';
 import { Tooltip } from './components/Tooltip';
+import { NodeDetailPopover } from './components/NodeDetailPopover';
 
 import { EditDialog, DeleteConfirmationDialog } from './components/Dialogs';
 import PPGraph from './classes/GraphClass';
@@ -306,6 +307,7 @@ const App = (): JSX.Element => {
               }
             />
           )}
+          <NodeDetailPopover />
           {showDeleteGraph && (
             <DeleteConfirmationDialog graphToBeModified={graphToBeModified} />
           )}

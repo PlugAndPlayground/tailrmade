@@ -27,6 +27,9 @@ import {
   COLOR_WHITE_TEXT,
   SOCKET_TEXTMARGIN_TOP,
   SOCKET_TEXTMARGIN,
+  SOCKET_HEIGHT,
+  SOCKET_MIN_HITBOX_SCREEN_SIZE,
+  SOCKET_MIN_HIT_PITCH_SCREEN_SIZE,
   SOCKET_TYPE,
   SOCKET_WIDTH,
   TEXT_RESOLUTION,
@@ -47,7 +50,12 @@ import {
   convertToViewableString,
   parseValueAndAttachWarnings,
 } from '../utils/utils';
-import { NodeExecutionWarning, PNPStatus, PNPSuccess } from './ErrorClass';
+import {
+  NodeExecutionWarning,
+  PNPStatus,
+  PNPSuccess,
+  SocketParsingWarning,
+} from './ErrorClass';
 import { PNPHitArea } from './selection/PNPHitArea';
 import { getOverflowForSize } from '../utils/layoutableHelpers';
 
@@ -100,6 +108,8 @@ export default class Socket
     this.node = node;
 
     this.dataType.onNodeAdded(node);
+
+    this.refreshZoomInvariantInteractivity();
 
     this.redraw();
   }
@@ -244,27 +254,34 @@ export default class Socket
       this.addChild(this._ValueSpecificGraphics);
     }
   }
+  public getStatusLabel(): string {
+    return `${this.isInput() ? 'input' : 'output'}: ${this.name}`;
+  }
 
   public setStatus(status: PNPStatus) {
     const currentMessage = this.status.message;
     const newMessage = status.message;
     if (currentMessage !== newMessage) {
+      if (status instanceof SocketParsingWarning) {
+        status.setSocketLabel(this.getStatusLabel());
+      }
       this.status = status;
       if (this.getNode() !== undefined) {
         this.redraw();
         if (status.getSeverity() >= STATUS_SEVERITY.WARNING) {
           this.getNode().setStatus(
-            new NodeExecutionWarning(
-              `Parsing warning on ${this.isInput() ? 'input' : 'output'}: ${
-                this.name
-              }
+            status instanceof SocketParsingWarning
+              ? status
+              : new NodeExecutionWarning(
+                  `Parsing warning on ${this.getStatusLabel()}
   ${newMessage}`,
-            ),
+                ),
             'socket',
           );
         } else {
           this.getNode().adaptToSocketErrors();
         }
+        this.getNode().drawErrorBoundary();
       }
     }
   }
@@ -670,16 +687,45 @@ export default class Socket
   // SETUP
 
   static screenHitRadius(): number {
-    const MIN_HITBOX_SCREEN_SIZE = 24;
     const scale = PPGraph.currentGraph.viewportScaleX;
-    return Math.max(SOCKET_WIDTH * scale, MIN_HITBOX_SCREEN_SIZE) / 2;
+    const minHitbox = Math.min(
+      SOCKET_MIN_HITBOX_SCREEN_SIZE,
+      SOCKET_HEIGHT * scale,
+    );
+    return Math.max(SOCKET_WIDTH * scale, minHitbox) / 2;
   }
 
+  // the same radius in world units, for hit tests done in local space
   static worldHitRadius(): number {
     return Socket.screenHitRadius() / PPGraph.currentGraph.viewportScaleX;
   }
 
+  static hitTestingEnabled(): boolean {
+    return (
+      SOCKET_HEIGHT * PPGraph.currentGraph.viewportScaleX >=
+      SOCKET_MIN_HIT_PITCH_SCREEN_SIZE
+    );
+  }
+
+  refreshZoomInvariantInteractivity(): void {
+    const eventMode = Socket.hitTestingEnabled() ? 'static' : 'none';
+    if (this.eventMode === eventMode) {
+      return;
+    }
+    this.eventMode = eventMode;
+    // no pointerout arrives once the socket has stopped listening
+    if (
+      eventMode === 'none' &&
+      PPGraph.currentGraph.socketFocus.hovered === this
+    ) {
+      this.onPointerOut();
+    }
+  }
+
   isWithinZoomInvariantHitRadius(x: number, y: number): boolean {
+    if (!Socket.hitTestingEnabled()) {
+      return false;
+    }
     const center = this.getSocketLocation();
     const radius = Socket.worldHitRadius();
     const dx = x - center.x;
@@ -688,6 +734,9 @@ export default class Socket
   }
 
   private socketRefHitAreaContains(x: number, y: number): boolean {
+    if (!Socket.hitTestingEnabled()) {
+      return false;
+    }
     const half = SOCKET_WIDTH / 2;
     const radius = Socket.worldHitRadius();
     const dx = x - half;
