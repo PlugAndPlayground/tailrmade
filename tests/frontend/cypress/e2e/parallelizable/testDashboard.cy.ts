@@ -13,6 +13,9 @@ import {
   zoomToFitAll,
 } from '../helpers';
 
+const getDashboardText = (text: string) =>
+  cy.get('[data-cy="dashboard"]').contains(text);
+
 const getVisibleWidget = (selector) =>
   cy.get(selector).filter(':visible').first().should('be.visible');
 
@@ -485,7 +488,9 @@ describe('Test dashboard', () => {
 
     cy.get('[data-cy="tool-vertical-container"]').click({ force: true });
     cy.get('[data-cy="tool-text"]').click({ force: true });
-    cy.contains('Hello world').should('be.visible');
+    // scoped to the dashboard: the UI surface node renders the same content
+    // a second time in its canvas overlay
+    getDashboardText('Hello world').should('be.visible');
 
     cy.get(`[data-cy="layoutable-node-${existingNodeId}"]`).click({
       force: true,
@@ -495,7 +500,9 @@ describe('Test dashboard', () => {
     // node, so the graph now holds the HtmlRenderer + the surface
     assertNodesCount(2);
     cy.get(`[data-cy="widget of NODE_${existingNodeId}"]`).should('be.visible');
-    cy.contains('Hello world').should('be.visible');
+    // the surface scrolls down to the widget that was just added, which can
+    // leave the text widget clipped above the panel's visible area
+    getDashboardText('Hello world').scrollIntoView().should('be.visible');
   });
 
   // it('Moves widgets up and down using keyboard shortcuts', () => {

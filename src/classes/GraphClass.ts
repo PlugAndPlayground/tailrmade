@@ -51,6 +51,7 @@ import {
   MAX_LATEST_NODES_IN_SEARCH,
   ONCLICK_DOUBLECLICK,
 } from '../utils/constants';
+import { VISIBILITY_ACTION } from '../utils/constants_shared';
 import HybridNode2 from './HybridNode2';
 import {
   ActionHandler,
@@ -1218,6 +1219,7 @@ export default class PPGraph {
   // teardown done before another app is loaded and not undoable
   async clear(): Promise<void> {
     this.graphConfiguredAndReady = false;
+    InterfaceController.toggleDashboardInEditMode(VISIBILITY_ACTION.CLOSE);
     this.socketFocus.forgetAll();
     clearRuntimeThemeLayer();
     setThemeDocument(EMPTY_THEME_DOCUMENT);
