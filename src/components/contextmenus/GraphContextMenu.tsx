@@ -205,7 +205,7 @@ export const GraphContextMenu = (props) => {
         </MenuItem>
         <MenuItem
           onClick={() => {
-            void PPGraph.currentGraph.clear();
+            void PPGraph.currentGraph.perform_action_ClearGraph();
           }}
         >
           <ListItemIcon>

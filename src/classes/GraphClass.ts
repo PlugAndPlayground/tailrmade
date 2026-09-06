@@ -17,6 +17,7 @@ import {
   TNodeSource,
   AccessType,
   isSurfaceNode,
+  DisplacedLink,
 } from '../utils/interfaces';
 import {
   calculateDistance,
@@ -50,6 +51,7 @@ import {
   MAX_LATEST_NODES_IN_SEARCH,
   ONCLICK_DOUBLECLICK,
 } from '../utils/constants';
+import { VISIBILITY_ACTION } from '../utils/constants_shared';
 import HybridNode2 from './HybridNode2';
 import {
   ActionHandler,
@@ -466,9 +468,9 @@ export default class PPGraph {
     }
     // we allow re-connection of outputs if ctrl is pressed
     if (event.ctrlKey && socket.isOutput() && socket.hasLink()) {
-      const target = socket.links[0].getTarget();
-      // detach and allow to connect to new
-      await this.linkDisconnect(target.getNode().id, target.name, true);
+      const link = socket.links[0];
+      const target = link.getTarget();
+      await this.perform_action_Disconnect(link);
       this.lastSelectedSocketWasOutput = false;
       this.selectedSocket = target;
       document.body.style.cursor = 'grabbing';
@@ -800,17 +802,54 @@ export default class PPGraph {
     inputSocketName: string,
     notify: boolean,
   ) {
-    const socket = this.nodes[targetNodeID].getInputOrTriggerSocketByName(
+    const socket = this.nodes[targetNodeID]?.getInputOrTriggerSocketByName(
       inputSocketName,
       false,
     );
-    if (socket !== undefined) {
-      const link = socket.links[0];
-      const sourceNodeID = link.getSource().getNode().id;
-      const source = link.getSource();
-      const target = link.getTarget();
-      link.delete();
+    // the socket can legitimately be empty already - undoing a connect that
+    // replaced nothing, or a link that went away with its node
+    socket?.links[0]?.delete();
+  }
+
+  // connect() drops whatever already occupies an input socket, so anything
+  // that has to be undoable needs to remember the displaced link first
+  getInputLinkSource(
+    targetNodeID: string,
+    inputSocketName: string,
+  ): DisplacedLink | undefined {
+    const socket = this.nodes[targetNodeID]?.getInputOrTriggerSocketByName(
+      inputSocketName,
+      false,
+    );
+    const source = socket?.links[0]?.getSource();
+    if (source === undefined) {
+      return undefined;
     }
+    return {
+      sourceNodeID: source.getNode().id,
+      sourceSocketName: source.name,
+    };
+  }
+
+  async restoreInputLink(
+    displaced: DisplacedLink | undefined,
+    targetNodeID: string,
+    inputSocketName: string,
+  ): Promise<void> {
+    if (
+      displaced === undefined ||
+      this.nodes[displaced.sourceNodeID] === undefined ||
+      this.nodes[targetNodeID] === undefined
+    ) {
+      return;
+    }
+    await this.linkConnect(
+      displaced.sourceNodeID,
+      displaced.sourceSocketName,
+      targetNodeID,
+      inputSocketName,
+      true,
+    );
   }
 
   // gets connect and unconnect actions for specified hypothetic link, based on node ID and socket name in order to be generic actions not reference-based, this is fired specifically when user is connecting things
@@ -917,22 +956,31 @@ export default class PPGraph {
     const targetSocketName = input.name;
     const targetSocketID = input.getNode().id;
 
-    const actions = this.actions_Connect(
+    const [connectAction, disconnectAction] = this.actions_Connect(
       sourceSocketName,
       sourceSocketID,
       targetSocketName,
       targetSocketID,
     );
 
+    const action = async () => connectAction();
+    const captureUndoArgs = (): DisplacedLink | undefined =>
+      this.getInputLinkSource(targetSocketID, targetSocketName);
+    const undoAction = async (displaced: DisplacedLink | undefined) => {
+      await disconnectAction();
+      await this.restoreInputLink(displaced, targetSocketID, targetSocketName);
+    };
+
     await ActionHandler.performRawAction(
       new BakedAction(
         new SerializableAction(
-          actions[0],
-          actions[1],
+          action,
+          undoAction,
           'Connect nodes ' +
             output.getNode().name +
             ' and ' +
             input.getNode().name,
+          captureUndoArgs,
         ),
       ),
     );
@@ -1168,8 +1216,10 @@ export default class PPGraph {
     this.viewport.alpha = fadeIn ? 1 : 0.01; // avoid going to absolute zero because it can confuse some node rendering behaviour
   }
 
+  // teardown done before another app is loaded and not undoable
   async clear(): Promise<void> {
     this.graphConfiguredAndReady = false;
+    InterfaceController.toggleDashboardInEditMode(VISIBILITY_ACTION.CLOSE);
     this.socketFocus.forgetAll();
     clearRuntimeThemeLayer();
     setThemeDocument(EMPTY_THEME_DOCUMENT);
@@ -1178,9 +1228,10 @@ export default class PPGraph {
       await this.fadeGraph(false);
     }
 
-    // remove all nodes from container
-    this.selection.selectAllNodes();
-    await this.perform_action_DeleteSelectedNodes();
+    this.selection.deselectAllNodesAndResetSelection();
+    this.stopConnecting();
+    Object.values(this.nodes).forEach((node) => this.removeNode(node));
+    ActionHandler.clear();
 
     InterfaceController.notifyListeners(ListenEvent.GraphConfigured, {
       id: this.id,
@@ -1604,6 +1655,11 @@ export default class PPGraph {
       ),
       false,
     );
+    // a wire being dragged out of this node has nowhere to land once the node
+    // is gone - abandon the drag instead of holding on to a destroyed socket
+    if (this.selectedSocket?.getNode() === node) {
+      this.stopConnecting();
+    }
     const removedSurfaceId = isSurfaceNode(node) ? node.id : undefined;
     delete this.nodes[node.id];
     node.destroy();
@@ -1616,6 +1672,12 @@ export default class PPGraph {
     }
 
     this.updateEmptyCanvasVisibility();
+  }
+
+  // The user facing "Clear" - an edit to the app that is open
+  async perform_action_ClearGraph(): Promise<void> {
+    this.selection.selectAllNodes();
+    await this.perform_action_DeleteSelectedNodes();
   }
 
   async perform_action_DeleteSelectedNodes(): Promise<void> {
@@ -1638,14 +1700,15 @@ export default class PPGraph {
     };
     const undoAction = async () => {
       const addedNodes: PPNode[] = [];
-      await Promise.all(
-        nodesSerialized.map(async (node: SerializedNode) => {
-          const addedNode = await PPGraph.currentGraph.addSerializedNode(node, {
+      // sequential, so the restored selection order does not depend on how
+      // deep each node type's async setup happens to be
+      for (const node of nodesSerialized) {
+        addedNodes.push(
+          await PPGraph.currentGraph.addSerializedNode(node, {
             overrideId: node.id,
-          });
-          addedNodes.push(addedNode);
-        }),
-      );
+          }),
+        );
+      }
 
       linksSerialized.forEach((link) => {
         const sourceSocket = this.nodes[
