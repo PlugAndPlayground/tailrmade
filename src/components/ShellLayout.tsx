@@ -1,16 +1,20 @@
-import React, { useState } from 'react';
-import { Box, IconButton, Tooltip } from '@mui/material';
+import React, { useEffect } from 'react';
+import { Box, IconButton, Tooltip, Typography } from '@mui/material';
 import PPGraph from '../classes/GraphClass';
-import InterfaceController from '../InterfaceController';
+import InterfaceController, { ListenEvent } from '../InterfaceController';
 import { Rail } from './Rail';
 import LeftRightDrawer from './LeftRightDrawer';
 import DashboardColumn from './dashboard/GraphOverlayDashboard';
 import { TMIconNoShadow } from '../utils/icons';
 import { useResolvedAppTheme } from '../utils/theme/store';
 import { useIsSmallScreen } from '../utils/utils';
-import { useIsStackLayout, useStackView } from '../utils/layoutModel';
-import { BottomBar, BOTTOM_BAR_HEIGHT } from './BottomBar';
-import AuthDialog from './AuthDialog';
+import {
+  getStackView,
+  useIsStackLayout,
+  useStackView,
+} from '../utils/layoutModel';
+import { BottomBar } from './BottomBar';
+import { goToOpenedApp } from '../utils/stackNavigation';
 import CanvasPeek from './CanvasPeek';
 import { LeftsideContainer } from '../containers/LeftsideContainer';
 import { DashboardEditor } from './dashboard/DashboardEditor';
@@ -36,24 +40,41 @@ const ShellLayout: React.FunctionComponent<ShellLayoutProps> = (props) => {
   const smallScreen = useIsSmallScreen();
   const stackLayout = useIsStackLayout();
   const stackView = useStackView();
-  const [authDialogOpen, setAuthDialogOpen] = useState(false);
   const { appView, overlayState } = props;
   const appTokens = useResolvedAppTheme().tokens;
   const isDashboardMaximised =
     overlayState[DrawerSide.DASHBOARD].visible &&
     overlayState[DrawerSide.DASHBOARD].maximized;
 
+  // Picking an app out of the apps list is the one navigation the phone does
+  // on your behalf: staying on the list would make the tap look like it did
+  // nothing. Where it lands depends on the app - see viewForOpenedApp.
+  useEffect(() => {
+    if (!stackLayout) {
+      return;
+    }
+    const listenerId = InterfaceController.addListener(
+      ListenEvent.GraphConfigured,
+      () => {
+        if (getStackView() === 'apps') {
+          goToOpenedApp(PPGraph.currentGraph);
+        }
+      },
+    );
+    return () => InterfaceController.removeListener(listenerId);
+  }, [stackLayout]);
+
   // ---- stack layout -------------------------------------------------------
   // One full-screen view at a time above a bottom bar. The rail, both drawers
   // and the dashboard column are all absent - not hidden, not narrowed, not
   // turned into sheets. Nothing overlaps, so nothing needs to negotiate.
   //
-  // 'canvas' renders nothing at all: the pixi canvas is behind the whole shell
+  // 'graph' renders nothing at all: the pixi canvas is behind the whole shell
   // already, so showing it is a matter of putting nothing in front of it.
   if (stackLayout) {
     return (
       <>
-        {stackView !== 'canvas' && (
+        {stackView !== 'graph' && (
           <Box
             data-cy="stack-view"
             data-stack-view={stackView}
@@ -62,9 +83,9 @@ const ShellLayout: React.FunctionComponent<ShellLayoutProps> = (props) => {
               left: 0,
               right: 0,
               top: 0,
-              // clears the bar, so a view never renders under its own
-              // navigation
-              bottom: `calc(${BOTTOM_BAR_HEIGHT}px + env(safe-area-inset-bottom))`,
+              // full height: the bar is closed by default and floats over the
+              // corner when it is not, so there is no strip to reserve
+              bottom: 0,
               zIndex: 20,
               display: 'flex',
               flexDirection: 'column',
@@ -93,13 +114,38 @@ const ShellLayout: React.FunctionComponent<ShellLayoutProps> = (props) => {
           </Box>
         )}
 
-        {stackView === 'canvas' && <CanvasPeek />}
+        {stackView === 'graph' && (
+          <>
+            {/* which app this graph is. A label, not a control - renaming
+                lives in the bottom bar's overflow menu, where the rest of the
+                app's own actions are. */}
+            {props.currentGraph && (
+              <Typography
+                data-cy="stack-app-name"
+                sx={{
+                  position: 'fixed',
+                  top: 'calc(env(safe-area-inset-top) + 12px)',
+                  left: '12px',
+                  right: '12px',
+                  zIndex: 30,
+                  color: 'primary.main',
+                  fontSize: '14px',
+                  fontWeight: 500,
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
+                  userSelect: 'none',
+                  pointerEvents: 'none',
+                }}
+              >
+                {props.currentGraph.name}
+              </Typography>
+            )}
+            <CanvasPeek />
+          </>
+        )}
 
-        <BottomBar onRequestSignIn={() => setAuthDialogOpen(true)} />
-        <AuthDialog
-          open={authDialogOpen}
-          onClose={() => setAuthDialogOpen(false)}
-        />
+        <BottomBar />
       </>
     );
   }

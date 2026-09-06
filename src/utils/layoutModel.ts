@@ -70,7 +70,7 @@ export const useIsNarrowColumns = (): boolean => {
 // mapping between them. Each layout keeps its own idea of what is on screen,
 // and crossing the breakpoint simply hands over to the other one.
 
-export type StackView = 'ui' | 'canvas' | 'ai' | 'apps';
+export type StackView = 'ui' | 'graph' | 'ai' | 'apps';
 
 const stackViewStore = createStore<StackView>('ui');
 

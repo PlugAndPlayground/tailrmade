@@ -212,6 +212,11 @@ export class WidgetColorPicker extends WidgetHybridBase {
               <Paper
                 sx={{
                   margin: '4px',
+                  // the picker is dragged, not scrolled: without this a drag
+                  // across the saturation square is taken by the browser as a
+                  // scroll of whatever is behind the popper, and the colour
+                  // never changes
+                  touchAction: 'none',
                 }}
               >
                 <ClickAwayListener onClickAway={() => showColorPicker(false)}>

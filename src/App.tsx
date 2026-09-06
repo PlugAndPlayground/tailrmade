@@ -30,6 +30,7 @@ import { getTMBuildLabel } from './buildInfo';
 
 import { BackendGateway } from './services/BackendGateway';
 import GraphContextMenu from './components/contextmenus/GraphContextMenu';
+import { AuthDialogHost } from './components/AuthDialog';
 import NodeContextMenu from './components/contextmenus/NodeContextMenu';
 import SocketContextMenu from './components/contextmenus/SocketContextMenu';
 import SpinnerContainer from './containers/SpinnerContainer';
@@ -319,6 +320,7 @@ const App = (): JSX.Element => {
             />
           )}
           <SpinnerContainer />
+          <AuthDialogHost />
 
           {isGraphContextMenuOpen && (
             <GraphContextMenu

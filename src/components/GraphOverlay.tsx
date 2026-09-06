@@ -131,7 +131,7 @@ const GraphOverlay: React.FunctionComponent<GraphOverlayProps> = (props) => {
     // IS the view, and a pixi ticker running behind an opaque panel is pure
     // battery on the one device where that is felt.
     const canvasIsHidden = stackLayout
-      ? stackView !== 'canvas'
+      ? stackView !== 'graph'
       : appView ||
         (overlayState.dashboard.maximized && overlayState.dashboard.visible);
 

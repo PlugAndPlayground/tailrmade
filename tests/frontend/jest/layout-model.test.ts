@@ -18,7 +18,7 @@ describe('stack view', () => {
   });
 
   it('holds exactly one destination at a time', () => {
-    const views: StackView[] = ['canvas', 'ai', 'apps', 'ui'];
+    const views: StackView[] = ['graph', 'ai', 'apps', 'ui'];
     views.forEach((view) => {
       setStackView(view);
       expect(getStackView()).toBe(view);
@@ -26,8 +26,8 @@ describe('stack view', () => {
   });
 
   it('accepts a functional update, like any other store', () => {
-    setStackView('canvas');
-    setStackView((current) => (current === 'canvas' ? 'ai' : 'ui'));
+    setStackView('graph');
+    setStackView((current) => (current === 'graph' ? 'ai' : 'ui'));
     expect(getStackView()).toBe('ai');
   });
 });

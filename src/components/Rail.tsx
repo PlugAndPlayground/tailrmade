@@ -12,15 +12,15 @@ import {
 import AddIcon from '@mui/icons-material/Add';
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
 import DashboardIcon from '@mui/icons-material/Dashboard';
+import FolderOpenIcon from '@mui/icons-material/FolderOpen';
 import HistoryIcon from '@mui/icons-material/History';
-import MenuIcon from '@mui/icons-material/Menu';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
 import PersonIcon from '@mui/icons-material/Person';
 import QuestionMarkIcon from '@mui/icons-material/QuestionMark';
 import ShareIcon from '@mui/icons-material/Share';
 import PPStorage from '../PPStorage';
 import InterfaceController, { ListenEvent } from '../InterfaceController';
-import AuthDialog from './AuthDialog';
+import { openAuthDialog } from './AuthDialog';
 import SocialIcons from './SocialIcons';
 import ShareContextMenu from './contextmenus/ShareContextMenu';
 import { StyledButton } from './StyledButton';
@@ -67,7 +67,6 @@ export const Rail: React.FunctionComponent<RailProps> = React.memo((props) => {
     top: 0,
     left: 0,
   });
-  const [authDialogOpen, setAuthDialogOpen] = useState(false);
   const [currentUser, setCurrentUser] = useState(
     CLOUD_MODE ? BackendGateway.getInstance().getCurrentUser() : null,
   );
@@ -220,7 +219,7 @@ export const Rail: React.FunctionComponent<RailProps> = React.memo((props) => {
               <Tooltip title="My account" placement="right">
                 <StyledButton
                   data-cy="auth-button"
-                  onClick={() => setAuthDialogOpen(true)}
+                  onClick={() => openAuthDialog()}
                   isSelected={currentUser === null}
                   sx={{
                     borderRadius: 0,
@@ -268,7 +267,7 @@ export const Rail: React.FunctionComponent<RailProps> = React.memo((props) => {
                 )
               }
             >
-              <MenuIcon />
+              <FolderOpenIcon />
             </StyledButton>
           </Tooltip>
           <Divider sx={{ width: '32px', my: 0.5 }} />
@@ -406,11 +405,6 @@ export const Rail: React.FunctionComponent<RailProps> = React.memo((props) => {
           </Box>
         )}
       </Box>
-
-      <AuthDialog
-        open={authDialogOpen}
-        onClose={() => setAuthDialogOpen(false)}
-      />
     </>
   );
 });
