@@ -31,6 +31,7 @@ import { getTMBuildLabel } from './buildInfo';
 import { BackendGateway } from './services/BackendGateway';
 import GraphContextMenu from './components/contextmenus/GraphContextMenu';
 import { AuthDialogHost } from './components/AuthDialog';
+import { isCanvasExploreOnly } from './utils/layoutModel';
 import NodeContextMenu from './components/contextmenus/NodeContextMenu';
 import SocketContextMenu from './components/contextmenus/SocketContextMenu';
 import SpinnerContainer from './containers/SpinnerContainer';
@@ -183,6 +184,13 @@ const App = (): JSX.Element => {
       event: PIXI.FederatedPointerEvent,
       target: PIXI.Container,
     ) => {
+      // one gate for all three canvas menus: under the stack layout every
+      // entry in them is an edit the phone does not offer (see
+      // isCanvasExploreOnly). The app's own actions live in the bottom bar's
+      // overflow menu instead.
+      if (isCanvasExploreOnly()) {
+        return;
+      }
       setIsGraphContextMenuOpen(false);
       setIsNodeContextMenuOpen(false);
       setIsSocketContextMenuOpen(false);

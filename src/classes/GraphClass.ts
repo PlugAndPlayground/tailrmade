@@ -28,6 +28,7 @@ import {
   shouldDrawSelectionMarquee,
   TouchGesture,
 } from '../utils/touchGestures';
+import { isCanvasExploreOnly, isStackLayout } from '../utils/layoutModel';
 import { getLoadSeedNodes } from '../utils/updateBehaviour';
 import {
   EMPTY_THEME_DOCUMENT,
@@ -39,7 +40,7 @@ import {
   getThemeDocument,
   setThemeDocument,
 } from '../utils/theme/store';
-import { getNodesBounds } from '../pixi/utils-pixi';
+import { frameGraphForStackLayout, getNodesBounds } from '../pixi/utils-pixi';
 import PPNode from './NodeClass';
 import PPSocket from './SocketClass';
 import PPLink from './LinkClass';
@@ -321,6 +322,11 @@ export default class PPGraph {
     global: PIXI.Point,
     target: PIXI.Container,
   ): void {
+    // the long press is the finger's right click, and a phone has no use for
+    // either: everything those menus offer is an edit (see isCanvasExploreOnly)
+    if (isCanvasExploreOnly()) {
+      return;
+    }
     if (this.selectedSocket) {
       this.stopConnecting();
     }
@@ -369,7 +375,8 @@ export default class PPGraph {
       open: false,
     });
 
-    if (shouldDrawSelectionMarquee(event)) {
+    // a marquee is a selection, and there is no selection on a phone
+    if (shouldDrawSelectionMarquee(event) && !isCanvasExploreOnly()) {
       if (!this.socketFocus.hovered) {
         this.selection.drawSelectionStart(event, event.shiftKey);
       }
@@ -1619,6 +1626,14 @@ export default class PPGraph {
     });
 
     this.graphConfiguredAndReady = true;
+
+    // the saved view was framed on the window the app was saved from - see
+    // frameGraphForStackLayout for why a phone needs its own answer. Here,
+    // rather than with the rest of the viewport restore above, because it
+    // needs the nodes to exist to have something to fit.
+    if (isStackLayout()) {
+      frameGraphForStackLayout();
+    }
 
     this.updateEmptyCanvasVisibility();
 

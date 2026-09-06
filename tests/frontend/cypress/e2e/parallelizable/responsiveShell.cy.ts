@@ -2,9 +2,13 @@ import { VISIBILITY_ACTION } from '../../../../../src/utils/constants_shared';
 import {
   addToDashboard,
   clearGraph,
+  clickNode,
   doWithTestController,
   exitDashboardEditMode,
+  getNodeCenterById,
   openNewGraph,
+  saveGraph,
+  shouldWithTestController,
 } from '../helpers';
 
 // The shell has two layouts and one rule choosing between them: can this
@@ -22,6 +26,9 @@ const STACK_SIZES = [
   ['tablet portrait', TABLET_PORTRAIT],
 ] as const;
 
+// what BottomBar waits out before closing itself
+const AUTO_COLLAPSE_MS = 4000;
+
 const COLUMN_SIZES = [
   ['tablet landscape', TABLET_LANDSCAPE],
   ['desktop', DESKTOP],
@@ -38,6 +45,19 @@ const openBottomBar = () => {
     }
   });
   cy.get('[data-cy="bottom-bar"]').should('have.attr', 'data-expanded', 'true');
+};
+
+const closeBottomBar = () => {
+  cy.get('[data-cy="bottom-bar"]').then(($bar) => {
+    if ($bar.attr('data-expanded') === 'true') {
+      cy.get('[data-cy="bottom-bar-toggle"]').click();
+    }
+  });
+  cy.get('[data-cy="bottom-bar"]').should(
+    'have.attr',
+    'data-expanded',
+    'false',
+  );
 };
 
 describe('responsive shell', () => {
@@ -104,6 +124,28 @@ describe('responsive shell', () => {
       });
     });
 
+    // the bar grows and shrinks AROUND the logo - the logo is the one thing
+    // on screen that was in the same place before the tap
+    it('does not move the logo when it opens or closes', () => {
+      openBottomBar();
+      cy.get('[data-cy="bottom-bar-ui"]').click();
+      closeBottomBar();
+
+      let collapsed: DOMRect;
+      cy.get('[data-cy="bottom-bar-toggle"]').then(($logo) => {
+        collapsed = $logo[0].getBoundingClientRect();
+      });
+      openBottomBar();
+      cy.get('[data-cy="bottom-bar-toggle"]').should(($logo) => {
+        const open = $logo[0].getBoundingClientRect();
+        expect([open.left, open.top, open.width]).to.deep.equal([
+          collapsed.left,
+          collapsed.top,
+          collapsed.width,
+        ]);
+      });
+    });
+
     it('switches between one full-screen view at a time', () => {
       openBottomBar();
       cy.get('[data-cy="bottom-bar-ai"]').click();
@@ -165,9 +207,32 @@ describe('responsive shell', () => {
       );
     });
 
+    // the apps list and the AI panel end above the bar anyway, so there is
+    // nothing for it to get out of the way of
+    it('stays open on the apps and AI tabs', () => {
+      openBottomBar();
+      cy.get('[data-cy="bottom-bar-apps"]').click();
+      cy.wait(AUTO_COLLAPSE_MS + 1000);
+      cy.get('[data-cy="bottom-bar"]').should(
+        'have.attr',
+        'data-expanded',
+        'true',
+      );
+
+      cy.get('[data-cy="bottom-bar-ai"]').click();
+      cy.get('[data-cy="stack-view"]').click('center');
+      cy.get('[data-cy="bottom-bar"]').should(
+        'have.attr',
+        'data-expanded',
+        'true',
+      );
+    });
+
     // opened by accident, gone without being dismissed
     it('closes itself after a while of nothing happening', () => {
       openBottomBar();
+      // ...on a view that it is in the way of
+      cy.get('[data-cy="bottom-bar-ui"]').click();
       cy.get('[data-cy="bottom-bar"]', { timeout: 10000 }).should(
         'have.attr',
         'data-expanded',
@@ -175,9 +240,16 @@ describe('responsive shell', () => {
       );
     });
 
-    it('opens the share menu upwards, clear of the bar', () => {
+    it('opens the share menu as a full-width sheet over the bar', () => {
       openBottomBar();
       cy.get('[data-cy="bottom-bar-share"]').click();
+      cy.get('[data-cy="bottom-bar-share-menu"]').should('be.visible');
+      cy.get('[data-cy="bottom-bar-share-menu"]').should(($sheet) => {
+        // the same width as the overflow sheet, not anchored to its own slot
+        expect($sheet[0].getBoundingClientRect().width).to.be.greaterThan(
+          PHONE.width - 40,
+        );
+      });
       cy.get('[data-cy="bottom-bar-share-scrim"]').should('exist');
       cy.get('[data-cy="bottom-bar-share-scrim"]').click({ force: true });
       cy.get('[data-cy="bottom-bar-share-scrim"]').should('not.exist');
@@ -313,10 +385,124 @@ describe('responsive shell', () => {
     });
   });
 
-  // Exploring is in scope on a phone and editing is not, but reading a node's
-  // values sits between them - and it is the difference between a canvas you
-  // can navigate and one you can understand.
-  describe('reading a node on the canvas', () => {
+  // Picking an app out of the list is the one navigation the phone does on
+  // your behalf. Loading an app fires GraphConfigured twice - once from the
+  // clear() that empties the old graph, once for the app itself - and acting
+  // on the first sent every app to the graph view, because at that moment
+  // every app is empty.
+  describe('opening an app from the list', () => {
+    it('lands on the UI when the app has one', () => {
+      cy.viewport(DESKTOP.width, DESKTOP.height);
+      clearGraph();
+      const widgetId = 'handover-widget';
+      doWithTestController(async (tc) => {
+        await tc.addNode('WidgetColorPicker', widgetId, 0, -200);
+      });
+      addToDashboard(widgetId);
+      exitDashboardEditMode();
+      saveGraph();
+
+      let appName = '';
+      doWithTestController((tc) => {
+        appName = tc.getGraph().name;
+      });
+
+      cy.viewport(PHONE.width, PHONE.height);
+      openBottomBar();
+      cy.get('[data-cy="bottom-bar-apps"]').click();
+      cy.get('#graphs-list').should('be.visible');
+      cy.then(() => {
+        cy.get('#graphs-list').contains(appName).click();
+      });
+
+      cy.get('[data-cy="stack-view"]', { timeout: 30000 }).should(
+        'have.attr',
+        'data-stack-view',
+        'ui',
+      );
+    });
+  });
+
+  // The saved view is a scale chosen on the window the app was saved from,
+  // which is almost always a desktop - restoring it as-is on a phone opens the
+  // app deep inside itself.
+  describe('framing a loaded graph on a phone', () => {
+    it('fits the whole graph on screen', () => {
+      cy.viewport(DESKTOP.width, DESKTOP.height);
+      clearGraph();
+      // far enough apart that no desktop-saved view could have them both on a
+      // phone screen at scale 1, but not so far that fitting them would go
+      // below the floor
+      doWithTestController(async (tc) => {
+        await tc.addNode('Constant', 'FRAME1', -400, -250);
+        await tc.addNode('Constant', 'FRAME2', 400, 250);
+      });
+      saveGraph();
+
+      let appName = '';
+      doWithTestController((tc) => {
+        appName = tc.getGraph().name;
+      });
+
+      cy.viewport(PHONE.width, PHONE.height);
+      openBottomBar();
+      cy.get('[data-cy="bottom-bar-apps"]').click();
+      cy.get('#graphs-list').should('be.visible');
+      cy.then(() => {
+        cy.get('#graphs-list').contains(appName).click();
+      });
+      cy.get('[data-cy="stack-view"]', { timeout: 30000 }).should('exist');
+
+      // both ends of the graph are on the screen, and the scale is one a
+      // finger can still make sense of
+      shouldWithTestController((tc) => {
+        const scale = tc.getGraph().viewportScaleX;
+        expect(scale, 'scale').to.be.within(0.15, 1);
+        ['FRAME1', 'FRAME2'].forEach((id) => {
+          const [x, y] = tc.getNodeCenterById(id);
+          expect(x, `${id} x`).to.be.within(0, PHONE.width);
+          expect(y, `${id} y`).to.be.within(0, PHONE.height);
+        });
+      });
+    });
+
+    // the other branch: a graph too big to fit legibly keeps the author's own
+    // centre - on a graph that does not fit, where they left the view is
+    // better information than the middle of its bounding box
+    it('stops zooming out at the floor when the graph is too big', () => {
+      cy.viewport(DESKTOP.width, DESKTOP.height);
+      clearGraph();
+      doWithTestController(async (tc) => {
+        await tc.addNode('Constant', 'HUGE1', -4000, -2500);
+        await tc.addNode('Constant', 'HUGE2', 4000, 2500);
+      });
+      saveGraph();
+
+      let appName = '';
+      doWithTestController((tc) => {
+        appName = tc.getGraph().name;
+      });
+
+      cy.viewport(PHONE.width, PHONE.height);
+      openBottomBar();
+      cy.get('[data-cy="bottom-bar-apps"]').click();
+      cy.get('#graphs-list').should('be.visible');
+      cy.then(() => {
+        cy.get('#graphs-list').contains(appName).click();
+      });
+      cy.get('[data-cy="stack-view"]', { timeout: 30000 }).should('exist');
+
+      shouldWithTestController((tc) => {
+        expect(tc.getGraph().viewportScaleX, 'scale').to.be.closeTo(0.15, 0.01);
+      });
+    });
+  });
+
+  // A phone explores the graph: pan and zoom answer, and nothing else does.
+  // Selecting, dragging, wiring and the context menus all need precision, a
+  // second button or a keyboard - and a tap that moves a node by accident is a
+  // change you cannot see you made.
+  describe('the canvas is explore-only', () => {
     beforeEach(() => {
       cy.viewport(PHONE.width, PHONE.height);
       clearGraph();
@@ -324,69 +510,58 @@ describe('responsive shell', () => {
       cy.get('[data-cy="bottom-bar-graph"]').click();
     });
 
-    it('shows nothing until something is selected', () => {
-      cy.get('[data-cy="canvas-peek"]').should('not.exist');
+    it('says so, next to the app name', () => {
+      cy.get('[data-cy="stack-explore-only"]')
+        .should('exist')
+        .should('contain.text', 'desktop');
     });
 
-    it('names the node and lists its values', () => {
+    it('does not select a node that is tapped', () => {
       doWithTestController(async (tc) => {
-        await tc.addNode('Constant', 'PEEK1');
-        tc.selectNodesById(['PEEK1']);
+        await tc.addNode('Constant', 'EXPLORE1');
       });
-
-      cy.get('[data-cy="canvas-peek"]').should('be.visible');
-      cy.get('[data-cy="canvas-peek-name"]').should('not.be.empty');
-      // a name and a hint alone would not be worth a panel - the values are
-      // the reason it exists
-      cy.get('[data-cy="canvas-peek-row"]').should('have.length.at.least', 1);
+      clickNode('EXPLORE1');
+      shouldWithTestController((tc) => {
+        expect(tc.getSelectedNodes()).to.have.length(0);
+      });
     });
 
-    // the whole point of it not being the inspector
-    it('offers nothing editable', () => {
+    it('does not move a node that is dragged', () => {
       doWithTestController(async (tc) => {
-        await tc.addNode('Constant', 'PEEK2');
-        tc.selectNodesById(['PEEK2']);
+        await tc.addNode('Constant', 'EXPLORE2');
       });
-
-      cy.get('[data-cy="canvas-peek"]').should('be.visible');
-      cy.get('[data-cy="canvas-peek"]').find('input').should('not.exist');
-      cy.get('[data-cy="canvas-peek"]').find('textarea').should('not.exist');
-      cy.get('[data-cy="canvas-peek"]')
-        .find('[contenteditable="true"]')
-        .should('not.exist');
-    });
-
-    // the reference the phone owes the reader: where it stops, and where it
-    // carries on
-    it('says where editing happens', () => {
-      doWithTestController(async (tc) => {
-        await tc.addNode('Constant', 'PEEK3');
-        tc.selectNodesById(['PEEK3']);
-      });
-      cy.get('[data-cy="canvas-peek-desktop-hint"]').should('be.visible');
-    });
-
-    it('closes without deselecting anything else', () => {
-      doWithTestController(async (tc) => {
-        await tc.addNode('Constant', 'PEEK4');
-        tc.selectNodesById(['PEEK4']);
-      });
-      cy.get('[data-cy="canvas-peek-close"]').click();
-      cy.get('[data-cy="canvas-peek"]').should('not.exist');
-    });
-
-    it('stays clear of the bottom bar', () => {
-      doWithTestController(async (tc) => {
-        await tc.addNode('Constant', 'PEEK5');
-        tc.selectNodesById(['PEEK5']);
-      });
-      cy.get('[data-cy="canvas-peek"]').then(($peek) => {
-        cy.get('[data-cy="bottom-bar"]').then(($bar) => {
-          expect($peek[0].getBoundingClientRect().bottom).to.be.at.most(
-            $bar[0].getBoundingClientRect().top,
-          );
+      // the centre is read through getStableScreenCoordinates, so the node has
+      // stopped settling by the time its position is recorded
+      getNodeCenterById('EXPLORE2').then(([x, y]) => {
+        let before: [number, number];
+        doWithTestController((tc) => {
+          const node = tc.getNodeByID('EXPLORE2');
+          before = [node.x, node.y];
+        });
+        cy.get('body')
+          .trigger('pointerdown', x, y, { force: true })
+          .trigger('pointermove', x + 80, y + 60, { force: true })
+          .trigger('pointerup', x + 80, y + 60, { force: true });
+        // a tolerance, not equality: a freshly added node settles by about a
+        // pixel after it is first drawn. A drag would have moved it by the 80
+        // and 60 the pointer travelled, in the same direction as the pointer.
+        shouldWithTestController((tc) => {
+          const node = tc.getNodeByID('EXPLORE2');
+          expect(Math.abs(node.x - before[0]), 'x moved').to.be.lessThan(5);
+          expect(Math.abs(node.y - before[1]), 'y moved').to.be.lessThan(5);
         });
       });
+    });
+
+    it('opens no context menu on a right click', () => {
+      doWithTestController(async (tc) => {
+        await tc.addNode('Constant', 'EXPLORE3');
+      });
+      getNodeCenterById('EXPLORE3').then(([x, y]) => {
+        cy.get('body').rightclick(x, y, { force: true });
+      });
+      cy.get('#graph-contextmenu').should('not.exist');
+      cy.get('#node-contextmenu').should('not.exist');
     });
   });
 });

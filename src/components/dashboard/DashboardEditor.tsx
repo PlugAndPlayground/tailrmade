@@ -50,6 +50,7 @@ import {
 } from '../../nodes/layout/surfaceSync';
 import type { UISurfaceNode } from '../../nodes/layout/uiSurface';
 import { useDevicePreviewWidth, useDisplayedSurfaceLocked } from './hooks';
+import { useIsStackLayout } from '../../utils/layoutModel';
 import { setSurfaceStack } from './viewState';
 import { MAIN_COLOR } from '../../utils/constants';
 
@@ -1136,41 +1137,60 @@ export const DashboardEditor: React.FC<DashboardEditorProps> = ({
 
 export const EmptyState: React.FC<{ appView?: boolean }> = ({
   appView = false,
-}) => (
-  <AppThemeProvider>
-    <Box
-      data-cy="dashboard-empty-state"
-      sx={{
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-        height: '100dvh',
-        textAlign: 'left',
-        userSelect: 'none',
-        p: 4,
-        lineHeight: 1.5,
-        bgcolor: 'background.default',
-        color: 'text.primary',
-      }}
-    >
-      {appView ? (
-        <>
-          <Typography variant="h5" gutterBottom>
-            Nothing to show
-          </Typography>
-          <Typography variant="body1" color="text.secondary">
-            This Tailrmade app has no user interface yet.
-            <br />
-            To build one, click the logo on the top left or press <em>T</em>.
-          </Typography>
-        </>
-      ) : (
-        <EmptyStateBuildSteps />
-      )}
-    </Box>
-  </AppThemeProvider>
-);
+}) => {
+  const stackLayout = useIsStackLayout();
+  return (
+    <AppThemeProvider>
+      <Box
+        data-cy="dashboard-empty-state"
+        sx={{
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          height: '100dvh',
+          textAlign: 'left',
+          userSelect: 'none',
+          p: 4,
+          lineHeight: 1.5,
+          bgcolor: 'background.default',
+          color: 'text.primary',
+        }}
+      >
+        {appView ? (
+          <>
+            <Typography variant="h5" gutterBottom>
+              {stackLayout ? 'No user interface yet' : 'Nothing to show'}
+            </Typography>
+            {/* On a phone the desktop version of this is worse than nothing: it
+              names a logo that is not on screen and a keyboard shortcut there
+              is no keyboard for. So it says what is missing, where it gets
+              built, and what there is to do here in the meantime. */}
+            <Typography variant="body1" color="text.secondary">
+              {stackLayout ? (
+                <>
+                  This app doesn&apos;t have one yet, and building one needs a
+                  desktop.
+                  <br />
+                  To see how the app works, open the Graph tab.
+                </>
+              ) : (
+                <>
+                  This Tailrmade app has no user interface yet.
+                  <br />
+                  To build one, click the logo on the top left or press{' '}
+                  <em>T</em>.
+                </>
+              )}
+            </Typography>
+          </>
+        ) : (
+          <EmptyStateBuildSteps />
+        )}
+      </Box>
+    </AppThemeProvider>
+  );
+};
 
 const EmptyStateBuildSteps: React.FC = () => (
   <>

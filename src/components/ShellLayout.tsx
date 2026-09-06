@@ -15,7 +15,6 @@ import {
 } from '../utils/layoutModel';
 import { BottomBar } from './BottomBar';
 import { goToOpenedApp } from '../utils/stackNavigation';
-import CanvasPeek from './CanvasPeek';
 import { LeftsideContainer } from '../containers/LeftsideContainer';
 import { DashboardEditor } from './dashboard/DashboardEditor';
 import { getDashboardBackground, LeftDrawerView } from '../utils/constants';
@@ -56,6 +55,15 @@ const ShellLayout: React.FunctionComponent<ShellLayoutProps> = (props) => {
     const listenerId = InterfaceController.addListener(
       ListenEvent.GraphConfigured,
       () => {
+        // Loading an app fires this TWICE: once from clear(), which wipes the
+        // old graph before the new one is read, and once when the new graph is
+        // configured. Only the second one has an app in it to look at - acting
+        // on the first sent every app to the graph view, because at that
+        // moment every app is empty. clear() notifies while the flag is still
+        // false; configure() sets it before notifying.
+        if (!PPGraph.currentGraph?.graphConfiguredAndReady) {
+          return;
+        }
         if (getStackView() === 'apps') {
           goToOpenedApp(PPGraph.currentGraph);
         }
@@ -114,35 +122,53 @@ const ShellLayout: React.FunctionComponent<ShellLayoutProps> = (props) => {
           </Box>
         )}
 
-        {stackView === 'graph' && (
-          <>
-            {/* which app this graph is. A label, not a control - renaming
-                lives in the bottom bar's overflow menu, where the rest of the
-                app's own actions are. */}
-            {props.currentGraph && (
-              <Typography
-                data-cy="stack-app-name"
-                sx={{
-                  position: 'fixed',
-                  top: 'calc(env(safe-area-inset-top) + 12px)',
-                  left: '12px',
-                  right: '12px',
-                  zIndex: 30,
-                  color: 'primary.main',
-                  fontSize: '14px',
-                  fontWeight: 500,
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  whiteSpace: 'nowrap',
-                  userSelect: 'none',
-                  pointerEvents: 'none',
-                }}
-              >
-                {props.currentGraph.name}
-              </Typography>
-            )}
-            <CanvasPeek />
-          </>
+        {stackView === 'graph' && props.currentGraph && (
+          <Box
+            data-cy="stack-graph-header"
+            sx={{
+              position: 'fixed',
+              top: 'calc(env(safe-area-inset-top) + 12px)',
+              left: '12px',
+              right: '12px',
+              zIndex: 30,
+              display: 'flex',
+              alignItems: 'baseline',
+              gap: '8px',
+              userSelect: 'none',
+              // the canvas behind it stays pannable through the whole strip
+              pointerEvents: 'none',
+            }}
+          >
+            {/* which app this is. A label, not a control - renaming lives in
+                the bottom bar's overflow menu, with the app's other actions. */}
+            <Typography
+              data-cy="stack-app-name"
+              sx={{
+                color: 'primary.main',
+                fontSize: '14px',
+                fontWeight: 500,
+                minWidth: 0,
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {props.currentGraph.name}
+            </Typography>
+            {/* Why nothing here responds to a tap. Said once, in the corner,
+                rather than by every node refusing individually. */}
+            <Typography
+              data-cy="stack-explore-only"
+              sx={{
+                flex: 'none',
+                color: 'primary.main',
+                opacity: 0.6,
+                fontSize: '11px',
+              }}
+            >
+              View only · edit on desktop
+            </Typography>
+          </Box>
         )}
 
         <BottomBar />

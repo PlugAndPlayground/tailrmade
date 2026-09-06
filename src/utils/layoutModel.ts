@@ -28,12 +28,39 @@ import { createStore } from '../components/createStore';
 
 export type LayoutModel = 'stack' | 'columns';
 
+// MUI's own md. Kept as a number so code outside React can ask the same
+// question the hook below asks - see isStackLayout.
+export const STACK_BREAKPOINT_PX = 900;
+
 export const useLayoutModel = (): LayoutModel => {
   const theme = useTheme();
   return useMediaQuery(theme.breakpoints.down('md')) ? 'stack' : 'columns';
 };
 
 export const useIsStackLayout = (): boolean => useLayoutModel() === 'stack';
+
+/**
+ * The imperative twin of useIsStackLayout, for the code that is not React -
+ * the pixi canvas and the node classes, which have to know whether this window
+ * is a phone before they act on a press.
+ *
+ * The same media query MUI's `breakpoints.down('md')` compiles to, so the two
+ * can never disagree about where the line is.
+ */
+export const isStackLayout = (): boolean =>
+  typeof window !== 'undefined' &&
+  window.matchMedia(`(max-width: ${STACK_BREAKPOINT_PX - 0.05}px)`).matches;
+
+/**
+ * Under the stack layout the canvas is a thing you look at, not one you edit:
+ * pan and zoom answer, and nothing else does. Selecting, dragging, wiring and
+ * the context menus all need precision, a second button or a keyboard that a
+ * phone does not have, and half-working versions of them are worse than none -
+ * a tap that moves a node by accident is a change you cannot see you made.
+ *
+ * Editing happens on a desktop, and the graph view says so out loud.
+ */
+export const isCanvasExploreOnly = (): boolean => isStackLayout();
 
 /**
  * How many panels may be open at once in the columns layout.

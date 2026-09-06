@@ -22,6 +22,7 @@ import PPNode from './NodeClass';
 import PPLink from './LinkClass';
 import { Tooltipable } from '../components/Tooltip';
 import InterfaceController, { ListenEvent } from '../InterfaceController';
+import { isCanvasExploreOnly } from '../utils/layoutModel';
 import {
   COLOR_DARK,
   COLOR_WHITE_TEXT,
@@ -714,6 +715,11 @@ export default class Socket
   }
 
   onSocketPointerDown(event: PIXI.FederatedPointerEvent): void {
+    // no wiring on a phone - see isCanvasExploreOnly. Same reasoning as
+    // PPNode.onPointerDown: leave the press alone and it becomes a pan.
+    if (isCanvasExploreOnly()) {
+      return;
+    }
     clearDocumentSelection();
     InterfaceController.spamToast(
       `${event.shiftKey ? 'socket_shift_clicked' : 'socket_clicked'} ${this.getNode().id}:${this.name}`,

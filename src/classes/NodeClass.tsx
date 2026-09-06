@@ -41,6 +41,7 @@ import {
   RightDrawerView,
 } from '../utils/constants';
 import UpdateBehaviourClass from './UpdateBehaviourClass';
+import { isCanvasExploreOnly } from '../utils/layoutModel';
 import NodeHeaderClass from './NodeHeaderClass';
 import PPGraph from './GraphClass';
 import Socket from './SocketClass';
@@ -1530,6 +1531,13 @@ ${Math.round(bounds.minX)}, ${Math.round(
 
   async onPointerDown(event: PIXI.FederatedPointerEvent): Promise<void> {
     console.log('Node: onPointerDown');
+    // Explore-only: a press on a node is a press on the canvas. Returning
+    // BEFORE stopPropagation is the whole point - the event carries on to the
+    // viewport, so a finger that lands on a node pans with it instead of
+    // dragging it, and nodes stop being dead spots on a phone.
+    if (isCanvasExploreOnly()) {
+      return;
+    }
     clearDocumentSelection();
     InterfaceController.spamToast(
       `${event.shiftKey ? 'node_shift_clicked' : 'node_clicked'} ${this.id}`,

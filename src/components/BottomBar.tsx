@@ -7,7 +7,7 @@ import IosShareIcon from '@mui/icons-material/IosShare';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
 import PolylineIcon from '@mui/icons-material/Polyline';
 import InterfaceController, { ListenEvent } from '../InterfaceController';
-import ShareContextMenu from './contextmenus/ShareContextMenu';
+import { shareOptions } from './contextmenus/ShareContextMenu';
 import { appMenuOptions } from './contextmenus/GraphContextMenu';
 import { setStackView, StackView, useStackView } from '../utils/layoutModel';
 import { getDrawerBackground, MAIN_COLOR } from '../utils/constants';
@@ -15,6 +15,7 @@ import { TRgba } from '../utils/color';
 import { TMIconNoShadow } from '../utils/icons';
 import { CLOUD_MODE } from '../services/shared-types';
 import { BackendGateway } from '../services/BackendGateway';
+import { useResolvedAppTheme } from '../utils/theme/store';
 
 // The whole of navigation under the stack layout, and the reason the rail can
 // disappear there. Everything reachable at a phone's size is one of these.
@@ -30,13 +31,23 @@ import { BackendGateway } from '../services/BackendGateway';
 // AUTO_COLLAPSE_MS) rather than waiting to be dismissed.
 export const BOTTOM_BAR_HEIGHT = 56;
 
-// what is left of the bar when it is closed: a logo-sized square
+// What is left of the bar when it is closed, and - the same number - the
+// width of the logo's slot when it is open. The logo therefore sits at exactly
+// the same place in both states, and opening or closing the bar animates its
+// width AROUND a logo that does not move. Anything else and the logo slides:
+// centred in a 390px bar one moment and in a 56px one the next.
 export const BOTTOM_BAR_COLLAPSED_WIDTH = 56;
 
 // Long enough to read the row and choose a second destination, short enough
 // that a bar you opened by accident is gone before it annoys you. Any tap
 // inside the bar restarts it, so this is idle time, not a deadline.
 const AUTO_COLLAPSE_MS = 4000;
+
+// Where the bar is in the way, and therefore where it closes itself. The app
+// UI and the graph are full-bleed - every pixel of them is content. The apps
+// list and the AI panel are lists that end above the bar anyway, so on those
+// it just stays, and navigation is one tap instead of two.
+const COLLAPSING_VIEWS: StackView[] = ['ui', 'graph'];
 
 type Destination = {
   view: StackView;
@@ -65,8 +76,41 @@ const DESTINATIONS: Destination[] = [
   { view: 'ai', label: 'AI', Icon: AutoAwesomeIcon, dataCy: 'bottom-bar-ai' },
 ];
 
+// A menu opened from the bar: the full width of the screen, sitting on top of
+// it, with a scrim that takes the tap that closes it.
+const MenuSheet: React.FC<{
+  dataCy: string;
+  onClose: () => void;
+  children: React.ReactNode;
+}> = ({ dataCy, onClose, children }) => (
+  <>
+    <Box
+      data-cy={`${dataCy}-scrim`}
+      sx={{ position: 'fixed', inset: 0, zIndex: 1300 }}
+      onClick={onClose}
+    />
+    <Paper
+      data-cy={`${dataCy}-menu`}
+      // any item closes it - each one either acts or opens something of its own
+      onClick={onClose}
+      sx={{
+        position: 'fixed',
+        left: '8px',
+        right: '8px',
+        bottom: `calc(${BOTTOM_BAR_HEIGHT}px + env(safe-area-inset-bottom) + 8px)`,
+        maxHeight: '60dvh',
+        overflowY: 'auto',
+        zIndex: 1400,
+      }}
+    >
+      <MenuList dense>{children}</MenuList>
+    </Paper>
+  </>
+);
+
 export const BottomBar: React.FC = () => {
   const stackView = useStackView();
+  const appTheme = useResolvedAppTheme();
   const [expanded, setExpanded] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
@@ -96,6 +140,7 @@ export const BottomBar: React.FC = () => {
   // is an account behind it, and a local build (no accounts at all) always has
   // it.
   const menuOpen = shareOpen || moreOpen;
+  const collapses = COLLAPSING_VIEWS.includes(stackView);
   const showAI = !CLOUD_MODE || currentUser !== null;
   const destinations = DESTINATIONS.filter(
     (destination) => destination.view !== 'ai' || showAI,
@@ -104,19 +149,19 @@ export const BottomBar: React.FC = () => {
   // Idle: the bar closes itself rather than being dismissed. A menu open in
   // front of it is the one thing that means you are still using it.
   useEffect(() => {
-    if (!expanded || menuOpen) {
+    if (!expanded || menuOpen || !collapses) {
       return;
     }
     const timer = setTimeout(() => setExpanded(false), AUTO_COLLAPSE_MS);
     return () => clearTimeout(timer);
-  }, [expanded, menuOpen, lastTouched]);
+  }, [expanded, menuOpen, collapses, lastTouched]);
 
   // ...and going back to the app closes it too, without waiting out the timer.
   // Capture phase: a scroll inside the app UI never reaches the window by
   // bubbling, and the pointerdown has to be seen before whatever it lands on
   // stops it.
   useEffect(() => {
-    if (!expanded || menuOpen) {
+    if (!expanded || menuOpen || !collapses) {
       return;
     }
     const collapseIfOutside = (event: Event) => {
@@ -131,11 +176,44 @@ export const BottomBar: React.FC = () => {
       window.removeEventListener('pointerdown', collapseIfOutside, true);
       window.removeEventListener('scroll', collapseIfOutside, true);
     };
-  }, [expanded, menuOpen]);
+  }, [expanded, menuOpen, collapses]);
+
+  // ...and arriving on one of the other two brings it back, so the bar is
+  // never missing from a view that was going to keep it anyway
+  useEffect(() => {
+    if (!collapses) {
+      setExpanded(true);
+    }
+  }, [collapses]);
 
   const background = getDrawerBackground().toString();
   const activeColor = TRgba.fromString(MAIN_COLOR).lighten(0.35).hex();
-  const restColor = 'rgba(255, 255, 255, 0.62)';
+  // White, not a dimmed white: the destinations are the whole of navigation
+  // here, and the current one is already marked by its colour. Dimming the
+  // other six only made the bar look switched off.
+  const restColor = TRgba.white().hex();
+
+  // The collapsed logo has no background of its own - it floats directly on
+  // whatever the view is showing, so what is behind it decides its colour:
+  //
+  //   UI, dark theme   white      UI, light theme   black
+  //   graph            black      apps / AI         white
+  //
+  // The graph is black whatever the app theme says, because the canvas is not
+  // themed by the app - it is the editor's own surface. Expanded, the logo is
+  // on the bar's dark background like every other slot, and reads like them.
+  const floatingLogoColor = (): string => {
+    if (stackView === 'graph') {
+      return TRgba.black().hex();
+    }
+    if (stackView === 'ui') {
+      return appTheme.mode === 'dark'
+        ? TRgba.white().hex()
+        : TRgba.black().hex();
+    }
+    return TRgba.white().hex();
+  };
+  const logoColor = expanded ? restColor : floatingLogoColor();
 
   const slotSx = {
     flex: 1,
@@ -170,10 +248,8 @@ export const BottomBar: React.FC = () => {
         display: 'flex',
         alignItems: 'stretch',
         overflow: 'hidden',
-        background,
-        borderTop: '1px solid rgba(255, 255, 255, 0.12)',
-        borderTopRightRadius: expanded ? 0 : '12px',
-        boxShadow: expanded ? 'none' : '0 4px 20px rgba(0, 0, 0, 0.45)',
+        background: expanded ? background : 'transparent',
+        borderTop: expanded ? '1px solid rgba(255, 255, 255, 0.12)' : 'none',
         // the bar sits on the screen's bottom edge, which on a phone is where
         // the home indicator lives - the row keeps its height and the inset is
         // added below it, so the targets never shrink
@@ -192,8 +268,9 @@ export const BottomBar: React.FC = () => {
         }}
         sx={{
           ...slotSx,
-          flex: expanded ? '0 0 48px' : 1,
-          '--svg-fill-color': expanded ? restColor : activeColor,
+          flex: `0 0 ${BOTTOM_BAR_COLLAPSED_WIDTH}px`,
+          '--svg-fill-color': logoColor,
+          '& path': { transition: 'fill 0.15s ease-in-out' },
         }}
       >
         <TMIconNoShadow />
@@ -253,53 +330,26 @@ export const BottomBar: React.FC = () => {
         </>
       )}
 
+      {/* Both menus are the same sheet: full width, above the bar, dismissed
+          by the scrim behind them. A phone has no room for a menu that is
+          anchored to the slot that opened it, and two different shapes for two
+          adjacent buttons would only be a way of telling them apart. */}
       {shareOpen && (
-        <>
-          <Box
-            data-cy="bottom-bar-share-scrim"
-            sx={{ position: 'fixed', inset: 0, zIndex: 1300 }}
-            onClick={() => setShareOpen(false)}
-          />
-          {/* anchored above the bar rather than beside it - there is no room
-              to the right of the last slot, and a menu under the thumb is
-              worse than one over the content */}
-          <ShareContextMenu
-            anchorPosition={{
-              top: window.innerHeight - BOTTOM_BAR_HEIGHT - 8,
-              left: 8,
-            }}
-            anchorCorner="bottom-left"
-            onClose={() => setShareOpen(false)}
-          />
-        </>
+        <MenuSheet
+          dataCy="bottom-bar-share"
+          onClose={() => setShareOpen(false)}
+        >
+          {shareOptions()}
+        </MenuSheet>
       )}
 
       {moreOpen && (
-        <>
-          <Box
-            data-cy="bottom-bar-more-scrim"
-            sx={{ position: 'fixed', inset: 0, zIndex: 1300 }}
-            onClick={() => setMoreOpen(false)}
-          />
-          {/* everything an app can do that is not a destination: the account,
-              saving, renaming. Same items, same order, as the top of the graph
-              context menu - see appMenuOptions. */}
-          <Paper
-            data-cy="bottom-bar-more-menu"
-            onClick={() => setMoreOpen(false)}
-            sx={{
-              position: 'fixed',
-              left: '8px',
-              right: '8px',
-              bottom: `calc(${BOTTOM_BAR_HEIGHT}px + env(safe-area-inset-bottom) + 8px)`,
-              maxHeight: '60dvh',
-              overflowY: 'auto',
-              zIndex: 1400,
-            }}
-          >
-            <MenuList dense>{appMenuOptions()}</MenuList>
-          </Paper>
-        </>
+        // everything an app can do that is not a destination: the account,
+        // saving, renaming. Same items, same order, as the top of the graph
+        // context menu - see appMenuOptions.
+        <MenuSheet dataCy="bottom-bar-more" onClose={() => setMoreOpen(false)}>
+          {appMenuOptions()}
+        </MenuSheet>
       )}
     </Box>
   );
