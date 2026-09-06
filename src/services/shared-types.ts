@@ -6,8 +6,7 @@ export const EXECUTION_LOCATION_LOCAL = 'local' as const;
 export const LOCAL_USER_ID = 'local';
 
 export type ExecutionLocation =
-  | typeof EXECUTION_LOCATION_CLOUD
-  | typeof EXECUTION_LOCATION_LOCAL;
+  typeof EXECUTION_LOCATION_CLOUD | typeof EXECUTION_LOCATION_LOCAL;
 
 export type AccountTier = 'limited' | 'free' | 'premium' | 'business' | 'admin';
 

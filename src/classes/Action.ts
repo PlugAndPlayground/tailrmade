@@ -171,25 +171,23 @@ export class ActionHandler {
 
   static getHistorySnapshot(): ActionHistorySnapshot {
     const entries = this.undoList
-      .map(
-        (action, index): ActionHistoryEntry => ({
-          id: action.ID,
-          index,
-          name: action.serializableAction.name,
-          source: action.source,
-          applied: true,
-        }),
-      )
+      .map((action, index): ActionHistoryEntry => ({
+        id: action.ID,
+        index,
+        name: action.serializableAction.name,
+        source: action.source,
+        applied: true,
+      }))
       .concat(
-        [...this.redoList].reverse().map(
-          (action, redoIndex): ActionHistoryEntry => ({
+        [...this.redoList]
+          .reverse()
+          .map((action, redoIndex): ActionHistoryEntry => ({
             id: action.ID,
             index: this.undoList.length + redoIndex,
             name: action.serializableAction.name,
             source: action.source,
             applied: false,
-          }),
-        ),
+          })),
       );
 
     return {
