@@ -64,7 +64,7 @@ const selectDashboardItemByElementId = (elementId) => {
   waitForDashboardSelectionToSettle();
 };
 
-const assertNoVisibleWidgets = (selector) => {
+const assertNothingVisible = (selector) => {
   cy.get('body').should(($body) => {
     expect($body.find(`${selector}:visible`).length).to.eq(0);
   });
@@ -211,14 +211,14 @@ describe('Test dashboard', () => {
     cy.get('[data-cy="indicatorbox-delete-widget-btn"]')
       .should('be.visible')
       .click({ force: true });
-    assertNoVisibleWidgets('[data-cy^="widget of NODE_"]');
+    assertNothingVisible('[data-cy^="widget of NODE_"]');
 
     getVisibleSocketWidget().should('be.visible');
     getVisibleSocketWidget().realHover();
     cy.get('[data-cy="indicatorbox-delete-widget-btn"]')
       .should('be.visible')
       .click({ force: true });
-    assertNoVisibleWidgets('[data-cy^="widget of SOCKET_"]');
+    assertNothingVisible('[data-cy^="widget of SOCKET_"]');
 
     cy.get('[data-cy="toggle-edit-mode-btn"]').first().click({ force: true });
     cy.get('[data-cy="dashboard"]')
@@ -430,8 +430,8 @@ describe('Test dashboard', () => {
     cy.get('[data-cy="dashboard"]')
       .should('be.visible')
       .and('contain.text', 'Create user interface');
-    assertNoVisibleWidgets('[data-cy^="widget of NODE_"]');
-    assertNoVisibleWidgets('[data-cy^="widget of SOCKET_"]');
+    assertNothingVisible('[data-cy^="widget of NODE_"]');
+    assertNothingVisible('[data-cy^="widget of SOCKET_"]');
     assertNodesCount(0);
   });
 
@@ -500,6 +500,15 @@ describe('Test dashboard', () => {
     // node, so the graph now holds the HtmlRenderer + the surface
     assertNodesCount(2);
     cy.get(`[data-cy="widget of NODE_${existingNodeId}"]`).should('be.visible');
+
+    // adding the widget selects it, and the selected widget's indicator box
+    // is a popper floating just above it - right on top of the text widget
+    // that sits above. Drop the selection so nothing overlaps the assertion.
+    doWithTestController((testController) => {
+      testController.unselectDashboardItems();
+    });
+    assertNothingVisible('[data-cy^="indicatorbox of "]');
+
     // the surface scrolls down to the widget that was just added, which can
     // leave the text widget clipped above the panel's visible area
     getDashboardText('Hello world').scrollIntoView().should('be.visible');
