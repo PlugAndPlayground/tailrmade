@@ -19,7 +19,7 @@ import { hri } from 'human-readable-ids';
 import { Button } from '@mui/material';
 import React from 'react';
 import { IGraphSearch, SerializedGraph, AccessType } from './utils/interfaces';
-import pako from 'pako';
+import * as pako from 'pako';
 import { ActionHandler } from './classes/Action';
 import { CLOUD_MODE } from './services/shared-types';
 import { DASHBOARD_DEFAULT } from './utils/constants';
@@ -84,7 +84,7 @@ function compressString(str) {
   const chunkSize = 5000;
   for (let i = 0; i < compressed.length; i += chunkSize) {
     const chunk = compressed.subarray(i, i + chunkSize);
-    binaryString += String.fromCharCode.apply(null, chunk);
+    binaryString += String.fromCharCode(...chunk);
   }
   // Use URL-safe Base64
   return btoa(binaryString)

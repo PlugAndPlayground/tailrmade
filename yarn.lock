@@ -14288,10 +14288,10 @@ __metadata:
   languageName: node
   linkType: hard
 
-"pako@npm:^2.2.0":
-  version: 2.2.0
-  resolution: "pako@npm:2.2.0"
-  checksum: 10/4311a3d5fa32d146d4fd926e8b0af43f9d4713034ac53fce78445065893f541da4435b1e77290a49fd80dd49f82163230fc6ccad39530c844d8c6caf3d21848d
+"pako@npm:^3.0.1":
+  version: 3.0.1
+  resolution: "pako@npm:3.0.1"
+  checksum: 10/44cf92d0f46d66d09da18cb570a8a39851970fce39cf4880ae3e322878d6aa283a6b63411fad655a21d32bbcb46921a78a8948588f71475c181ac2bec668435b
   languageName: node
   linkType: hard
 
@@ -14558,10 +14558,10 @@ __metadata:
   languageName: node
   linkType: hard
 
-"plotly.js-dist@npm:2.35.3":
-  version: 2.35.3
-  resolution: "plotly.js-dist@npm:2.35.3"
-  checksum: 10/d79c91d62e2d434b99f6ef273073523d1af99f33863de27b3cc26a4af1dea42c62421233a28294eeb8018efbb7580cfa348156bb6fb4f89d81be2ad30c7a4c8a
+"plotly.js-dist@npm:4.0.0":
+  version: 4.0.0
+  resolution: "plotly.js-dist@npm:4.0.0"
+  checksum: 10/22a497e9f1b1bb1179951e91192d718bc33177c99570b7e96cf1e37e52a6be87fc909b4aa397f393330e4858d0822c6afce33256c6591e323fb2d548c00fe9ea
   languageName: node
   linkType: hard
 
@@ -16819,11 +16819,11 @@ __metadata:
     monaco-editor-webpack-plugin: "npm:^7.1.1"
     notistack: "npm:^3.0.2"
     object-fit-math: "npm:^1.0.0"
-    pako: "npm:^2.2.0"
+    pako: "npm:^3.0.1"
     pixi-filters: "npm:^6.1.5"
     pixi-viewport: "npm:^6.0.3"
     pixi.js: "npm:8.20.1"
-    plotly.js-dist: "npm:2.35.3"
+    plotly.js-dist: "npm:4.0.0"
     prettier: "npm:^3.9.6"
     pretty-bytes: "npm:^7.1.3"
     process: "npm:^0.11.10"
