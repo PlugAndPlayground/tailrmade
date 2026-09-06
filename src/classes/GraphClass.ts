@@ -28,7 +28,7 @@ import {
   shouldDrawSelectionMarquee,
   TouchGesture,
 } from '../utils/touchGestures';
-import { isCanvasExploreOnly, isStackLayout } from '../utils/layoutModel';
+import { isCanvasExploreOnly, isStackLayout } from '../utils/stackLayout';
 import { getLoadSeedNodes } from '../utils/updateBehaviour';
 import {
   EMPTY_THEME_DOCUMENT,

@@ -22,7 +22,7 @@ import PPNode from './NodeClass';
 import PPLink from './LinkClass';
 import { Tooltipable } from '../components/Tooltip';
 import InterfaceController, { ListenEvent } from '../InterfaceController';
-import { isCanvasExploreOnly } from '../utils/layoutModel';
+import { isCanvasExploreOnly } from '../utils/stackLayout';
 import {
   COLOR_DARK,
   COLOR_WHITE_TEXT,

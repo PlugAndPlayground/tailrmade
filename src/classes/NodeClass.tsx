@@ -41,7 +41,7 @@ import {
   RightDrawerView,
 } from '../utils/constants';
 import UpdateBehaviourClass from './UpdateBehaviourClass';
-import { isCanvasExploreOnly } from '../utils/layoutModel';
+import { isCanvasExploreOnly } from '../utils/stackLayout';
 import NodeHeaderClass from './NodeHeaderClass';
 import PPGraph from './GraphClass';
 import Socket from './SocketClass';

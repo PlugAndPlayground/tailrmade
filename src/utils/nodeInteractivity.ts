@@ -1,11 +1,15 @@
 // Shared interaction rules for hybrid/widget nodes
-// - Canvas widgets stay live unless they are part of a multi-selection
+// - Canvas widgets stay live unless they are part of a multi-selection, or the
+//   window is a phone - there the canvas is explore-only and a widget on it is
+//   inert (see getCanvasGrabThroughSx)
 // - Canvas non-widget hybrids require explicit interaction mode before content becomes live
 // - A singly selected non-widget hybrid can enter interaction mode on enter, a confirming second click or double-click
 // - Interaction-enabled hybrids must drop back out when they stop being the sole selection
 // - Dashboard interaction is gated OUTSIDE the widget content, by DashboardContentGate -
 //   pointer events via an overlay, keyboard and focus via `inert`. Widget content never
 //   learns why it was blocked; `disabled` below is only ever the widget's OWN read-only state.
+
+import { isCanvasExploreOnly } from './stackLayout';
 
 export type CanvasNodeInteractivityState = {
   isWidget: boolean;
@@ -97,7 +101,21 @@ export function getWidgetDragControlProps(disabled = false) {
       };
 }
 
-export function getCanvasGrabThroughSx() {
+/**
+ * Hands pointer events back to a canvas widget's controls - the only part of
+ * it that takes any, the rest being `pointer-events: none` so a press drags
+ * the node underneath.
+ *
+ * Except on a phone, where it hands back nothing: there a widget on the canvas
+ * is a picture of a control rather than a control (see isCanvasExploreOnly).
+ * That leaves the whole widget inert, which is what makes panning across one
+ * work like panning across anything else - and takes with it the hover state
+ * that a finger has no way to leave once it has landed on a control.
+ */
+export function getCanvasGrabThroughSx(exploreOnly = isCanvasExploreOnly()) {
+  if (exploreOnly) {
+    return {};
+  }
   return {
     [`& [${WIDGET_CONTROL_ATTRIBUTE}]${NOT_DISABLED}`]: {
       pointerEvents: 'auto',

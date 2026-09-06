@@ -10,7 +10,7 @@ import {
 // back only to markup explicitly identified as a control, so the padding around
 // it drags the node underneath.
 const ruleOf = () => {
-  const rules = Object.entries(getCanvasGrabThroughSx());
+  const rules = Object.entries(getCanvasGrabThroughSx(false));
   expect(rules).toHaveLength(1);
   return rules[0];
 };
@@ -86,5 +86,19 @@ describe('controls that own their drag', () => {
     expect(getWidgetControlProps()).not.toHaveProperty(
       WIDGET_DRAG_CONTROL_ATTRIBUTE,
     );
+  });
+});
+
+// On a phone the canvas is explore-only: the widget is a picture of a control,
+// so nothing in it takes a press and panning across one works like panning
+// across anything else. Anything meant to be used with a finger belongs in the
+// app's UI, which is what its creator puts there.
+describe('canvas widgets on a phone', () => {
+  it('hands pointer events back to nothing at all', () => {
+    expect(getCanvasGrabThroughSx(true)).toEqual({});
+  });
+
+  it('still hands them to controls everywhere else', () => {
+    expect(Object.keys(getCanvasGrabThroughSx(false))).toHaveLength(1);
   });
 });

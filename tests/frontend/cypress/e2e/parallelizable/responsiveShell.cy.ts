@@ -553,6 +553,32 @@ describe('responsive shell', () => {
       });
     });
 
+    // a widget on the canvas is a picture of a control here: inert, so panning
+    // across one works like panning across anything else. Using it is what the
+    // app's UI is for - see the colour picker test above, which taps the same
+    // widget there and does open it.
+    it('leaves a widget on the canvas inert', () => {
+      const id = 'inert-widget';
+      doWithTestController(async (tc) => {
+        await tc.addNode('WidgetColorPicker', id, 0, 0);
+        tc.zoomToFitNodesById([id]);
+        tc.stopViewportAnimations();
+      });
+
+      cy.get(`#Container-${id} button`, { timeout: 10000 }).should(
+        ($button) => {
+          const style = window.getComputedStyle($button[0]);
+          expect(style.pointerEvents, 'widget pointer events').to.equal('none');
+        },
+      );
+
+      // and a real press where it sits reaches the canvas, not the widget
+      getNodeCenterById(id).then(([x, y]) => {
+        cy.get('body').click(x, y, { force: true });
+      });
+      cy.get('.chrome-picker').should('not.exist');
+    });
+
     it('opens no context menu on a right click', () => {
       doWithTestController(async (tc) => {
         await tc.addNode('Constant', 'EXPLORE3');
