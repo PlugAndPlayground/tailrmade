@@ -17,20 +17,18 @@ import PPStorage from '../PPStorage';
 const macroNameName = 'Macro';
 
 export class SerializableAction {
-  action: (args: any) => Promise<void>;
-  undoAction: (any) => Promise<void>;
-  captureUndoArgs?: (args: any) => any | Promise<any>;
+  // returns whatever its undo will need, or nothing - see executeAction
+  action: (args: any) => Promise<any>;
+  undoAction: (args: any) => Promise<unknown>;
   name: string;
   constructor(
-    inAction: (args: any) => Promise<void>,
-    inUndoAction: (any) => Promise<void>,
+    inAction: (args: any) => Promise<any>,
+    inUndoAction: (args: any) => Promise<unknown>,
     inName: string,
-    inCaptureUndoArgs?: (args: any) => any | Promise<any>,
   ) {
     this.action = inAction;
     this.undoAction = inUndoAction;
     this.name = inName;
-    this.captureUndoArgs = inCaptureUndoArgs;
   }
 }
 
@@ -212,11 +210,11 @@ export class ActionHandler {
   }
 
   private static async executeAction(action: BakedAction): Promise<void> {
-    const captureUndoArgs = action.serializableAction.captureUndoArgs;
-    if (captureUndoArgs !== undefined) {
-      action.undoArgs = await captureUndoArgs(action.args);
+    const captured = await action.serializableAction.action(action.args);
+    // the action reports what its undo will need
+    if (captured !== undefined) {
+      action.undoArgs = captured;
     }
-    await action.serializableAction.action(action.args);
   }
 
   // ONLY use this if its a UI only action, otherwise have to use PNPAction for action to be possible to synchronize over network
@@ -236,8 +234,6 @@ export class ActionHandler {
       Date.now() - lastAction.lastMergedTime <= ACTION_GROUP_WINDOW_MS
     ) {
       lastAction.serializableAction.action = action.serializableAction.action;
-      lastAction.serializableAction.captureUndoArgs =
-        action.serializableAction.captureUndoArgs;
       lastAction.args = action.args;
       lastAction.source = action.source;
       lastAction.lastMergedTime = Date.now();
@@ -251,9 +247,10 @@ export class ActionHandler {
     InterfaceController.notifyListeners(ListenEvent.UnsavedChanges, true);
     this.notifyHistoryChanged();
   }
-  // returns whether the entry was actually undone - a failed undo stays on
-  // the undo stack, so callers that loop must stop instead of retrying
-  static async undo(): Promise<boolean> {
+  // an undoAction that throws is not caught here - we cannot know how much of
+  // it ran, so there is no state to claim. the finally is what matters: the
+  // spinner always clears and the history UI always resyncs
+  static async undo(): Promise<void> {
     // move top of undo stack to top of redo stack
     const lastAction = this.undoList.pop();
     if (lastAction) {
@@ -262,12 +259,6 @@ export class ActionHandler {
       try {
         await lastAction.serializableAction.undoAction(lastAction.undoArgs);
         this.redoList.push(lastAction);
-        return true;
-      } catch (error) {
-        // the entry is already popped - putting it back keeps it reachable
-        // instead of dropping it from both stacks
-        this.undoList.push(lastAction);
-        this.reportHistoryFailure('undo', lastAction, error);
       } finally {
         InterfaceController.hideSpinner(message);
         this.notifyHistoryChanged();
@@ -277,9 +268,8 @@ export class ActionHandler {
         'Not possible to undo, nothing in undo stack',
       );
     }
-    return false;
   }
-  static async redo(): Promise<boolean> {
+  static async redo(): Promise<void> {
     const lastUndo = this.redoList.pop();
     if (lastUndo) {
       const message = 'Redo: ' + lastUndo.serializableAction.name;
@@ -287,10 +277,6 @@ export class ActionHandler {
       try {
         await this.executeAction(lastUndo);
         this.undoList.push(lastUndo);
-        return true;
-      } catch (error) {
-        this.redoList.push(lastUndo);
-        this.reportHistoryFailure('redo', lastUndo, error);
       } finally {
         InterfaceController.hideSpinner(message);
         this.notifyHistoryChanged();
@@ -300,42 +286,21 @@ export class ActionHandler {
         'Not possible to redo, nothing in redo stack',
       );
     }
-    return false;
   }
 
-  private static reportHistoryFailure(
-    direction: 'undo' | 'redo',
-    action: BakedAction,
-    error: unknown,
-  ): void {
-    console.error(
-      `Could not ${direction} "${action.serializableAction.name}"`,
-      error,
-    );
-    InterfaceController.showSnackBar(
-      `Could not ${direction} "${action.serializableAction.name}"`,
-      { variant: 'warning' },
-    );
-  }
-
+  // both loops shrink the stack they read on every pass, so neither can spin
   static async goToHistoryIndex(appliedCount: number): Promise<void> {
     const targetAppliedCount = Math.max(
       0,
       Math.min(appliedCount, this.undoList.length + this.redoList.length),
     );
 
-    // a failed step leaves the entry where it was, so bail out rather than
-    // spinning on it forever
     while (this.undoList.length > targetAppliedCount) {
-      if (!(await this.undo())) {
-        return;
-      }
+      await this.undo();
     }
 
     while (this.undoList.length < targetAppliedCount) {
-      if (!(await this.redo())) {
-        return;
-      }
+      await this.redo();
     }
   }
 
@@ -633,25 +598,22 @@ export class ACTIONS {
   }
 
   static connectSockets(): SerializableAction {
-    const action = async (args: ConnectSocketsActionArgs) => {
-      await PPGraph.currentGraph.linkConnect(
+    const action = async (
+      args: ConnectSocketsActionArgs,
+    ): Promise<ConnectSocketsUndoArgs> => {
+      const displacedLink = await PPGraph.currentGraph.linkConnect(
         args.sourceNodeID,
         args.sourceSocketName,
         args.targetNodeID,
         args.targetSocketName,
         true,
       );
+      return {
+        targetNodeID: args.targetNodeID,
+        targetSocketName: args.targetSocketName,
+        displacedLink,
+      };
     };
-    const captureUndoArgs = (
-      args: ConnectSocketsActionArgs,
-    ): ConnectSocketsUndoArgs => ({
-      targetNodeID: args.targetNodeID,
-      targetSocketName: args.targetSocketName,
-      displacedLink: PPGraph.currentGraph.getInputLinkSource(
-        args.targetNodeID,
-        args.targetSocketName,
-      ),
-    });
     const undoAction = async (args: ConnectSocketsUndoArgs) => {
       PPGraph.currentGraph.linkDisconnect(
         args.targetNodeID,
@@ -668,7 +630,6 @@ export class ACTIONS {
     return {
       action,
       undoAction,
-      captureUndoArgs,
       name: 'Connect Sockets',
     };
   }

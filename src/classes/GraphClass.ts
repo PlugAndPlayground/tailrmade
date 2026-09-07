@@ -764,13 +764,15 @@ export default class PPGraph {
     return newNode;
   };
 
+  // returns the link that had to be dropped to free the input socket
   async linkConnect(
     sourceNodeID: string,
     outputSocketName: string,
     targetNodeID: string,
     inputSocketName: string,
     notify = false,
-  ) {
+  ): Promise<DisplacedLink | undefined> {
+    const displaced = this.getInputLinkSource(targetNodeID, inputSocketName);
     const sourceSocket =
       this.nodes[sourceNodeID].getOutputSocketByName(outputSocketName);
     const targetNode = this.nodes[targetNodeID];
@@ -780,6 +782,7 @@ export default class PPGraph {
       sourceSocket,
     );
     await this.connect(sourceSocket, targetSocket, notify);
+    return displaced;
   }
 
   // dynamically created sockets are removed on unplug, so the named socket
@@ -811,8 +814,6 @@ export default class PPGraph {
     socket?.links[0]?.delete();
   }
 
-  // connect() drops whatever already occupies an input socket, so anything
-  // that has to be undoable needs to remember the displaced link first
   getInputLinkSource(
     targetNodeID: string,
     inputSocketName: string,
@@ -858,7 +859,7 @@ export default class PPGraph {
     sourceNodeID: string,
     targetSocketName: string,
     targetNodeID: string,
-  ): [() => Promise<void>, () => Promise<void>] {
+  ): [() => Promise<DisplacedLink | undefined>, () => Promise<void>] {
     // depending on the types, we might want to create a conversion node inbetween
 
     const sendingSocket =
@@ -872,7 +873,7 @@ export default class PPGraph {
     const conversionNodeID = uuid();
 
     // TODO SERIALIZED ACTION
-    const action = async () => {
+    const action = async (): Promise<DisplacedLink | undefined> => {
       if (compatibility.conversionNode !== undefined) {
         // spawn a conversion node inbetween, connect both nodes to that one
         const x =
@@ -899,7 +900,7 @@ export default class PPGraph {
           ).name,
           true,
         );
-        await this.linkConnect(
+        return this.linkConnect(
           conversionNodeID,
           conversionNode.outputSocketArray[0].name,
           targetNodeID,
@@ -907,7 +908,7 @@ export default class PPGraph {
           true,
         );
       } else {
-        await this.linkConnect(
+        return this.linkConnect(
           sourceNodeID,
           sourceSocketName,
           targetNodeID,
@@ -963,9 +964,8 @@ export default class PPGraph {
       targetSocketID,
     );
 
-    const action = async () => connectAction();
-    const captureUndoArgs = (): DisplacedLink | undefined =>
-      this.getInputLinkSource(targetSocketID, targetSocketName);
+    // connectAction hands back the link it displaced, which becomes the undo
+    // args - recaptured on every redo, so it is never a stale snapshot
     const undoAction = async (displaced: DisplacedLink | undefined) => {
       await disconnectAction();
       await this.restoreInputLink(displaced, targetSocketID, targetSocketName);
@@ -974,13 +974,12 @@ export default class PPGraph {
     await ActionHandler.performRawAction(
       new BakedAction(
         new SerializableAction(
-          action,
+          connectAction,
           undoAction,
           'Connect nodes ' +
             output.getNode().name +
             ' and ' +
             input.getNode().name,
-          captureUndoArgs,
         ),
       ),
     );
