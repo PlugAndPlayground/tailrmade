@@ -74,13 +74,7 @@ const ActionTimeline: React.FC = () => {
   }, []);
 
   const jumpTo = (appliedCount: number) => {
-    ActionHandler.goToHistoryIndex(appliedCount).catch((error) => {
-      console.error('Could not jump to that point in the history', error);
-      InterfaceController.showSnackBar(
-        'Could not jump to that point in the history',
-        { variant: 'warning' },
-      );
-    });
+    void ActionHandler.goToHistoryIndex(appliedCount);
   };
 
   return (

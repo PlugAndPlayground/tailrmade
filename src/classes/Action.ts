@@ -247,40 +247,31 @@ export class ActionHandler {
     InterfaceController.notifyListeners(ListenEvent.UnsavedChanges, true);
     this.notifyHistoryChanged();
   }
-  // an undoAction that throws is not caught here - we cannot know how much of
-  // it ran, so there is no state to claim. the finally is what matters: the
-  // spinner always clears and the history UI always resyncs
-  static async undo(): Promise<void> {
+  static async undo() {
     // move top of undo stack to top of redo stack
     const lastAction = this.undoList.pop();
     if (lastAction) {
       const message = 'Undo: ' + lastAction.serializableAction.name;
       InterfaceController.showSpinner(message);
-      try {
-        await lastAction.serializableAction.undoAction(lastAction.undoArgs);
-        this.redoList.push(lastAction);
-      } finally {
-        InterfaceController.hideSpinner(message);
-        this.notifyHistoryChanged();
-      }
+      await lastAction.serializableAction.undoAction(lastAction.undoArgs);
+      this.redoList.push(lastAction);
+      InterfaceController.hideSpinner(message);
+      this.notifyHistoryChanged();
     } else {
       InterfaceController.showSnackBar(
         'Not possible to undo, nothing in undo stack',
       );
     }
   }
-  static async redo(): Promise<void> {
+  static async redo() {
     const lastUndo = this.redoList.pop();
     if (lastUndo) {
       const message = 'Redo: ' + lastUndo.serializableAction.name;
       InterfaceController.showSpinner(message);
-      try {
-        await this.executeAction(lastUndo);
-        this.undoList.push(lastUndo);
-      } finally {
-        InterfaceController.hideSpinner(message);
-        this.notifyHistoryChanged();
-      }
+      await this.executeAction(lastUndo);
+      this.undoList.push(lastUndo);
+      InterfaceController.hideSpinner(message);
+      this.notifyHistoryChanged();
     } else {
       InterfaceController.showSnackBar(
         'Not possible to redo, nothing in redo stack',
@@ -288,7 +279,6 @@ export class ActionHandler {
     }
   }
 
-  // both loops shrink the stack they read on every pass, so neither can spin
   static async goToHistoryIndex(appliedCount: number): Promise<void> {
     const targetAppliedCount = Math.max(
       0,
