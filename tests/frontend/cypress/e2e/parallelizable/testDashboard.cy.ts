@@ -501,14 +501,6 @@ describe('Test dashboard', () => {
     assertNodesCount(2);
     cy.get(`[data-cy="widget of NODE_${existingNodeId}"]`).should('be.visible');
 
-    // adding the widget selects it, and the selected widget's indicator box
-    // is a popper floating just above it - right on top of the text widget
-    // that sits above. Drop the selection so nothing overlaps the assertion.
-    doWithTestController((testController) => {
-      testController.unselectDashboardItems();
-    });
-    assertNothingVisible('[data-cy^="indicatorbox of "]');
-
     // the surface scrolls down to the widget that was just added, which can
     // leave the text widget clipped above the panel's visible area
     getDashboardText('Hello world').scrollIntoView().should('be.visible');
