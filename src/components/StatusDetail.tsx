@@ -5,13 +5,9 @@ import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import { PNPStatus } from '../classes/ErrorClass';
 import {
   STATUS_ERROR_ICON_TEXTURE,
-  STATUS_SEVERITY,
   STATUS_WARNING_ICON_TEXTURE,
 } from '../utils/constants';
 import { writeTextToClipboard } from '../utils/utils';
-
-export const isError = (status: PNPStatus): boolean =>
-  status.getSeverity() >= STATUS_SEVERITY.ERROR;
 
 const ICON_SIZE = {
   inherit: '1em',
@@ -24,7 +20,7 @@ export const StatusSeverityIcon: React.FC<{
   fontSize?: 'inherit' | 'small' | 'medium';
   color?: string;
 }> = ({ status, fontSize = 'small', color }) => {
-  const source = isError(status)
+  const source = status.isError()
     ? STATUS_ERROR_ICON_TEXTURE
     : STATUS_WARNING_ICON_TEXTURE;
   const size = ICON_SIZE[fontSize];
@@ -33,7 +29,7 @@ export const StatusSeverityIcon: React.FC<{
     <Box
       component="span"
       role="img"
-      aria-label={isError(status) ? 'Error' : 'Warning'}
+      aria-label={status.getBucketName()}
       sx={{
         display: 'inline-block',
         verticalAlign: 'middle',

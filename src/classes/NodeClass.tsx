@@ -28,7 +28,6 @@ import {
   NODE_TEXTSTYLE,
   NODE_WIDTH,
   ONCLICK_DOUBLECLICK,
-  STATUS_SEVERITY,
   SOCKET_HEIGHT,
   SOCKET_TYPE,
   SOCKET_WIDTH,
@@ -69,7 +68,6 @@ import {
   PNPError,
   PNPStatus,
   PNPSuccess,
-  SocketParsingWarning,
 } from './ErrorClass';
 import { shouldEnterHybridEditModeOnCanvasClick } from '../utils/nodeInteractivity';
 import {
@@ -112,9 +110,8 @@ export default class PPNode extends PIXI.Container implements IWarningHandler {
   lastExecutionTime = 0;
   lastRenderID = 0;
 
-  status: { node: PNPStatus; socket: PNPStatus; custom: PNPStatus[] } = {
+  status: { node: PNPStatus; custom: PNPStatus[] } = {
     node: new PNPSuccess(),
-    socket: new PNPSuccess(),
     custom: [],
   };
 
@@ -965,26 +962,22 @@ export default class PPNode extends PIXI.Container implements IWarningHandler {
   }
 
   public getWarningsAndErrors(): PNPStatus[] {
-    const collected: PNPStatus[] = [];
-    const consider = (status: PNPStatus) => {
-      if (status.getSeverity() >= STATUS_SEVERITY.WARNING) {
-        collected.push(status);
-      }
-    };
-    const aggregated = this.status.socket;
-    consider(this.status.node);
-    consider(aggregated);
-    this.getAllSockets().forEach((socket) => {
-      const isTheAggregate =
-        aggregated === socket.status ||
-        (!(aggregated instanceof SocketParsingWarning) &&
-          aggregated.message?.includes(socket.status.message));
-      if (isTheAggregate) {
-        return;
-      }
-      consider(socket.status);
-    });
-    return collected.sort((a, b) => b.getSeverity() - a.getSeverity());
+    return [
+      this.status.node,
+      ...this.getAllSockets().map((socket) => socket.status),
+    ]
+      .filter((status) => status.isProblem())
+      .sort((a, b) => b.getSeverity() - a.getSeverity());
+  }
+
+  public getSocketStatus(): PNPStatus {
+    return this.getAllSockets().reduce<PNPStatus>(
+      (worst, socket) =>
+        socket.status.getSeverity() > worst.getSeverity()
+          ? socket.status
+          : worst,
+      new PNPSuccess(),
+    );
   }
 
   public getWorstStatus(): PNPStatus | undefined {
@@ -1188,11 +1181,11 @@ export default class PPNode extends PIXI.Container implements IWarningHandler {
     });
   }
 
-  public setStatus(status: PNPStatus, type: 'node' | 'socket' = 'node') {
-    const currentMessage = JSON.stringify(this.status[type].message);
+  public setStatus(status: PNPStatus) {
+    const currentMessage = JSON.stringify(this.status.node.message);
     const newMessage = JSON.stringify(status.message);
     if (currentMessage !== newMessage) {
-      this.status[type] = status;
+      this.status.node = status;
       this.drawStatuses();
       this.drawErrorBoundary();
       this.notifyStatusChanged();
@@ -1211,15 +1204,10 @@ export default class PPNode extends PIXI.Container implements IWarningHandler {
     });
   }
 
-  adaptToSocketErrors(): void {
-    const hasWarningsOrErrors = this.getAllSockets().some(
-      (socket) => socket.status.getSeverity() >= STATUS_SEVERITY.WARNING,
-    );
-    if (!hasWarningsOrErrors) {
-      this.setStatus(new PNPSuccess(), 'socket');
-      this.drawStatuses();
-      this.drawErrorBoundary();
-    }
+  refreshSocketStatus(): void {
+    this.drawStatuses();
+    this.drawErrorBoundary();
+    this.notifyStatusChanged();
   }
 
   drawDebugInfo(): void {

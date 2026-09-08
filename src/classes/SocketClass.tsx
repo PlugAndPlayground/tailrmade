@@ -34,7 +34,6 @@ import {
   TEXT_RESOLUTION,
   TOOLTIP_DISTANCE,
   TOOLTIP_WIDTH,
-  STATUS_SEVERITY,
 } from '../utils/constants';
 import {
   AbstractType,
@@ -49,12 +48,7 @@ import {
   convertToViewableString,
   parseValueAndAttachWarnings,
 } from '../utils/utils';
-import {
-  NodeExecutionWarning,
-  PNPStatus,
-  PNPSuccess,
-  SocketParsingWarning,
-} from './ErrorClass';
+import { PNPStatus, PNPSuccess } from './ErrorClass';
 import { PNPHitArea } from './selection/PNPHitArea';
 import { getOverflowForSize } from '../utils/layoutableHelpers';
 
@@ -261,26 +255,11 @@ export default class Socket
     const currentMessage = this.status.message;
     const newMessage = status.message;
     if (currentMessage !== newMessage) {
-      if (status instanceof SocketParsingWarning) {
-        status.setSocketLabel(this.getStatusLabel());
-      }
+      status.setSourceLabel(this.getStatusLabel());
       this.status = status;
       if (this.getNode() !== undefined) {
         this.redraw();
-        if (status.getSeverity() >= STATUS_SEVERITY.WARNING) {
-          this.getNode().setStatus(
-            status instanceof SocketParsingWarning
-              ? status
-              : new NodeExecutionWarning(
-                  `Parsing warning on ${this.getStatusLabel()}
-  ${newMessage}`,
-                ),
-            'socket',
-          );
-        } else {
-          this.getNode().adaptToSocketErrors();
-        }
-        this.getNode().drawErrorBoundary();
+        this.getNode().refreshSocketStatus();
       }
     }
   }
@@ -288,10 +267,9 @@ export default class Socket
   redraw(): void {
     this.removeChildren();
     this._SocketRef.clear();
-    const color =
-      this.status.getSeverity() >= STATUS_SEVERITY.WARNING
-        ? TRgba.fromString(COLOR_DARK).hex()
-        : TRgba.fromString(COLOR_WHITE_TEXT).hex();
+    const color = this.status.isProblem()
+      ? TRgba.fromString(COLOR_DARK).hex()
+      : TRgba.fromString(COLOR_WHITE_TEXT).hex();
 
     this.dataType.drawBox(
       this._ErrorBox,

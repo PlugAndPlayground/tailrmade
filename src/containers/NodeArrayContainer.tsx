@@ -21,7 +21,6 @@ import {
   getDrawerBackground,
   MAIN_COLOR,
   ONCLICK_DOUBLECLICK,
-  STATUS_SEVERITY,
 } from './../utils/constants';
 import { TRgba } from './../utils/color';
 import { StatusDetail } from '../components/StatusDetail';
@@ -29,8 +28,10 @@ import { TagChip } from '../components/TagChip';
 
 const TAG_FILTER_PREFIX = 'tag:';
 
-const buildTagFilter = (tag: string): string =>
-  `${TAG_FILTER_PREFIX}${tag}`;
+const sameTag = (a: string, b: string): boolean =>
+  a.toLowerCase() === b.toLowerCase();
+
+const buildTagFilter = (tag: string): string => `${TAG_FILTER_PREFIX}${tag}`;
 
 type ParsedFilter = { tags: string[]; text: string };
 
@@ -51,31 +52,22 @@ export const buildFilterText = (tags: string[], text: string): string =>
 
 const ROW_SEVERITY_TINT = 0.08;
 const ROW_BACKGROUND = TRgba.fromString(MAIN_COLOR).darken(0.6);
-const STATUS_TAG = {
-  ERROR: 'Error',
-  WARNING: 'Warning',
-} as const;
+// severity is carried so the status tags can be ordered without this file
+// having to know their names
+type StatusTag = { label: string; color?: string; severity?: number };
 
-type StatusTag = { label: string; color?: string };
-
-const getStatusTags = (node: PPNode): StatusTag[] => {
-  const statuses = node.getWarningsAndErrors();
-  const tags: StatusTag[] = [];
-  // fatal counts as an error - it is the same "this is broken" bucket
-  const error = statuses.find(
-    (status) => status.getSeverity() >= STATUS_SEVERITY.ERROR,
-  );
-  const warning = statuses.find(
-    (status) => status.getSeverity() === STATUS_SEVERITY.WARNING,
-  );
-  if (error) {
-    tags.push({ label: STATUS_TAG.ERROR, color: error.getColor().hex() });
-  }
-  if (warning) {
-    tags.push({ label: STATUS_TAG.WARNING, color: warning.getColor().hex() });
-  }
-  return tags;
-};
+const getStatusTags = (node: PPNode): StatusTag[] =>
+  node.getWarningsAndErrors().reduce<StatusTag[]>((tags, status) => {
+    const label = status.getBucketName();
+    if (!tags.some((tag) => tag.label === label)) {
+      tags.push({
+        label,
+        color: status.getColor().hex(),
+        severity: status.getSeverity(),
+      });
+    }
+    return tags;
+  }, []);
 
 const getAllTagLabels = (node: PPNode): string[] =>
   getStatusTags(node)
@@ -93,9 +85,9 @@ const getAvailableTags = (nodes: PPNode[]): StatusTag[] => {
     });
     node.getTags().forEach((tag) => nodeTags.add(tag));
   });
-  const severityTags = [STATUS_TAG.ERROR, STATUS_TAG.WARNING]
-    .map((label) => statusTags.get(label))
-    .filter((tag): tag is StatusTag => tag !== undefined);
+  const severityTags = [...statusTags.values()].sort(
+    (a, b) => (b.severity ?? 0) - (a.severity ?? 0),
+  );
   return [
     ...severityTags,
     ...[...nodeTags].sort().map((label) => ({ label, color: undefined })),
@@ -147,9 +139,7 @@ const NodeItem = memo(
       ? ROW_BACKGROUND.mix(statuses[0].getColor(), ROW_SEVERITY_TINT)
       : ROW_BACKGROUND;
     const isSelected = (label: string) =>
-      props.selectedTags.some(
-        (tag) => tag.toLowerCase() === label.toLowerCase(),
-      );
+      props.selectedTags.some((tag) => sameTag(tag, label));
 
     return (
       <ListItem
@@ -404,14 +394,12 @@ export const NodeArrayContainer: React.FunctionComponent<
     (event: React.SyntheticEvent, tag: string) => {
       props.setFilterText((current) => {
         const parsed = parseFilterText(current);
-        const isSelected = parsed.tags.some(
-          (selected) => selected.toLowerCase() === tag.toLowerCase(),
+        const isSelected = parsed.tags.some((selected) =>
+          sameTag(selected, tag),
         );
         return buildFilterText(
           isSelected
-            ? parsed.tags.filter(
-                (selected) => selected.toLowerCase() !== tag.toLowerCase(),
-              )
+            ? parsed.tags.filter((selected) => !sameTag(selected, tag))
             : [...parsed.tags, tag],
           parsed.text,
         );
@@ -439,9 +427,9 @@ export const NodeArrayContainer: React.FunctionComponent<
 
   const customFilter = (item: PPNode, parsed: ParsedFilter) => {
     if (parsed.tags.length) {
-      const labels = getAllTagLabels(item).map((label) => label.toLowerCase());
+      const labels = getAllTagLabels(item);
       const matchesTags = parsed.tags.every((tag) =>
-        labels.includes(tag.toLowerCase()),
+        labels.some((label) => sameTag(label, tag)),
       );
       if (!matchesTags) {
         return false;
@@ -467,7 +455,9 @@ export const NodeArrayContainer: React.FunctionComponent<
   const customSort = (a: PPNode, b: PPNode) => {
     const order =
       (b.status.node.getSeverity() - a.status.node.getSeverity()) * 1000 +
-        (b.status.socket.getSeverity() - a.status.socket.getSeverity()) * 100 +
+        (b.getSocketStatus().getSeverity() -
+          a.getSocketStatus().getSeverity()) *
+          100 +
         (+(b.type === 'Macro') - +(a.type === 'Macro')) * 10 ||
       a.name.localeCompare(b.name);
     return order;
@@ -495,9 +485,7 @@ export const NodeArrayContainer: React.FunctionComponent<
       ...availableTags.map((tag) => tag.label),
       ...filter.tags.filter(
         (tag) =>
-          !availableTags.some(
-            (available) => available.label.toLowerCase() === tag.toLowerCase(),
-          ),
+          !availableTags.some((available) => sameTag(available.label, tag)),
       ),
     ],
     [availableTags, filter.tags],
@@ -511,9 +499,7 @@ export const NodeArrayContainer: React.FunctionComponent<
     return tagOptions.filter(
       (label) =>
         label.toLowerCase().startsWith(text) &&
-        !filter.tags.some(
-          (selected) => selected.toLowerCase() === label.toLowerCase(),
-        ),
+        !filter.tags.some((selected) => sameTag(selected, label)),
     );
   }, [tagOptions, filter]);
 
@@ -590,9 +576,7 @@ export const NodeArrayContainer: React.FunctionComponent<
               props.setFilterText('');
             }
           }}
-          isOptionEqualToValue={(option, value) =>
-            option.toLowerCase() === value.toLowerCase()
-          }
+          isOptionEqualToValue={(option, value) => sameTag(option, value)}
           renderValue={(tags, getItemProps) =>
             tags.map((tag, index) => {
               const { key, ...itemProps } = getItemProps({ index });

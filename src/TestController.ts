@@ -6,7 +6,7 @@ import PPNode from './classes/NodeClass';
 import InterfaceController from './InterfaceController';
 import Socket from './classes/SocketClass';
 import { getAllNodeTypes } from './nodes/allNodes';
-import { NODE_MARGIN, STATUS_SEVERITY } from './utils/constants';
+import { NODE_MARGIN } from './utils/constants';
 import PPStorage from './PPStorage';
 import {
   ACTIONS,
@@ -328,10 +328,7 @@ export default class TestController {
 
   doesNodeHaveError(nodeID: string): boolean {
     const node = this.getNodeByID(nodeID);
-    return (
-      node.status.node.getSeverity() >= STATUS_SEVERITY.ERROR ||
-      node.status.socket.getSeverity() >= STATUS_SEVERITY.ERROR
-    );
+    return node.getWarningsAndErrors().some((status) => status.isError());
   }
 
   getNodeCustomStatuses(nodeID: string) {

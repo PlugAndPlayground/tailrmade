@@ -18,18 +18,13 @@ import { CopyStatusButton, StatusDetail } from './StatusDetail';
 const POPOVER_WIDTH = 380;
 const MARGIN = 8;
 
-// where a click away landed, mouse, pen and touch alike
-const eventPoint = (event: any): PIXI.Point | undefined => {
-  const source =
-    typeof event?.clientX === 'number'
-      ? event
-      : (event?.touches?.[0] ?? event?.changedTouches?.[0]);
-  return typeof source?.clientX === 'number'
-    ? new PIXI.Point(source.clientX, source.clientY)
-    : undefined;
+// Where a click away landed.
+const eventPoint = (event: MouseEvent | TouchEvent): PIXI.Point | undefined => {
+  const source = 'touches' in event ? event.changedTouches[0] : event;
+  return source ? new PIXI.Point(source.clientX, source.clientY) : undefined;
 };
 
-const isOnStatusBadge = (event: any): boolean => {
+const isOnStatusBadge = (event: MouseEvent | TouchEvent): boolean => {
   const point = eventPoint(event);
   if (!point || !PPGraph.currentGraph) {
     return false;

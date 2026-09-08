@@ -6,7 +6,6 @@ import {
   DARK_HEX,
   ERROR_BOUNDARY_SCREEN_OFFSET,
   NODE_MARGIN,
-  STATUS_SEVERITY,
 } from '../utils/constants';
 import { TNodeId } from '../utils/interfaces';
 import { getStatusIconTexture } from '../utils/statusIcons';
@@ -72,9 +71,7 @@ export class NodeStatusBadges {
     this.container.eventMode = 'passive';
 
     const icon = worst
-      ? getStatusIconTexture(
-          worst.getSeverity() >= STATUS_SEVERITY.ERROR ? 'error' : 'warning',
-        )
+      ? getStatusIconTexture(worst.isError() ? 'error' : 'warning')
       : undefined;
     const commentIcon = hasComment
       ? getStatusIconTexture('comment')

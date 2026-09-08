@@ -11,11 +11,7 @@ import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import DashboardCustomizeIcon from '@mui/icons-material/DashboardCustomize';
 import { StatusSeverityIcon } from './../components/StatusDetail';
 import InterfaceController, { ListenEvent } from './../InterfaceController';
-import {
-  COLOR_WARNING,
-  DISABLED_OPACITY,
-  STATUS_SEVERITY,
-} from './../utils/constants';
+import { COLOR_WARNING, DISABLED_OPACITY } from './../utils/constants';
 import { writeDataToClipboard } from './../utils/utils';
 import { TRgba } from './../utils/color';
 import * as styles from './../utils/style.module.css';
@@ -52,7 +48,7 @@ const onChangeDropdown = (
   // Update local state using reference socket
   const referenceSocket = props.socketsToUpdate[0];
   setDataTypeValue(referenceSocket.dataType);
-  setHasError(referenceSocket.status.getSeverity() >= STATUS_SEVERITY.WARNING);
+  setHasError(referenceSocket.status.isProblem());
 };
 export const SocketContainer = memo(
   (props: SocketContainerProps) => {
@@ -60,7 +56,7 @@ export const SocketContainer = memo(
     const referenceSocket = props.socketsToUpdate[0];
 
     const [hasError, setHasError] = useState(
-      referenceSocket.status.getSeverity() >= STATUS_SEVERITY.WARNING,
+      referenceSocket.status.isProblem(),
     );
 
     useEffect(() => {
@@ -92,12 +88,9 @@ export const SocketContainer = memo(
       : dataTypeValue.getOutputWidget(baseProps);
 
     useInterval(() => {
-      const newHasError =
-        referenceSocket.status.getSeverity() >= STATUS_SEVERITY.WARNING;
+      const newHasError = referenceSocket.status.isProblem();
       if (hasError !== newHasError) {
-        setHasError(
-          referenceSocket.status.getSeverity() >= STATUS_SEVERITY.WARNING,
-        );
+        setHasError(newHasError);
       }
     }, 100);
 
