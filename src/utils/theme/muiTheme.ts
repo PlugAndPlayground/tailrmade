@@ -40,18 +40,12 @@ const DENSITY_DEFAULTS: Record<
   XL: { size: 'medium', margin: 'normal' },
 };
 
-// --- touch targets --------------------------------------------------------
-// A deployed app is used with a finger as often as with a mouse, and the
-// density steps a creator picks are visual choices, not hit-area ones: at XS/S
-// a Checkbox is a 30px box and a Switch a 38px one, both well under the 44px
-// minimum both Apple and Google publish.
-//
-// Rather than making every widget defend itself, the floor lives here, on the
-// APP theme, so it reaches every control a creator can place at once. It is
-// gated on `pointer: coarse` - the media query is about the primary input
-// device, not the screen size - so a desktop app renders byte-identically to
-// before and the pointer-precise density steps stay intact where they are
-// usable.
+// Touch targets. The density steps a creator picks are visual choices, not
+// hit-area ones: at XS/S a Checkbox is a 30px box and a Switch a 38px one, both
+// under the 44px minimum Apple and Google publish. The floor lives here, on the
+// app theme, so it reaches every control a creator can place - gated on
+// `pointer: coarse`, which is about the input device rather than the window, so
+// a desktop app renders exactly as before.
 export const TOUCH_TARGET_PX = 44;
 const COARSE = '@media (pointer: coarse)';
 
@@ -64,12 +58,10 @@ const coarseMinBox = {
   },
 };
 
-// Switch cannot use coarseMinBox: its root has an explicit width/height and the
-// track fills the CONTENT box, so growing the box alone would stretch the track
-// into a tall pill. Height and padding move together instead, which leaves the
-// track at its designed 14px (medium) / 10px (small) and turns the extra space
-// into slack around the thumb - and the thumb's input already spans the full
-// root width, so the whole pill is tappable.
+// Switch cannot use coarseMinBox: its track fills the content box, so growing
+// the box alone would stretch it into a tall pill. Height and padding move
+// together instead, leaving the track at its designed thickness and turning the
+// extra space into slack around the thumb.
 const coarseSwitchRoot = (trackHeight: number) => ({
   [COARSE]: {
     height: `${TOUCH_TARGET_PX}px`,
@@ -153,9 +145,8 @@ export const tokensToThemeOptions = (resolved: ResolvedTheme): ThemeOptions => {
         },
       },
       MuiTable: { defaultProps: { size: density.size } },
-      // MUI drops MenuItem's 48px floor to `auto` above the sm breakpoint, so a
-      // dropdown opened on a tablet has ~36px rows. The floor is about the
-      // finger, not the window, so put it back for coarse pointers.
+      // MUI drops MenuItem's 48px floor above the sm breakpoint, leaving ~36px
+      // rows on a tablet. The floor is about the finger, not the window.
       MuiMenuItem: {
         styleOverrides: { root: { [COARSE]: { minHeight: 48 } } },
       },

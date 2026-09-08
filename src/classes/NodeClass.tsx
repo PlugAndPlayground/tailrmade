@@ -1532,9 +1532,8 @@ ${Math.round(bounds.minX)}, ${Math.round(
   async onPointerDown(event: PIXI.FederatedPointerEvent): Promise<void> {
     console.log('Node: onPointerDown');
     // Explore-only: a press on a node is a press on the canvas. Returning
-    // BEFORE stopPropagation is the whole point - the event carries on to the
-    // viewport, so a finger that lands on a node pans with it instead of
-    // dragging it, and nodes stop being dead spots on a phone.
+    // before stopPropagation is the point - the event carries on to the
+    // viewport, so a finger that lands on a node pans instead of dragging it.
     if (isCanvasExploreOnly()) {
       return;
     }

@@ -46,14 +46,11 @@ const RightSideContainerInner: React.FC<RightSideContainerProps> = ({
     setRightDrawerView(newValue);
   };
 
-  // Stacked icon-over-label tabs are 72px, and wrap past that once the labels
-  // carry their keyboard shortcuts. In a capped tablet column that is most of
-  // what sits above the content, spent twice over on the same three words, so
-  // the icon moves beside the label and the shortcut hints drop.
+  // Stacked icon-over-label tabs are 72px and wrap past that once the labels
+  // carry their shortcuts, which in a capped tablet column is most of what sits
+  // above the content. So the icon moves beside the label and the hints drop.
   const narrow = useIsNarrowColumns();
-  const tabProps = narrow
-    ? ({ iconPosition: 'start' } as const)
-    : ({} as const);
+  const iconPosition = narrow ? 'start' : 'top';
 
   const interfaceInspectorComponent = useMemo(
     () => <DashboardInspectorWrapper />,
@@ -144,21 +141,21 @@ const RightSideContainerInner: React.FC<RightSideContainerProps> = ({
           }}
         >
           <Tab
-            {...tabProps}
+            iconPosition={iconPosition}
             icon={<PolylineIcon fontSize="small" />}
             label={narrow ? 'Graph' : 'Graph (3)'}
             value={RightDrawerView.GRAPH}
             data-cy="graph-inspector-tab"
           />
           <Tab
-            {...tabProps}
+            iconPosition={iconPosition}
             icon={<DashboardIcon fontSize="small" />}
             label={narrow ? 'Interface' : 'User interface (4)'}
             value={RightDrawerView.INTERFACE}
             data-cy="interface-settings-tab"
           />
           <Tab
-            {...tabProps}
+            iconPosition={iconPosition}
             icon={<SquareIcon fontSize="small" />}
             label={narrow ? 'App' : 'App (5)'}
             value={RightDrawerView.APP}

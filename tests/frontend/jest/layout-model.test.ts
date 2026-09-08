@@ -4,10 +4,9 @@ import {
   StackView,
 } from '../../../src/utils/layoutModel';
 
-// useLayoutModel and useMaxOpenPanels are thin useMediaQuery wrappers and are
-// covered where they are observable - responsiveShell.cy.ts drives real
-// viewports. What is worth pinning here is the stack's own state, which the
-// bottom bar and the shell both read.
+// The layout hooks are thin useMediaQuery wrappers, covered where they are
+// observable by responsiveShell.cy.ts. What is worth pinning here is the
+// stack's own state, which the bottom bar and the shell both read.
 
 describe('stack view', () => {
   afterEach(() => setStackView('ui'));

@@ -220,25 +220,19 @@ export const zoomToFitNodes = (
 /**
  * How a phone should be looking at a graph it has just loaded.
  *
- * A saved view is a scale and a centre, and the scale was chosen on the window
- * the app was last saved from - almost always a desktop. Restoring it on a
- * 390px screen shows about a quarter of the width the author was looking at,
- * so an app opens deep inside itself with no way to tell what is around it.
- *
- * Fitting is the honest answer for most apps: on a phone the graph is
- * something you are reading, and the whole of it is what you want to read. But
- * fitting a large graph would make it dust, so the scale is clamped - and when
- * the clamp bites (the graph is too big to fit legibly) the author's own
- * centre is kept, because on a graph that does not fit, where they left the
- * view is better information than the middle of its bounding box.
+ * The saved scale was chosen on the window the app was saved from, almost
+ * always a desktop, so restoring it on a 390px screen opens the app deep
+ * inside itself. Fitting is the honest answer for a graph you are reading -
+ * but fitting a large one would make it dust, so the scale is clamped, and
+ * when the clamp bites the author's own centre is kept: on a graph that does
+ * not fit, where they left the view beats the middle of its bounding box.
  */
-// A node is ~200 world px wide, so this shows about thirteen of them across a
-// phone: enough to read the shape of an app and pick where to zoom in, which
-// is what the graph view is for. Higher floors look better on small graphs but
-// stop medium ones from ever fitting, which is the case that matters.
-export const STACK_MIN_ZOOM = 0.15;
+// A node is ~200 world px wide, so this shows about thirteen across a phone.
+// Higher floors look better on small graphs but stop medium ones from ever
+// fitting, which is the case that matters.
+const STACK_MIN_ZOOM = 0.15;
 // a single small node should not be blown up to fill the screen
-export const STACK_MAX_ZOOM = 1;
+const STACK_MAX_ZOOM = 1;
 // the same breathing room zoomToFitNodes leaves around the bounds
 const STACK_FIT_PADDING = 0.2;
 
@@ -250,10 +244,7 @@ export const frameGraphForStackLayout = (): void => {
     return;
   }
 
-  const savedCenter = {
-    x: currentGraph.viewport.center.x,
-    y: currentGraph.viewport.center.y,
-  };
+  const savedCenter = currentGraph.viewport.center.clone();
 
   // fit() only sets the scale here; the centre is decided below
   currentGraph.viewport.fit(false, bounds.width, bounds.height);
@@ -261,17 +252,16 @@ export const frameGraphForStackLayout = (): void => {
   const scale = Math.min(STACK_MAX_ZOOM, Math.max(STACK_MIN_ZOOM, fitScale));
   currentGraph.viewport.setZoom(scale, true);
 
-  // deliberately NOT calculateOverlayOffsets: it compensates for docked
-  // panels, and the stack layout has none - but the overlay state restored
-  // with the graph can still say a drawer is open, which would shove the
-  // framing sideways for a panel that is not on screen.
+  // deliberately not calculateOverlayOffsets: it compensates for docked panels,
+  // and the stack layout has none - but the restored overlay state can still
+  // say a drawer is open, which would shove the framing sideways
   if (fitScale >= STACK_MIN_ZOOM) {
     currentGraph.viewport.moveCenter(
       bounds.x + bounds.width / 2,
       bounds.y + bounds.height / 2,
     );
   } else {
-    currentGraph.viewport.moveCenter(savedCenter.x, savedCenter.y);
+    currentGraph.viewport.moveCenter(savedCenter);
   }
 
   currentGraph.selection.drawRectanglesFromSelection();

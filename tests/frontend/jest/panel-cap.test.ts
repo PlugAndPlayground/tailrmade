@@ -13,8 +13,8 @@ describe('which panels have to close', () => {
     expect(panelsToClose([LEFT, RIGHT], 2)).toEqual([]);
   });
 
-  // the panel you just asked for is the one worth keeping - closing it would
-  // make the control that opened it look broken
+  // closing the panel you just asked for would make the control that opened it
+  // look broken
   it('closes the oldest when a third opens', () => {
     expect(panelsToClose([LEFT, RIGHT, DASHBOARD], 2)).toEqual([LEFT]);
     expect(panelsToClose([DASHBOARD, LEFT, RIGHT], 2)).toEqual([DASHBOARD]);

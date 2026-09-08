@@ -106,9 +106,8 @@ describe('touch targets', () => {
   const coarseRule = (slot: unknown): Record<string, unknown> =>
     (slot as Record<string, Record<string, unknown>>)[COARSE];
 
-  // the floor exists so a creator cannot accidentally ship a control that is
-  // too small to hit with a thumb - the density steps are a visual choice and
-  // XS/S land well under the 44px both platforms publish
+  // the density steps are a visual choice, and XS/S land well under the 44px
+  // both platforms publish
   it('floors every tappable control at 44px on a coarse pointer', () => {
     const options = tokensToThemeOptions(resolvedWith({ density: 'XS' }));
     const components = options.components!;
@@ -120,8 +119,8 @@ describe('touch targets', () => {
     });
   });
 
-  // Switch grows by height+padding instead of a min box, so that the track
-  // keeps its designed thickness rather than stretching into a tall pill
+  // height+padding instead of a min box, so the track keeps its designed
+  // thickness rather than stretching into a tall pill
   it('grows the switch around its track rather than stretching it', () => {
     const components = tokensToThemeOptions(resolvedWith({}))!.components!;
     const medium = coarseRule(components.MuiSwitch?.styleOverrides?.root);
@@ -139,8 +138,8 @@ describe('touch targets', () => {
     });
   });
 
-  // MUI drops MenuItem's 48px floor above the sm breakpoint, which is a window
-  // measurement - the finger does not get more precise on a tablet
+  // MUI drops MenuItem's 48px floor above sm, which is a window measurement -
+  // the finger does not get more precise on a tablet
   it('keeps menu rows tappable regardless of window width', () => {
     const components = tokensToThemeOptions(resolvedWith({}))!.components!;
     expect(coarseRule(components.MuiMenuItem?.styleOverrides?.root)).toEqual({

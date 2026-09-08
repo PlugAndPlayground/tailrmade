@@ -1,79 +1,38 @@
-// Which of the two layouts a window gets, and what the narrow one is showing.
+// Two layouts, decided by one question: can this window hold a row of columns?
 //
-// There used to be three answers to "how much room do I get?" - the rail took
-// a fixed column forever, the drawers became sheets below one breakpoint, and
-// the app UI became a full cover below a different one. None of them knew
-// about the others, so a portrait tablet ended up with sheet drawers beside a
-// 270px app.
+//   COLUMNS  >= md   rail, panels and the app UI side by side. Between md and
+//                    lg only two panels may be open at once, because a third
+//                    leaves less canvas than a node is wide.
+//   STACK    <  md   one full-screen view at a time, chosen from a bottom bar.
+//                    No rail, no drawers, no overlap.
 //
-// There are now two, and one question decides between them: can this window
-// hold a row of columns at all?
-//
-//   COLUMNS  >= md   the docked row - rail, panels and the app UI side by
-//                    side, as on the desktop today. Between md and lg only
-//                    two panels may be open at once, because a third leaves
-//                    less canvas than a node is wide.
-//
-//   STACK    <  md   one full-screen view at a time, chosen from a bottom
-//                    bar. No rail, no drawers, no sheets, no overlap - so
-//                    nothing needs a breakpoint of its own any more.
-//
-// The line is about the WINDOW, not the device: a tablet held in portrait is
-// 820px and stacks, the same tablet turned sideways is 1180px and gets
-// columns. Width is the thing that actually runs out.
+// The line is about the window, not the device: a tablet held in portrait
+// stacks, the same tablet turned sideways gets columns.
 
 import { useTheme } from '@mui/material';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import { createStore } from '../components/createStore';
 
-export type LayoutModel = 'stack' | 'columns';
+// The imperative twin, isStackLayout, lives in stackLayout.ts free of React
+// and MUI, so the pixi and node code can ask the same question.
+export const useIsStackLayout = (): boolean =>
+  useMediaQuery(useTheme().breakpoints.down('md'));
 
-export const useLayoutModel = (): LayoutModel => {
-  const theme = useTheme();
-  return useMediaQuery(theme.breakpoints.down('md')) ? 'stack' : 'columns';
-};
-
-export const useIsStackLayout = (): boolean => useLayoutModel() === 'stack';
-
-// The imperative twin of the hook above - isStackLayout - and the canvas rule
-// that follows from it live in stackLayout.ts, free of React and MUI so the
-// pixi and node code can ask the same question without importing either.
+/** How many of the apps list, inspector and app UI may be open at once. */
+export const useMaxOpenPanels = (): number =>
+  useMediaQuery(useTheme().breakpoints.down('lg')) ? 2 : Infinity;
 
 /**
- * How many panels may be open at once in the columns layout.
- *
- * Panels here are the three that take real width: the apps list, the
- * inspector and the app UI. At 1180px two of them still leave the canvas
- * ~500px; a third leaves under 200, which is narrower than a node. lg is the
- * first width where all three fit beside a canvas worth looking at.
+ * The columns band where width is still scarce - the one the panel cap applies
+ * to. Chrome that is merely roomy on a desktop is expensive here.
  */
-export const useMaxOpenPanels = (): number => {
-  const theme = useTheme();
-  const belowLarge = useMediaQuery(theme.breakpoints.down('lg'));
-  return belowLarge ? 2 : Infinity;
-};
+export const useIsNarrowColumns = (): boolean =>
+  useMediaQuery(useTheme().breakpoints.between('md', 'lg'));
 
-/**
- * True in the columns layout while width is still scarce - the band where the
- * panel cap applies. Chrome that is merely roomy on a desktop is expensive
- * here, so this is what panel contents check before spending height on
- * decoration.
- */
-export const useIsNarrowColumns = (): boolean => {
-  const theme = useTheme();
-  const belowLarge = useMediaQuery(theme.breakpoints.down('lg'));
-  const stack = useIsStackLayout();
-  return belowLarge && !stack;
-};
-
-// --- what the stack is showing -------------------------------------------
-//
-// Only meaningful under the stack layout. It is deliberately NOT derived from
-// the overlay state: the columns layout lets several panels be open at once
-// and the stack layout allows exactly one thing, so there is no honest
-// mapping between them. Each layout keeps its own idea of what is on screen,
-// and crossing the breakpoint simply hands over to the other one.
-
+// What the stack is showing. Deliberately not derived from the overlay state:
+// columns allows several panels at once and the stack exactly one, so there is
+// no honest mapping between them - each layout keeps its own idea of what is
+// on screen.
 export type StackView = 'ui' | 'graph' | 'ai' | 'apps';
 
 const stackViewStore = createStore<StackView>('ui');

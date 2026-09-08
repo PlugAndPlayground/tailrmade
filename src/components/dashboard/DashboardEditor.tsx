@@ -999,9 +999,9 @@ export const DashboardEditor: React.FC<DashboardEditorProps> = ({
         minWidth: 0,
         minHeight: 0,
         overflowY: 'auto',
-        // a scroll that runs out here must not hand the rest of the gesture to
-        // the page: on iOS that is the rubber-band/pull-to-refresh that makes a
-        // full-screen app feel like a web page rather than an app
+        // a scroll that runs out here must not hand the rest of the gesture
+        // to the page - on iOS, the rubber-band that makes a full-screen app
+        // feel like a web page
         overscrollBehavior: 'contain',
         background: `${getDashboardBackground()}`,
         position: 'relative',
@@ -1103,11 +1103,9 @@ export const DashboardEditor: React.FC<DashboardEditorProps> = ({
                     touchAction: 'manipulation',
                     WebkitTapHighlightColor: 'transparent',
                     // app view is the only layout that reaches the physical
-                    // edges of the screen (see viewport-fit=cover in
-                    // template.html), so it is the only one that has to keep
-                    // content out from under the notch and home indicator.
-                    // Padding rather than margin: the app's own background
-                    // still paints into the inset, only the widgets move.
+                    // edges of the screen (viewport-fit=cover in template.html).
+                    // Padding rather than margin, so the app's own background
+                    // still paints into the inset and only the widgets move.
                     ...(appView && {
                       pt: 'env(safe-area-inset-top)',
                       pb: 'env(safe-area-inset-bottom)',
@@ -1162,10 +1160,8 @@ export const EmptyState: React.FC<{ appView?: boolean }> = ({
             <Typography variant="h5" gutterBottom>
               {stackLayout ? 'No user interface yet' : 'Nothing to show'}
             </Typography>
-            {/* On a phone the desktop version of this is worse than nothing: it
-              names a logo that is not on screen and a keyboard shortcut there
-              is no keyboard for. So it says what is missing, where it gets
-              built, and what there is to do here in the meantime. */}
+            {/* the desktop version names a logo that is not on screen and a
+              shortcut there is no keyboard for */}
             <Typography variant="body1" color="text.secondary">
               {stackLayout ? (
                 <>

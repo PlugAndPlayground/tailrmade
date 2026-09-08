@@ -78,7 +78,7 @@ const GraphOverlay: React.FunctionComponent<GraphOverlayProps> = (props) => {
   const stackLayout = useIsStackLayout();
   const stackView = useStackView();
   const maxOpenPanels = useMaxOpenPanels();
-  // oldest first; see nextPanelOrder for why the order has to be remembered
+  // oldest first - see nextPanelOrder
   const panelOrderRef = useRef<DrawerSide[]>([]);
   const preAppViewStateRef = useRef<{
     overlay: IOverlay;
@@ -127,9 +127,8 @@ const GraphOverlay: React.FunctionComponent<GraphOverlayProps> = (props) => {
       rightSide: overlayState.rightSide,
     });
 
-    // Under the stack layout the canvas is behind a full-screen view unless it
-    // IS the view, and a pixi ticker running behind an opaque panel is pure
-    // battery on the one device where that is felt.
+    // a pixi ticker running behind an opaque panel is pure battery on the one
+    // device where that is felt
     const canvasIsHidden = stackLayout
       ? stackView !== 'graph'
       : appView ||
@@ -148,10 +147,9 @@ const GraphOverlay: React.FunctionComponent<GraphOverlayProps> = (props) => {
     }
   }, [overlayState, appView, stackLayout, stackView]);
 
-  // Enforcing the cap here rather than inside each toggle: a panel opens from a
-  // drawer toggle, from the dashboard toggle and from a keyboard shortcut, and
-  // the window can also be resized across the breakpoint with all three already
-  // open - which no toggle went through at all.
+  // Here rather than inside each toggle: a panel opens from a drawer toggle,
+  // the dashboard toggle and a keyboard shortcut, and the window can also be
+  // resized across the breakpoint with all three already open.
   useEffect(() => {
     if (stackLayout) {
       return;

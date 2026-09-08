@@ -219,7 +219,7 @@ export const Rail: React.FunctionComponent<RailProps> = React.memo((props) => {
               <Tooltip title="My account" placement="right">
                 <StyledButton
                   data-cy="auth-button"
-                  onClick={() => openAuthDialog()}
+                  onClick={openAuthDialog}
                   isSelected={currentUser === null}
                   sx={{
                     borderRadius: 0,

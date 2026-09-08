@@ -184,10 +184,9 @@ const App = (): JSX.Element => {
       event: PIXI.FederatedPointerEvent,
       target: PIXI.Container,
     ) => {
-      // one gate for all three canvas menus: under the stack layout every
-      // entry in them is an edit the phone does not offer (see
-      // isCanvasExploreOnly). The app's own actions live in the bottom bar's
-      // overflow menu instead.
+      // one gate for all three canvas menus: every entry in them is an edit
+      // the phone does not offer (see isCanvasExploreOnly), and the app's own
+      // actions live in the bottom bar's overflow menu instead
       if (isCanvasExploreOnly()) {
         return;
       }

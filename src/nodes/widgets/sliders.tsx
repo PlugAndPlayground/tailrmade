@@ -159,11 +159,10 @@ export class WidgetSlider extends WidgetHybridBase {
     const sliderHeight = props.inDashboard
       ? 32 * tokens.scale
       : (node.nodeHeight / 3) * tokens.scale;
-    // MUI pads the slider root to a 42px touch target on coarse pointers; the
-    // `padding: 0` below (which lets the bar fill the widget box) throws that
-    // away, and the root is where the drag actually starts - the thumb's own
-    // 42px `::after` only ever covered hover. Put the slack back, sized to
-    // whatever height this slider ended up with, and only for a finger.
+    // MUI pads the slider root to a 42px touch target on coarse pointers, and
+    // the `padding: 0` below - which lets the bar fill the widget box - throws
+    // that away. The root is where the drag starts, so put the slack back,
+    // sized to whatever height this slider ended up with.
     const coarseTouchPadding = Math.max(
       0,
       (TOUCH_TARGET_PX - sliderHeight) / 2,

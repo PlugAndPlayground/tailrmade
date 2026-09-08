@@ -81,10 +81,9 @@ export function shouldAutoFocusWidgetContent(
 
 export const WIDGET_CONTROL_ATTRIBUTE = 'data-widget-control';
 
-// A control whose DRAG is its whole point - the slider. Everything else marked
-// as a control wants a tap, so on the canvas a travelling finger is far more
-// likely to have meant "pan" than "press", and is handed to the canvas
-// instead (see startCanvasTouchPan). A drag control has to keep it.
+// A control whose drag is its whole point - the slider. Everything else marked
+// as a control wants a tap, so on the canvas a travelling finger is handed to
+// the canvas as a pan instead (see startCanvasTouchPan).
 export const WIDGET_DRAG_CONTROL_ATTRIBUTE = 'data-widget-drag-control';
 
 const NOT_DISABLED = ':not(.Mui-disabled):not([disabled])';
@@ -102,15 +101,11 @@ export function getWidgetDragControlProps(disabled = false) {
 }
 
 /**
- * Hands pointer events back to a canvas widget's controls - the only part of
- * it that takes any, the rest being `pointer-events: none` so a press drags
- * the node underneath.
- *
- * Except on a phone, where it hands back nothing: there a widget on the canvas
- * is a picture of a control rather than a control (see isCanvasExploreOnly).
- * That leaves the whole widget inert, which is what makes panning across one
- * work like panning across anything else - and takes with it the hover state
- * that a finger has no way to leave once it has landed on a control.
+ * Hands pointer events back to a canvas widget's controls - the only part of it
+ * that takes any, the rest being `pointer-events: none` so a press drags the
+ * node underneath. Except on a phone, where it hands back nothing and the whole
+ * widget stays inert, so panning across one works like panning across anything
+ * else (see isCanvasExploreOnly).
  */
 export function getCanvasGrabThroughSx(exploreOnly = isCanvasExploreOnly()) {
   if (exploreOnly) {
@@ -119,14 +114,11 @@ export function getCanvasGrabThroughSx(exploreOnly = isCanvasExploreOnly()) {
   return {
     [`& [${WIDGET_CONTROL_ATTRIBUTE}]${NOT_DISABLED}`]: {
       pointerEvents: 'auto',
-      // The canvas itself is `touch-action: none` (PIXI sets it), but these
-      // controls are HTML on top of it and are not. Without this the browser
-      // treats a drag that starts on one as a scroll of the nearest scrollable
-      // ancestor - the hybrid container is `overflow: auto` - so the widget's
-      // own content slides around inside its node and neither the control nor
-      // the canvas ever sees the gesture.
+      // the canvas is `touch-action: none` (PIXI sets it) but these controls
+      // are HTML on top of it: without this a drag that starts on one scrolls
+      // the hybrid container instead of reaching the control or the canvas
       touchAction: 'none',
-      // and iOS answers a long press on HTML with its selection callout, which
+      // iOS answers a long press on HTML with its selection callout, which
       // would land on top of the node's own long-press context menu
       WebkitTouchCallout: 'none',
       WebkitUserSelect: 'none',

@@ -41,10 +41,9 @@ type ModalNodeLike = {
 };
 
 const ModalDialogOverlay: React.FC<{ node: ModalNodeLike }> = ({ node }) => {
-  // a modal's surface is authored at a desktop width, and the Paper below
-  // shrink-wraps it with `overflow: hidden` - on a phone that clips the
-  // content rather than scrolling it. Below sm the dialog takes the screen
-  // instead, which is what a phone modal should be anyway.
+  // a modal's surface is authored at a desktop width and the Paper below
+  // shrink-wraps it with `overflow: hidden`, which on a phone clips the content
+  // rather than scrolling it
   const theme = useTheme();
   const fullScreen = useMediaQuery(theme.breakpoints.down('sm'));
 
@@ -101,8 +100,6 @@ const ModalDialogOverlay: React.FC<{ node: ModalNodeLike }> = ({ node }) => {
       data-cy={`modal dialog of NODE_${node.id}`}
       PaperProps={{
         sx: {
-          // full screen has nowhere left to shrink-wrap to, so the surface has
-          // to be able to scroll inside the sheet instead of being clipped
           overflow: fullScreen ? 'auto' : 'hidden',
           overscrollBehavior: 'contain',
           background,

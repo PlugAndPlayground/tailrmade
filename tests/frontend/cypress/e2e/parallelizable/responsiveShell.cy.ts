@@ -12,8 +12,8 @@ import {
 } from '../helpers';
 
 // The shell has two layouts and one rule choosing between them: can this
-// window hold a row of columns? Below md it cannot, and everything that used
-// to negotiate for space there - rail, drawers, sheets - is simply absent.
+// window hold a row of columns? Below md it cannot, and the rail and drawers
+// are simply absent.
 const PHONE = { width: 390, height: 844 };
 const PHONE_LANDSCAPE = { width: 844, height: 390 };
 const TABLET_PORTRAIT = { width: 820, height: 1180 };
@@ -37,8 +37,7 @@ const COLUMN_SIZES = [
 // The bar starts collapsed to the logo in the corner, so every test that
 // wants a destination has to open it first.
 const openBottomBar = () => {
-  // it may already be open - the store outlives a test, and toggling a bar
-  // that is open would close it
+  // it may already be open - the store outlives a test
   cy.get('[data-cy="bottom-bar"]').then(($bar) => {
     if ($bar.attr('data-expanded') !== 'true') {
       cy.get('[data-cy="bottom-bar-toggle"]').click();
@@ -71,7 +70,7 @@ describe('responsive shell', () => {
 
   describe('which layout a window gets', () => {
     // width, not device class - the same tablet stacks in portrait and gets
-    // columns turned sideways, because width is what runs out
+    // columns turned sideways
     STACK_SIZES.forEach(([name, size]) => {
       it(`stacks on ${name}`, () => {
         cy.viewport(size.width, size.height);
@@ -124,8 +123,7 @@ describe('responsive shell', () => {
       });
     });
 
-    // the bar grows and shrinks AROUND the logo - the logo is the one thing
-    // on screen that was in the same place before the tap
+    // the bar grows and shrinks around the logo
     it('does not move the logo when it opens or closes', () => {
       openBottomBar();
       cy.get('[data-cy="bottom-bar-ui"]').click();
@@ -155,8 +153,8 @@ describe('responsive shell', () => {
         'ai',
       );
 
-      // picking a destination does not dismiss the bar - each tap restarts
-      // its idle timer, so a second choice costs one tap, not two
+      // picking a destination does not dismiss the bar - it restarts the
+      // idle timer, so a second choice costs one tap, not two
       cy.get('[data-cy="bottom-bar-apps"]').click();
       cy.get('[data-cy="stack-view"]').should(
         'have.attr',
@@ -182,8 +180,7 @@ describe('responsive shell', () => {
       cy.get('[data-cy="bottom-bar"]').should('be.visible');
     });
 
-    // which app you are looking at, on the one view that has no other way to
-    // say it - and a label, not a control
+    // a label, not a control
     it('names the app over the canvas', () => {
       openBottomBar();
       cy.get('[data-cy="bottom-bar-graph"]').click();
@@ -356,10 +353,9 @@ describe('responsive shell', () => {
     });
   });
 
-  // A widget's own popup is a Popper: it is portalled onto the body, so it is
-  // not stacked against the widget but against everything the shell puts on
-  // the screen - and under the stack layout that includes a full-screen view
-  // the popup has to clear.
+  // A widget's own popup is portalled onto the body, so it is stacked against
+  // everything the shell puts on screen - under the stack layout, a full-screen
+  // view it has to clear.
   describe("a widget's own popup", () => {
     it('opens the colour picker over the app UI', () => {
       // the add-to-dashboard flow works off the node's header buttons on the
@@ -387,9 +383,8 @@ describe('responsive shell', () => {
 
   // Picking an app out of the list is the one navigation the phone does on
   // your behalf. Loading an app fires GraphConfigured twice - once from the
-  // clear() that empties the old graph, once for the app itself - and acting
-  // on the first sent every app to the graph view, because at that moment
-  // every app is empty.
+  // clear() that empties the old graph, once for the app itself - and only the
+  // second has an app in it to look at.
   describe('opening an app from the list', () => {
     it('lands on the UI when the app has one', () => {
       cy.viewport(DESKTOP.width, DESKTOP.height);
@@ -423,9 +418,8 @@ describe('responsive shell', () => {
     });
   });
 
-  // The saved view is a scale chosen on the window the app was saved from,
-  // which is almost always a desktop - restoring it as-is on a phone opens the
-  // app deep inside itself.
+  // The saved scale was chosen on the window the app was saved from, almost
+  // always a desktop, so restoring it as-is opens the app deep inside itself.
   describe('framing a loaded graph on a phone', () => {
     it('fits the whole graph on screen', () => {
       cy.viewport(DESKTOP.width, DESKTOP.height);
@@ -466,9 +460,7 @@ describe('responsive shell', () => {
       });
     });
 
-    // the other branch: a graph too big to fit legibly keeps the author's own
-    // centre - on a graph that does not fit, where they left the view is
-    // better information than the middle of its bounding box
+    // a graph too big to fit legibly keeps the author's own centre instead
     it('stops zooming out at the floor when the graph is too big', () => {
       cy.viewport(DESKTOP.width, DESKTOP.height);
       clearGraph();
@@ -498,10 +490,8 @@ describe('responsive shell', () => {
     });
   });
 
-  // A phone explores the graph: pan and zoom answer, and nothing else does.
-  // Selecting, dragging, wiring and the context menus all need precision, a
-  // second button or a keyboard - and a tap that moves a node by accident is a
-  // change you cannot see you made.
+  // A phone explores the graph: pan and zoom answer, and nothing else does -
+  // a tap that moves a node by accident is a change you cannot see you made.
   describe('the canvas is explore-only', () => {
     beforeEach(() => {
       cy.viewport(PHONE.width, PHONE.height);
@@ -530,8 +520,8 @@ describe('responsive shell', () => {
       doWithTestController(async (tc) => {
         await tc.addNode('Constant', 'EXPLORE2');
       });
-      // the centre is read through getStableScreenCoordinates, so the node has
-      // stopped settling by the time its position is recorded
+      // read through getStableScreenCoordinates, so the node has stopped
+      // settling by the time its position is recorded
       getNodeCenterById('EXPLORE2').then(([x, y]) => {
         let before: [number, number];
         doWithTestController((tc) => {
@@ -543,8 +533,8 @@ describe('responsive shell', () => {
           .trigger('pointermove', x + 80, y + 60, { force: true })
           .trigger('pointerup', x + 80, y + 60, { force: true });
         // a tolerance, not equality: a freshly added node settles by about a
-        // pixel after it is first drawn. A drag would have moved it by the 80
-        // and 60 the pointer travelled, in the same direction as the pointer.
+        // pixel after it is first drawn, where a drag would have moved it by
+        // the 80 and 60 the pointer travelled
         shouldWithTestController((tc) => {
           const node = tc.getNodeByID('EXPLORE2');
           expect(Math.abs(node.x - before[0]), 'x moved').to.be.lessThan(5);
@@ -554,9 +544,8 @@ describe('responsive shell', () => {
     });
 
     // a widget on the canvas is a picture of a control here: inert, so panning
-    // across one works like panning across anything else. Using it is what the
-    // app's UI is for - see the colour picker test above, which taps the same
-    // widget there and does open it.
+    // across one works like panning across anything else. The colour picker
+    // test above taps the same widget in the app UI, where it does open.
     it('leaves a widget on the canvas inert', () => {
       const id = 'inert-widget';
       doWithTestController(async (tc) => {

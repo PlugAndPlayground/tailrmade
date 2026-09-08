@@ -88,13 +88,10 @@ function gestureModes(): any {
 }
 
 /**
- * The part of this menu that also has to work with a thumb.
- *
- * The bottom bar's overflow menu is not a second menu with its own idea of
- * what an app can do - it is these items, in this order, and nothing else. So
- * they live here, at the top of the graph menu, and both callers render the
- * same array. Anything below them in the graph menu is desktop-only because it
- * needs a rail, a pointer or a keyboard to mean anything.
+ * The part of this menu that also has to work with a thumb. The bottom bar's
+ * overflow menu is these items and nothing else, so both callers render the
+ * same array; what is left below them in the graph menu needs a rail, a
+ * pointer or a keyboard to mean anything.
  */
 export function appMenuOptions(controlOrMetaKey?: string): any {
   const isLoggedIn =
@@ -152,8 +149,7 @@ export function appMenuOptions(controlOrMetaKey?: string): any {
       <ListItemText>Save as new</ListItemText>
       {shortcut('$mod+Shift+S')}
     </MenuItem>,
-    // the phone's only way to rename an app - the name shown over its canvas
-    // there is a label, not a control
+    // the phone's only way to rename an app
     <MenuItem
       key="Edit details"
       data-cy="menu-edit-details"

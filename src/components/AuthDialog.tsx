@@ -5,18 +5,18 @@ import Authentication from '../firebase/Authentication';
 import { CLOUD_MODE } from '../services/shared-types';
 import { createStore } from './createStore';
 
-// Lifted out of the Rail so the bottom bar can raise it too. Under the stack
-// layout there is no rail at all, and signing in is asked for from the bottom
-// bar's overflow menu, which unmounts the moment the item is clicked - so the
-// dialog cannot be owned by whatever asked for it.
-//
-// It is a store rather than a prop for that reason: every caller says "open
-// the sign-in dialog" and exactly one host, mounted for the life of the app,
-// renders it.
-export const AuthDialog: React.FC<{ open: boolean; onClose: () => void }> = ({
-  open,
-  onClose,
-}) => {
+// Lifted out of the Rail so the bottom bar can raise it too: under the stack
+// layout there is no rail, and the overflow menu that asks for sign-in
+// unmounts the moment the item is clicked - so the dialog cannot be owned by
+// whatever asked for it. Every caller says "open", and one host renders it.
+const authDialogStore = createStore<boolean>(false);
+
+export const openAuthDialog = (): void => authDialogStore.set(true);
+
+export const AuthDialogHost: React.FC = () => {
+  const open = authDialogStore.useStore();
+  const close = () => authDialogStore.set(false);
+
   if (!CLOUD_MODE || !open) {
     return null;
   }
@@ -34,7 +34,7 @@ export const AuthDialog: React.FC<{ open: boolean; onClose: () => void }> = ({
         justifyContent: 'center',
         pointerEvents: 'auto',
       }}
-      onClick={onClose}
+      onClick={close}
     >
       <Box
         onClick={(event) => event.stopPropagation()}
@@ -48,7 +48,7 @@ export const AuthDialog: React.FC<{ open: boolean; onClose: () => void }> = ({
       >
         <IconButton
           aria-label="close"
-          onClick={onClose}
+          onClick={close}
           sx={{
             position: 'absolute',
             top: 48,
@@ -67,15 +67,3 @@ export const AuthDialog: React.FC<{ open: boolean; onClose: () => void }> = ({
     </Box>
   );
 };
-
-const authDialogStore = createStore<boolean>(false);
-
-export const openAuthDialog = (): void => authDialogStore.set(true);
-export const closeAuthDialog = (): void => authDialogStore.set(false);
-
-/** Mounted once, at the top of the app. Everything else just calls open. */
-export const AuthDialogHost: React.FC = () => (
-  <AuthDialog open={authDialogStore.useStore()} onClose={closeAuthDialog} />
-);
-
-export default AuthDialog;

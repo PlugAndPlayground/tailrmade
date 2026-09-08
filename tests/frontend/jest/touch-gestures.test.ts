@@ -85,8 +85,8 @@ describe("long press as the finger's right click", () => {
     expect(fired).toEqual([]);
   });
 
-  // the whole point of settle(): whichever listener sees the release first,
-  // no timer may outlive the touch and fire a menu at an empty screen
+  // the point of settle(): whichever listener sees the release first, no timer
+  // may outlive the touch and fire a menu at an empty screen
   it('never fires after the finger is up, whoever ends the gesture', () => {
     gesture.start(touch(), 'node-a');
     gesture.settle();
@@ -138,8 +138,8 @@ describe('reaching the canvas through a widget control', () => {
     expect(handoff.hasPanned).toBe(false);
   });
 
-  // the finger has already travelled that far - reporting only the last step
-  // would leave the canvas lagging behind it by the whole slop distance
+  // reporting only the last step would leave the canvas lagging behind the
+  // finger by the whole slop distance
   it('hands over the full distance travelled on the move that commits', () => {
     const delta = handoff.move(100 + TOUCH_DRAG_SLOP_PX + 5, 100);
     expect(delta).toEqual({ dx: TOUCH_DRAG_SLOP_PX + 5, dy: 0 });
@@ -147,7 +147,7 @@ describe('reaching the canvas through a widget control', () => {
   });
 
   // the caller applies each delta to a viewport that is moving under the
-  // finger, so anything measured from the original press would double-count
+  // finger, so a total would double-count
   it('reports each later move as a step, not as a total', () => {
     handoff.move(200, 100);
     expect(handoff.move(210, 130)).toEqual({ dx: 10, dy: 30 });

@@ -47,7 +47,7 @@ const ShellLayout: React.FunctionComponent<ShellLayoutProps> = (props) => {
 
   // Picking an app out of the apps list is the one navigation the phone does
   // on your behalf: staying on the list would make the tap look like it did
-  // nothing. Where it lands depends on the app - see viewForOpenedApp.
+  // nothing. Where it lands depends on the app - see goToOpenedApp.
   useEffect(() => {
     if (!stackLayout) {
       return;
@@ -55,16 +55,13 @@ const ShellLayout: React.FunctionComponent<ShellLayoutProps> = (props) => {
     const listenerId = InterfaceController.addListener(
       ListenEvent.GraphConfigured,
       () => {
-        // Loading an app fires this TWICE: once from clear(), which wipes the
-        // old graph before the new one is read, and once when the new graph is
-        // configured. Only the second one has an app in it to look at - acting
-        // on the first sent every app to the graph view, because at that
-        // moment every app is empty. clear() notifies while the flag is still
-        // false; configure() sets it before notifying.
-        if (!PPGraph.currentGraph?.graphConfiguredAndReady) {
-          return;
-        }
-        if (getStackView() === 'apps') {
+        // Loading an app fires this twice - clear() wipes the old graph before
+        // the new one is read - and only the second one has an app in it to
+        // look at. clear() notifies while the flag is still false.
+        if (
+          PPGraph.currentGraph.graphConfiguredAndReady &&
+          getStackView() === 'apps'
+        ) {
           goToOpenedApp(PPGraph.currentGraph);
         }
       },
@@ -72,13 +69,10 @@ const ShellLayout: React.FunctionComponent<ShellLayoutProps> = (props) => {
     return () => InterfaceController.removeListener(listenerId);
   }, [stackLayout]);
 
-  // ---- stack layout -------------------------------------------------------
-  // One full-screen view at a time above a bottom bar. The rail, both drawers
-  // and the dashboard column are all absent - not hidden, not narrowed, not
-  // turned into sheets. Nothing overlaps, so nothing needs to negotiate.
-  //
-  // 'graph' renders nothing at all: the pixi canvas is behind the whole shell
-  // already, so showing it is a matter of putting nothing in front of it.
+  // One full-screen view at a time above a bottom bar: the rail, both drawers
+  // and the dashboard column are absent rather than hidden or narrowed, so
+  // nothing has to negotiate. 'graph' renders nothing at all - the pixi canvas
+  // is behind the whole shell already.
   if (stackLayout) {
     return (
       <>
@@ -91,8 +85,8 @@ const ShellLayout: React.FunctionComponent<ShellLayoutProps> = (props) => {
               left: 0,
               right: 0,
               top: 0,
-              // full height: the bar is closed by default and floats over the
-              // corner when it is not, so there is no strip to reserve
+              // full height: the bar floats over the corner rather than
+              // reserving a strip
               bottom: 0,
               zIndex: 20,
               display: 'flex',
@@ -106,8 +100,8 @@ const ShellLayout: React.FunctionComponent<ShellLayoutProps> = (props) => {
               <DashboardEditor
                 isVisible
                 isEditMode={false}
-                // the phone's UI view IS app view - there is no editor chrome
-                // to keep, so the distinction stops existing below the line
+                // the phone's UI view is app view - there is no editor chrome
+                // to keep below the breakpoint
                 appView
                 overlayState={overlayState}
                 updateOverlayState={props.updateOverlayState}
@@ -139,8 +133,8 @@ const ShellLayout: React.FunctionComponent<ShellLayoutProps> = (props) => {
               pointerEvents: 'none',
             }}
           >
-            {/* which app this is. A label, not a control - renaming lives in
-                the bottom bar's overflow menu, with the app's other actions. */}
+            {/* a label, not a control - renaming lives in the bottom bar's
+                overflow menu, with the app's other actions */}
             <Typography
               data-cy="stack-app-name"
               sx={{
@@ -155,8 +149,8 @@ const ShellLayout: React.FunctionComponent<ShellLayoutProps> = (props) => {
             >
               {props.currentGraph.name}
             </Typography>
-            {/* Why nothing here responds to a tap. Said once, in the corner,
-                rather than by every node refusing individually. */}
+            {/* why nothing here responds to a tap, said once rather than by
+                every node refusing individually */}
             <Typography
               data-cy="stack-explore-only"
               sx={{

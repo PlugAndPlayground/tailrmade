@@ -18,35 +18,24 @@ import { BackendGateway } from '../services/BackendGateway';
 import { useResolvedAppTheme } from '../utils/theme/store';
 
 // The whole of navigation under the stack layout, and the reason the rail can
-// disappear there. Everything reachable at a phone's size is one of these.
-//
-// It lives at the BOTTOM because that is where a thumb is. The rail sat on the
-// left, at the far edge of a one-handed grip, and on a phone it also drew on
-// top of the app UI's first 48px rather than making room for it.
-//
-// And it is CLOSED to begin with, because an app that owns the screen should
-// own all of it. Collapsed it is the logo alone in the bottom-left corner; the
-// logo is the whole bar, shrunk. Tapping it grows the same surface out to the
-// full width, and the bar then gets out of the way on its own (see
-// AUTO_COLLAPSE_MS) rather than waiting to be dismissed.
+// disappear there. It sits at the bottom because that is where a thumb is, and
+// starts closed because an app that owns the screen should own all of it:
+// collapsed it is the logo alone in the corner, and tapping it grows the same
+// surface out to the full width.
 export const BOTTOM_BAR_HEIGHT = 56;
 
-// What is left of the bar when it is closed, and - the same number - the
-// width of the logo's slot when it is open. The logo therefore sits at exactly
-// the same place in both states, and opening or closing the bar animates its
-// width AROUND a logo that does not move. Anything else and the logo slides:
-// centred in a 390px bar one moment and in a 56px one the next.
+// What is left of the bar when it is closed, and - the same number - the width
+// of the logo's slot when it is open, so that opening animates the width
+// around a logo that does not move.
 export const BOTTOM_BAR_COLLAPSED_WIDTH = 56;
 
-// Long enough to read the row and choose a second destination, short enough
-// that a bar you opened by accident is gone before it annoys you. Any tap
-// inside the bar restarts it, so this is idle time, not a deadline.
+// Long enough to read the row and choose a destination, short enough that a
+// bar opened by accident is gone before it annoys you.
 const AUTO_COLLAPSE_MS = 4000;
 
-// Where the bar is in the way, and therefore where it closes itself. The app
-// UI and the graph are full-bleed - every pixel of them is content. The apps
-// list and the AI panel are lists that end above the bar anyway, so on those
-// it just stays, and navigation is one tap instead of two.
+// Where the bar is in the way, and therefore where it closes itself. The apps
+// list and the AI panel end above it anyway, so there it stays and navigation
+// is one tap instead of two.
 const COLLAPSING_VIEWS: StackView[] = ['ui', 'graph'];
 
 type Destination = {
@@ -56,9 +45,8 @@ type Destination = {
   dataCy: string;
 };
 
-// Apps first: it is where a session starts, and the leftmost slot sits right
-// beside the logo you just pressed. Then the two views of the app you opened -
-// its UI, then the graph behind it - and then AI, which is what changes them.
+// Apps first: it is where a session starts. Then the two views of the app you
+// opened - its UI, then the graph behind it - and then AI, which changes them.
 const DESTINATIONS: Destination[] = [
   {
     view: 'apps',
@@ -112,10 +100,7 @@ export const BottomBar: React.FC = () => {
   const stackView = useStackView();
   const appTheme = useResolvedAppTheme();
   const [expanded, setExpanded] = useState(false);
-  const [shareOpen, setShareOpen] = useState(false);
-  const [moreOpen, setMoreOpen] = useState(false);
-  // bumped by every tap inside the bar, to restart the idle countdown
-  const [lastTouched, setLastTouched] = useState(0);
+  const [openMenu, setOpenMenu] = useState<'share' | 'more' | undefined>();
   const barRef = useRef<HTMLDivElement | null>(null);
   const [currentUser, setCurrentUser] = useState(
     CLOUD_MODE ? BackendGateway.getInstance().getCurrentUser() : null,
@@ -135,40 +120,38 @@ export const BottomBar: React.FC = () => {
     return () => InterfaceController.removeListener(listenerId);
   }, []);
 
-  // Signing in is not something the bar asks for any more - it is the first
-  // item in the overflow menu. So AI is simply not a destination until there
-  // is an account behind it, and a local build (no accounts at all) always has
-  // it.
-  const menuOpen = shareOpen || moreOpen;
   const collapses = COLLAPSING_VIEWS.includes(stackView);
+  // Signing in is the first item in the overflow menu rather than a
+  // destination, so AI is simply not offered until there is an account behind
+  // it. A local build has no accounts at all and always shows it.
   const showAI = !CLOUD_MODE || currentUser !== null;
   const destinations = DESTINATIONS.filter(
     (destination) => destination.view !== 'ai' || showAI,
   );
 
   // Idle: the bar closes itself rather than being dismissed. A menu open in
-  // front of it is the one thing that means you are still using it.
+  // front of it is the one thing that means you are still using it, and a new
+  // destination restarts the countdown.
   useEffect(() => {
-    if (!expanded || menuOpen || !collapses) {
+    if (!expanded || openMenu || !collapses) {
       return;
     }
     const timer = setTimeout(() => setExpanded(false), AUTO_COLLAPSE_MS);
     return () => clearTimeout(timer);
-  }, [expanded, menuOpen, collapses, lastTouched]);
+  }, [expanded, openMenu, collapses, stackView]);
 
   // ...and going back to the app closes it too, without waiting out the timer.
   // Capture phase: a scroll inside the app UI never reaches the window by
   // bubbling, and the pointerdown has to be seen before whatever it lands on
   // stops it.
   useEffect(() => {
-    if (!expanded || menuOpen || !collapses) {
+    if (!expanded || openMenu || !collapses) {
       return;
     }
     const collapseIfOutside = (event: Event) => {
-      if (barRef.current?.contains(event.target as Node)) {
-        return;
+      if (!barRef.current?.contains(event.target as Node)) {
+        setExpanded(false);
       }
-      setExpanded(false);
     };
     window.addEventListener('pointerdown', collapseIfOutside, true);
     window.addEventListener('scroll', collapseIfOutside, true);
@@ -176,10 +159,9 @@ export const BottomBar: React.FC = () => {
       window.removeEventListener('pointerdown', collapseIfOutside, true);
       window.removeEventListener('scroll', collapseIfOutside, true);
     };
-  }, [expanded, menuOpen, collapses]);
+  }, [expanded, openMenu, collapses]);
 
-  // ...and arriving on one of the other two brings it back, so the bar is
-  // never missing from a view that was going to keep it anyway
+  // ...and arriving on one of the views that keeps the bar brings it back
   useEffect(() => {
     if (!collapses) {
       setExpanded(true);
@@ -188,20 +170,14 @@ export const BottomBar: React.FC = () => {
 
   const background = getDrawerBackground().toString();
   const activeColor = TRgba.fromString(MAIN_COLOR).lighten(0.35).hex();
-  // White, not a dimmed white: the destinations are the whole of navigation
-  // here, and the current one is already marked by its colour. Dimming the
-  // other six only made the bar look switched off.
+  // White, not a dimmed white: the current destination is already marked by its
+  // colour, and dimming the rest only made the bar look switched off.
   const restColor = TRgba.white().hex();
 
-  // The collapsed logo has no background of its own - it floats directly on
-  // whatever the view is showing, so what is behind it decides its colour:
-  //
-  //   UI, dark theme   white      UI, light theme   black
-  //   graph            black      apps / AI         white
-  //
-  // The graph is black whatever the app theme says, because the canvas is not
-  // themed by the app - it is the editor's own surface. Expanded, the logo is
-  // on the bar's dark background like every other slot, and reads like them.
+  // Collapsed, the logo floats directly on the view, so what is behind it
+  // decides its colour - the graph being black whatever the app theme says,
+  // because the canvas is the editor's surface rather than the app's. Expanded,
+  // it sits on the bar's own background like every other slot.
   const floatingLogoColor = (): string => {
     if (stackView === 'graph') {
       return TRgba.black().hex();
@@ -250,9 +226,8 @@ export const BottomBar: React.FC = () => {
         overflow: 'hidden',
         background: expanded ? background : 'transparent',
         borderTop: expanded ? '1px solid rgba(255, 255, 255, 0.12)' : 'none',
-        // the bar sits on the screen's bottom edge, which on a phone is where
-        // the home indicator lives - the row keeps its height and the inset is
-        // added below it, so the targets never shrink
+        // the inset is added below the row rather than taken out of it, so the
+        // targets never shrink around the home indicator
         paddingBottom: 'env(safe-area-inset-bottom)',
         pointerEvents: 'auto',
       }}
@@ -262,10 +237,7 @@ export const BottomBar: React.FC = () => {
         data-cy="bottom-bar-toggle"
         aria-label={expanded ? 'Hide navigation' : 'Show navigation'}
         aria-expanded={expanded}
-        onClick={() => {
-          setExpanded((open) => !open);
-          setLastTouched(Date.now());
-        }}
+        onClick={() => setExpanded((open) => !open)}
         sx={{
           ...slotSx,
           flex: `0 0 ${BOTTOM_BAR_COLLAPSED_WIDTH}px`,
@@ -287,10 +259,7 @@ export const BottomBar: React.FC = () => {
                 data-cy={destination.dataCy}
                 aria-label={destination.label}
                 aria-current={selected ? 'page' : undefined}
-                onClick={() => {
-                  setStackView(destination.view);
-                  setLastTouched(Date.now());
-                }}
+                onClick={() => setStackView(destination.view)}
                 sx={{
                   ...slotSx,
                   color: selected ? activeColor : restColor,
@@ -305,10 +274,7 @@ export const BottomBar: React.FC = () => {
           <ButtonBase
             data-cy="bottom-bar-share"
             aria-label="Share"
-            onClick={() => {
-              setShareOpen(true);
-              setLastTouched(Date.now());
-            }}
+            onClick={() => setOpenMenu('share')}
             sx={{ ...slotSx, color: restColor }}
           >
             <IosShareIcon sx={{ fontSize: '22px' }} />
@@ -318,10 +284,7 @@ export const BottomBar: React.FC = () => {
           <ButtonBase
             data-cy="bottom-bar-more"
             aria-label="More"
-            onClick={() => {
-              setMoreOpen(true);
-              setLastTouched(Date.now());
-            }}
+            onClick={() => setOpenMenu('more')}
             sx={{ ...slotSx, color: restColor }}
           >
             <MoreVertIcon sx={{ fontSize: '22px' }} />
@@ -330,29 +293,18 @@ export const BottomBar: React.FC = () => {
         </>
       )}
 
-      {/* Both menus are the same sheet: full width, above the bar, dismissed
-          by the scrim behind them. A phone has no room for a menu that is
-          anchored to the slot that opened it, and two different shapes for two
-          adjacent buttons would only be a way of telling them apart. */}
-      {shareOpen && (
+      {/* Both menus are the same sheet: a phone has no room for one anchored to
+          the slot that opened it. `more` is everything an app can do that is
+          not a destination - the same items, in the same order, as the top of
+          the graph context menu. */}
+      {openMenu && (
         <MenuSheet
-          dataCy="bottom-bar-share"
-          onClose={() => setShareOpen(false)}
+          dataCy={`bottom-bar-${openMenu}`}
+          onClose={() => setOpenMenu(undefined)}
         >
-          {shareOptions()}
-        </MenuSheet>
-      )}
-
-      {moreOpen && (
-        // everything an app can do that is not a destination: the account,
-        // saving, renaming. Same items, same order, as the top of the graph
-        // context menu - see appMenuOptions.
-        <MenuSheet dataCy="bottom-bar-more" onClose={() => setMoreOpen(false)}>
-          {appMenuOptions()}
+          {openMenu === 'share' ? shareOptions() : appMenuOptions()}
         </MenuSheet>
       )}
     </Box>
   );
 };
-
-export default BottomBar;

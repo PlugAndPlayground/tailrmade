@@ -192,11 +192,9 @@ export class WidgetColorPicker extends WidgetHybridBase {
           anchorEl={ref.current}
           placement="top"
           transition
-          // the picker is ~240px of fixed-size swatches and is anchored to a
-          // widget that can sit anywhere on the surface. Without these it is
-          // simply drawn off the top or side of a phone screen, with no way to
-          // scroll to it - flip finds a side that fits, preventOverflow slides
-          // it back inside the viewport when no side fully does.
+          // the picker is ~240px of fixed-size swatches anchored to a widget
+          // that can sit anywhere, so without these it is drawn off the edge of
+          // a phone screen with no way to scroll to it
           modifiers={[
             { name: 'flip', enabled: true },
             {
@@ -212,10 +210,9 @@ export class WidgetColorPicker extends WidgetHybridBase {
               <Paper
                 sx={{
                   margin: '4px',
-                  // the picker is dragged, not scrolled: without this a drag
-                  // across the saturation square is taken by the browser as a
-                  // scroll of whatever is behind the popper, and the colour
-                  // never changes
+                  // the picker is dragged, not scrolled: without this the
+                  // browser takes a drag across the saturation square as a
+                  // scroll and the colour never changes
                   touchAction: 'none',
                 }}
               >

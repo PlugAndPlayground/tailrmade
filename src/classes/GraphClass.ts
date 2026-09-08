@@ -74,9 +74,8 @@ import PPStorage, { DEFAULT_ACCESS, DEFAULT_LOCATION } from '../PPStorage';
 const DUMMY_IMPORT = getNodesBounds;
 const EMPTY_DEFAULT_MACRO_NAME = 'EmptyDefaultMacro';
 
-// What a long press needs to remember about the press that started it. PIXI
-// recycles its event objects, so the point is cloned rather than referenced -
-// by the time the timer fires the original event has been reused.
+// What a long press remembers about the press that started it. PIXI recycles
+// its event objects, so the point is cloned rather than referenced.
 type LongPressTarget = {
   global: PIXI.Point;
   target: PIXI.Container;
@@ -217,19 +216,15 @@ export default class PPGraph {
       this.onViewportMove(event),
     );
 
-    // Touch has no second button, so the context menus - graph, node and
-    // socket alike - are simply unreachable with a finger. A press that stays
-    // put opens whichever one a right click in the same spot would: the
-    // routing already switches on the target, so nothing here is
-    // touch-specific except how the gesture is recognised.
+    // Touch has no second button, so a press that stays put opens whichever
+    // context menu a right click in the same spot would - the routing already
+    // switches on the target.
     this.touchGesture = new TouchGesture<LongPressTarget>(
       ({ global, target }) => this.openLongPressContextMenu(global, target),
     );
-    // CAPTURE phase, not bubble: PPNode.onPointerDown calls stopPropagation so
-    // that touching a node does not also pan the canvas, which would leave a
-    // bubbling listener here blind to every press on a node - the majority of
-    // the presses that want a context menu. Capture runs root -> target, ahead
-    // of that call, and event.target is already resolved by then.
+    // Capture phase, not bubble: PPNode.onPointerDown stops propagation, which
+    // would leave a bubbling listener blind to every press on a node - most of
+    // the presses that want a context menu.
     this.viewport.addEventListener(
       'pointerdown',
       (event: PIXI.FederatedPointerEvent) =>
@@ -240,8 +235,7 @@ export default class PPGraph {
       { capture: true },
     );
     // window rather than the viewport: a finger that slides off the canvas
-    // still has to call off the press, and pointercancel (the system taking
-    // the gesture over) never reaches PIXI at all
+    // still has to call off the press, and pointercancel never reaches PIXI
     window.addEventListener('pointermove', (event: PointerEvent) =>
       this.touchGesture.move(event.clientX, event.clientY),
     );
@@ -314,31 +308,26 @@ export default class PPGraph {
   }
 
   /**
-   * A long press is the finger's right click, so it has to leave the canvas in
-   * the same state a right click would - which means standing down whatever
-   * the press had already started before the timer fired. A press on a node
-   * has begun dragging it, a press on a socket has begun pulling a wire, and
-   * either one would carry on underneath the menu.
+   * A long press has to leave the canvas in the state a right click would,
+   * which means standing down what the press had already started: a press on a
+   * node has begun dragging it, one on a socket has begun pulling a wire, and
+   * either would carry on underneath the menu.
    */
   private openLongPressContextMenu(
     global: PIXI.Point,
     target: PIXI.Container,
   ): void {
-    // the long press is the finger's right click, and a phone has no use for
-    // either: everything those menus offer is an edit (see isCanvasExploreOnly)
+    // everything these menus offer is an edit (see isCanvasExploreOnly)
     if (isCanvasExploreOnly()) {
       return;
     }
-    if (this.selectedSocket) {
-      this.stopConnecting();
-    }
+    this.stopConnecting();
     this.selection.stopDragAction(undefined);
 
     // right-clicking a node selects it first (see PPNode.onPointerDown), so
     // that the menu acts on what was pressed rather than on an older selection
-    const node = target instanceof PPNode ? target : undefined;
-    if (node && !node.selected) {
-      this.selection.selectNodes([node], false);
+    if (target instanceof PPNode && !target.selected) {
+      this.selection.selectNodes([target], false);
     }
 
     // onRightClick only ever reads `global` off the event, and the real one has
@@ -427,9 +416,9 @@ export default class PPGraph {
 
     // Touch never enters Interaction.Drawing (see shouldDrawSelectionMarquee),
     // so drawSelectionFinish's "released where it was pressed" deselect never
-    // triggers for a finger. Tapping empty canvas still has to clear the
-    // selection, and only a tap may: a pan ends on the viewport too, and a
-    // long press has just opened a menu that acts on that selection.
+    // triggers for a finger. Only a tap may stand in for it: a pan ends on the
+    // viewport too, and a long press has just opened a menu that acts on the
+    // selection.
     if (
       this.touchGesture.end() === 'tap' &&
       event.target instanceof Viewport &&
@@ -1678,9 +1667,8 @@ export default class PPGraph {
     this.graphConfiguredAndReady = true;
 
     // the saved view was framed on the window the app was saved from - see
-    // frameGraphForStackLayout for why a phone needs its own answer. Here,
-    // rather than with the rest of the viewport restore above, because it
-    // needs the nodes to exist to have something to fit.
+    // frameGraphForStackLayout. Here rather than with the rest of the viewport
+    // restore because it needs the nodes to exist to have something to fit.
     if (isStackLayout()) {
       frameGraphForStackLayout();
     }
