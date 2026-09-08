@@ -153,15 +153,14 @@ export default class PPStorage {
   }
 
   async createEmptyGraph(): Promise<string> {
-    await PPGraph.currentGraph.clear();
-
-    // Reset dashboard state
     const currentOverlayState = InterfaceController.getOverlayState();
     InterfaceController.updateOverlayState({
       ...currentOverlayState,
       dashboard: DASHBOARD_DEFAULT,
     });
     InterfaceController.toggleDashboardInEditMode(VISIBILITY_ACTION.CLOSE);
+
+    await PPGraph.currentGraph.clear();
 
     const graphId = hri.random();
 
