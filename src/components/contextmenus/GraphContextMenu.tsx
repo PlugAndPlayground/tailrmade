@@ -273,7 +273,17 @@ export const GraphContextMenu = (props) => {
         )}
         <MenuItem
           onClick={() => {
-            void PPGraph.currentGraph.clear();
+            void PPStorage.getInstance().createNewGraph();
+          }}
+        >
+          <ListItemIcon>
+            <AddIcon fontSize="small" />
+          </ListItemIcon>
+          <ListItemText>Create new app</ListItemText>
+        </MenuItem>
+        <MenuItem
+          onClick={() => {
+            void PPGraph.currentGraph.perform_action_ClearGraph();
           }}
         >
           <ListItemIcon>

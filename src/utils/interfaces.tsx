@@ -255,6 +255,13 @@ export type SerializedLink = {
   targetSocketName: string;
 };
 
+// the link an input socket held before a connect displaced it, kept so undo
+// can put it back
+export type DisplacedLink = {
+  sourceNodeID: string;
+  sourceSocketName: string;
+};
+
 export type TSocketId = `SOCKET_${string}`;
 
 export type TSocketType = (typeof SOCKET_TYPE)[keyof typeof SOCKET_TYPE];

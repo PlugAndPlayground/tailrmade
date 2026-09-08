@@ -47,7 +47,14 @@ const resultInHtml = `<p class="editor-paragraph" dir="ltr"><span style="white-s
 const normalizeEditorHtml = (html) =>
   html
     .replace(/ dir="ltr"/g, '')
-    .replace(/ data-highlight-language="javascript"/g, '');
+    .replace(/ data-highlight-language="javascript"/g, '')
+    .replace(
+      /(<pre\b[^>]*>)([\s\S]*?)(<\/pre>)/g,
+      (_, open, inner, close) =>
+        open +
+        inner.replace(/<br\s*\/?>/g, '\n').replace(/<[^>]+>/g, '') +
+        close,
+    );
 
 const focusEditor = (dataCyId: string, x = 120, y = 40) => {
   logCypressStep('focusEditor', dataCyId, 'FOCUS EDITOR');

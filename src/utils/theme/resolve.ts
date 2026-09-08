@@ -17,11 +17,7 @@ import {
 // per-surface overrides slot in as one more element rather than as a new
 // parameter threaded through every call site.
 export type ThemeLayerSource =
-  | 'preset'
-  | 'saved'
-  | 'runtime'
-  | 'surface'
-  | 'widget';
+  'preset' | 'saved' | 'runtime' | 'surface' | 'widget';
 
 export type ThemeLayer = {
   source: ThemeLayerSource;

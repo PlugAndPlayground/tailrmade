@@ -2057,8 +2057,7 @@ export class TailrmadeMCPServer {
   // also mutates this directly rather than going through the undo system
   private setDefaultSurface(input: SetDefaultSurfaceInput): MCPToolResult {
     const node = PPGraph.currentGraph.nodes[input.node_id] as
-      | (PPNode & { isSurface?: () => boolean })
-      | undefined;
+      (PPNode & { isSurface?: () => boolean }) | undefined;
     if (!node) {
       return {
         content: `Node not found: ${input.node_id}`,
