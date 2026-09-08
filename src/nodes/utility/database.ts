@@ -7,7 +7,10 @@ import {
   TRIGGER_TYPE_OPTIONS,
 } from '../../utils/constants';
 import PPStorage from '../../PPStorage';
-import { NodeExecutionWarning } from '../../classes/ErrorClass';
+import {
+  NodeExecutionError,
+  NodeExecutionWarning,
+} from '../../classes/ErrorClass';
 import PPNode from '../../classes/NodeClass';
 import InterfaceController, { ListenEvent } from '../../InterfaceController';
 import { ArrayType } from '../datatypes/arrayType';
@@ -26,11 +29,37 @@ const outputQuerySocketName = 'Query result';
 const defaultSqlQuery = `SELECT * FROM tablename`;
 
 const IMPORT_NAME = '@sqlite.org/sqlite-wasm@3.45.2-build1';
+
+// the sqlite engine is shared by all reader nodes
+let sqlite3Promise: Promise<any> | undefined = undefined;
+
+const getSqlite3 = async () => {
+  if (sqlite3Promise === undefined) {
+    sqlite3Promise = DynamicImport.dynamicImport(IMPORT_NAME)
+      .then((sqlite3Module) =>
+        sqlite3Module.default({
+          print: console.log,
+          printErr: console.error,
+          locateFile: () => {
+            return `https://cdn.jsdelivr.net/npm/${IMPORT_NAME}/sqlite-wasm/jswasm/sqlite3.wasm`;
+          },
+        }),
+      )
+      .catch((error) => {
+        // let a later execution try again instead of failing forever
+        sqlite3Promise = undefined;
+        throw error;
+      });
+  }
+  return sqlite3Promise;
+};
+
 export class SqliteReader extends PPNode {
-  sqlite3Module;
   sqlite3;
   db;
   listenID;
+  loadedSource: string | undefined = undefined;
+  pendingLoad: Promise<void> | undefined = undefined;
 
   public getName(): string {
     return 'Sqlite reader';
@@ -99,70 +128,129 @@ export class SqliteReader extends PPNode {
 
   public onNodeAdded = async (source: TNodeSource): Promise<void> => {
     await super.onNodeAdded(source);
-    this.sqlite3Module = await DynamicImport.dynamicImport(IMPORT_NAME);
 
-    this.sqlite3Module
-      .default({
-        print: console.log,
-        printErr: console.error,
-        locateFile: () => {
-          return `https://cdn.jsdelivr.net/npm/${IMPORT_NAME}/sqlite-wasm/jswasm/sqlite3.wasm`;
-        },
-      })
-      .then((sqlite3) => {
-        try {
-          this.sqlite3 = sqlite3;
-          void this.loadDatabase();
-        } catch (err) {
-          console.error(err.name, err.message);
-        }
-      });
+    // adding a node should not wait for the engine
+    void this.openDatabase().catch((error) => this.reportError(error));
 
     this.listenID = InterfaceController.addListener(
       ListenEvent.ResourceUpdated,
       (data: any) => {
         const resourceId = this.getInputData(inputResourceIdSocketName);
         if (data.id === resourceId) {
-          void this.updateFile();
+          void this.updateFile().catch((error) => this.reportError(error));
         }
       },
     );
   };
 
-  loadDatabase = async (): Promise<SqliteReader['db']> => {
+  private reportError = (error: unknown): void => {
+    if (!this.destroyed) {
+      const errorText =
+        error instanceof Error ? (error.stack ?? error.message) : String(error);
+      this.setStatus(new NodeExecutionError(errorText));
+    }
+    console.error(error);
+  };
+
+  private getSourceKey = (): string => {
     const resourceId = this.getInputData(inputResourceIdSocketName);
+    if (resourceId) {
+      return `id:${resourceId}`;
+    }
     const resourceURL = this.getInputData(inputResourceURLSocketName);
-    try {
-      let blob;
-      if (resourceId) {
-        blob = await this.loadResourceLocal(resourceId);
-      } else if (resourceURL) {
-        blob = await this.loadResourceURL(resourceURL);
+    return resourceURL ? `url:${resourceURL}` : '';
+  };
+
+  private closeDatabase = (): void => {
+    if (this.db) {
+      try {
+        this.db.close();
+      } catch (error) {
+        console.error(error);
       }
-      if (blob) {
-        this.db = await this.loadDbFromBlob(blob);
-        if (!this.destroyed) {
-          const returnArray = [];
-          this.db.exec({
-            sql: "SELECT name FROM sqlite_master WHERE type='table'",
-            rowMode: 'array',
-            callback: function (row) {
-              returnArray.push(row);
-            }.bind(this),
-          });
-          this.setOutputData(outputTableSocketName, returnArray);
-          this.setOutputData(outputQuerySocketName, []);
-          this.setOutputData(outputColumnNamesSocketName, []);
-          // removed execute query here as I noticed it was called in execute already
-        }
-        return this.db;
-      }
+      this.db = undefined;
+    }
+    this.loadedSource = undefined;
+  };
+
+  private clearOutputs = (): void => {
+    if (!this.destroyed) {
+      this.setOutputData(outputTableSocketName, []);
+      this.setOutputData(outputQuerySocketName, []);
+      this.setOutputData(outputColumnNamesSocketName, []);
+    }
+  };
+
+  // queue up a load
+  openDatabase = (force = false): Promise<void> => {
+    const next = (this.pendingLoad ?? Promise.resolve())
+      .catch(() => undefined)
+      .then(() => this.openDatabaseNow(force));
+    this.pendingLoad = next.catch(() => undefined);
+    return next;
+  };
+
+  private openDatabaseNow = async (force: boolean): Promise<void> => {
+    const sourceKey = this.getSourceKey();
+    if (!sourceKey) {
+      this.closeDatabase();
+      this.clearOutputs();
       if (!this.destroyed) {
         this.setStatus(new NodeExecutionWarning('No database loaded'));
       }
-    } catch (error) {
-      return Promise.reject(new Error(error));
+      return;
     }
+    if (!force && sourceKey === this.loadedSource && this.db) {
+      return;
+    }
+
+    this.closeDatabase();
+
+    const sqlite3 = await getSqlite3();
+    if (this.destroyed) {
+      return;
+    }
+    this.sqlite3 = sqlite3;
+
+    const resourceId = this.getInputData(inputResourceIdSocketName);
+    const blob = resourceId
+      ? await this.loadResourceLocal(resourceId)
+      : await this.loadResourceURL(
+          this.getInputData(inputResourceURLSocketName),
+        );
+    if (!blob) {
+      this.clearOutputs();
+      if (!this.destroyed) {
+        this.setStatus(
+          new NodeExecutionWarning(
+            resourceId
+              ? `No database loaded, "${resourceId}" is not a stored resource. To read many files, feed them into a Map Execute Macro one by one`
+              : 'No database loaded',
+          ),
+        );
+      }
+      return;
+    }
+
+    const db = await this.loadDbFromBlob(blob);
+    if (this.destroyed) {
+      db.close();
+      return;
+    }
+    this.db = db;
+    this.loadedSource = sourceKey;
+
+    const returnArray = [];
+    this.db.exec({
+      sql: "SELECT name FROM sqlite_master WHERE type='table'",
+      rowMode: 'array',
+      callback: function (row) {
+        returnArray.push(row);
+      }.bind(this),
+    });
+    this.setOutputData(outputTableSocketName, returnArray);
+    this.setOutputData(outputQuerySocketName, []);
+    this.setOutputData(outputColumnNamesSocketName, []);
   };
 
   executeQuery = async (): Promise<void> => {
@@ -183,9 +271,6 @@ export class SqliteReader extends PPNode {
           returnArray.length === 1 ? returnArray[0] : returnArray,
         );
         this.setOutputData(outputColumnNamesSocketName, columnNames);
-        this.executeChildren().catch((error) => {
-          console.error(error);
-        });
       }
     }
   };
@@ -195,13 +280,20 @@ export class SqliteReader extends PPNode {
     await this.updateFile();
   };
 
-  // triggered by file socket
+  loadDatabase = async (): Promise<void> => {
+    await this.openDatabase(true);
+    await this.executeQuery();
+    if (!this.destroyed) {
+      await this.executeChildren();
+    }
+  };
+
   updateFile = async (): Promise<void> => {
     await this.loadDatabase();
-    await this.executeQuery();
   };
 
   onExecute = async (): Promise<void> => {
+    await this.openDatabase();
     await this.executeQuery();
   };
 
@@ -228,12 +320,12 @@ export class SqliteReader extends PPNode {
     return blob;
   };
 
-  loadDbFromBlob = async function (blob) {
+  loadDbFromBlob = async (blob) => {
     const buf = await blob.arrayBuffer();
     const bytes = new Uint8Array(buf);
     const p = this.sqlite3.wasm.allocFromTypedArray(bytes);
     const db = new this.sqlite3.oo1.DB();
-    this.sqlite3.capi.sqlite3_deserialize(
+    const rc = this.sqlite3.capi.sqlite3_deserialize(
       db.pointer,
       'main',
       p,
@@ -241,6 +333,11 @@ export class SqliteReader extends PPNode {
       bytes.length,
       this.sqlite3.capi.SQLITE_DESERIALIZE_FREEONCLOSE,
     );
+    if (rc !== this.sqlite3.capi.SQLITE_OK) {
+      this.sqlite3.wasm.dealloc(p);
+      db.close();
+      throw new Error(`Could not read the file as a database (sqlite ${rc})`);
+    }
     return db;
   };
 
@@ -251,5 +348,7 @@ export class SqliteReader extends PPNode {
   onRemoved(): void {
     super.onRemoved();
     InterfaceController.removeListener(this.listenID);
+    this.closeDatabase();
+    this.sqlite3 = undefined;
   }
 }
