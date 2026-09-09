@@ -42,6 +42,10 @@ import {
 } from '../services/CaptureService';
 import { downscaleImageForAI } from '../utils/imageDownscale';
 import { AIInspectSource, setAIPanelOpen } from '../services/AIVisionService';
+import {
+  createToolMarkerRegex,
+  type ToolMarkerGroups,
+} from '../services/aiToolMarkers';
 
 const panelBorder = '1px solid rgba(255,255,255,0.16)';
 const panelSurface = 'rgba(255,255,255,0.08)';
@@ -69,76 +73,108 @@ interface ActionPart {
 
 type ContentPart = CodePart | TextPart | ActionPart;
 
-const toolActionRegex =
-  /\*(?:Using\s+([A-Za-z0-9_.:-]+)\.\.\.|Used\s+([A-Za-z0-9_.:-]+)\.|([A-Za-z0-9_.:-]+)\s+failed:\s+([\s\S]*?)|Checking graph warnings and errors before finishing\.\.\.|Completed\s+(\d+)\s+MCP tool call\(s\)\.)\*|Stopped after reaching the MCP turn limit \((\d+)\) for this request\./g;
-
 const pushTextPart = (parts: ContentPart[], content: string) => {
   const normalized = content.replace(/\n{3,}/g, '\n\n');
-  if (normalized.trim()) {
-    parts.push({
-      type: 'text',
-      content: normalized,
-    });
+  if (!normalized.trim()) {
+    return;
   }
+  // Text either side of a marker that was dropped, or of one left in place,
+  // was one run of prose to begin with - keep it in one block.
+  const previous = parts[parts.length - 1];
+  if (previous?.type === 'text') {
+    previous.content = (previous.content + normalized).replace(
+      /\n{3,}/g,
+      '\n\n',
+    );
+    return;
+  }
+  parts.push({
+    type: 'text',
+    content: normalized,
+  });
 };
 
-const parseActionPart = (match: RegExpExecArray): ActionPart | undefined => {
-  if (match[1]) {
+// A marker either becomes a chip, is dropped (another marker already reports
+// the same action), or is left in the text - returning the matched text keeps
+// it. Patterns and their group names live in aiToolMarkers.
+const parseActionPart = (
+  match: RegExpExecArray,
+): ActionPart | string | undefined => {
+  const groups = (match.groups || {}) as ToolMarkerGroups;
+
+  // the run announces a tool before calling it; the outcome below is the chip
+  if (groups.usingTool !== undefined) {
     return undefined;
   }
 
-  if (match[2]) {
+  // a footer for the panel's benefit only
+  if (groups.completedCount !== undefined) {
+    return undefined;
+  }
+
+  if (groups.usedTool !== undefined) {
     return {
       type: 'action',
       status: 'success',
-      label: match[2],
-      toolName: match[2],
+      label: groups.usedTool,
+      toolName: groups.usedTool,
     };
   }
 
-  if (match[3]) {
+  if (groups.failedTool !== undefined) {
     return {
       type: 'action',
       status: 'error',
       label: 'Action failed',
-      toolName: match[3],
-      detail: match[4]?.trim(),
+      toolName: groups.failedTool,
+      detail: groups.failedDetail?.trim(),
     };
   }
 
-  if (match[5]) {
-    return undefined;
+  if (groups.checkingWarnings !== undefined) {
+    return {
+      type: 'action',
+      status: 'checking',
+      label: 'Checking warnings and errors',
+    };
   }
 
-  if (match[6]) {
+  if (groups.stoppedEarly !== undefined) {
+    return {
+      type: 'action',
+      status: 'limit',
+      label: 'Reply cut off',
+      detail: 'The model hit its output limit before finishing this turn.',
+    };
+  }
+
+  if (groups.limitTurns !== undefined) {
     return {
       type: 'action',
       status: 'limit',
       label: 'Stopped at turn limit',
-      detail: `${match[6]} turns`,
+      detail: `${groups.limitTurns} turns`,
     };
   }
 
-  return {
-    type: 'action',
-    status: 'checking',
-    label: 'Checking warnings and errors',
-  };
+  return match[0];
 };
 
 const splitActionsFromText = (content: string): ContentPart[] => {
   const parts: ContentPart[] = [];
+  const toolActionRegex = createToolMarkerRegex();
   let lastIndex = 0;
   let match;
 
-  toolActionRegex.lastIndex = 0;
   while ((match = toolActionRegex.exec(content)) !== null) {
     if (match.index > lastIndex) {
       pushTextPart(parts, content.slice(lastIndex, match.index));
     }
 
     const actionPart = parseActionPart(match);
-    if (actionPart) {
+    if (typeof actionPart === 'string') {
+      pushTextPart(parts, actionPart);
+    } else if (actionPart) {
       parts.push(actionPart);
     }
     lastIndex = match.index + match[0].length;

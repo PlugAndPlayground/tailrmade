@@ -20,6 +20,7 @@ import { VISIBILITY_ACTION } from '../utils/constants_shared';
 import { downscaleImagesForAI } from '../utils/imageDownscale';
 import { getAINodesCompactList } from '../nodes/allNodes';
 import {
+  isTruncatedStopReason,
   parseAIProviderTurn,
   prepareAIProviderTurn,
   VISION_NOTE_PREFIX,
@@ -33,6 +34,17 @@ import {
   type AIInspectSource,
 } from './AIVisionService';
 import { startAILogRun, truncateForAILog } from './AIConversationLog';
+import {
+  checkingWarningsMarker,
+  completedToolCallsMarker,
+  lookedAtUIMarker,
+  runStoppedEarlyMarker,
+  stripAIToolMarkers,
+  toolFailedMarker,
+  turnLimitMarker,
+  usedToolMarker,
+  usingToolMarker,
+} from './aiToolMarkers';
 
 const LOCAL_COMPANION_AI_BASE_URL = 'http://localhost:6655/ai';
 
@@ -214,7 +226,7 @@ export class AIBackend {
   ): AnthropicConversationMessage[] {
     return conversation.map((entry) => ({
       role: entry.sender,
-      content: entry.content,
+      content: this.getModelFacingContent(entry),
     }));
   }
 
@@ -312,6 +324,19 @@ export class AIBackend {
     ];
   }
 
+  // What a past conversation entry looks like to a model. An assistant entry
+  // still carries the panel's action markers, and replaying those teaches the
+  // model to write tool calls out as prose instead of emitting them - see
+  // aiToolMarkers. A turn left with nothing to say - one that only ran tools,
+  // or that the user cancelled - gets a placeholder rather than going out as
+  // an empty text block, which providers reject.
+  private getModelFacingContent(entry: AIConversationMessage): string {
+    if (entry.sender !== AIConversationSender.AI) {
+      return entry.content;
+    }
+    return stripAIToolMarkers(entry.content) || '(no written reply)';
+  }
+
   private buildProviderMessages(
     conversation: AIConversationMessage[],
     message: string,
@@ -320,7 +345,7 @@ export class AIBackend {
     return [
       ...conversation.map((entry) => ({
         role: entry.sender,
-        content: [{ type: 'text', text: entry.content }],
+        content: [{ type: 'text', text: this.getModelFacingContent(entry) }],
       })),
       {
         role: 'user',
@@ -578,6 +603,7 @@ export class AIBackend {
       let pendingMessage: string | undefined;
       const maxAgentTurns = 60;
       let toolCallCount = 0;
+      let stoppedEarlyReason: string | undefined;
       let hasMutatedGraph = false;
       let checkedWarningsAndErrors = false;
       // Reveal the dashboard the moment the agent first touches a surface, so
@@ -701,9 +727,16 @@ export class AIBackend {
 
         const toolUses = turnResponse.toolCalls || [];
         if (toolUses.length === 0) {
+          // A cut-off turn has no tool calls either. Say so instead of ending
+          // the run on a half-finished sentence that looks like a refusal.
+          if (isTruncatedStopReason(turnResponse.stopReason)) {
+            stoppedEarlyReason = String(turnResponse.stopReason);
+            assistantMessage += `\n\n${runStoppedEarlyMarker(stoppedEarlyReason)}`;
+            applyAssistantText(assistantMessage);
+            break;
+          }
           if (hasMutatedGraph && !checkedWarningsAndErrors) {
-            assistantMessage +=
-              '\n\n*Checking graph warnings and errors before finishing...*';
+            assistantMessage += `\n\n${checkingWarningsMarker()}`;
             applyAssistantText(assistantMessage);
 
             const result = await TailrmadeMCPServer.getInstance().callTool(
@@ -755,7 +788,7 @@ export class AIBackend {
               (inspectionToolCounts.get(toolName) || 0) + 1,
             );
           } else {
-            assistantMessage += `\n\n*Using ${toolName}...*`;
+            assistantMessage += `\n\n${usingToolMarker(toolName)}`;
             applyAssistantText(assistantMessage);
           }
 
@@ -793,8 +826,8 @@ export class AIBackend {
 
           if (result.is_error || !isInspectionTool) {
             assistantMessage += result.is_error
-              ? `\n*${toolName} failed: ${result.content}*`
-              : `\n*Used ${toolName}.*`;
+              ? `\n${toolFailedMarker(toolName, result.content)}`
+              : `\n${usedToolMarker(toolName)}`;
             applyAssistantText(assistantMessage);
           }
         }
@@ -819,7 +852,7 @@ export class AIBackend {
             autoCaptureCount++;
             turnImages.push(...captured.images);
             autoCaptureStructure = captured.content;
-            assistantMessage += '\n*Looked at the rendered UI.*';
+            assistantMessage += `\n${lookedAtUIMarker()}`;
             applyAssistantText(assistantMessage);
           }
         }
@@ -852,15 +885,15 @@ export class AIBackend {
               `${toolName}${count > 1 ? ` x${count}` : ''}`,
           )
           .join(', ');
-        assistantMessage +=
-          `\n\n*Completed ${toolCallCount} MCP tool call(s).` +
-          (inspectionSummary ? ` Inspections: ${inspectionSummary}.` : '') +
-          '*';
+        assistantMessage += `\n\n${completedToolCallsMarker(
+          toolCallCount,
+          inspectionSummary,
+        )}`;
         applyAssistantText(assistantMessage);
       }
 
       if (pendingToolResults?.length) {
-        assistantMessage += `\n\nStopped after reaching the MCP turn limit (${maxAgentTurns}) for this request.`;
+        assistantMessage += `\n\n${turnLimitMarker(maxAgentTurns)}`;
         applyAssistantText(assistantMessage);
       }
 
@@ -884,6 +917,7 @@ export class AIBackend {
         autoCaptureCount,
         inspections: Object.fromEntries(inspectionToolCounts),
         hitTurnLimit: Boolean(pendingToolResults?.length),
+        stoppedEarlyReason,
         tokenUsage,
         answer: truncateForAILog(assistantMessage),
       });

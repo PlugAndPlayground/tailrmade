@@ -329,7 +329,10 @@ function buildKimi(request: AIProviderTurnRequest): PreparedAIProviderTurn {
       model: request.model,
       messages,
       ...(tools.length ? { tools } : {}),
-      max_completion_tokens: request.maxTokens || 16384,
+      // Moonshot's chat-completions API takes max_tokens, not the newer
+      // OpenAI max_completion_tokens - which it ignores, silently capping
+      // replies at its own default and cutting turns off mid-tool-call.
+      max_tokens: request.maxTokens || 16384,
     },
   };
 }
@@ -419,6 +422,30 @@ export function prepareAIProviderTurn(
     case 'gemini':
       return buildGemini(request);
   }
+}
+
+// Stop reasons that mean the model ran out of room mid-answer rather than
+// finishing its turn. One per provider, since each spells it differently.
+const TRUNCATED_STOP_REASONS = new Set([
+  // Anthropic (also DeepSeek, which uses the same shape)
+  'max_tokens',
+  // Kimi and other OpenAI-compatible chat completions
+  'length',
+  // OpenAI responses
+  'incomplete',
+  // Gemini
+  'MAX_TOKENS',
+]);
+
+/**
+ * A truncated turn carries no tool calls even when the model was about to make
+ * some, so the agent loop has to tell it apart from a turn that genuinely had
+ * nothing left to do - otherwise the run just ends on a half-written sentence.
+ */
+export function isTruncatedStopReason(stopReason: unknown): boolean {
+  return (
+    typeof stopReason === 'string' && TRUNCATED_STOP_REASONS.has(stopReason)
+  );
 }
 
 export function parseAIProviderTurn(
