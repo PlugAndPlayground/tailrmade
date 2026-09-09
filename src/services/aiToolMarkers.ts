@@ -19,8 +19,13 @@ export const usingToolMarker = (toolName: string): string =>
 export const usedToolMarker = (toolName: string): string =>
   `*Used ${toolName}.*`;
 
+/**
+ * The detail is an arbitrary tool result, and a "*" anywhere inside it closes
+ * the marker early - the tail then leaks into the panel as literal text and
+ * into the transcript the model replays. Asterisks carry no meaning here.
+ */
 export const toolFailedMarker = (toolName: string, detail: string): string =>
-  `*${toolName} failed: ${detail}*`;
+  `*${toolName} failed: ${String(detail ?? '').replace(/\*/g, '')}*`;
 
 export const checkingWarningsMarker = (): string =>
   '*Checking graph warnings and errors before finishing...*';

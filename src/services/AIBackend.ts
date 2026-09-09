@@ -724,15 +724,19 @@ export class AIBackend {
         }
 
         const toolUses = turnResponse.toolCalls || [];
+        // A cut-off turn usually has no tool calls, but it can also end
+        // part-way through writing one: the arguments JSON arrives truncated,
+        // the parser hands back {} rather than failing, and the tool would run
+        // on empty input. So this is checked before anything is executed, not
+        // just when the turn came back empty. Say so instead of ending the run
+        // on a half-finished sentence that looks like a refusal.
+        if (isTruncatedStopReason(turnResponse.stopReason)) {
+          stoppedEarlyReason = String(turnResponse.stopReason);
+          assistantMessage += `\n\n${runStoppedEarlyMarker(stoppedEarlyReason)}`;
+          applyAssistantText(assistantMessage);
+          break;
+        }
         if (toolUses.length === 0) {
-          // A cut-off turn has no tool calls either. Say so instead of ending
-          // the run on a half-finished sentence that looks like a refusal.
-          if (isTruncatedStopReason(turnResponse.stopReason)) {
-            stoppedEarlyReason = String(turnResponse.stopReason);
-            assistantMessage += `\n\n${runStoppedEarlyMarker(stoppedEarlyReason)}`;
-            applyAssistantText(assistantMessage);
-            break;
-          }
           if (hasMutatedGraph && !checkedWarningsAndErrors) {
             assistantMessage += `\n\n${checkingWarningsMarker()}`;
             applyAssistantText(assistantMessage);

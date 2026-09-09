@@ -329,8 +329,10 @@ function buildKimi(request: AIProviderTurnRequest): PreparedAIProviderTurn {
       model: request.model,
       messages,
       ...(tools.length ? { tools } : {}),
-      // Moonshot's chat-completions API takes max_tokens
-      max_tokens: request.maxTokens || 16384,
+      // Moonshot deprecated max_tokens in favour of max_completion_tokens;
+      // the old name still works, but the new one is what the K2.6/K3 docs
+      // document and default from.
+      max_completion_tokens: request.maxTokens || 16384,
     },
   };
 }
@@ -429,8 +431,13 @@ const TRUNCATED_STOP_REASONS = new Set([
   'max_tokens',
   // Kimi and other OpenAI-compatible chat completions
   'length',
-  // OpenAI responses
+  // OpenAI responses: the status, plus every reason it decomposes into -
+  // each one means the reply stopped before the model was done with it.
   'incomplete',
+  'max_output_tokens',
+  'max_messages',
+  'content_filter',
+  'steered',
   // Gemini
   'MAX_TOKENS',
 ]);
@@ -492,7 +499,9 @@ export function parseAIProviderTurn(
           name: item.name,
           arguments: parseArguments(item.arguments),
         })),
-      stopReason: data.status || 'complete',
+      // `status` only says the reply is unfinished; the reason it was cut
+      // off lives in incomplete_details.
+      stopReason: data.incomplete_details?.reason || data.status || 'complete',
       state,
       usage: {
         inputTokens: Math.max(count(data.usage?.input_tokens) - cached, 0),

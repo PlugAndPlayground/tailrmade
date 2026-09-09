@@ -13,6 +13,7 @@ import {
 } from '../../../src/services/aiToolMarkers';
 import {
   isTruncatedStopReason,
+  parseAIProviderTurn,
   prepareAIProviderTurn,
 } from '../../../src/services/aiProviderAdapters';
 
@@ -65,6 +66,19 @@ describe('tool markers match the strings the agent actually emits', () => {
       'boom',
     );
     expect(groupsOf(turnLimitMarker(60)).limitTurns).toBe('60');
+  });
+
+  it('survives a failure detail that contains asterisks', () => {
+    // result.content is an arbitrary tool result, and an unescaped "*" in it
+    // used to close the marker early - leaving the rest of the detail in the
+    // panel as literal text and in what the model gets replayed.
+    const marker = toolFailedMarker('add_node', 'bad *value* for socket');
+    const matches = matchAllMarkers(marker);
+
+    expect(matches).toHaveLength(1);
+    expect(matches[0][0]).toBe(marker);
+    expect(groupsOf(marker).failedDetail).toBe('bad value for socket');
+    expect(stripAIToolMarkers(marker)).toBe('');
   });
 
   it("leaves the model's own prose alone", () => {
@@ -124,12 +138,16 @@ describe('stripAIToolMarkers', () => {
 });
 
 describe('isTruncatedStopReason', () => {
-  it.each(['max_tokens', 'length', 'incomplete', 'MAX_TOKENS'])(
-    'treats %s as a cut-off turn',
-    (stopReason) => {
-      expect(isTruncatedStopReason(stopReason)).toBe(true);
-    },
-  );
+  it.each([
+    'max_tokens',
+    'length',
+    'incomplete',
+    'max_output_tokens',
+    'content_filter',
+    'MAX_TOKENS',
+  ])('treats %s as a cut-off turn', (stopReason) => {
+    expect(isTruncatedStopReason(stopReason)).toBe(true);
+  });
 
   it.each(['end_turn', 'tool_calls', 'stop', 'completed', 'STOP', undefined])(
     'treats %s as a finished turn',
@@ -153,22 +171,52 @@ describe('per-provider output token field', () => {
   it.each([
     ['claude' as const, 'max_tokens'],
     ['openai' as const, 'max_output_tokens'],
-    ['kimi' as const, 'max_tokens'],
+    ['kimi' as const, 'max_completion_tokens'],
   ])('sends %s the %s field', (provider, field) => {
     const { body } = prepareAIProviderTurn({ ...request, provider });
 
     expect(body[field]).toBe(4096);
   });
 
-  it('does not send Kimi the OpenAI-only max_completion_tokens', () => {
+  it('does not send Kimi the deprecated max_tokens as well', () => {
     const { body } = prepareAIProviderTurn({ ...request, provider: 'kimi' });
 
-    expect(body).not.toHaveProperty('max_completion_tokens');
+    expect(body).not.toHaveProperty('max_tokens');
   });
 
   it('sends Gemini its limit under generationConfig', () => {
     const { body } = prepareAIProviderTurn({ ...request, provider: 'gemini' });
 
     expect((body.generationConfig as any).maxOutputTokens).toBe(4096);
+  });
+});
+
+describe('a cut-off OpenAI turn reports why it stopped', () => {
+  const parse = (data: any) =>
+    parseAIProviderTurn('openai', data, { input: [] });
+
+  it('reads the reason out of incomplete_details, not the status', () => {
+    const { stopReason } = parse({
+      output: [],
+      status: 'incomplete',
+      incomplete_details: { reason: 'max_output_tokens' },
+    });
+
+    // The status only says the reply is unfinished; a run that stopped early
+    // has to tell the user which limit it hit.
+    expect(stopReason).toBe('max_output_tokens');
+    expect(isTruncatedStopReason(stopReason)).toBe(true);
+  });
+
+  it('still flags a bare incomplete status as cut off', () => {
+    const { stopReason } = parse({ output: [], status: 'incomplete' });
+
+    expect(isTruncatedStopReason(stopReason)).toBe(true);
+  });
+
+  it('leaves a completed response alone', () => {
+    const { stopReason } = parse({ output: [], status: 'completed' });
+
+    expect(isTruncatedStopReason(stopReason)).toBe(false);
   });
 });
