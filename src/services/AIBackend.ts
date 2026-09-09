@@ -327,9 +327,7 @@ export class AIBackend {
   // What a past conversation entry looks like to a model. An assistant entry
   // still carries the panel's action markers, and replaying those teaches the
   // model to write tool calls out as prose instead of emitting them - see
-  // aiToolMarkers. A turn left with nothing to say - one that only ran tools,
-  // or that the user cancelled - gets a placeholder rather than going out as
-  // an empty text block, which providers reject.
+  // aiToolMarkers.
   private getModelFacingContent(entry: AIConversationMessage): string {
     if (entry.sender !== AIConversationSender.AI) {
       return entry.content;

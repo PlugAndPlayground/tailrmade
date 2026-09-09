@@ -329,9 +329,7 @@ function buildKimi(request: AIProviderTurnRequest): PreparedAIProviderTurn {
       model: request.model,
       messages,
       ...(tools.length ? { tools } : {}),
-      // Moonshot's chat-completions API takes max_tokens, not the newer
-      // OpenAI max_completion_tokens - which it ignores, silently capping
-      // replies at its own default and cutting turns off mid-tool-call.
+      // Moonshot's chat-completions API takes max_tokens
       max_tokens: request.maxTokens || 16384,
     },
   };

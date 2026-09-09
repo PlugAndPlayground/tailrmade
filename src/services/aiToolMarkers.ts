@@ -11,13 +11,8 @@
  * model gets - and it reads as a demonstration that tool calls are written out
  * in prose. Models follow that demonstration: they stop emitting tool calls
  * and start describing them, which looks to the user like the tools broke.
- *
- * Emitting, rendering and stripping all go through this file so a change to a
- * marker's wording cannot silently stop matching its own pattern.
  */
 
-// The agent announces a tool before running it, then reports the outcome. The
-// panel chips the outcome, so the announcement is only a live-progress hint.
 export const usingToolMarker = (toolName: string): string =>
   `*Using ${toolName}...*`;
 
