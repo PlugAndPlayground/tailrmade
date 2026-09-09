@@ -8,6 +8,10 @@ import {
 export abstract class PNPStatus extends Error {
   severity: STATUS_SEVERITY;
   id: string;
+  // Set by whatever the status got attached to (a socket, so far), so a status
+  // can say where it came from without anyone matching on its message.
+  protected sourceLabel?: string;
+
   constructor(message?: string, id = message) {
     super(message);
     this.name = this.getName();
@@ -18,6 +22,35 @@ export abstract class PNPStatus extends Error {
   public abstract getDescription(): string;
   public abstract getColor(): TRgba;
   public abstract getSeverity(): STATUS_SEVERITY;
+
+  // Worth surfacing to the user at all.
+  public isProblem(): boolean {
+    return this.getSeverity() >= STATUS_SEVERITY.WARNING;
+  }
+
+  // Fatal counts as an error, it is the same "this is broken" bucket.
+  public isError(): boolean {
+    return this.getSeverity() >= STATUS_SEVERITY.ERROR;
+  }
+
+  // Severity tier as a name, for anything reporting statuses as text.
+  public getSeverityName(): string {
+    return 'success';
+  }
+
+  // What the status is called where it is shown to the user.
+  public getBucketName(): string {
+    return 'Success';
+  }
+
+  public setSourceLabel(sourceLabel: string): void {
+    this.sourceLabel = sourceLabel;
+    this.name = this.getName();
+  }
+
+  public getSourceLabel(): string | undefined {
+    return this.sourceLabel;
+  }
 }
 
 export abstract class PNPError extends PNPStatus {
@@ -27,6 +60,14 @@ export abstract class PNPError extends PNPStatus {
 
   public getSeverity(): number {
     return STATUS_SEVERITY.ERROR;
+  }
+
+  public getSeverityName(): string {
+    return 'error';
+  }
+
+  public getBucketName(): string {
+    return 'Error';
   }
 
   public getName(): string {
@@ -49,6 +90,14 @@ export abstract class PNPWarning extends PNPStatus {
 
   public getSeverity(): number {
     return STATUS_SEVERITY.WARNING;
+  }
+
+  public getSeverityName(): string {
+    return 'warning';
+  }
+
+  public getBucketName(): string {
+    return 'Warning';
   }
 
   public getName(): string {
@@ -118,6 +167,10 @@ export class FatalError extends PNPError {
 
   public getSeverity(): number {
     return STATUS_SEVERITY.FATAL;
+  }
+
+  public getSeverityName(): string {
+    return 'fatal';
   }
 
   public getName(): string {
@@ -206,12 +259,10 @@ export class NodeExecutionWarning extends PNPWarning {
 }
 
 export class SocketParsingWarning extends PNPWarning {
-  constructor(message?: string) {
-    super(message);
-  }
-
   public getName(): string {
-    return 'Socket Parsing Warning';
+    return this.sourceLabel
+      ? `Socket Parsing Warning (${this.sourceLabel})`
+      : 'Socket Parsing Warning';
   }
 
   public getDescription(): string {

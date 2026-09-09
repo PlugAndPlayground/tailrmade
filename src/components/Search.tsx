@@ -7,7 +7,6 @@ import {
   Stack,
   TextField,
   Paper,
-  Chip,
   Autocomplete,
   AutocompleteChangeReason,
   AutocompleteRenderOptionState,
@@ -19,6 +18,7 @@ import match from 'autosuggest-highlight/match';
 import PPGraph from '../classes/GraphClass';
 import * as styles from '../utils/style.module.css';
 import { getAllNodeTypes, getAllTagNames } from '../nodes/allNodes';
+import { TagChip } from './TagChip';
 import { INodeSearch } from '../utils/interfaces';
 import { getLoadNodeExampleURL } from '../utils/utils';
 import { MAIN_COLOR } from '../utils/constants';
@@ -502,24 +502,11 @@ export const renderNodeItem = (props, option, { inputValue, selected }) => {
           )}
           <Box>
             {option.tags?.map((part, index) => (
-              <Chip
+              <TagChip
                 key={index}
                 label={part}
-                size="small"
-                onClick={(event) => {
-                  event.stopPropagation();
-                  event.preventDefault();
-                  if (typeof part === 'string') {
-                    console.log('Tag clicked:', part);
-                    onTagClick(event, part);
-                  }
-                }}
-                sx={{
-                  fontSize: '10px',
-                  cursor: 'pointer',
-                  paddingBottom: '2px',
-                  marginRight: '2px',
-                }}
+                onClick={onTagClick}
+                sx={{ marginRight: '2px' }}
               />
             ))}
           </Box>
@@ -604,14 +591,11 @@ export const ResultsWithHeader = memo<ResultsWithHeaderProps>(
           }}
         >
           {allTags.map((tag) => (
-            <Chip
+            <TagChip
               key={tag}
               label={tag}
-              size="small"
-              onClick={(e) => onTagClick(e, tag)}
-              onMouseDown={(e) => e.preventDefault()} // Critical for preventing blur
-              color={selectedTags.includes(tag) ? 'primary' : 'default'}
-              sx={{ fontSize: '10px', cursor: 'pointer', paddingBottom: '2px' }}
+              selected={selectedTags.includes(tag)}
+              onClick={onTagClick}
             />
           ))}
         </Box>
@@ -900,18 +884,7 @@ export const NodeSearch: React.FC<NodeSearchProps> = ({
         return (
           <li key={`filter-${itemKey}`} {...otherProps}>
             <Box sx={{ display: 'flex', alignItems: 'center' }}>
-              <Box
-                component="span"
-                sx={{
-                  fontSize: '12px',
-                  background: 'rgba(255,255,255,0.2)',
-                  borderRadius: '4px',
-                  px: 1,
-                  py: 0.5,
-                }}
-              >
-                {option.title}
-              </Box>
+              <TagChip label={option.title} />
               <Box
                 component="span"
                 sx={{ ml: 1, fontSize: '12px', opacity: 0.7 }}

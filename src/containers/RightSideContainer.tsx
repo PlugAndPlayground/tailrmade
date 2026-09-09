@@ -24,8 +24,6 @@ type RightSideContainerProps = {
   selectedNodes: any[];
   nodeFilter: string | null;
   setNodeFilter: (filter: string | null) => void;
-  graphFilter: string;
-  setGraphFilter: (filter: string) => void;
   graphFilterText: string;
   setGraphFilterText: (text: string) => void;
 };
@@ -36,8 +34,6 @@ const RightSideContainerInner: React.FC<RightSideContainerProps> = ({
   selectedNodes,
   nodeFilter,
   setNodeFilter,
-  graphFilter,
-  setGraphFilter,
   graphFilterText,
   setGraphFilterText,
 }) => {
@@ -73,8 +69,6 @@ const RightSideContainerInner: React.FC<RightSideContainerProps> = ({
       <NodeArrayContainer
         graphId={PPGraph.currentGraph?.id}
         selectedNodes={selectedNodes}
-        filter={graphFilter}
-        setFilter={setGraphFilter}
         filterText={graphFilterText}
         setFilterText={setGraphFilterText}
       />
@@ -83,11 +77,12 @@ const RightSideContainerInner: React.FC<RightSideContainerProps> = ({
     selectedNodes,
     nodeFilter,
     setNodeFilter,
-    graphFilter,
-    setGraphFilter,
     graphFilterText,
     setGraphFilterText,
   ]);
+
+  const showsNodeList =
+    rightDrawerView === RightDrawerView.GRAPH && selectedNodes.length === 0;
 
   const appInspectorComponent = useMemo(() => {
     return (
@@ -141,7 +136,20 @@ const RightSideContainerInner: React.FC<RightSideContainerProps> = ({
             data-cy="app-info-tab"
           />
         </Tabs>
-        <Box sx={{ flex: 1, overflow: 'auto', p: 2 }}>
+        {/* The node list's search field is sticky, and a padded scroll
+            container parks a sticky child below its padding - rows then
+            scroll visibly through the strip above the field. So that view
+            gets no top padding here and brings it along on the field
+            itself, where it is part of what the field covers. */}
+        <Box
+          sx={{
+            flex: 1,
+            overflow: 'auto',
+            px: 2,
+            pb: 2,
+            pt: showsNodeList ? 0 : 2,
+          }}
+        >
           {rightDrawerView === RightDrawerView.INTERFACE ? (
             interfaceInspectorComponent
           ) : rightDrawerView === RightDrawerView.GRAPH ? (
@@ -169,7 +177,6 @@ const areEqual = (
   return (
     prevProps.rightDrawerView === nextProps.rightDrawerView &&
     prevProps.nodeFilter === nextProps.nodeFilter &&
-    prevProps.graphFilter === nextProps.graphFilter &&
     prevProps.graphFilterText === nextProps.graphFilterText &&
     prevProps.selectedNodes.length === nextProps.selectedNodes.length &&
     prevProps.selectedNodes.every(

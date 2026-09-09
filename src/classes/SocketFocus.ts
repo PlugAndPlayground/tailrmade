@@ -123,6 +123,7 @@ export default class SocketFocus {
     // search is open the wire is pinned to the stored cursor position
     const suppressed =
       context.hasPinnedCursorPosition ||
+      !PPSocket.hitTestingEnabled() ||
       (this.hoveredSocket !== undefined && this.hoveredSocket !== source);
     this.snappedSocket =
       suppressed || !source ? undefined : this.findSnapTarget(source, context);
