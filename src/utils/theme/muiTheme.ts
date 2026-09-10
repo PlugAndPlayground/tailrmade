@@ -40,17 +40,10 @@ const DENSITY_DEFAULTS: Record<
   XL: { size: 'medium', margin: 'normal' },
 };
 
-// Touch targets. The density steps a creator picks are visual choices, not
-// hit-area ones: at XS/S a Checkbox is a 30px box and a Switch a 38px one, both
-// under the 44px minimum Apple and Google publish. The floor lives here, on the
-// app theme, so it reaches every control a creator can place - gated on
-// `pointer: coarse`, which is about the input device rather than the window, so
-// a desktop app renders exactly as before.
 export const TOUCH_TARGET_PX = 44;
 const COARSE = '@media (pointer: coarse)';
 
-// grows the hit area without moving the glyph: ButtonBase centres its content,
-// so a min box just pads the ripple outwards around an unchanged icon
+// grows the hit area without moving the glyph
 const coarseMinBox = {
   [COARSE]: {
     minWidth: `${TOUCH_TARGET_PX}px`,
@@ -58,10 +51,7 @@ const coarseMinBox = {
   },
 };
 
-// Switch cannot use coarseMinBox: its track fills the content box, so growing
-// the box alone would stretch it into a tall pill. Height and padding move
-// together instead, leaving the track at its designed thickness and turning the
-// extra space into slack around the thumb.
+// Switch cannot use coarseMinBox
 const coarseSwitchRoot = (trackHeight: number) => ({
   [COARSE]: {
     height: `${TOUCH_TARGET_PX}px`,
@@ -145,8 +135,6 @@ export const tokensToThemeOptions = (resolved: ResolvedTheme): ThemeOptions => {
         },
       },
       MuiTable: { defaultProps: { size: density.size } },
-      // MUI drops MenuItem's 48px floor above the sm breakpoint, leaving ~36px
-      // rows on a tablet. The floor is about the finger, not the window.
       MuiMenuItem: {
         styleOverrides: { root: { [COARSE]: { minHeight: 48 } } },
       },

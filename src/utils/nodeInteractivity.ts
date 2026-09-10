@@ -114,12 +114,7 @@ export function getCanvasGrabThroughSx(exploreOnly = isCanvasExploreOnly()) {
   return {
     [`& [${WIDGET_CONTROL_ATTRIBUTE}]${NOT_DISABLED}`]: {
       pointerEvents: 'auto',
-      // the canvas is `touch-action: none` (PIXI sets it) but these controls
-      // are HTML on top of it: without this a drag that starts on one scrolls
-      // the hybrid container instead of reaching the control or the canvas
       touchAction: 'none',
-      // iOS answers a long press on HTML with its selection callout, which
-      // would land on top of the node's own long-press context menu
       WebkitTouchCallout: 'none',
       WebkitUserSelect: 'none',
       userSelect: 'none',

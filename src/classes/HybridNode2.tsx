@@ -129,9 +129,7 @@ function blockDisabledCanvasInteraction(
  * dead spots you cannot pan from - on a tablet, much of what is on screen.
  *
  * The control keeps the gesture until the finger travels; the canvas takes it
- * after that. The viewport is moved directly rather than through
- * pixi-viewport's drag plugin, which never saw the press land on HTML above
- * the canvas. The cost is no deceleration on release.
+ * after that.
  */
 function startCanvasTouchPan(
   event: React.PointerEvent,
@@ -140,13 +138,9 @@ function startCanvasTouchPan(
   if (event.pointerType !== 'touch' || !event.isPrimary) {
     return;
   }
-  // Only widgets: a non-widget hybrid takes pointer events across its whole
-  // content, and only once the user has put it into interaction mode - inside
-  // a text or code editor a drag is a scroll or a selection.
   if (!node.isWidget()) {
     return;
   }
-  // a slider's drag is its value - taking that away would leave it unusable
   if ((event.target as Element).closest(`[${WIDGET_DRAG_CONTROL_ATTRIBUTE}]`)) {
     return;
   }
@@ -157,9 +151,7 @@ function startCanvasTouchPan(
   handoff.start(event.clientX, event.clientY);
 
   // The control fires on the click that follows the release, so once the canvas
-  // has taken the gesture that click has to be swallowed. Disarmed on the next
-  // pointerdown rather than on a timer: a click always arrives before the next
-  // press, so this is exact.
+  // has taken the gesture that click has to be swallowed.
   const disarmSwallow = (): void => {
     window.removeEventListener('click', swallowClick, true);
     window.removeEventListener('pointerdown', disarmSwallow, true);
@@ -180,8 +172,6 @@ function startCanvasTouchPan(
     }
     viewport.x += delta.dx;
     viewport.y += delta.dy;
-    // what pixi-viewport's own drag emits: it repositions the HTML overlays
-    // and the background tiles
     viewport.emit('moved', { viewport, type: 'drag' });
   };
 

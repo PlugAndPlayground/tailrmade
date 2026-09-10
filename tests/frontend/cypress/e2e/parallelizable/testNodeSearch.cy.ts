@@ -148,3 +148,53 @@ describe('Node Search Functionality', () => {
     clearSearch();
   });
 });
+
+// A finger has no double click: PIXI dispatches `click` only for a mouse or a
+// pen, so the canvas listens for `pointertap` instead. Driven through CDP touch
+// input rather than cy.click, which is a mouse however often it is called.
+describe('Node Search by double tap', () => {
+  const cdp = (command: string, params: Record<string, unknown>) =>
+    cy.then({ log: false }, () =>
+      Cypress.automation('remote:debugger:protocol', { command, params }),
+    );
+
+  const doubleTap = (x: number, y: number) => {
+    cy.get('#pixi-container').realTouch({ x, y });
+    cy.wait(80);
+    cy.get('#pixi-container').realTouch({ x, y });
+  };
+
+  before(() => {
+    cdp('Emulation.setTouchEmulationEnabled', {
+      enabled: true,
+      maxTouchPoints: 5,
+    });
+    openNewGraph();
+    closeBothDrawers();
+  });
+
+  after(() => {
+    cdp('Emulation.setTouchEmulationEnabled', { enabled: false });
+  });
+
+  it('opens the search on a double tap on empty canvas', () => {
+    doubleTap(500, 400);
+    getSearchInput().should('be.visible');
+  });
+
+  // The tap's own compatibility mouse events arrive after the search has
+  // opened, so they land on it rather than on the canvas - and a mousedown that
+  // is allowed its default moves focus off the input, which closes the search.
+  it('keeps it open once the tap is over', () => {
+    cy.wait(500);
+    getSearchInput().should('be.visible').and('be.focused');
+  });
+
+  it('does not open on a single tap', () => {
+    cy.get('body').type('{esc}');
+    cy.get('input#node-search:visible').should('not.exist');
+    cy.get('#pixi-container').realTouch({ x: 500, y: 400 });
+    cy.wait(500);
+    cy.get('input#node-search:visible').should('not.exist');
+  });
+});

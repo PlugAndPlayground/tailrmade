@@ -41,9 +41,6 @@ type ModalNodeLike = {
 };
 
 const ModalDialogOverlay: React.FC<{ node: ModalNodeLike }> = ({ node }) => {
-  // a modal's surface is authored at a desktop width and the Paper below
-  // shrink-wraps it with `overflow: hidden`, which on a phone clips the content
-  // rather than scrolling it
   const theme = useTheme();
   const fullScreen = useMediaQuery(theme.breakpoints.down('sm'));
 
@@ -65,10 +62,6 @@ const ModalDialogOverlay: React.FC<{ node: ModalNodeLike }> = ({ node }) => {
     node.getSurfaceTree(),
   );
 
-  // the dialog frame's own background - the surface's ROOT content (sized
-  // and laid out via its own Layout socket, same as any surface) renders on
-  // top of this and is usually opaque, so the frame mostly shows through
-  // behind the title bar
   const backgroundColor = Object.assign(
     new TRgba(),
     node.getInputData(SOCKETNAME_BACKGROUNDCOLOR),
@@ -90,9 +83,6 @@ const ModalDialogOverlay: React.FC<{ node: ModalNodeLike }> = ({ node }) => {
   return (
     <Dialog
       open
-      // no fullWidth/numeric maxWidth - the Paper shrink-wraps to the
-      // surface's own ROOT size (see UIModalNode.getDefaultIO's Layout JSON
-      // default) instead of a size forced from here
       maxWidth={false}
       fullScreen={fullScreen}
       disableEscapeKeyDown={!dismissOnEscape}
@@ -131,12 +121,8 @@ const ModalDialogOverlay: React.FC<{ node: ModalNodeLike }> = ({ node }) => {
   );
 };
 
-// Renders every open UI modal node as a global overlay, independent of whether
-// the modal is embedded in another surface. Mounted once in the app.
+// Renders every open UI modal node as a global overlay
 export const ModalHost: React.FC = () => {
-  // re-render when a modal opens/closes (ModalOpenChanged, emitted from
-  // UIModalNode.onExecute), when its surface content changes, or when a
-  // graph loads (which may already contain open modals)
   useForceUpdateOn([
     ListenEvent.ModalOpenChanged,
     ListenEvent.SurfaceRuntimeChanged,

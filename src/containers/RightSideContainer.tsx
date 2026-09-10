@@ -17,7 +17,6 @@ import PPGraph from '../classes/GraphClass';
 import { NodeArrayContainer } from './NodeArrayContainer';
 import { customTheme, RightDrawerView } from '../utils/constants';
 import { ThemeSettings } from '../components/dashboard/ThemePanel';
-import { useIsNarrowColumns } from '../utils/layoutModel';
 
 type RightSideContainerProps = {
   rightDrawerView: RightDrawerView;
@@ -45,12 +44,6 @@ const RightSideContainerInner: React.FC<RightSideContainerProps> = ({
   const handleTabChange = (_, newValue) => {
     setRightDrawerView(newValue);
   };
-
-  // Stacked icon-over-label tabs are 72px and wrap past that once the labels
-  // carry their shortcuts, which in a capped tablet column is most of what sits
-  // above the content. So the icon moves beside the label and the hints drop.
-  const narrow = useIsNarrowColumns();
-  const iconPosition = narrow ? 'start' : 'top';
 
   const interfaceInspectorComponent = useMemo(
     () => <DashboardInspectorWrapper />,
@@ -134,30 +127,26 @@ const RightSideContainerInner: React.FC<RightSideContainerProps> = ({
             flexShrink: 0,
             borderBottom: 1,
             borderColor: 'divider',
-            ...(narrow && {
-              minHeight: 48,
-              '& .MuiTab-root': { minHeight: 48, py: 0, px: 1, gap: 0.5 },
-            }),
           }}
         >
           <Tab
-            iconPosition={iconPosition}
+            iconPosition="top"
             icon={<PolylineIcon fontSize="small" />}
-            label={narrow ? 'Graph' : 'Graph (3)'}
+            label="Graph (3)"
             value={RightDrawerView.GRAPH}
             data-cy="graph-inspector-tab"
           />
           <Tab
-            iconPosition={iconPosition}
+            iconPosition="top"
             icon={<DashboardIcon fontSize="small" />}
-            label={narrow ? 'Interface' : 'User interface (4)'}
+            label="User interface (4)"
             value={RightDrawerView.INTERFACE}
             data-cy="interface-settings-tab"
           />
           <Tab
-            iconPosition={iconPosition}
+            iconPosition="top"
             icon={<SquareIcon fontSize="small" />}
-            label={narrow ? 'App' : 'App (5)'}
+            label="App (5)"
             value={RightDrawerView.APP}
             data-cy="app-info-tab"
           />

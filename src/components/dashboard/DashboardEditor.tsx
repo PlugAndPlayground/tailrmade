@@ -999,9 +999,6 @@ export const DashboardEditor: React.FC<DashboardEditorProps> = ({
         minWidth: 0,
         minHeight: 0,
         overflowY: 'auto',
-        // a scroll that runs out here must not hand the rest of the gesture
-        // to the page - on iOS, the rubber-band that makes a full-screen app
-        // feel like a web page
         overscrollBehavior: 'contain',
         background: `${getDashboardBackground()}`,
         position: 'relative',
@@ -1086,10 +1083,6 @@ export const DashboardEditor: React.FC<DashboardEditorProps> = ({
               }}
             >
               <AppThemeProvider>
-                {/* the app's own ground. The root container paints a
-                    translucent tint over this, so without it a preset or mode
-                    change would only show up on controls, not on the surface
-                    they sit on */}
                 <Box
                   data-cy="app-theme-surface"
                   sx={{
@@ -1098,14 +1091,8 @@ export const DashboardEditor: React.FC<DashboardEditorProps> = ({
                     minWidth: 0,
                     bgcolor: 'background.default',
                     color: 'text.primary',
-                    // no 300ms wait before a tap becomes a click, and no grey
-                    // flash box around every widget the finger lands on
                     touchAction: 'manipulation',
                     WebkitTapHighlightColor: 'transparent',
-                    // app view is the only layout that reaches the physical
-                    // edges of the screen (viewport-fit=cover in template.html).
-                    // Padding rather than margin, so the app's own background
-                    // still paints into the inset and only the widgets move.
                     ...(appView && {
                       pt: 'env(safe-area-inset-top)',
                       pb: 'env(safe-area-inset-bottom)',
@@ -1160,8 +1147,6 @@ export const EmptyState: React.FC<{ appView?: boolean }> = ({
             <Typography variant="h5" gutterBottom>
               {stackLayout ? 'No user interface yet' : 'Nothing to show'}
             </Typography>
-            {/* the desktop version names a logo that is not on screen and a
-              shortcut there is no keyboard for */}
             <Typography variant="body1" color="text.secondary">
               {stackLayout ? (
                 <>

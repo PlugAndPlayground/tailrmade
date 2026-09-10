@@ -217,23 +217,9 @@ export const zoomToFitNodes = (
   emitMoved();
 };
 
-/**
- * How a phone should be looking at a graph it has just loaded.
- *
- * The saved scale was chosen on the window the app was saved from, almost
- * always a desktop, so restoring it on a 390px screen opens the app deep
- * inside itself. Fitting is the honest answer for a graph you are reading -
- * but fitting a large one would make it dust, so the scale is clamped, and
- * when the clamp bites the author's own centre is kept: on a graph that does
- * not fit, where they left the view beats the middle of its bounding box.
- */
-// A node is ~200 world px wide, so this shows about thirteen across a phone.
-// Higher floors look better on small graphs but stop medium ones from ever
-// fitting, which is the case that matters.
+// Custom zoom for mobile layout so the user gets an easy overview
 const STACK_MIN_ZOOM = 0.15;
-// a single small node should not be blown up to fill the screen
 const STACK_MAX_ZOOM = 1;
-// the same breathing room zoomToFitNodes leaves around the bounds
 const STACK_FIT_PADDING = 0.2;
 
 export const frameGraphForStackLayout = (): void => {

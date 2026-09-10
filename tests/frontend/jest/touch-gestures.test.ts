@@ -1,6 +1,9 @@
 import {
   TOUCH_DRAG_SLOP_PX,
   LONG_PRESS_MS,
+  DOUBLE_TAP_MS,
+  DoubleTap,
+  isDoubleActivation,
   shouldDrawSelectionMarquee,
   TouchGesture,
   TouchPanHandoff,
@@ -164,4 +167,68 @@ describe('reaching the canvas through a widget control', () => {
     handoff.end();
     expect(handoff.move(500, 500)).toBeUndefined();
   });
+});
+
+describe("double tap as the finger's double click", () => {
+  let doubleTap: DoubleTap;
+
+  beforeEach(() => {
+    doubleTap = new DoubleTap();
+  });
+
+  it('pairs two taps on the same target inside the window', () => {
+    expect(doubleTap.happened('viewport', 0)).toBe(false);
+    expect(doubleTap.happened('viewport', DOUBLE_TAP_MS)).toBe(true);
+  });
+
+  it('does not pair taps further apart than the window', () => {
+    doubleTap.happened('viewport', 0);
+    expect(doubleTap.happened('viewport', DOUBLE_TAP_MS + 1)).toBe(false);
+  });
+
+  it('does not pair taps on different targets', () => {
+    doubleTap.happened('node-a', 0);
+    expect(doubleTap.happened('node-b', 10)).toBe(false);
+  });
+
+  // a tap that missed the window has to be able to open the next pair, or a
+  // slow first tap would poison the double tap that follows it
+  it('starts a fresh pair from the tap that fell outside the window', () => {
+    doubleTap.happened('viewport', 0);
+    doubleTap.happened('viewport', DOUBLE_TAP_MS + 1);
+    expect(doubleTap.happened('viewport', DOUBLE_TAP_MS + 100)).toBe(true);
+  });
+
+  it('reads three taps as a double tap and a single, not two doubles', () => {
+    expect(doubleTap.happened('viewport', 0)).toBe(false);
+    expect(doubleTap.happened('viewport', 100)).toBe(true);
+    expect(doubleTap.happened('viewport', 200)).toBe(false);
+  });
+});
+
+describe('what counts as a double activation', () => {
+  const tap = (timeStamp: number) =>
+    isDoubleActivation({
+      pointerType: 'touch',
+      detail: 1,
+      target: 'viewport',
+      timeStamp,
+    });
+
+  // PIXI dispatches `click` for a mouse or a pen only, so a finger's `detail`
+  // never reaches a handler bound to it - and its 200ms window is a mouse's
+  it('ignores the click count PIXI counted for a finger', () => {
+    const now = performance.now();
+    expect(tap(now)).toBe(false);
+    expect(tap(now + DOUBLE_TAP_MS - 1)).toBe(true);
+  });
+
+  it.each(['mouse', 'pen'])(
+    'trusts the click count for a %s',
+    (pointerType) => {
+      const sample = { pointerType, target: 'viewport', timeStamp: 0 };
+      expect(isDoubleActivation({ ...sample, detail: 1 })).toBe(false);
+      expect(isDoubleActivation({ ...sample, detail: 2 })).toBe(true);
+    },
+  );
 });

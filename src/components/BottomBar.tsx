@@ -17,25 +17,12 @@ import { CLOUD_MODE } from '../services/shared-types';
 import { BackendGateway } from '../services/BackendGateway';
 import { useResolvedAppTheme } from '../utils/theme/store';
 
-// The whole of navigation under the stack layout, and the reason the rail can
-// disappear there. It sits at the bottom because that is where a thumb is, and
-// starts closed because an app that owns the screen should own all of it:
-// collapsed it is the logo alone in the corner, and tapping it grows the same
-// surface out to the full width.
 export const BOTTOM_BAR_HEIGHT = 56;
-
-// What is left of the bar when it is closed, and - the same number - the width
-// of the logo's slot when it is open, so that opening animates the width
-// around a logo that does not move.
 export const BOTTOM_BAR_COLLAPSED_WIDTH = 56;
 
-// Long enough to read the row and choose a destination, short enough that a
-// bar opened by accident is gone before it annoys you.
 const AUTO_COLLAPSE_MS = 4000;
 
-// Where the bar is in the way, and therefore where it closes itself. The apps
-// list and the AI panel end above it anyway, so there it stays and navigation
-// is one tap instead of two.
+// Where the bar is in the way, and therefore where it closes itself.
 const COLLAPSING_VIEWS: StackView[] = ['ui', 'graph'];
 
 type Destination = {
@@ -45,8 +32,6 @@ type Destination = {
   dataCy: string;
 };
 
-// Apps first: it is where a session starts. Then the two views of the app you
-// opened - its UI, then the graph behind it - and then AI, which changes them.
 const DESTINATIONS: Destination[] = [
   {
     view: 'apps',
@@ -64,8 +49,6 @@ const DESTINATIONS: Destination[] = [
   { view: 'ai', label: 'AI', Icon: AutoAwesomeIcon, dataCy: 'bottom-bar-ai' },
 ];
 
-// A menu opened from the bar: the full width of the screen, sitting on top of
-// it, with a scrim that takes the tap that closes it.
 const MenuSheet: React.FC<{
   dataCy: string;
   onClose: () => void;
@@ -79,7 +62,6 @@ const MenuSheet: React.FC<{
     />
     <Paper
       data-cy={`${dataCy}-menu`}
-      // any item closes it - each one either acts or opens something of its own
       onClick={onClose}
       sx={{
         position: 'fixed',
@@ -121,9 +103,6 @@ export const BottomBar: React.FC = () => {
   }, []);
 
   const collapses = COLLAPSING_VIEWS.includes(stackView);
-  // Signing in is the first item in the overflow menu rather than a
-  // destination, so AI is simply not offered until there is an account behind
-  // it. A local build has no accounts at all and always shows it.
   const showAI = !CLOUD_MODE || currentUser !== null;
   const destinations = DESTINATIONS.filter(
     (destination) => destination.view !== 'ai' || showAI,
@@ -141,9 +120,6 @@ export const BottomBar: React.FC = () => {
   }, [expanded, openMenu, collapses, stackView]);
 
   // ...and going back to the app closes it too, without waiting out the timer.
-  // Capture phase: a scroll inside the app UI never reaches the window by
-  // bubbling, and the pointerdown has to be seen before whatever it lands on
-  // stops it.
   useEffect(() => {
     if (!expanded || openMenu || !collapses) {
       return;
@@ -170,14 +146,8 @@ export const BottomBar: React.FC = () => {
 
   const background = getDrawerBackground().toString();
   const activeColor = TRgba.fromString(MAIN_COLOR).lighten(0.35).hex();
-  // White, not a dimmed white: the current destination is already marked by its
-  // colour, and dimming the rest only made the bar look switched off.
   const restColor = TRgba.white().hex();
 
-  // Collapsed, the logo floats directly on the view, so what is behind it
-  // decides its colour - the graph being black whatever the app theme says,
-  // because the canvas is the editor's surface rather than the app's. Expanded,
-  // it sits on the bar's own background like every other slot.
   const floatingLogoColor = (): string => {
     if (stackView === 'graph') {
       return TRgba.black().hex();
@@ -215,9 +185,6 @@ export const BottomBar: React.FC = () => {
         position: 'fixed',
         left: 0,
         bottom: 0,
-        // the collapsed bar floats over the view rather than reserving a strip
-        // of it: 56px permanently withheld from the app is a worse trade than
-        // a corner of it briefly covered
         width: expanded ? '100%' : `${BOTTOM_BAR_COLLAPSED_WIDTH}px`,
         transition: 'width 0.2s cubic-bezier(0, 0, 0.2, 1)',
         zIndex: 40,
@@ -226,13 +193,10 @@ export const BottomBar: React.FC = () => {
         overflow: 'hidden',
         background: expanded ? background : 'transparent',
         borderTop: expanded ? '1px solid rgba(255, 255, 255, 0.12)' : 'none',
-        // the inset is added below the row rather than taken out of it, so the
-        // targets never shrink around the home indicator
         paddingBottom: 'env(safe-area-inset-bottom)',
         pointerEvents: 'auto',
       }}
     >
-      {/* the logo IS the bar when it is closed, so it opens and closes it */}
       <ButtonBase
         data-cy="bottom-bar-toggle"
         aria-label={expanded ? 'Hide navigation' : 'Show navigation'}
@@ -293,10 +257,6 @@ export const BottomBar: React.FC = () => {
         </>
       )}
 
-      {/* Both menus are the same sheet: a phone has no room for one anchored to
-          the slot that opened it. `more` is everything an app can do that is
-          not a destination - the same items, in the same order, as the top of
-          the graph context menu. */}
       {openMenu && (
         <MenuSheet
           dataCy={`bottom-bar-${openMenu}`}

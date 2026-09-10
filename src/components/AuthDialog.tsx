@@ -5,10 +5,6 @@ import Authentication from '../firebase/Authentication';
 import { CLOUD_MODE } from '../services/shared-types';
 import { createStore } from './createStore';
 
-// Lifted out of the Rail so the bottom bar can raise it too: under the stack
-// layout there is no rail, and the overflow menu that asks for sign-in
-// unmounts the moment the item is clicked - so the dialog cannot be owned by
-// whatever asked for it. Every caller says "open", and one host renders it.
 const authDialogStore = createStore<boolean>(false);
 
 export const openAuthDialog = (): void => authDialogStore.set(true);

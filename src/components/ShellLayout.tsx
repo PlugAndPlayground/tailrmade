@@ -10,11 +10,11 @@ import { useResolvedAppTheme } from '../utils/theme/store';
 import { useIsSmallScreen } from '../utils/utils';
 import {
   getStackView,
+  goToOpenedApp,
   useIsStackLayout,
   useStackView,
 } from '../utils/layoutModel';
 import { BottomBar } from './BottomBar';
-import { goToOpenedApp } from '../utils/stackNavigation';
 import { LeftsideContainer } from '../containers/LeftsideContainer';
 import { DashboardEditor } from './dashboard/DashboardEditor';
 import { getDashboardBackground, LeftDrawerView } from '../utils/constants';
@@ -45,9 +45,7 @@ const ShellLayout: React.FunctionComponent<ShellLayoutProps> = (props) => {
     overlayState[DrawerSide.DASHBOARD].visible &&
     overlayState[DrawerSide.DASHBOARD].maximized;
 
-  // Picking an app out of the apps list is the one navigation the phone does
-  // on your behalf: staying on the list would make the tap look like it did
-  // nothing. Where it lands depends on the app - see goToOpenedApp.
+  // Picking an app out of the apps list on the phone goes to the opened app
   useEffect(() => {
     if (!stackLayout) {
       return;
@@ -55,9 +53,6 @@ const ShellLayout: React.FunctionComponent<ShellLayoutProps> = (props) => {
     const listenerId = InterfaceController.addListener(
       ListenEvent.GraphConfigured,
       () => {
-        // Loading an app fires this twice - clear() wipes the old graph before
-        // the new one is read - and only the second one has an app in it to
-        // look at. clear() notifies while the flag is still false.
         if (
           PPGraph.currentGraph.graphConfiguredAndReady &&
           getStackView() === 'apps'
@@ -69,10 +64,6 @@ const ShellLayout: React.FunctionComponent<ShellLayoutProps> = (props) => {
     return () => InterfaceController.removeListener(listenerId);
   }, [stackLayout]);
 
-  // One full-screen view at a time above a bottom bar: the rail, both drawers
-  // and the dashboard column are absent rather than hidden or narrowed, so
-  // nothing has to negotiate. 'graph' renders nothing at all - the pixi canvas
-  // is behind the whole shell already.
   if (stackLayout) {
     return (
       <>
@@ -85,8 +76,6 @@ const ShellLayout: React.FunctionComponent<ShellLayoutProps> = (props) => {
               left: 0,
               right: 0,
               top: 0,
-              // full height: the bar floats over the corner rather than
-              // reserving a strip
               bottom: 0,
               zIndex: 20,
               display: 'flex',
@@ -100,8 +89,6 @@ const ShellLayout: React.FunctionComponent<ShellLayoutProps> = (props) => {
               <DashboardEditor
                 isVisible
                 isEditMode={false}
-                // the phone's UI view is app view - there is no editor chrome
-                // to keep below the breakpoint
                 appView
                 overlayState={overlayState}
                 updateOverlayState={props.updateOverlayState}
@@ -129,12 +116,9 @@ const ShellLayout: React.FunctionComponent<ShellLayoutProps> = (props) => {
               alignItems: 'baseline',
               gap: '8px',
               userSelect: 'none',
-              // the canvas behind it stays pannable through the whole strip
               pointerEvents: 'none',
             }}
           >
-            {/* a label, not a control - renaming lives in the bottom bar's
-                overflow menu, with the app's other actions */}
             <Typography
               data-cy="stack-app-name"
               sx={{
@@ -149,8 +133,6 @@ const ShellLayout: React.FunctionComponent<ShellLayoutProps> = (props) => {
             >
               {props.currentGraph.name}
             </Typography>
-            {/* why nothing here responds to a tap, said once rather than by
-                every node refusing individually */}
             <Typography
               data-cy="stack-explore-only"
               sx={{
@@ -170,8 +152,6 @@ const ShellLayout: React.FunctionComponent<ShellLayoutProps> = (props) => {
     );
   }
 
-  // the row must not swallow pointer events - the canvas behind it has to
-  // stay interactive through the canvas strip
   return (
     <Box
       data-cy="shell-layout"

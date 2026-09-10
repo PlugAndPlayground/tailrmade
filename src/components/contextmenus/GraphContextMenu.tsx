@@ -23,6 +23,7 @@ import { openAuthDialog } from '../AuthDialog';
 import { BackendGateway } from '../../services/BackendGateway';
 import { CLOUD_MODE } from '../../services/shared-types';
 import AddIcon from '@mui/icons-material/Add';
+import FolderOpenIcon from '@mui/icons-material/FolderOpen';
 import SearchIcon from '@mui/icons-material/Search';
 import UploadIcon from '@mui/icons-material/Upload';
 import SaveIcon from '@mui/icons-material/Save';
@@ -87,12 +88,7 @@ function gestureModes(): any {
   ];
 }
 
-/**
- * The part of this menu that also has to work with a thumb. The bottom bar's
- * overflow menu is these items and nothing else, so both callers render the
- * same array; what is left below them in the graph menu needs a rail, a
- * pointer or a keyboard to mean anything.
- */
+// The part of this menu that is also the bottom bars overview menu
 export function appMenuOptions(controlOrMetaKey?: string): any {
   const isLoggedIn =
     CLOUD_MODE && BackendGateway.getInstance().getCurrentUser() !== null;
@@ -240,7 +236,7 @@ export const GraphContextMenu = (props) => {
           }
         >
           <ListItemIcon>
-            <SearchIcon fontSize="small" />
+            <FolderOpenIcon fontSize="small" />
           </ListItemIcon>
           <ListItemText>Open app</ListItemText>
           <Typography variant="body2" color="text.secondary">

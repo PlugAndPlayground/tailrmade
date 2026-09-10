@@ -1,5 +1,9 @@
-import { getStackView, setStackView } from '../../../src/utils/layoutModel';
-import { goToOpenedApp, graphHasUI } from '../../../src/utils/stackNavigation';
+import {
+  getStackView,
+  goToOpenedApp,
+  graphHasUI,
+  setStackView,
+} from '../../../src/utils/layoutModel';
 import { RootName } from '../../../src/utils/constants_shared';
 
 // Opening an app from the phone's apps list has to leave the list, and the view

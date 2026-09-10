@@ -715,8 +715,6 @@ export default class Socket
   }
 
   onSocketPointerDown(event: PIXI.FederatedPointerEvent): void {
-    // no wiring on a phone - see isCanvasExploreOnly. As in
-    // PPNode.onPointerDown, leaving the press alone makes it a pan.
     if (isCanvasExploreOnly()) {
       return;
     }

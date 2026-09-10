@@ -19,12 +19,10 @@ import {
   useIsStackLayout,
   useMaxOpenPanels,
   useStackView,
-} from '../utils/layoutModel';
-import {
   CAPPED_PANELS,
   nextPanelOrder,
   panelsToClose,
-} from '../utils/panelCap';
+} from '../utils/layoutModel';
 import { DrawerSide, IOverlay, isSurfaceNode } from '../utils/interfaces';
 import {
   DASHBOARD_DEFAULT,
@@ -147,9 +145,6 @@ const GraphOverlay: React.FunctionComponent<GraphOverlayProps> = (props) => {
     }
   }, [overlayState, appView, stackLayout, stackView]);
 
-  // Here rather than inside each toggle: a panel opens from a drawer toggle,
-  // the dashboard toggle and a keyboard shortcut, and the window can also be
-  // resized across the breakpoint with all three already open.
   useEffect(() => {
     if (stackLayout) {
       return;

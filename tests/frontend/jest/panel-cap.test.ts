@@ -2,7 +2,7 @@ import {
   CAPPED_PANELS,
   nextPanelOrder,
   panelsToClose,
-} from '../../../src/utils/panelCap';
+} from '../../../src/utils/layoutModel';
 import { DrawerSide } from '../../../src/utils/interfaces';
 
 const { LEFT, RIGHT, DASHBOARD } = DrawerSide;

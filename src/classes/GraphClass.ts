@@ -24,8 +24,10 @@ import {
   clearDocumentSelection,
   perform_action_connectNodeToSocket,
   isPhone,
+  swallowGhostMouseDown,
 } from '../utils/utils';
 import {
+  isDoubleActivation,
   shouldDrawSelectionMarquee,
   TouchGesture,
 } from '../utils/touchGestures';
@@ -54,7 +56,6 @@ import { DynamicImport } from '../utils/dynamicImport';
 import {
   DASHBOARD_DEFAULT,
   MAX_LATEST_NODES_IN_SEARCH,
-  ONCLICK_DOUBLECLICK,
 } from '../utils/constants';
 import { VISIBILITY_ACTION } from '../utils/constants_shared';
 import HybridNode2 from './HybridNode2';
@@ -74,8 +75,6 @@ import PPStorage, { DEFAULT_ACCESS, DEFAULT_LOCATION } from '../PPStorage';
 const DUMMY_IMPORT = getNodesBounds;
 const EMPTY_DEFAULT_MACRO_NAME = 'EmptyDefaultMacro';
 
-// What a long press remembers about the press that started it. PIXI recycles
-// its event objects, so the point is cloned rather than referenced.
 type LongPressTarget = {
   global: PIXI.Point;
   target: PIXI.Container;
@@ -209,22 +208,20 @@ export default class PPGraph {
       'rightclick',
       this.onPointerRightClicked.bind(this),
     );
-    this.viewport.addEventListener('click', this.onPointerClick.bind(this));
+    this.viewport.addEventListener(
+      'pointertap',
+      this.onPointerClick.bind(this),
+    );
 
     this.viewport.addEventListener('moved', () => this.socketFocus.refresh());
     this.viewport.addEventListener('pointermove', (event) =>
       this.onViewportMove(event),
     );
 
-    // Touch has no second button, so a press that stays put opens whichever
-    // context menu a right click in the same spot would - the routing already
-    // switches on the target.
+    // Touch has no second button, so a long press opens a context menu
     this.touchGesture = new TouchGesture<LongPressTarget>(
       ({ global, target }) => this.openLongPressContextMenu(global, target),
     );
-    // Capture phase, not bubble: PPNode.onPointerDown stops propagation, which
-    // would leave a bubbling listener blind to every press on a node - most of
-    // the presses that want a context menu.
     this.viewport.addEventListener(
       'pointerdown',
       (event: PIXI.FederatedPointerEvent) =>
@@ -234,8 +231,6 @@ export default class PPGraph {
         }),
       { capture: true },
     );
-    // window rather than the viewport: a finger that slides off the canvas
-    // still has to call off the press, and pointercancel never reaches PIXI
     window.addEventListener('pointermove', (event: PointerEvent) =>
       this.touchGesture.move(event.clientX, event.clientY),
     );
@@ -307,31 +302,20 @@ export default class PPGraph {
     }
   }
 
-  /**
-   * A long press has to leave the canvas in the state a right click would,
-   * which means standing down what the press had already started: a press on a
-   * node has begun dragging it, one on a socket has begun pulling a wire, and
-   * either would carry on underneath the menu.
-   */
   private openLongPressContextMenu(
     global: PIXI.Point,
     target: PIXI.Container,
   ): void {
-    // everything these menus offer is an edit (see isCanvasExploreOnly)
     if (isCanvasExploreOnly()) {
       return;
     }
     this.stopConnecting();
     this.selection.stopDragAction(undefined);
 
-    // right-clicking a node selects it first (see PPNode.onPointerDown), so
-    // that the menu acts on what was pressed rather than on an older selection
     if (target instanceof PPNode && !target.selected) {
       this.selection.selectNodes([target], false);
     }
 
-    // onRightClick only ever reads `global` off the event, and the real one has
-    // been recycled by now - see LongPressTarget
     InterfaceController.onRightClick(
       { global } as PIXI.FederatedPointerEvent,
       target,
@@ -341,12 +325,19 @@ export default class PPGraph {
   onPointerClick(event: PIXI.FederatedPointerEvent): void {
     console.log('onPointerClick', event.detail);
 
-    // check if double clicked
-    if (event.detail === ONCLICK_DOUBLECLICK) {
+    // pointertap, unlike click, also fires for the right button
+    if (event.button === 2) {
+      return;
+    }
+
+    if (isDoubleActivation(event)) {
       event.stopPropagation();
       const target = event.target;
       if (target instanceof Viewport) {
         this.overrideNodeCursorPosition = this.viewport.toWorld(event.global);
+        if (event.pointerType === 'touch') {
+          swallowGhostMouseDown();
+        }
         InterfaceController.openNodeSearch(new PIXI.Point(event.x, event.y));
       }
     }
@@ -366,7 +357,6 @@ export default class PPGraph {
       open: false,
     });
 
-    // a marquee is a selection, and there is no selection on a phone
     if (shouldDrawSelectionMarquee(event) && !isCanvasExploreOnly()) {
       if (!this.socketFocus.hovered) {
         this.selection.drawSelectionStart(event, event.shiftKey);
@@ -414,11 +404,6 @@ export default class PPGraph {
 
     this.selection.drawSelectionFinish(event);
 
-    // Touch never enters Interaction.Drawing (see shouldDrawSelectionMarquee),
-    // so drawSelectionFinish's "released where it was pressed" deselect never
-    // triggers for a finger. Only a tap may stand in for it: a pan ends on the
-    // viewport too, and a long press has just opened a menu that acts on the
-    // selection.
     if (
       this.touchGesture.end() === 'tap' &&
       event.target instanceof Viewport &&
@@ -1666,9 +1651,6 @@ export default class PPGraph {
 
     this.graphConfiguredAndReady = true;
 
-    // the saved view was framed on the window the app was saved from - see
-    // frameGraphForStackLayout. Here rather than with the rest of the viewport
-    // restore because it needs the nodes to exist to have something to fit.
     if (isStackLayout()) {
       frameGraphForStackLayout();
     }
