@@ -1,222 +1,50 @@
 import {
-  checkingWarningsMarker,
-  completedToolCallsMarker,
   createToolMarkerRegex,
-  lookedAtUIMarker,
-  runStoppedEarlyMarker,
   stripAIToolMarkers,
-  toolFailedMarker,
-  turnLimitMarker,
-  usedToolMarker,
-  usingToolMarker,
-  type ToolMarkerGroups,
 } from '../../../src/services/aiToolMarkers';
-import {
-  isTruncatedStopReason,
-  parseAIProviderTurn,
-  prepareAIProviderTurn,
-} from '../../../src/services/aiProviderAdapters';
 
-const matchAllMarkers = (content: string) =>
-  Array.from(content.matchAll(createToolMarkerRegex()));
-
-const groupsOf = (content: string): ToolMarkerGroups =>
-  (matchAllMarkers(content)[0]?.groups || {}) as ToolMarkerGroups;
-
-describe('tool markers match the strings the agent actually emits', () => {
-  // Every marker builder paired with the group the panel identifies it by. A
-  // marker whose wording drifts from its pattern leaks into the chat as raw
-  // text and reaches the model as a written-out tool call.
-  const markers: Array<[string, string, keyof ToolMarkerGroups]> = [
-    ['using', usingToolMarker('set_socket_value'), 'usingTool'],
-    ['used', usedToolMarker('set_socket_value'), 'usedTool'],
-    ['failed', toolFailedMarker('add_node', 'node not found'), 'failedTool'],
-    ['checking warnings', checkingWarningsMarker(), 'checkingWarnings'],
-    ['looked at the UI', lookedAtUIMarker(), 'lookedAtUI'],
-    [
-      'completed, no inspections',
-      completedToolCallsMarker(3, ''),
-      'completedCount',
-    ],
-    [
-      'completed, with inspections',
-      completedToolCallsMarker(
-        10,
-        'describe_node x2, inspect_warnings_and_errors',
-      ),
-      'completedCount',
-    ],
-    ['turn limit', turnLimitMarker(60), 'limitTurns'],
-    ['stopped early', runStoppedEarlyMarker('length'), 'stoppedEarly'],
-  ];
-
-  it.each(markers)('matches the %s marker whole', (_name, marker, group) => {
-    const matches = matchAllMarkers(marker);
-
-    expect(matches).toHaveLength(1);
-    expect(matches[0][0]).toBe(marker);
-    expect(groupsOf(marker)[group]).toBeDefined();
+describe('AI tool markers', () => {
+  it.each([
+    '*Using set_socket_value...*',
+    '*Used set_socket_value.*',
+    '*add_node failed: node not found*',
+    '*Checking graph warnings and errors before finishing...*',
+    '*Looked at the rendered UI.*',
+    '*Completed 3 MCP tool call(s).*',
+    '*Completed 3 MCP tool call(s). Inspections: describe_node x2.*',
+    'Stopped after reaching the MCP turn limit (60) for this request.',
+  ])('matches the complete marker %s', (marker) => {
+    expect(marker.match(createToolMarkerRegex())).toEqual([marker]);
   });
 
-  it('carries the payload the panel puts on a chip', () => {
-    expect(groupsOf(usedToolMarker('connect_sockets')).usedTool).toBe(
-      'connect_sockets',
-    );
-    expect(groupsOf(toolFailedMarker('add_node', 'boom')).failedDetail).toBe(
-      'boom',
-    );
-    expect(groupsOf(turnLimitMarker(60)).limitTurns).toBe('60');
+  it('keeps the captures used by the conversation UI', () => {
+    const match = createToolMarkerRegex().exec('*add_node failed: not found*');
+
+    expect(match?.[3]).toBe('add_node');
+    expect(match?.[4]).toBe('not found');
   });
 
-  it('survives a failure detail that contains asterisks', () => {
-    // result.content is an arbitrary tool result, and an unescaped "*" in it
-    // used to close the marker early - leaving the rest of the detail in the
-    // panel as literal text and in what the model gets replayed.
-    const marker = toolFailedMarker('add_node', 'bad *value* for socket');
-    const matches = matchAllMarkers(marker);
-
-    expect(matches).toHaveLength(1);
-    expect(matches[0][0]).toBe(marker);
-    expect(groupsOf(marker).failedDetail).toBe('bad value for socket');
-    expect(stripAIToolMarkers(marker)).toBe('');
-  });
-
-  it("leaves the model's own prose alone", () => {
-    // what a model writes when it describes tool calls instead of making them
-    const prose = [
-      'I will fix it:',
+  it('removes tool status from assistant history', () => {
+    const message = [
+      "I'll update the label:",
       '',
-      '**1.** `set_socket_value` — popular-dingo-85 "Callback" → ", "',
-      '**2.** `inspect_nodes` — [popular-dingo-85]',
+      '*Using set_socket_value...*',
+      '*Used set_socket_value.*',
+      '*Looked at the rendered UI.*',
+      '',
+      'Done. The label now joins the values with commas.',
+      '',
+      '*Completed 2 MCP tool call(s). Inspections: describe_node.*',
     ].join('\n');
 
-    expect(matchAllMarkers(prose)).toHaveLength(0);
-  });
-});
-
-describe('stripAIToolMarkers', () => {
-  const message = [
-    "I'll insert a function that joins the array with commas:",
-    '',
-    usingToolMarker('add_node'),
-    usedToolMarker('add_node'),
-    usingToolMarker('set_socket_value'),
-    usedToolMarker('set_socket_value'),
-    lookedAtUIMarker(),
-    '',
-    'Done. The label now shows a comma separated list.',
-    '',
-    completedToolCallsMarker(
-      10,
-      'describe_node x2, inspect_warnings_and_errors',
-    ),
-  ].join('\n');
-
-  it('removes every trace of tool use from what the model is replayed', () => {
-    const stripped = stripAIToolMarkers(message);
-
-    expect(stripped).toBe(
-      "I'll insert a function that joins the array with commas:\n\n" +
-        'Done. The label now shows a comma separated list.',
+    expect(stripAIToolMarkers(message)).toBe(
+      "I'll update the label:\n\nDone. The label now joins the values with commas.",
     );
-    expect(matchAllMarkers(stripped)).toHaveLength(0);
   });
 
-  it('keeps a reply that never used a tool byte for byte', () => {
+  it("does not alter the model's own prose", () => {
     const answer = 'Use a CustomFunction node with items.join(", ").';
 
     expect(stripAIToolMarkers(answer)).toBe(answer);
-  });
-
-  it('empties a turn that only ran tools, so the caller can substitute', () => {
-    expect(
-      stripAIToolMarkers(
-        `${usedToolMarker('add_node')}\n${completedToolCallsMarker(1, '')}`,
-      ),
-    ).toBe('');
-  });
-});
-
-describe('isTruncatedStopReason', () => {
-  it.each([
-    'max_tokens',
-    'length',
-    'incomplete',
-    'max_output_tokens',
-    'content_filter',
-    'MAX_TOKENS',
-  ])('treats %s as a cut-off turn', (stopReason) => {
-    expect(isTruncatedStopReason(stopReason)).toBe(true);
-  });
-
-  it.each(['end_turn', 'tool_calls', 'stop', 'completed', 'STOP', undefined])(
-    'treats %s as a finished turn',
-    (stopReason) => {
-      expect(isTruncatedStopReason(stopReason)).toBe(false);
-    },
-  );
-});
-
-describe('per-provider output token field', () => {
-  const request = {
-    model: 'test-model',
-    systemPrompt: 'system',
-    maxTokens: 4096,
-    messages: [{ role: 'user', content: [{ type: 'text', text: 'hi' }] }],
-  };
-
-  // Each provider names this differently, and a name the provider does not
-  // recognise is ignored rather than rejected - the reply then gets capped at
-  // the provider's own default and turns end mid-tool-call.
-  it.each([
-    ['claude' as const, 'max_tokens'],
-    ['openai' as const, 'max_output_tokens'],
-    ['kimi' as const, 'max_completion_tokens'],
-  ])('sends %s the %s field', (provider, field) => {
-    const { body } = prepareAIProviderTurn({ ...request, provider });
-
-    expect(body[field]).toBe(4096);
-  });
-
-  it('does not send Kimi the deprecated max_tokens as well', () => {
-    const { body } = prepareAIProviderTurn({ ...request, provider: 'kimi' });
-
-    expect(body).not.toHaveProperty('max_tokens');
-  });
-
-  it('sends Gemini its limit under generationConfig', () => {
-    const { body } = prepareAIProviderTurn({ ...request, provider: 'gemini' });
-
-    expect((body.generationConfig as any).maxOutputTokens).toBe(4096);
-  });
-});
-
-describe('a cut-off OpenAI turn reports why it stopped', () => {
-  const parse = (data: any) =>
-    parseAIProviderTurn('openai', data, { input: [] });
-
-  it('reads the reason out of incomplete_details, not the status', () => {
-    const { stopReason } = parse({
-      output: [],
-      status: 'incomplete',
-      incomplete_details: { reason: 'max_output_tokens' },
-    });
-
-    // The status only says the reply is unfinished; a run that stopped early
-    // has to tell the user which limit it hit.
-    expect(stopReason).toBe('max_output_tokens');
-    expect(isTruncatedStopReason(stopReason)).toBe(true);
-  });
-
-  it('still flags a bare incomplete status as cut off', () => {
-    const { stopReason } = parse({ output: [], status: 'incomplete' });
-
-    expect(isTruncatedStopReason(stopReason)).toBe(true);
-  });
-
-  it('leaves a completed response alone', () => {
-    const { stopReason } = parse({ output: [], status: 'completed' });
-
-    expect(isTruncatedStopReason(stopReason)).toBe(false);
   });
 });

@@ -42,10 +42,7 @@ import {
 } from '../services/CaptureService';
 import { downscaleImageForAI } from '../utils/imageDownscale';
 import { AIInspectSource, setAIPanelOpen } from '../services/AIVisionService';
-import {
-  createToolMarkerRegex,
-  type ToolMarkerGroups,
-} from '../services/aiToolMarkers';
+import { createToolMarkerRegex } from '../services/aiToolMarkers';
 
 const panelBorder = '1px solid rgba(255,255,255,0.16)';
 const panelSurface = 'rgba(255,255,255,0.08)';
@@ -75,89 +72,62 @@ type ContentPart = CodePart | TextPart | ActionPart;
 
 const pushTextPart = (parts: ContentPart[], content: string) => {
   const normalized = content.replace(/\n{3,}/g, '\n\n');
-  if (!normalized.trim()) {
-    return;
+  if (normalized.trim()) {
+    parts.push({
+      type: 'text',
+      content: normalized,
+    });
   }
-  // Text either side of a marker that was dropped, or of one left in place,
-  // was one run of prose to begin with - keep it in one block.
-  const previous = parts[parts.length - 1];
-  if (previous?.type === 'text') {
-    previous.content = (previous.content + normalized).replace(
-      /\n{3,}/g,
-      '\n\n',
-    );
-    return;
-  }
-  parts.push({
-    type: 'text',
-    content: normalized,
-  });
 };
 
-// A marker either becomes a chip, is dropped (another marker already reports
-// the same action), or is left in the text - returning the matched text keeps
-// it. Patterns and their group names live in aiToolMarkers.
 const parseActionPart = (
   match: RegExpExecArray,
 ): ActionPart | string | undefined => {
-  const groups = (match.groups || {}) as ToolMarkerGroups;
-
-  // the run announces a tool before calling it; the outcome below is the chip
-  if (groups.usingTool !== undefined) {
+  if (match[1]) {
     return undefined;
   }
 
-  // a footer for the panel's benefit only
-  if (groups.completedCount !== undefined) {
-    return undefined;
-  }
-
-  if (groups.usedTool !== undefined) {
+  if (match[2]) {
     return {
       type: 'action',
       status: 'success',
-      label: groups.usedTool,
-      toolName: groups.usedTool,
+      label: match[2],
+      toolName: match[2],
     };
   }
 
-  if (groups.failedTool !== undefined) {
+  if (match[3]) {
     return {
       type: 'action',
       status: 'error',
       label: 'Action failed',
-      toolName: groups.failedTool,
-      detail: groups.failedDetail?.trim(),
+      toolName: match[3],
+      detail: match[4]?.trim(),
     };
   }
 
-  if (groups.checkingWarnings !== undefined) {
-    return {
-      type: 'action',
-      status: 'checking',
-      label: 'Checking warnings and errors',
-    };
+  if (match[5]) {
+    return undefined;
   }
 
-  if (groups.stoppedEarly !== undefined) {
-    return {
-      type: 'action',
-      status: 'limit',
-      label: 'Reply cut off',
-      detail: 'The model hit its output limit before finishing this turn.',
-    };
+  if (match[6]) {
+    return match[0];
   }
 
-  if (groups.limitTurns !== undefined) {
+  if (match[7]) {
     return {
       type: 'action',
       status: 'limit',
       label: 'Stopped at turn limit',
-      detail: `${groups.limitTurns} turns`,
+      detail: `${match[7]} turns`,
     };
   }
 
-  return match[0];
+  return {
+    type: 'action',
+    status: 'checking',
+    label: 'Checking warnings and errors',
+  };
 };
 
 const splitActionsFromText = (content: string): ContentPart[] => {

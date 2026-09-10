@@ -329,9 +329,6 @@ function buildKimi(request: AIProviderTurnRequest): PreparedAIProviderTurn {
       model: request.model,
       messages,
       ...(tools.length ? { tools } : {}),
-      // Moonshot deprecated max_tokens in favour of max_completion_tokens;
-      // the old name still works, but the new one is what the K2.6/K3 docs
-      // document and default from.
       max_completion_tokens: request.maxTokens || 16384,
     },
   };
@@ -424,35 +421,6 @@ export function prepareAIProviderTurn(
   }
 }
 
-// Stop reasons that mean the model ran out of room mid-answer rather than
-// finishing its turn. One per provider, since each spells it differently.
-const TRUNCATED_STOP_REASONS = new Set([
-  // Anthropic (also DeepSeek, which uses the same shape)
-  'max_tokens',
-  // Kimi and other OpenAI-compatible chat completions
-  'length',
-  // OpenAI responses: the status, plus every reason it decomposes into -
-  // each one means the reply stopped before the model was done with it.
-  'incomplete',
-  'max_output_tokens',
-  'max_messages',
-  'content_filter',
-  'steered',
-  // Gemini
-  'MAX_TOKENS',
-]);
-
-/**
- * A truncated turn carries no tool calls even when the model was about to make
- * some, so the agent loop has to tell it apart from a turn that genuinely had
- * nothing left to do - otherwise the run just ends on a half-written sentence.
- */
-export function isTruncatedStopReason(stopReason: unknown): boolean {
-  return (
-    typeof stopReason === 'string' && TRUNCATED_STOP_REASONS.has(stopReason)
-  );
-}
-
 export function parseAIProviderTurn(
   provider: AIProvider,
   data: any,
@@ -499,9 +467,7 @@ export function parseAIProviderTurn(
           name: item.name,
           arguments: parseArguments(item.arguments),
         })),
-      // `status` only says the reply is unfinished; the reason it was cut
-      // off lives in incomplete_details.
-      stopReason: data.incomplete_details?.reason || data.status || 'complete',
+      stopReason: data.status || 'complete',
       state,
       usage: {
         inputTokens: Math.max(count(data.usage?.input_tokens) - cached, 0),
