@@ -42,6 +42,7 @@ import {
 } from '../services/CaptureService';
 import { downscaleImageForAI } from '../utils/imageDownscale';
 import { AIInspectSource, setAIPanelOpen } from '../services/AIVisionService';
+import { createToolMarkerRegex } from '../services/aiToolMarkers';
 
 const panelBorder = '1px solid rgba(255,255,255,0.16)';
 const panelSurface = 'rgba(255,255,255,0.08)';
@@ -69,9 +70,6 @@ interface ActionPart {
 
 type ContentPart = CodePart | TextPart | ActionPart;
 
-const toolActionRegex =
-  /\*(?:Using\s+([A-Za-z0-9_.:-]+)\.\.\.|Used\s+([A-Za-z0-9_.:-]+)\.|([A-Za-z0-9_.:-]+)\s+failed:\s+([\s\S]*?)|Checking graph warnings and errors before finishing\.\.\.|Completed\s+(\d+)\s+MCP tool call\(s\)\.)\*|Stopped after reaching the MCP turn limit \((\d+)\) for this request\./g;
-
 const pushTextPart = (parts: ContentPart[], content: string) => {
   const normalized = content.replace(/\n{3,}/g, '\n\n');
   if (normalized.trim()) {
@@ -82,7 +80,9 @@ const pushTextPart = (parts: ContentPart[], content: string) => {
   }
 };
 
-const parseActionPart = (match: RegExpExecArray): ActionPart | undefined => {
+const parseActionPart = (
+  match: RegExpExecArray,
+): ActionPart | string | undefined => {
   if (match[1]) {
     return undefined;
   }
@@ -111,11 +111,15 @@ const parseActionPart = (match: RegExpExecArray): ActionPart | undefined => {
   }
 
   if (match[6]) {
+    return match[0];
+  }
+
+  if (match[7]) {
     return {
       type: 'action',
       status: 'limit',
       label: 'Stopped at turn limit',
-      detail: `${match[6]} turns`,
+      detail: `${match[7]} turns`,
     };
   }
 
@@ -128,17 +132,19 @@ const parseActionPart = (match: RegExpExecArray): ActionPart | undefined => {
 
 const splitActionsFromText = (content: string): ContentPart[] => {
   const parts: ContentPart[] = [];
+  const toolActionRegex = createToolMarkerRegex();
   let lastIndex = 0;
   let match;
 
-  toolActionRegex.lastIndex = 0;
   while ((match = toolActionRegex.exec(content)) !== null) {
     if (match.index > lastIndex) {
       pushTextPart(parts, content.slice(lastIndex, match.index));
     }
 
     const actionPart = parseActionPart(match);
-    if (actionPart) {
+    if (typeof actionPart === 'string') {
+      pushTextPart(parts, actionPart);
+    } else if (actionPart) {
       parts.push(actionPart);
     }
     lastIndex = match.index + match[0].length;
