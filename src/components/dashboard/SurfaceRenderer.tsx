@@ -2,7 +2,7 @@ import React from 'react';
 import { Box, Typography } from '@mui/material';
 import { ContainerView, containerDefaultProps } from './Container';
 import { DynamicWidgetView } from './DynamicWidget';
-import { TextView, textDefaultProps } from './Text';
+import { TextView } from '../../text/TextView';
 import {
   containerName,
   DynamicWidgetName,
@@ -213,14 +213,7 @@ export const SurfaceRenderer: React.FC<SurfaceRendererProps> = ({
           </DashboardContainerPreview>
         );
       case 'Text':
-        return (
-          <TextView
-            key={itemId}
-            {...textDefaultProps}
-            {...item.props}
-            editable={false}
-          />
-        );
+        return <TextView key={itemId} {...item.props} id={domIdFor(itemId)} />;
       case 'Box':
         return (
           <Box key={itemId} {...item.props}>

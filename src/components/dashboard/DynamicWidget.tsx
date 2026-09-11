@@ -271,7 +271,9 @@ export const DynamicWidget = (props: Partial<DynamicWidgetProps>) => {
       {...props}
       domId={id}
       isEditMode={isEditMode}
-      blockInteraction={isEditMode}
+      blockInteraction={
+        isEditMode && !layoutableElement?.isEditableInSurfaceEditMode?.()
+      }
       parentDirection={parentDirection}
       innerRef={(ref) => ref && connect(drag(ref))}
       onDoubleClick={handleDive}
@@ -408,6 +410,7 @@ const DynamicWidgetSettings = () => {
       />
 
       <ColorSection setProp={setProp} props={props} />
+      {props.id && getLayoutableElement(props.id)?.getDashboardSettings?.()}
     </Stack>
   );
 };

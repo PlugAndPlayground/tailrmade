@@ -177,7 +177,15 @@ everything to keep. Omitted connected widgets are appended with a warning.
   'column'); nest a row container for side-by-side items. mobileBehavior sets
   what a 'row' does on a narrow dashboard (< 600px): 'column' (the default)
   stacks its children, 'wrap' lets them wrap, 'row' keeps them side by side.
-- Static text: {text:'...', fontSize?, fontWeight?, textAlign?, color?}.
+- Static text: {text:'...', variant?, tone?, alignment?}. text is
+  inline Markdown: **bold**, *italic*, \`code\`, [link](https://…), and
+  [words]{.accent .nowrap} for a run's tone or no-wrap; each line is a
+  paragraph. variant: 'display'|'h1'|'h2'|'body'|'caption'|'label'|'stat';
+  tone: 'default'|'muted'|'accent'|'positive'|'negative' (theme colors);
+  alignment: 'left'|'center'|'right'|'justify'. The variant sets size, weight
+  and line height and the tone a theme color, so text follows the app theme.
+  Static text shows {{…}} literally - to show a value from the graph, use a
+  Text node widget.
 - Graph widget: {widget:'<node_id>'} - a node with a ReactUI output;
   unconnected widgets are connected automatically.
 - Colors are {r,g,b,a} (0-255, a 0-1). Keep the default dark theme when

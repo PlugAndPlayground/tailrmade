@@ -31,8 +31,12 @@ import {
   ELEMENT_ID_SEPARATOR,
   parseLegacyElementId,
 } from './elementIds';
+// headless token module (Handlebars only), same isolation discipline
+import { migrateLegacyMentions } from '../text/tokens';
+import { migrateStaticTextItemsInTree } from '../text/migrations';
+import { migrateLegacyTextNodes } from '../text/nodeMigrations';
 
-export const GRAPH_DATA_VERSION = 5;
+export const GRAPH_DATA_VERSION = 8;
 const LEGACY_GRAPH_DATA_VERSION = 0.1;
 
 type GraphMigration = {
@@ -877,6 +881,49 @@ function migrateSurfaceColorsV4ToV5(
   return migrateSurfaceTrees(graphData, 5, migrateSurfaceColorsInTree);
 }
 
+// --- v5 -> v6: text editor mentions become Handlebars tokens ---
+// The editor stored `@[value](socket:name)`, with a stale copy of the value
+// baked in. Tokens are now `{{name}}`; the value is only ever resolved live.
+const TEXT_EDITOR_NODE_TYPE = 'texteditor2';
+const TEXT_EDITOR_MARKDOWN_SOCKET = 'Markdown';
+
+function migrateTextEditorMentionsV5ToV6(
+  graphData: SerializedGraph,
+): SerializedGraph {
+  return {
+    ...graphData,
+    version: 6,
+    nodes: graphData.nodes.map((node) =>
+      String(node.type).toLowerCase() !== TEXT_EDITOR_NODE_TYPE
+        ? node
+        : {
+            ...node,
+            socketArray: node.socketArray.map((socket) =>
+              socket.name === TEXT_EDITOR_MARKDOWN_SOCKET &&
+              socket.socketType !== SOCKET_TYPE.OUT &&
+              typeof socket.data === 'string'
+                ? { ...socket, data: migrateLegacyMentions(socket.data) }
+                : socket,
+            ),
+          },
+    ),
+  };
+}
+
+// --- v6 -> v7: static Text items move to the Text v2 props ---
+// {text, fontSize, fontWeight, textAlign, color} become rich content plus
+// explicit overrides that reproduce exactly what the old widget rendered.
+function migrateStaticTextV6ToV7(graphData: SerializedGraph): SerializedGraph {
+  return migrateSurfaceTrees(graphData, 7, migrateStaticTextItemsInTree);
+}
+
+// --- v7 -> v8: Text nodes become the token-based Text node ---
+// Ids and links survive; see migrateLegacyTextNodes for what each old socket
+// turns into.
+function migrateTextNodesV7ToV8(graphData: SerializedGraph): SerializedGraph {
+  return { ...migrateLegacyTextNodes(graphData), version: 8 };
+}
+
 const GRAPH_MIGRATIONS: GraphMigration[] = [
   {
     fromVersion: LEGACY_GRAPH_DATA_VERSION,
@@ -897,6 +944,21 @@ const GRAPH_MIGRATIONS: GraphMigration[] = [
     fromVersion: 4,
     toVersion: 5,
     migrate: migrateSurfaceColorsV4ToV5,
+  },
+  {
+    fromVersion: 5,
+    toVersion: 6,
+    migrate: migrateTextEditorMentionsV5ToV6,
+  },
+  {
+    fromVersion: 6,
+    toVersion: 7,
+    migrate: migrateStaticTextV6ToV7,
+  },
+  {
+    fromVersion: 7,
+    toVersion: 8,
+    migrate: migrateTextNodesV7ToV8,
   },
 ];
 

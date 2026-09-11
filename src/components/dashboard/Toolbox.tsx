@@ -12,6 +12,8 @@ import { hri } from 'human-readable-ids';
 import { Container } from './Container';
 import { Text } from './Text';
 import TextFieldsIcon from '@mui/icons-material/TextFields';
+import TitleIcon from '@mui/icons-material/Title';
+import ShortTextIcon from '@mui/icons-material/ShortText';
 import TableRowsIcon from '@mui/icons-material/TableRows';
 import ViewColumnIcon from '@mui/icons-material/ViewColumn';
 import DashboardCustomizeIcon from '@mui/icons-material/DashboardCustomize';
@@ -333,19 +335,24 @@ const getStaticTools = () => [
       />
     ),
   },
+  // three entries, one primitive: each is Text with a different variant
+  {
+    icon: TitleIcon,
+    tooltip: 'Heading',
+    dataCy: 'tool-heading',
+    element: <Text variant="h1" content="Heading" />,
+  },
   {
     icon: TextFieldsIcon,
     tooltip: 'Text',
     dataCy: 'tool-text',
-    element: (
-      <Text
-        text="Hello world"
-        fontSize={24}
-        textAlign="left"
-        fontWeight="normal"
-        color={TRgba.fromString(MAIN_COLOR).getContrastTextColor()}
-      />
-    ),
+    element: <Text variant="body" content="Hello world" />,
+  },
+  {
+    icon: ShortTextIcon,
+    tooltip: 'Caption',
+    dataCy: 'tool-caption',
+    element: <Text variant="caption" content="Caption" />,
   },
 ];
 

@@ -26,6 +26,8 @@ import {
   TailrmadeMCPServer,
 } from './services/TailrmadeMCPServer';
 import { AIBackend } from './services/AIBackend';
+import { createTokenInput } from './text/nodeInputs';
+import type { TokenInputKind } from './text/lexical/TokenPickerPlugin';
 
 export default class TestController {
   identify(): string {
@@ -229,6 +231,10 @@ export default class TestController {
   }
   getVisibleInputSockets(id: string) {
     return this.getInputSockets(id).filter((socket) => socket.visible);
+  }
+  // what the token picker's "new input" option does
+  createTokenInput(nodeID: string, name: string, kind: TokenInputKind) {
+    createTokenInput(this.getNodeByID(nodeID), name, kind);
   }
   getInputSocketByIDandName(id: string, socketName: string): Socket {
     return this.getNodeByID(id).getInputSocketByName(socketName);

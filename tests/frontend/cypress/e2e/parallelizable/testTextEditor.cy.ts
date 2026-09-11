@@ -9,6 +9,7 @@ import {
   logCypressStep,
   openNewGraph,
   exitDashboardEditMode,
+  shouldWithTestController,
 } from '../helpers';
 
 const testText = 'test line';
@@ -36,18 +37,17 @@ const resultInMarkdown = `word
 
 > test line
 
-\`\`\`javascript
+\`\`\`
 cy.get('body')
   .type('Enter')
 \`\`\``;
 
-const resultInHtml = `<p class="editor-paragraph" dir="ltr"><span style="white-space: pre-wrap;">word</span></p><p class="editor-paragraph" dir="ltr"><b><strong class="editor-text-bold" style="white-space: pre-wrap;">word</strong></b></p><p class="editor-paragraph" dir="ltr"><i><b><strong class="editor-text-bold editor-text-italic" style="white-space: pre-wrap;">word</strong></b></i></p><h1 class="editor-heading-h1" dir="ltr"><span style="white-space: pre-wrap;">test line</span></h1><h3 class="editor-heading-h3" dir="ltr"><span style="white-space: pre-wrap;">test line</span></h3><h5 class="editor-heading-h5" dir="ltr"><span style="white-space: pre-wrap;">test line</span></h5><ul class="editor-list-ul"><li value="1" class="editor-listitem" dir="ltr"><span style="white-space: pre-wrap;">test line</span></li><li value="2" class="editor-listitem" dir="ltr"><span style="white-space: pre-wrap;">test line</span></li></ul><ol class="editor-list-ol"><li value="1" class="editor-listitem" dir="ltr"><span style="white-space: pre-wrap;">test line</span></li><li value="2" class="editor-listitem" dir="ltr"><span style="white-space: pre-wrap;">test line</span></li></ol><blockquote class="editor-quote" dir="ltr"><span style="white-space: pre-wrap;">test line</span></blockquote><pre class="editor-code" spellcheck="false" data-language="javascript" data-highlight-language="javascript"><span style="white-space: pre-wrap;">cy.get('body')
+const resultInHtml = `<p class="editor-paragraph" dir="ltr"><span style="white-space: pre-wrap;">word</span></p><p class="editor-paragraph" dir="ltr"><b><strong class="editor-text-bold" style="white-space: pre-wrap;">word</strong></b></p><p class="editor-paragraph" dir="ltr"><i><b><strong class="editor-text-bold editor-text-italic" style="white-space: pre-wrap;">word</strong></b></i></p><h1 class="editor-heading-h1" dir="ltr"><span style="white-space: pre-wrap;">test line</span></h1><h3 class="editor-heading-h3" dir="ltr"><span style="white-space: pre-wrap;">test line</span></h3><h5 class="editor-heading-h5" dir="ltr"><span style="white-space: pre-wrap;">test line</span></h5><ul class="editor-list-ul"><li value="1" class="editor-listitem" dir="ltr"><span style="white-space: pre-wrap;">test line</span></li><li value="2" class="editor-listitem" dir="ltr"><span style="white-space: pre-wrap;">test line</span></li></ul><ol class="editor-list-ol"><li value="1" class="editor-listitem" dir="ltr"><span style="white-space: pre-wrap;">test line</span></li><li value="2" class="editor-listitem" dir="ltr"><span style="white-space: pre-wrap;">test line</span></li></ol><blockquote class="editor-quote" dir="ltr"><span style="white-space: pre-wrap;">test line</span></blockquote><pre class="editor-code" spellcheck="false"><span style="white-space: pre-wrap;">cy.get('body')
   .type('Enter')</span></pre>`;
 
 const normalizeEditorHtml = (html) =>
   html
     .replace(/ dir="ltr"/g, '')
-    .replace(/ data-highlight-language="javascript"/g, '')
     .replace(
       /(<pre\b[^>]*>)([\s\S]*?)(<\/pre>)/g,
       (_, open, inner, close) =>
@@ -71,12 +71,42 @@ const waitForEditableCanvasEditor = (nodeId: string) => {
   getEditor(`${nodeId}-canvas`).should('have.attr', 'contenteditable', 'true');
 };
 
+// leaves canvas interaction mode AND drops DOM focus - a focused editor
+// ignores externally loaded markdown
+const leaveCanvasEditor = (nodeId: string) => {
+  cy.window().then((win) =>
+    (win.document.activeElement as HTMLElement)?.blur(),
+  );
+  doWithTestController(async (testController) => {
+    await (testController.getNodeByID(nodeId) as any).disableInteraction();
+  });
+  getEditor(`${nodeId}-canvas`).should('have.attr', 'contenteditable', 'false');
+};
+
+const externalMarkdown = `# Title
+
+**bold** and *italic* with [a link](https://example.com) and \`code\`
+
+- one
+- two
+
+1. first
+2. second
+
+\`\`\`
+const x = 1;
+\`\`\`
+
+| a | b |
+| --- | --- |
+| 1 | 2 |`;
+
 const waitForMentionMenu = () => {
   logCypressStep('waitForMentionMenu', 'text editor mentions', 'WAIT MENTION');
-  cy.get('[data-cy="text-editor-mention-menu"]', { timeout: 10000 }).should(
+  cy.get('[data-cy="text-token-picker"]', { timeout: 10000 }).should(
     'be.visible',
   );
-  cy.get('[data-cy="text-editor-mention-option"]', { timeout: 10000 })
+  cy.get('[data-cy="text-token-picker-option"]', { timeout: 10000 })
     .its('length')
     .should('be.gte', 1);
 };
@@ -127,6 +157,91 @@ describe('testTextEditor', () => {
     });
 
     cy.get('#Container-TextEditor2').should('contain.text', '42');
+    shouldWithTestController((testController) => {
+      // the chip is visual only: plain text is the value, the markdown the path
+      expect(testController.getNodeOutputValue('TextEditor2', 'Plain')).to.eq(
+        '42',
+      );
+      expect(
+        testController.getNodeOutputValue('TextEditor2', 'Markdown'),
+      ).to.eq('# {{Input}}');
+    });
+  });
+
+  it('Loads external markdown into the editor and all three outputs', () => {
+    doWithTestController(async (testController) => {
+      await testController.addNode('TextEditor2', 'TextEditor2', -400, -300);
+    });
+    waitForEditableCanvasEditor('TextEditor2');
+    leaveCanvasEditor('TextEditor2');
+
+    doWithTestController(async (testController) => {
+      testController.setNodeInputValue(
+        'TextEditor2',
+        'Markdown',
+        externalMarkdown,
+      );
+      await testController.executeNodeByID('TextEditor2');
+    });
+
+    getEditor('TextEditor2-canvas').within(() => {
+      cy.contains('h1', 'Title');
+      cy.contains('strong', 'bold');
+      cy.contains('em', 'italic');
+      cy.get('a[href="https://example.com"]').should('contain.text', 'a link');
+      cy.get('ul li').should('have.length', 2);
+      cy.get('ol li').should('have.length', 2);
+      cy.contains('code', 'code');
+      // the editor renders code blocks as <code>; <pre> is the HTML export
+      cy.contains('code.editor-code', 'const x = 1;');
+    });
+
+    shouldWithTestController((testController) => {
+      expect(
+        testController.getNodeOutputValue('TextEditor2', 'Markdown'),
+      ).to.eq(externalMarkdown);
+      const plain = testController.getNodeOutputValue('TextEditor2', 'Plain');
+      expect(plain).to.contain('Title');
+      expect(plain).to.contain('bold and italic with a link and code');
+      expect(plain).to.contain('const x = 1;');
+      expect(plain).to.contain('| a | b |');
+      const html = testController.getNodeOutputValue('TextEditor2', 'HTML');
+      expect(html).to.contain('<h1');
+      expect(html).to.contain('editor-text-bold');
+      expect(html).to.contain('editor-text-italic');
+      expect(html).to.contain('href="https://example.com"');
+      expect(html).to.contain('<ul');
+      expect(html).to.contain('<ol');
+      expect(html).to.contain('<pre');
+    });
+  });
+
+  it('Is editable on the canvas only in interaction mode and in the running app only', () => {
+    const nodeId = 'editable-text-editor';
+    doWithTestController(async (testController) => {
+      await testController.addNode('TextEditor2', nodeId, -400, -300);
+    });
+    waitForEditableCanvasEditor(nodeId);
+    leaveCanvasEditor(nodeId);
+
+    addToDashboard(nodeId);
+    // edit mode gates the widget content so craft owns the pointer
+    cy.get(`[data-cy="${nodeId}-dashboard"]`)
+      .closest('[inert]')
+      .should('exist');
+
+    exitDashboardEditMode();
+    getEditor(`${nodeId}-dashboard`)
+      .should('have.attr', 'contenteditable', 'true')
+      .click({ force: true })
+      .type(testTextDashboard, { force: true });
+    cy.get('[data-cy="toggle-app-button"]').click({ force: true });
+
+    shouldWithTestController((testController) => {
+      expect(testController.getNodeOutputValue(nodeId, 'Plain')).to.contain(
+        testTextDashboard,
+      );
+    });
   });
   // it('Adds node to dashboard and tests syncing both ways', () => {
   //   const nodeId = 'orange-stingray-61';

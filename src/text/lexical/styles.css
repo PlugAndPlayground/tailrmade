@@ -25,6 +25,15 @@ body {
   text-align: right;
 }
 
+.text-inline-input {
+  outline: none;
+  min-height: 1lh;
+}
+
+.text-inline-paragraph {
+  margin: 0;
+}
+
 .editor-input {
   min-height: 160px;
   resize: none;

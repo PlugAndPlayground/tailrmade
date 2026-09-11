@@ -12743,19 +12743,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"lexical-beautiful-mentions@npm:^0.1.48":
-  version: 0.1.48
-  resolution: "lexical-beautiful-mentions@npm:0.1.48"
-  peerDependencies:
-    "@lexical/react": ">=0.11.0"
-    "@lexical/utils": ">=0.11.0"
-    lexical: ">=0.11.0"
-    react: ">=17.x"
-    react-dom: ">=17.x"
-  checksum: 10/335f200fbc8aa1c9c6a618a56a0451c312c8036670046159970b4dbd4899a207a1cca0c57a8b5a08da8d2dfdbc536bbdb3e7e0eb831ec7ac4084c013e2910b87
-  languageName: node
-  linkType: hard
-
 "lexical@npm:0.50.0":
   version: 0.50.0
   resolution: "lexical@npm:0.50.0"
@@ -16809,7 +16796,6 @@ __metadata:
     json5: "npm:^2.2.3"
     jsonpath-plus: "npm:^10.4.0"
     lexical: "npm:0.50.0"
-    lexical-beautiful-mentions: "npm:^0.1.48"
     lodash: "npm:^4.18.1"
     mailchecker: "npm:^6.0.21"
     marked: "npm:^18.0.11"

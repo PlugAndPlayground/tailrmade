@@ -68,7 +68,9 @@ import {
   RangeSelection,
   TextNode,
 } from 'lexical';
-import { useBeautifulMentions } from 'lexical-beautiful-mentions';
+import { TEXT_TONES, TextTone } from '../../model';
+import type { TextHostProfile } from '../editorConfig';
+import { $getSelectionStyleMarks, $setSelectionStyleMarks } from '../content';
 import {
   Box,
   ButtonGroup,
@@ -104,11 +106,11 @@ import FormatListBulletedIcon from '@mui/icons-material/FormatListBulleted';
 import FormatListNumberedIcon from '@mui/icons-material/FormatListNumbered';
 import FormatQuoteIcon from '@mui/icons-material/FormatQuote';
 import TitleIcon from '@mui/icons-material/Title';
+import WrapTextIcon from '@mui/icons-material/WrapText';
 import { controlOrMetaKey, isMac, useStateRef } from '../../../utils/utils';
 import { sanitizeUrl } from './url';
 import { TRgba } from '../../../utils/color';
 import { BlockFormatDropDown } from './BlockFormatDropDown';
-import { TextEditor2 } from '../textEditor2';
 
 interface BlockTypeEntry {
   name: string;
@@ -185,10 +187,13 @@ const StyledIconButton = styled(({ ...other }: IconButtonProps) => (
 
 function ToolbarPlugin({
   setIsLinkEditMode,
-  node,
+  profile,
+  onHistoryChange,
 }: {
   setIsLinkEditMode: Dispatch<boolean>;
-  node: TextEditor2;
+  profile: TextHostProfile;
+  // lets the host re-derive its outputs after a toolbar undo/redo
+  onHistoryChange?: () => void;
 }): JSX.Element {
   const [editor] = useLexicalComposerContext();
   const toolbarRef = useRef(null);
@@ -214,8 +219,8 @@ function ToolbarPlugin({
   const [codeLanguage, setCodeLanguage] = useState<string>('');
   const [isEditable, setIsEditable] = useState(() => editor.isEditable());
   const [showBlockTypeDropDown, setShowBlockTypeDropDown] = useState(false);
-
-  const { openMentionMenu } = useBeautifulMentions();
+  const [tone, setTone] = useState<TextTone>('default');
+  const [isNowrap, setIsNowrap] = useState(false);
 
   const $updateToolbar = useCallback(() => {
     const selection = $getSelection();
@@ -244,6 +249,9 @@ function ToolbarPlugin({
       setIsSubscript(selection.hasFormat('subscript'));
       setIsSuperscript(selection.hasFormat('superscript'));
       setIsCode(selection.hasFormat('code'));
+      const styleMarks = $getSelectionStyleMarks(selection);
+      setTone(styleMarks.tone ?? 'default');
+      setIsNowrap(Boolean(styleMarks.nowrap));
       setIsRTL($isParentElementRTL(selection));
 
       // Update links
@@ -442,6 +450,9 @@ function ToolbarPlugin({
   );
 
   useEffect(() => {
+    if (!profile.markdown) {
+      return;
+    }
     const keyBindings = {
       'Mod-Alt-Digit0': () => {
         formatParagraph();
@@ -676,7 +687,7 @@ function ToolbarPlugin({
           disabled={!canUndo || !isEditable}
           onClick={() => {
             editor.dispatchCommand(UNDO_COMMAND, undefined);
-            void node.executeOptimizedChain();
+            onHistoryChange?.();
           }}
           title={`Undo (${controlOrMetaKey()}+Z)`}
           data-cy="undo-button"
@@ -687,7 +698,7 @@ function ToolbarPlugin({
           disabled={!canRedo}
           onClick={() => {
             editor.dispatchCommand(REDO_COMMAND, undefined);
-            void node.executeOptimizedChain();
+            onHistoryChange?.();
           }}
           title={`Redo (${controlOrMetaKey()}+Y)`}
           data-cy="redo-button"
@@ -696,16 +707,18 @@ function ToolbarPlugin({
         </StyledIconButton>
       </ButtonGroup>
       <Divider orientation="vertical" flexItem />
-      {blockType in blockTypeToBlockName && activeEditor === editor && (
-        <BlockFormatDropDown
-          blockType={blockType}
-          toolbarRef={toolbarRef}
-          blockTypeToBlockName={blockTypeToBlockName}
-          showBlockTypeDropDown={showBlockTypeDropDown}
-          setShowBlockTypeDropDown={setShowBlockTypeDropDown}
-        />
-      )}
-      {blockType === 'code' ? (
+      {profile.markdown &&
+        blockType in blockTypeToBlockName &&
+        activeEditor === editor && (
+          <BlockFormatDropDown
+            blockType={blockType}
+            toolbarRef={toolbarRef}
+            blockTypeToBlockName={blockTypeToBlockName}
+            showBlockTypeDropDown={showBlockTypeDropDown}
+            setShowBlockTypeDropDown={setShowBlockTypeDropDown}
+          />
+        )}
+      {profile.markdown && blockType === 'code' ? (
         <Select
           onChange={onCodeLanguageSelect}
           value={codeLanguage}
@@ -765,21 +778,23 @@ function ToolbarPlugin({
           >
             <FormatItalicIcon fontSize="small" />
           </StyledToggleButton>
-          <StyledToggleButton
-            disabled={!isEditable}
-            onClick={() => {
-              activeEditor.dispatchCommand(
-                FORMAT_TEXT_COMMAND,
-                'strikethrough',
-              );
-            }}
-            value="strikethrough"
-            selected={isStrikethrough}
-            title="Strikethrough"
-            data-cy="strikethrough-button"
-          >
-            <FormatStrikethroughIcon fontSize="small" />
-          </StyledToggleButton>
+          {profile.markdown && (
+            <StyledToggleButton
+              disabled={!isEditable}
+              onClick={() => {
+                activeEditor.dispatchCommand(
+                  FORMAT_TEXT_COMMAND,
+                  'strikethrough',
+                );
+              }}
+              value="strikethrough"
+              selected={isStrikethrough}
+              title="Strikethrough"
+              data-cy="strikethrough-button"
+            >
+              <FormatStrikethroughIcon fontSize="small" />
+            </StyledToggleButton>
+          )}
           <StyledToggleButton
             disabled={!isEditable}
             onClick={() => {
@@ -806,80 +821,146 @@ function ToolbarPlugin({
             <FormatClearIcon fontSize="small" />
           </StyledIconButton>
           <Divider orientation="vertical" flexItem />
-          <ToggleButtonGroup>
+          {!profile.markdown && (
             <StyledToggleButton
+              disabled={!isEditable}
               onClick={() => {
-                editor.dispatchCommand(FORMAT_ELEMENT_COMMAND, 'left');
+                activeEditor.update(() =>
+                  $setSelectionStyleMarks({ nowrap: !isNowrap }),
+                );
               }}
-              value="leftAlign"
-              selected={elementFormat === 'left'}
-              title="Left Align"
+              value="nowrap"
+              selected={isNowrap}
+              title="No wrap"
+              data-cy="nowrap-button"
             >
-              <FormatAlignLeftIcon fontSize="small" />
+              <WrapTextIcon fontSize="small" />
             </StyledToggleButton>
-            <StyledToggleButton
-              onClick={() => {
-                editor.dispatchCommand(FORMAT_ELEMENT_COMMAND, 'center');
+          )}
+          {!profile.markdown && (
+            <Select
+              value={tone}
+              disabled={!isEditable}
+              onChange={(event) => {
+                activeEditor.update(() =>
+                  $setSelectionStyleMarks({
+                    tone: event.target.value as TextTone,
+                  }),
+                );
               }}
-              value="centerAlign"
-              selected={elementFormat === 'center'}
-              title="Center Align"
-            >
-              <FormatAlignCenterIcon fontSize="small" />
-            </StyledToggleButton>
-            <StyledToggleButton
-              onClick={() => {
-                editor.dispatchCommand(FORMAT_ELEMENT_COMMAND, 'right');
+              size="small"
+              title="Tone"
+              data-cy="tone-select"
+              sx={{
+                minWidth: '90px',
+                '& .MuiOutlinedInput-input': { p: 1 },
+                '& .MuiOutlinedInput-notchedOutline': { border: 'none' },
+                '& .MuiSvgIcon-root': { m: 0 },
               }}
-              value="rightAlign"
-              selected={elementFormat === 'right'}
-              title="Right Align"
             >
-              <FormatAlignRightIcon fontSize="small" />
-            </StyledToggleButton>
-            <StyledToggleButton
-              onClick={() => {
-                editor.dispatchCommand(FORMAT_ELEMENT_COMMAND, 'justify');
-              }}
-              value="justifyAlign"
-              selected={elementFormat === 'justify'}
-              title="Justify Align"
-            >
-              <FormatAlignJustifyIcon fontSize="small" />
-            </StyledToggleButton>
-            <Divider orientation="vertical" flexItem />
+              {TEXT_TONES.map((option) => (
+                <MenuItem
+                  key={option}
+                  value={option}
+                  data-cy={`tone-option-${option}`}
+                >
+                  {option}
+                </MenuItem>
+              ))}
+            </Select>
+          )}
+          {profile.markdown && (
+            <ToggleButtonGroup>
+              <StyledToggleButton
+                onClick={() => {
+                  editor.dispatchCommand(FORMAT_ELEMENT_COMMAND, 'left');
+                }}
+                value="leftAlign"
+                selected={elementFormat === 'left'}
+                title="Left Align"
+              >
+                <FormatAlignLeftIcon fontSize="small" />
+              </StyledToggleButton>
+              <StyledToggleButton
+                onClick={() => {
+                  editor.dispatchCommand(FORMAT_ELEMENT_COMMAND, 'center');
+                }}
+                value="centerAlign"
+                selected={elementFormat === 'center'}
+                title="Center Align"
+              >
+                <FormatAlignCenterIcon fontSize="small" />
+              </StyledToggleButton>
+              <StyledToggleButton
+                onClick={() => {
+                  editor.dispatchCommand(FORMAT_ELEMENT_COMMAND, 'right');
+                }}
+                value="rightAlign"
+                selected={elementFormat === 'right'}
+                title="Right Align"
+              >
+                <FormatAlignRightIcon fontSize="small" />
+              </StyledToggleButton>
+              <StyledToggleButton
+                onClick={() => {
+                  editor.dispatchCommand(FORMAT_ELEMENT_COMMAND, 'justify');
+                }}
+                value="justifyAlign"
+                selected={elementFormat === 'justify'}
+                title="Justify Align"
+              >
+                <FormatAlignJustifyIcon fontSize="small" />
+              </StyledToggleButton>
+              <Divider orientation="vertical" flexItem />
+              <StyledIconButton
+                onClick={() => {
+                  editor.dispatchCommand(OUTDENT_CONTENT_COMMAND, undefined);
+                }}
+                title="Outdent"
+              >
+                {isRTL ? (
+                  <FormatIndentIncreaseIcon fontSize="small" />
+                ) : (
+                  <FormatIndentDecreaseIcon fontSize="small" />
+                )}
+              </StyledIconButton>
+              <StyledIconButton
+                onClick={() => {
+                  editor.dispatchCommand(INDENT_CONTENT_COMMAND, undefined);
+                }}
+                title="Indent"
+              >
+                {!isRTL ? (
+                  <FormatIndentIncreaseIcon fontSize="small" />
+                ) : (
+                  <FormatIndentDecreaseIcon fontSize="small" />
+                )}
+              </StyledIconButton>
+            </ToggleButtonGroup>
+          )}
+          {profile.tokens && (
             <StyledIconButton
+              disabled={!isEditable}
               onClick={() => {
-                editor.dispatchCommand(OUTDENT_CONTENT_COMMAND, undefined);
+                activeEditor.update(() => {
+                  const selection = $getSelection();
+                  if ($isRangeSelection(selection)) {
+                    const before = selection.anchor
+                      .getNode()
+                      .getTextContent()
+                      .slice(0, selection.anchor.offset);
+                    // the picker only opens on an @ that starts a word
+                    selection.insertText(/(^|\s)$/.test(before) ? '@' : ' @');
+                  }
+                });
+                activeEditor.focus();
               }}
-              title="Outdent"
-            >
-              {isRTL ? (
-                <FormatIndentIncreaseIcon fontSize="small" />
-              ) : (
-                <FormatIndentDecreaseIcon fontSize="small" />
-              )}
-            </StyledIconButton>
-            <StyledIconButton
-              onClick={() => {
-                editor.dispatchCommand(INDENT_CONTENT_COMMAND, undefined);
-              }}
-              title="Indent"
-            >
-              {!isRTL ? (
-                <FormatIndentIncreaseIcon fontSize="small" />
-              ) : (
-                <FormatIndentDecreaseIcon fontSize="small" />
-              )}
-            </StyledIconButton>
-            <Divider orientation="vertical" flexItem />
-            <StyledIconButton
-              onClick={() => openMentionMenu({ trigger: '@' })}
               title="Insert input"
+              data-cy="insert-token-button"
             >
               <AlternateEmailIcon fontSize="small" />
             </StyledIconButton>
-          </ToggleButtonGroup>
+          )}
         </>
       )}
     </Box>

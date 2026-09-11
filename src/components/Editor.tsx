@@ -205,6 +205,9 @@ export const CodeEditor: React.FunctionComponent<CodeEditorProps> = ({
             }}
             onChange={handleOnChange}
             editorDidMount={editorDidMount}
+            // react-monaco-editor creates a model per mount but only disposes
+            // the editor; each leaked model keeps a Monaco language listener
+            editorWillUnmount={(editor) => editor.getModel()?.dispose()}
           />
         </Suspense>
         {!inDashboard && (

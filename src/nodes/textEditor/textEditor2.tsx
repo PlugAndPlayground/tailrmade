@@ -20,42 +20,48 @@ import { MarkdownShortcutPlugin } from '@lexical/react/LexicalMarkdownShortcutPl
 import { RichTextPlugin } from '@lexical/react/LexicalRichTextPlugin';
 import { TabIndentationPlugin } from '@lexical/react/LexicalTabIndentationPlugin';
 import { LexicalErrorBoundary } from '@lexical/react/LexicalErrorBoundary';
-import { HeadingNode, QuoteNode } from '@lexical/rich-text';
-import { TableCellNode, TableNode, TableRowNode } from '@lexical/table';
-import { ListItemNode, ListNode } from '@lexical/list';
-import { CodeHighlightNode, CodeNode } from '@lexical/code';
-import { $createLinkNode, AutoLinkNode, LinkNode } from '@lexical/link';
+import { $createLinkNode, AutoLinkNode } from '@lexical/link';
+import { $generateHtmlFromNodes } from '@lexical/html';
 import {
-  TRANSFORMERS as DEFAULT_TRANSFORMERS,
-  $convertToMarkdownString,
-  $convertFromMarkdownString,
-} from '@lexical/markdown';
-import { $generateHtmlFromNodes, $generateNodesFromDOM } from '@lexical/html';
-import {
-  $getRoot,
-  $isElementNode,
-  $isDecoratorNode,
-  $isTextNode,
   $nodesOfType,
-  createEditor,
   BLUR_COMMAND,
   COMMAND_PRIORITY_NORMAL,
   FOCUS_COMMAND,
+  LexicalEditor,
 } from 'lexical';
+
+import OnChangePlugin from '../../text/lexical/plugins/OnChangePlugin';
+import ToolbarPlugin from '../../text/lexical/plugins/ToolbarPlugin';
+import ListMaxIndentLevelPlugin from '../../text/lexical/plugins/ListMaxIndentLevelPlugin';
+import CodeHighlightPlugin from '../../text/lexical/plugins/CodeHighlightPlugin';
+import AutoLinkPlugin from '../../text/lexical/plugins/AutoLinkPlugin';
+import EventPlugin from '../../text/lexical/plugins/EventPlugin';
+import FloatingLinkEditorPlugin from '../../text/lexical/plugins/FloatingLinkEditorPlugin';
+import TokenPickerPlugin from '../../text/lexical/TokenPickerPlugin';
 import {
-  BeautifulMentionNode,
-  BeautifulMentionsPlugin,
-} from 'lexical-beautiful-mentions';
+  $getRenderedTextContent,
+  registerTokenInputs,
+  TokenBehaviourPlugin,
+  TokenInputs,
+  TokenInputsContext,
+} from '../../text/lexical/TokenNode';
+import {
+  createTextEditorConfig,
+  TEXT_EDITOR2_PROFILE,
+} from '../../text/lexical/editorConfig';
+import {
+  $exportMarkdown,
+  htmlToMarkdown,
+  MARKDOWN_TRANSFORMERS,
+  markdownToLexicalState,
+} from '../../text/lexical/markdown';
+import {
+  createTokenInput,
+  getTokenInputs,
+  getTokenPickerProps,
+} from '../../text/nodeInputs';
+import '../../text/lexical/styles.css';
 
-import OnChangePlugin from './plugins/OnChangePlugin';
-import ToolbarPlugin from './plugins/ToolbarPlugin';
-import ListMaxIndentLevelPlugin from './plugins/ListMaxIndentLevelPlugin';
-import CodeHighlightPlugin from './plugins/CodeHighlightPlugin';
-import AutoLinkPlugin from './plugins/AutoLinkPlugin';
-import EventPlugin from './plugins/EventPlugin';
-import FloatingLinkEditorPlugin from './plugins/FloatingLinkEditorPlugin';
-
-import ExampleTheme from './ExampleTheme';
 import ErrorFallback from '../../components/ErrorFallback';
 import PPSocket from '../../classes/SocketClass';
 import HybridNode2, {
@@ -70,7 +76,6 @@ import {
   getCanvasWidgetPointerEvents,
   shouldAutoFocusWidgetContent,
 } from '../../utils/nodeInteractivity';
-import { convertToViewableString } from '../../utils/utils';
 import {
   PIXI_TRANSPARENT_ALPHA,
   COLOR_WHITE,
@@ -80,26 +85,13 @@ import {
   customTheme,
 } from '../../utils/constants';
 import { DynamicInputNodeFunctions } from '../abstract/DynamicInputNode';
-import {
-  beautifulMentionsTheme,
-  CustomBeautifulMentionNodes,
-  InputParameterMenu,
-  InputParameterMenuItem,
-  MENTION_TRANSFORMERS,
-} from './plugins/CustomBeautifulMentionNodes';
-import Socket from '../../classes/SocketClass';
-import PPGraph from '../../classes/GraphClass';
 import { BackPropagation } from '../../interfaces';
-
-// Combine default and custom transformers
-const TRANSFORMERS = [...MENTION_TRANSFORMERS, ...DEFAULT_TRANSFORMERS];
 
 export const textEditorMarkdownName = 'Markdown';
 export const textEditorAutoHeightName = 'Auto height';
 const plainOutputSocketName = 'Plain';
 const markdownOutputSocketName = 'Markdown';
 const htmlOutputSocketName = 'HTML';
-const inputPrefix = 'Input';
 const backgroundColor = TRgba.fromString(COLOR_WHITE);
 
 type PendingFocus = boolean;
@@ -120,15 +112,8 @@ const Placeholder: React.FC = () => {
   );
 };
 
-interface InputParameters {
-  [key: string]: { id: number; socketname: string; value: any }[];
-}
-
 export class TextEditor2 extends HybridNode2 {
   historyState: HistoryState;
-  textToImport: { html: string } | { plain: string };
-  eventTarget: EventTarget = new EventTarget();
-  private inputParameters: InputParameters = { '@': [] };
 
   // The single piece of focus state. `undefined` means "no focus pending".
   // The widget reads this once its editor becomes editable, performs the
@@ -237,15 +222,9 @@ export class TextEditor2 extends HybridNode2 {
     return this.getOutputSocketByName(plainOutputSocketName);
   };
 
-  public inputPlugged(socket: Socket) {
+  public inputPlugged(socket: PPSocket) {
     super.inputPlugged(socket);
-    this.updateInputParameters();
     this.drawSockets();
-  }
-
-  public inputUnplugged(socket: Socket) {
-    super.inputUnplugged(socket);
-    this.updateInputParameters();
   }
 
   public async enableInteraction(): Promise<void> {
@@ -283,60 +262,31 @@ export class TextEditor2 extends HybridNode2 {
     };
   }
 
-  updateOutputs = (editorRef: React.MutableRefObject<any>) => {
-    if (editorRef.current) {
-      const editor = editorRef.current;
-      editor.getEditorState().read(
-        () => {
-          const plainString = $getRoot().getTextContent();
-          const markdownString = this.getInputData(textEditorMarkdownName);
-          const htmlString = $generateHtmlFromNodes(editor, null);
-          this.setOutputData(plainOutputSocketName, plainString);
-          this.setOutputData(markdownOutputSocketName, markdownString);
-          this.setOutputData(htmlOutputSocketName, htmlString);
-        },
-        { editor },
-      );
-    }
-  };
-
-  // Call this when input parameters change
-  protected updateInputParameters(): void {
-    if (PPGraph.currentGraph.interactionEnabledHybridNode?.id === this.id) {
-      return;
-    }
-    const parameters = this.inputSocketArray
-      .filter((input: PPSocket) => input.name.startsWith(inputPrefix))
-      .map((parameter, index) => ({
-        id: index,
-        socketname: parameter.name,
-        value:
-          parameter.links.length > 0
-            ? String(parameter.links[0].source.data)
-            : parameter.data,
-      }));
-
-    this.inputParameters = { '@': parameters };
-
-    // If the node has focus, trigger an update to refresh mentions
-    if (PPGraph.currentGraph.interactionEnabledHybridNode?.id === this.id) {
-      this.eventTarget.dispatchEvent(new Event('inputParametersChanged'));
-    }
-  }
-
-  // Override onExecute to update parameters when node executes
-  protected async onExecute(
-    inputObject: any,
-    outputObject: any,
-  ): Promise<void> {
-    this.updateInputParameters();
-    await super.onExecute(inputObject, outputObject);
+  updateOutputs(editor: LexicalEditor, inputs: TokenInputs): void {
+    registerTokenInputs(editor, inputs);
+    editor.getEditorState().read(
+      () => {
+        this.setOutputData(
+          plainOutputSocketName,
+          $getRenderedTextContent(inputs),
+        );
+        this.setOutputData(
+          markdownOutputSocketName,
+          this.getInputData(textEditorMarkdownName),
+        );
+        this.setOutputData(
+          htmlOutputSocketName,
+          $generateHtmlFromNodes(editor, null),
+        );
+      },
+      { editor },
+    );
   }
 
   // small presentational component
   getWidgetContent(props: HybridWidgetContentProps<TextEditor2>): any {
     const node = props.node as TextEditor2;
-    const editorRef = useRef(null);
+    const editorRef = useRef<LexicalEditor>(null);
     const [contentHeight, setContentHeight] = useState(0);
     const [contrastColor, setContrastColor] = useState();
     const [pauseUpdate, setPauseUpdate] = useState(false);
@@ -350,34 +300,10 @@ export class TextEditor2 extends HybridNode2 {
       }
     }, []);
     const backgroundColor = TRgba.fromObject(props[SOCKETNAME_BACKGROUNDCOLOR]);
+    const tokenInputs = getTokenInputs(node);
 
     const editorConfig = useMemo(
-      () => ({
-        namespace: 'MyEditor',
-        theme: {
-          ...ExampleTheme,
-          beautifulMentions: beautifulMentionsTheme,
-        },
-        editorState: undefined,
-        onError(error) {
-          throw error;
-        },
-        nodes: [
-          HeadingNode,
-          ListNode,
-          ListItemNode,
-          QuoteNode,
-          CodeNode,
-          CodeHighlightNode,
-          TableNode,
-          TableCellNode,
-          TableRowNode,
-          AutoLinkNode,
-          LinkNode,
-          BeautifulMentionNode,
-          ...CustomBeautifulMentionNodes,
-        ],
-      }),
+      () => createTextEditorConfig(TEXT_EDITOR2_PROFILE, 'TextEditor2'),
       [],
     );
 
@@ -538,10 +464,6 @@ export class TextEditor2 extends HybridNode2 {
     ]);
 
     useEffect(() => {
-      void onChangeByExternal();
-    }, [props[textEditorMarkdownName], node.inputParameters]);
-
-    useEffect(() => {
       setContrastColor(backgroundColor.getContrastTextColor());
     }, [
       backgroundColor.r,
@@ -551,256 +473,154 @@ export class TextEditor2 extends HybridNode2 {
     ]);
 
     const updateOutputsAndEditorHeight = () => {
-      node.updateOutputs(editorRef);
+      node.updateOutputs(editorRef.current!, tokenInputs);
       const target = document.querySelector(`[data-cy='${props.dataCyId}']`);
       if (target?.scrollHeight) {
         setContentHeight(target.scrollHeight);
       }
     };
 
-    const onChangeByInternal = (editorState) => {
-      editorRef.current.getEditorState().read(() => {
-        // Convert directly to Markdown with our custom transformers that handle mentions
-        const markdownString = $convertToMarkdownString(TRANSFORMERS);
-        node.setInputData(textEditorMarkdownName, markdownString);
+    // the markdown is the source of truth: whenever the editor is not being
+    // typed in, it shows exactly what the markdown holds (which also drops
+    // empty paragraphs left behind while typing)
+    useEffect(() => {
+      const editor = editorRef.current;
+      const markdown = props[textEditorMarkdownName];
+      if (pauseUpdate || !markdown || !editor) return;
+      editor.setEditorState(
+        editor.parseEditorState(markdownToLexicalState(markdown)),
+      );
+    }, [props[textEditorMarkdownName], pauseUpdate]);
 
-        // Force update to ensure auto-links are properly converted
-        if ($nodesOfType(AutoLinkNode).length > 0) {
-          editorRef.current.update(() => {
-            const autoLinkNodes = $nodesOfType(AutoLinkNode);
-            autoLinkNodes.forEach((autoLinkNode) => {
-              // Convert AutoLinkNode to LinkNode to ensure consistent handling
-              const linkNode = $createLinkNode(autoLinkNode.getURL(), {
+    // token values arrive with every execution, so outputs follow each render
+    useEffect(() => {
+      if (editorRef.current) {
+        updateOutputsAndEditorHeight();
+      }
+    });
+
+    const onChangeByInternal = () => {
+      // EditorRefPlugin is a child, so its effect has set the ref by now
+      const editor = editorRef.current!;
+      const hasAutoLinks = editor.getEditorState().read(
+        () => {
+          node.setInputData(textEditorMarkdownName, $exportMarkdown());
+          return $nodesOfType(AutoLinkNode).length > 0;
+        },
+        { editor },
+      );
+
+      // store auto-detected links as ordinary links
+      if (hasAutoLinks) {
+        editor.update(() => {
+          $nodesOfType(AutoLinkNode).forEach((autoLinkNode) => {
+            autoLinkNode.replace(
+              $createLinkNode(autoLinkNode.getURL(), {
                 rel: autoLinkNode.__rel,
                 target: autoLinkNode.__target,
                 title: autoLinkNode.__title,
-              });
-              autoLinkNode.replace(linkNode, true);
-            });
+              }),
+              true,
+            );
           });
-        }
-
-        updateOutputsAndEditorHeight();
-      });
-    };
-
-    const onChangeByExternal = useCallback(async () => {
-      // don't update if the node is being edited
-      if (pauseUpdate) return;
-
-      const markdown = node.getInputData(textEditorMarkdownName);
-      if (!markdown) return;
-
-      // First, set the editor state from markdown
-      const lexicalState = await markdownToLexicalState(markdown);
-      await editorRef.current.update(() => {
-        const editorState = editorRef.current.parseEditorState(lexicalState);
-        editorRef.current.setEditorState(editorState);
-      });
-      // Then update all mentions
-      await editorRef.current.update(() => {
-        node.inputParameters['@'].forEach((input) => {
-          const socketname = input.socketname;
-          const newValue = convertToViewableString(
-            node.getInputData(input.socketname),
-          );
-
-          const mentionNodes = $nodesOfType(
-            CustomBeautifulMentionNodes[0] as any,
-          );
-          for (const node of mentionNodes) {
-            const data = (node as any).getData();
-            if (data.socketname === socketname) {
-              (node as any).setValue(newValue);
-              (node as any).setData({
-                ...data,
-                id: input.id,
-                inDashboard: props.inDashboard,
-              });
-            }
-          }
         });
+      }
 
-        updateOutputsAndEditorHeight();
-      });
-    }, [node, editorRef, updateOutputsAndEditorHeight]);
+      updateOutputsAndEditorHeight();
+    };
 
     return (
       <ErrorBoundary FallbackComponent={ErrorFallback}>
         <ThemeProvider theme={customTheme}>
-          <LexicalComposer initialConfig={editorConfig as any}>
-            <Box
-              sx={{
-                display: 'flex',
-                flexDirection: 'column',
-                height: '100%',
-                pointerEvents: getCanvasWidgetPointerEvents(props),
-              }}
-            >
-              <EditorRefPlugin editorRef={editorRef} />
-              {shouldShowToolbar && !props.disabled && (
-                <ToolbarPlugin
-                  setIsLinkEditMode={setIsLinkEditMode}
-                  node={node}
-                />
-              )}
+          <TokenInputsContext.Provider value={tokenInputs}>
+            <LexicalComposer initialConfig={editorConfig}>
               <Box
                 sx={{
-                  background: `${backgroundColor}`,
-                  color: `${contrastColor}`,
-                  px: 2,
-                  position: 'relative',
-                  lineHeight: '20px',
-                  fontWeight: 400,
-                  textAlign: 'left',
-                  boxSizing: 'border-box',
-                  flex: 1,
-                  overflow: 'hidden',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  height: '100%',
+                  pointerEvents: getCanvasWidgetPointerEvents(props),
                 }}
-                ref={onRef}
               >
-                <EventPlugin />
-                <RichTextPlugin
-                  contentEditable={
-                    <ContentEditable
-                      data-cy={props.dataCyId}
-                      className="editor-input"
-                    />
-                  }
-                  placeholder={<Placeholder />}
-                  ErrorBoundary={LexicalErrorBoundary}
-                />
-                <OnChangePlugin
-                  editorRef={editorRef}
-                  onChange={onChangeByInternal}
-                  ignoreSelectionChange={true}
-                />
-                <HistoryPlugin externalHistoryState={node.historyState} />
-                <CodeHighlightPlugin />
-                <ListPlugin />
-                <LinkPlugin />
-                <AutoLinkPlugin />
-                <TabIndentationPlugin />
-                <ListMaxIndentLevelPlugin maxDepth={7} />
-                <MarkdownShortcutPlugin transformers={TRANSFORMERS} />
-                <BeautifulMentionsPlugin
-                  items={node.inputParameters}
-                  menuComponent={InputParameterMenu}
-                  menuItemComponent={InputParameterMenuItem}
-                  menuItemLimit={1000}
-                />
-                {floatingAnchorElem && (
-                  <>
-                    {/* <DraggableBlockPlugin anchorElem={floatingAnchorElem} /> */}
+                <EditorRefPlugin editorRef={editorRef} />
+                {shouldShowToolbar && !props.disabled && (
+                  <ToolbarPlugin
+                    setIsLinkEditMode={setIsLinkEditMode}
+                    profile={TEXT_EDITOR2_PROFILE}
+                    onHistoryChange={() => void node.executeOptimizedChain()}
+                  />
+                )}
+                <Box
+                  sx={{
+                    background: `${backgroundColor}`,
+                    color: `${contrastColor}`,
+                    px: 2,
+                    position: 'relative',
+                    lineHeight: '20px',
+                    fontWeight: 400,
+                    textAlign: 'left',
+                    boxSizing: 'border-box',
+                    flex: 1,
+                    overflow: 'hidden',
+                  }}
+                  ref={onRef}
+                >
+                  <EventPlugin />
+                  <RichTextPlugin
+                    contentEditable={
+                      <ContentEditable
+                        data-cy={props.dataCyId}
+                        className="editor-input"
+                      />
+                    }
+                    placeholder={<Placeholder />}
+                    ErrorBoundary={LexicalErrorBoundary}
+                  />
+                  <OnChangePlugin
+                    editorRef={editorRef}
+                    onChange={onChangeByInternal}
+                    ignoreSelectionChange={true}
+                  />
+                  <HistoryPlugin externalHistoryState={node.historyState} />
+                  <CodeHighlightPlugin />
+                  <ListPlugin />
+                  <LinkPlugin />
+                  <AutoLinkPlugin />
+                  <TabIndentationPlugin />
+                  <ListMaxIndentLevelPlugin maxDepth={7} />
+                  <MarkdownShortcutPlugin
+                    transformers={MARKDOWN_TRANSFORMERS}
+                  />
+                  <TokenBehaviourPlugin />
+                  <TokenPickerPlugin
+                    {...getTokenPickerProps(node)}
+                    onCreateInput={(name, kind) =>
+                      createTokenInput(node, name, kind)
+                    }
+                  />
+                  {floatingAnchorElem && (
                     <FloatingLinkEditorPlugin
                       anchorElem={floatingAnchorElem}
                       isLinkEditMode={isLinkEditMode}
                       setIsLinkEditMode={setIsLinkEditMode}
                     />
-                  </>
-                )}
+                  )}
+                </Box>
               </Box>
-            </Box>
-          </LexicalComposer>
+            </LexicalComposer>
+          </TokenInputsContext.Provider>
         </ThemeProvider>
       </ErrorBoundary>
     );
   }
 }
 
-// Convert Markdown to Lexical state
-async function markdownToLexicalState(markdown: string): Promise<string> {
-  const editorConfig = {
-    namespace: 'MarkdownConverter',
-    theme: { ...ExampleTheme },
-    onError(error) {
-      console.error(error);
-    },
-    nodes: [
-      HeadingNode,
-      ListNode,
-      ListItemNode,
-      QuoteNode,
-      CodeNode,
-      CodeHighlightNode,
-      TableNode,
-      TableCellNode,
-      TableRowNode,
-      AutoLinkNode,
-      LinkNode,
-      BeautifulMentionNode,
-      ...CustomBeautifulMentionNodes,
-    ],
-  };
-
-  const editor = createEditor(editorConfig);
-  let serializedState = null;
-
-  await editor.update(() => {
-    const root = $getRoot();
-    // Use our custom transformers that include mention support
-    $convertFromMarkdownString(markdown, TRANSFORMERS);
-  });
-
-  await editor.update(() => {
-    serializedState = JSON.stringify(editor.getEditorState().toJSON());
-  });
-
-  return serializedState;
-}
-
-// We already have $convertToMarkdownString which converts from Lexical to Markdown
-
-export async function createMarkdownFromText(data) {
-  // For plain text, convert to basic markdown
-  if (data['plain']) {
-    return data['plain']; // Simple text is valid markdown
+export function createMarkdownFromText(data: {
+  plain?: string;
+  html?: string;
+}): Promise<string> {
+  if (data.plain) {
+    return Promise.resolve(data.plain); // plain text is valid markdown
   }
-
-  // If HTML is provided, we need to convert HTML to markdown
-  if (data['html']) {
-    // Create a temporary editor to convert HTML to markdown
-    const tempEditor = createEditor({
-      namespace: 'HtmlToMarkdown',
-      onError(error) {
-        console.error(error);
-      },
-      nodes: [
-        HeadingNode,
-        ListNode,
-        ListItemNode,
-        QuoteNode,
-        CodeNode,
-        CodeHighlightNode,
-        TableNode,
-        TableCellNode,
-        TableRowNode,
-        AutoLinkNode,
-        LinkNode,
-        BeautifulMentionNode,
-        ...CustomBeautifulMentionNodes,
-      ],
-    });
-
-    let markdown = '';
-
-    await tempEditor.update(() => {
-      const parser = new DOMParser();
-      const dom = parser.parseFromString(data['html'], 'text/html');
-      const nodes = $generateNodesFromDOM(tempEditor, dom);
-      const root = $getRoot();
-
-      nodes.forEach((n) => {
-        if ($isElementNode(n) || $isDecoratorNode(n) || $isTextNode(n)) {
-          root.append(n);
-        }
-      });
-
-      markdown = $convertToMarkdownString(TRANSFORMERS);
-    });
-
-    return markdown;
-  }
-
-  return ''; // Default fallback
+  return Promise.resolve(data.html ? htmlToMarkdown(data.html) : '');
 }

@@ -6,7 +6,8 @@ import { DisplacedLink, isSurfaceNode, TSocketType } from '../utils/interfaces';
 import InterfaceController, { ListenEvent } from '../InterfaceController';
 import { hri } from 'human-readable-ids';
 import * as PIXI from 'pixi.js';
-import { NODE_SOURCE } from '../utils/constants';
+import { NODE_SOURCE, SOCKET_TYPE } from '../utils/constants';
+import { deSerializeType } from '../nodes/datatypes/typehelper';
 import { getSocketsForConnection } from '../utils/utils';
 import {
   executeMacroPrefix,
@@ -93,6 +94,7 @@ export class SerializableActionHandler {
     this.actions[ACTIONS.SET_COMMENT] = ACTIONS.setComment();
     this.actions[ACTIONS.SET_UPDATE_BEHAVIOUR] = ACTIONS.setUpdateBehaviour();
     this.actions[ACTIONS.SET_UI_SURFACE_LAYOUT] = ACTIONS.setUISurfaceLayout();
+    this.actions[ACTIONS.ADD_INPUT_SOCKET] = ACTIONS.addInputSocket();
   }
 
   static getInstance(): SerializableActionHandler {
@@ -172,23 +174,25 @@ export class ActionHandler {
 
   static getHistorySnapshot(): ActionHistorySnapshot {
     const entries = this.undoList
-      .map((action, index): ActionHistoryEntry => ({
-        id: action.ID,
-        index,
-        name: action.serializableAction.name,
-        source: action.source,
-        applied: true,
-      }))
+      .map(
+        (action, index): ActionHistoryEntry => ({
+          id: action.ID,
+          index,
+          name: action.serializableAction.name,
+          source: action.source,
+          applied: true,
+        }),
+      )
       .concat(
-        [...this.redoList]
-          .reverse()
-          .map((action, redoIndex): ActionHistoryEntry => ({
+        [...this.redoList].reverse().map(
+          (action, redoIndex): ActionHistoryEntry => ({
             id: action.ID,
             index: this.undoList.length + redoIndex,
             name: action.serializableAction.name,
             source: action.source,
             applied: false,
-          })),
+          }),
+        ),
       );
 
     return {
@@ -420,6 +424,18 @@ export class SetUISurfaceLayoutActionArgs {
   }
 }
 
+export class AddInputSocketActionArgs {
+  nodeID: string;
+  socketName: string;
+  serializedType: string; // serializeType() output
+
+  constructor(nodeID: string, socketName: string, serializedType: string) {
+    this.nodeID = nodeID;
+    this.socketName = socketName;
+    this.serializedType = serializedType;
+  }
+}
+
 export class ResizeNodeActionArgs {
   nodeID: string;
   width: number;
@@ -442,6 +458,33 @@ export class ACTIONS {
   static SET_COMMENT = 'SetCommentAction';
   static SET_UPDATE_BEHAVIOUR = 'SetUpdateBehaviourAction';
   static SET_UI_SURFACE_LAYOUT = 'SetUISurfaceLayoutAction';
+  static ADD_INPUT_SOCKET = 'AddInputSocketAction';
+
+  static addInputSocket(): SerializableAction {
+    const action = (args: AddInputSocketActionArgs): Promise<void> => {
+      const node = SerializableActionHandler.getSafeNode(args.nodeID);
+      node.addDynamicSocket(
+        new Socket(
+          SOCKET_TYPE.IN,
+          args.socketName,
+          deSerializeType(args.serializedType),
+          // no value until something is bound, rather than the type's default
+          null,
+        ),
+      );
+      node.resizeAndDraw();
+      node.socketChangedFromWidget();
+      return Promise.resolve();
+    };
+    const undoAction = (args: AddInputSocketActionArgs): Promise<void> => {
+      const node = SerializableActionHandler.getSafeNode(args.nodeID);
+      node.removeSocket(node.getInputSocketByName(args.socketName));
+      node.resizeAndDraw();
+      node.socketChangedFromWidget();
+      return Promise.resolve();
+    };
+    return { action, undoAction, name: 'Add input' };
+  }
 
   private static async setNodeValue(args: SetSocketValueActionArgs) {
     const nodeID = args.nodeID;

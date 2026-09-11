@@ -1,10 +1,10 @@
-import './styles.css';
+import type { EditorThemeClasses } from 'lexical';
 
-const exampleTheme = {
-  namespace: 'MyEditor',
+// class names styled by styles.css; kept as a plain object so headless
+// editors (converters, jest) can share it without importing the stylesheet
+export const textEditorTheme: EditorThemeClasses = {
   ltr: 'ltr',
   rtl: 'rtl',
-  placeholder: 'editor-placeholder',
   paragraph: 'editor-paragraph',
   quote: 'editor-quote',
   heading: {
@@ -69,5 +69,3 @@ const exampleTheme = {
     variable: 'editor-tokenVariable',
   },
 };
-
-export default exampleTheme;

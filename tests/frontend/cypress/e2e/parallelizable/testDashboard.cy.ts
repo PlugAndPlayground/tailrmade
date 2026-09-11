@@ -489,8 +489,11 @@ describe('Test dashboard', () => {
     cy.get('[data-cy="tool-vertical-container"]').click({ force: true });
     cy.get('[data-cy="tool-text"]').click({ force: true });
     // scoped to the dashboard: the UI surface node renders the same content
-    // a second time in its canvas overlay
-    getDashboardText('Hello world').should('be.visible');
+    // a second time in its canvas overlay. The full-width Text element, not
+    // its text run, which a narrow panel's toolbox overlay can cover
+    getDashboardText('Hello world')
+      .closest('[data-cy="static-text"]')
+      .should('be.visible');
 
     cy.get(`[data-cy="layoutable-node-${existingNodeId}"]`).click({
       force: true,
@@ -503,7 +506,10 @@ describe('Test dashboard', () => {
 
     // the surface scrolls down to the widget that was just added, which can
     // leave the text widget clipped above the panel's visible area
-    getDashboardText('Hello world').scrollIntoView().should('be.visible');
+    getDashboardText('Hello world')
+      .closest('[data-cy="static-text"]')
+      .scrollIntoView()
+      .should('be.visible');
   });
 
   // it('Moves widgets up and down using keyboard shortcuts', () => {

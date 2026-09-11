@@ -128,7 +128,8 @@ export const handleFileDrop = async (
 
     // Get the response
     const response = await fetch(objectURL);
-    let data;
+    // a different shape per file category
+    let data: any;
     let newNode;
 
     let encounteredUnexpectedFileFormat = false;

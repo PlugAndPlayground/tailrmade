@@ -11,6 +11,7 @@ import {
   DynamicWidgetName,
 } from '../../../src/utils/constants_shared';
 import type { SerializedCraftTree } from '../../../src/utils/surfaceTree';
+import { normalizeTextProps } from '../../../src/text/model';
 
 describe('surfaceLayoutSpec', () => {
   describe('compileSurfaceSpec dimensions', () => {
@@ -116,7 +117,7 @@ describe('surfaceLayoutSpec', () => {
       // resolvedNames correct
       const textItemId = tree[RootName].nodes[0];
       expect(tree[textItemId].type.resolvedName).toBe('Text');
-      expect(tree[textItemId].props.text).toBe('Hello world');
+      expect(tree[textItemId].props.content).toBe('Hello world');
 
       const rowItemId = tree[RootName].nodes[1];
       expect(tree[rowItemId].type.resolvedName).toBe(containerName);
@@ -303,10 +304,9 @@ describe('surfaceLayoutSpec', () => {
         children: [
           {
             text: 'Title',
-            fontSize: 30,
-            fontWeight: '700',
-            textAlign: 'center',
-            color: { r: 1, g: 2, b: 3, a: 1 },
+            variant: 'h1',
+            tone: 'accent',
+            alignment: 'center',
           },
           {
             direction: 'row',
@@ -342,6 +342,12 @@ describe('surfaceLayoutSpec', () => {
       const { root, unknownItems } = decompileSurfaceTree(tree);
       expect(unknownItems).toEqual([]);
 
+      expect(root.children[0]).toMatchObject({
+        text: 'Title',
+        variant: 'h1',
+        tone: 'accent',
+        alignment: 'center',
+      });
       const row = root.children[1] as ContainerSpecItem;
       expect(row.mobileBehavior).toBe('wrap');
       expect(row.width).toBe('80%');
@@ -386,7 +392,7 @@ describe('surfaceLayoutSpec', () => {
         direction: 'column',
         gap: 12,
         children: [
-          { text: 'Title', fontSize: 30, fontWeight: '700' },
+          { text: 'Title', variant: 'h2', tone: 'muted' },
           {
             direction: 'row',
             gap: 4,
@@ -583,5 +589,53 @@ describe('findLayoutItemId', () => {
   it('returns undefined for an id that is on neither', () => {
     expect(findLayoutItemId(tree, 'ai-node-9')).toBeUndefined();
     expect(findLayoutItemId(tree, 'nope')).toBeUndefined();
+  });
+});
+
+describe('text spec items', () => {
+  it('round-trips rich content and variants', () => {
+    const text = '**Hi** [there]{.positive}\nsecond line';
+    const { tree, warnings } = compileSurfaceSpec(
+      {
+        direction: 'column',
+        children: [{ text, variant: 'stat' }],
+      },
+      new Set(),
+    );
+    expect(warnings).toEqual([]);
+    expect(tree[tree[RootName].nodes[0]].props).toMatchObject({
+      content: text,
+      variant: 'stat',
+      tone: 'default',
+      alignment: 'left',
+    });
+    expect(stripIds(decompileSurfaceTree(tree).root.children[0])).toEqual({
+      text,
+      variant: 'stat',
+    });
+  });
+
+  it('warns about an unknown variant and keeps the default', () => {
+    const { tree, warnings } = compileSurfaceSpec(
+      {
+        direction: 'column',
+        children: [{ text: 'x', variant: 'huge' as never }],
+      },
+      new Set(),
+    );
+    expect(tree[tree[RootName].nodes[0]].props.variant).toBe('body');
+    expect(warnings[0]).toContain('"variant" must be one of');
+  });
+
+  it('patches text properties without disturbing the rest', () => {
+    const result = applySpecProperties(
+      normalizeTextProps({ content: 'old', tone: 'muted', alignment: 'right' }),
+      { text: 'new', alignment: 'center' },
+      'text',
+    );
+    expect(result.applied).toEqual(['text', 'alignment']);
+    expect(result.props.content).toBe('new');
+    expect(result.props.tone).toBe('muted');
+    expect(result.props.alignment).toBe('center');
   });
 });
