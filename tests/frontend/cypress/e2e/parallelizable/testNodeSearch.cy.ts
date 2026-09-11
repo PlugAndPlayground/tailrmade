@@ -159,9 +159,38 @@ describe('Node Search by double tap', () => {
     );
 
   const doubleTap = (x: number, y: number) => {
-    cy.get('#pixi-container').realTouch({ x, y });
-    cy.wait(80);
-    cy.get('#pixi-container').realTouch({ x, y });
+    cy.get('#pixi-container')
+      .should('be.visible')
+      .then(async ($container) => {
+        const containerBounds = $container[0].getBoundingClientRect();
+        const appFrame = window.parent.document.querySelector('iframe');
+        if (!appFrame) {
+          throw new Error('Could not find the Cypress application iframe');
+        }
+        const frameBounds = appFrame.getBoundingClientRect();
+        const frameScale = frameBounds.width / appFrame.offsetWidth;
+        const touchPoints = [
+          {
+            x: frameBounds.x + (containerBounds.x + x) * frameScale,
+            y: frameBounds.y + (containerBounds.y + y) * frameScale,
+            radiusX: 1,
+            radiusY: 1,
+          },
+        ];
+        const dispatch = (type: 'touchStart' | 'touchEnd') =>
+          Cypress.automation('remote:debugger:protocol', {
+            command: 'Input.dispatchTouchEvent',
+            params: { type, touchPoints },
+          });
+
+        // Keep both taps inside one Cypress command. Separate realTouch()
+        // commands include Cypress scheduling and snapshot overhead, which can
+        // exceed the app's 300 ms double-tap window on a busy CI runner.
+        await dispatch('touchStart');
+        await dispatch('touchEnd');
+        await dispatch('touchStart');
+        await dispatch('touchEnd');
+      });
   };
 
   before(() => {
@@ -174,6 +203,11 @@ describe('Node Search by double tap', () => {
     cdp('Emulation.setCPUThrottlingRate', { rate: 1 });
     openNewGraph();
     closeBothDrawers();
+  });
+
+  beforeEach(() => {
+    cy.get('body').type('{esc}');
+    getSearchInput().should('not.exist');
   });
 
   after(() => {
@@ -192,15 +226,14 @@ describe('Node Search by double tap', () => {
   // opened, so they land on it rather than on the canvas - and a mousedown that
   // is allowed its default moves focus off the input, which closes the search.
   it('keeps it open once the tap is over', () => {
+    doubleTap(500, 400);
     cy.wait(500);
     getSearchInput().should('be.visible').and('be.focused');
   });
 
   it('does not open on a single tap', () => {
-    cy.get('body').type('{esc}');
-    cy.get('input#node-search:visible').should('not.exist');
     cy.get('#pixi-container').realTouch({ x: 500, y: 400 });
     cy.wait(500);
-    cy.get('input#node-search:visible').should('not.exist');
+    getSearchInput().should('not.exist');
   });
 });
