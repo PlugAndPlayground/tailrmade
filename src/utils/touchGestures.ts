@@ -5,11 +5,7 @@ export const LONG_PRESS_MS = 500;
 // How far a finger may wander before it counts as travelling.
 export const TOUCH_DRAG_SLOP_PX = 10;
 
-export type TouchGestureOutcome =
-  | 'none'
-  | 'tap'
-  | 'long-press'
-  | 'drag';
+export type TouchGestureOutcome = 'none' | 'tap' | 'long-press' | 'drag';
 
 export type TouchGestureSample = {
   pointerType: string;

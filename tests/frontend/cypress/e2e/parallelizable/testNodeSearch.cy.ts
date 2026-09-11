@@ -169,12 +169,18 @@ describe('Node Search by double tap', () => {
       enabled: true,
       maxTouchPoints: 5,
     });
+    // A double tap has to land within DOUBLE_TAP_MS in real time, and under
+    // test:throttled Cypress alone spends longer than that between two taps.
+    cdp('Emulation.setCPUThrottlingRate', { rate: 1 });
     openNewGraph();
     closeBothDrawers();
   });
 
   after(() => {
     cdp('Emulation.setTouchEmulationEnabled', { enabled: false });
+    cdp('Emulation.setCPUThrottlingRate', {
+      rate: Math.max(1, Number(Cypress.env('cpuThrottleRate')) || 1),
+    });
   });
 
   it('opens the search on a double tap on empty canvas', () => {
