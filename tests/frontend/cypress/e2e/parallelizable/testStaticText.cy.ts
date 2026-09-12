@@ -184,6 +184,28 @@ describe('static Text', () => {
       .should('have.css', 'white-space', 'nowrap');
   });
 
+  it('edits a link in a field as wide as its overlay', () => {
+    setLayout([{ text: 'a link here' }]);
+    openEditMode();
+    cy.get('[data-cy="static-text-editor"]')
+      .first()
+      .click({ force: true })
+      .type(`${controlOrMetaKey()}a`, { force: true });
+    cy.get('[data-cy="text-inline-toolbar"] [data-cy="link-button"]').click();
+
+    cy.get('[data-cy="link-input"]')
+      .should('be.visible')
+      .then(($input) => {
+        const inputWidth = $input[0].getBoundingClientRect().width;
+        cy.get('[data-cy="link-editor"]').should(($editor) => {
+          // all of the overlay but the confirm button and the field's padding
+          expect(inputWidth).to.be.greaterThan(
+            $editor[0].getBoundingClientRect().width - 80,
+          );
+        });
+      });
+  });
+
   it('sets the variant and tone from the inspector', () => {
     setLayout([{ text: 'Styled' }]);
     openEditMode();
@@ -222,7 +244,7 @@ describe('static Text', () => {
         displayName: 'Text',
         isCanvas: false,
         props: {
-          text: 'Legacy <b>bold</b>\nsecond line',
+          text: 'Legacy bold\nsecond line',
           fontSize: 24,
           fontWeight: '700',
           textAlign: 'center',
@@ -296,7 +318,6 @@ describe('static Text', () => {
       .and('have.css', 'font-weight', '700')
       .and('have.css', 'text-align', 'center')
       .and('have.css', 'color', 'rgb(200, 10, 10)');
-    appText('bold').should('match', 'strong');
     appText('second line').should('be.visible');
     appText('Inherited')
       .closest('[data-cy="static-text"] > div')

@@ -1,6 +1,4 @@
 // Headless content and styling model shared by static and dynamic Text.
-// Keep React, PIXI, MUI and node classes out of this module - the surface
-// layout spec and graph migrations import it.
 
 export const TEXT_VARIANTS = [
   'display',
@@ -33,7 +31,6 @@ export const TONE_PALETTE: Record<TextTone, string> = {
   negative: 'error.main',
 };
 
-// editors store a run's tone as this variable, bound to the theme at render
 export const toneCssVariable = (tone: TextTone): string =>
   `--text-tone-${tone}`;
 
@@ -88,12 +85,10 @@ export type TextParagraph = { runs: TextRun[] };
 export type TextContent = { version: 1; paragraphs: TextParagraph[] };
 
 export type TextProps = {
-  // inline Markdown (see inlineMarkdown.ts); TextContent is its parsed form
   content: string;
   variant: TextVariant;
   tone: TextTone;
   alignment: TextAlignment;
-  // CSS for anything the variant and tone do not cover
   customStyles: Record<string, unknown>;
 };
 
@@ -249,11 +244,6 @@ export function normalizeTextProps(props: Record<string, any>): TextProps {
   };
 }
 
-/**
- * Element-level style in precedence order: variant defaults, tone and
- * alignment, customStyles. Colors are MUI palette paths so the result can go
- * straight into `sx`. Run marks are applied on top by the renderer.
- */
 export function resolveTextElementStyle(
   props: Pick<TextProps, 'variant' | 'tone' | 'alignment' | 'customStyles'>,
 ): Record<string, unknown> {
@@ -261,8 +251,6 @@ export function resolveTextElementStyle(
   return {
     ...variant,
     fontSize: `${fontSize}px`,
-    // the default tone takes the color around it: the theme's text color,
-    // unless a container or the widget names another
     color: props.tone === 'default' ? 'inherit' : TONE_PALETTE[props.tone],
     textAlign: props.alignment,
     ...props.customStyles,

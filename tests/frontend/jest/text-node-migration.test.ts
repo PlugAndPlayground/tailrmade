@@ -71,7 +71,7 @@ const legacyTextNode = (id: string, input: unknown): SerializedNode =>
 
 const graphOf = (nodes: SerializedNode[], links: unknown[] = []) =>
   ({
-    version: 7,
+    version: 5,
     graphSettings: {},
     nodes,
     links,

@@ -593,6 +593,9 @@ export class ACTIONS {
           addedNode,
           linkedSocket,
         );
+        if (!input || !output) {
+          return;
+        }
         const connectActions = PPGraph.currentGraph.actions_Connect(
           output.name,
           output.getNode().id,

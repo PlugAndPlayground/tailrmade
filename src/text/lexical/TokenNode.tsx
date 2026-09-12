@@ -24,12 +24,12 @@ import {
 } from 'lexical';
 import {
   formatToken,
-  formatTokenValue,
   parseToken,
   renderTokenSource,
   resolveTokenPath,
   scanTokenSpans,
   tokenPathToString,
+  tokenValueToText,
 } from '../tokens';
 
 export type TokenInputs = Record<string, unknown>;
@@ -93,7 +93,7 @@ const TokenChip: React.FC<{
       }}
     >
       {token && resolution.resolved
-        ? formatTokenValue(resolution, token.format)
+        ? tokenValueToText(resolution)
         : token
           ? tokenPathToString(token.path)
           : source}

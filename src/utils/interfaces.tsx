@@ -214,8 +214,6 @@ export interface Layoutable {
   getWidgetContent(props: WidgetContentProps): React.ReactNode;
   // widget-specific controls for the dashboard inspector
   getDashboardSettings?(): React.ReactNode;
-  // true for widgets edited in place while their surface is edited, which
-  // the surface editor then leaves interactive
   isEditableInSurfaceEditMode?(): boolean;
   getRelatedNode(): PPNode;
   isContainer(): boolean;

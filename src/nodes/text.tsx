@@ -647,8 +647,6 @@ export class Label extends PPNode implements Layoutable {
 }
 
 const TextNodeSettings: React.FC<{ nodeId: string }> = ({ nodeId }) => {
-  // socket values - and the node itself, which conversions and their undo
-  // recreate - change outside React; re-read after executions and layout edits
   const [, rerender] = useReducer((count: number) => count + 1, 0);
   const node = PPGraph.currentGraph.nodes[nodeId] as Text | undefined;
   useEffect(() => {
@@ -663,12 +661,10 @@ const TextNodeSettings: React.FC<{ nodeId: string }> = ({ nodeId }) => {
     };
   }, [node]);
 
-  // converting it away leaves the inspector mounted for a moment
   if (!node) {
     return null;
   }
   const guard = getStaticConversionGuard(node);
-  // styling stays on the node's sockets; the dashboard only offers conversion
   return (
     <Stack spacing={0.5} sx={{ bgcolor: 'background.default', p: 0.5 }}>
       <Button
@@ -699,8 +695,6 @@ const TextNodeWidget: React.FC<HybridWidgetContentProps<Text>> = (props) => {
   const node = props.node;
   const textProps = textPropsFromSocketValues(props);
   const inputs = getTokenInputs(node);
-  // editable on the canvas and while its surface is being edited; the
-  // running app and every preview only read it
   if (props.inDashboard && (!props.isEditMode || props.isSurfacePreview)) {
     return <TextView {...textProps} inputs={inputs} />;
   }
@@ -728,7 +722,6 @@ const TextNodeWidget: React.FC<HybridWidgetContentProps<Text>> = (props) => {
       }}
     />
   );
-  // the canvas shows the text on the app's own ground, as the app will
   return props.inDashboard ? (
     editor
   ) : (
@@ -767,10 +760,9 @@ export class Text extends HybridNode2 {
     return `Shows rich text on a UI surface, with live values from its own inputs.
 
 Tokens are Handlebars paths into this node's inputs: {{temp}}, or {{d.temp}}
-for a field of an object input. Format with
-{{format d.temp decimals=1 suffix=" °C" dateFormat="YYYY-MM-DD" fallback="—"}}.
-Only paths and format work - no blocks or other helpers. A token whose input
-is missing or null shows its fallback, or nothing.
+for a field of an object input. Only paths work - no blocks or helpers, so
+format a value with other nodes before it reaches an input. A token whose
+input is missing or null shows nothing.
 
 "Content" is inline Markdown with tokens: **bold**, *italic*, \`code\`,
 [link](https://…), and [words]{.accent .nowrap} for a run's tone or no-wrap;

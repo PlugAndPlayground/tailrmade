@@ -2,8 +2,12 @@
 // import this early, so keep React, PIXI, MUI and node classes out.
 import { ColorSetting, colorSettingToCss } from '../utils/themeColors';
 import { textContentToMarkdown } from './inlineMarkdown';
-import { textContentFromLegacyHtml } from './legacyHtml';
-import { TEXT_ALIGNMENTS, TextAlignment, textDefaultProps } from './model';
+import {
+  createTextContent,
+  TEXT_ALIGNMENTS,
+  TextAlignment,
+  textDefaultProps,
+} from './model';
 
 export const STATIC_TEXT_ITEM_TYPE = 'Text';
 
@@ -55,7 +59,9 @@ export function migrateLegacyStaticTextProps(
   const { text, fontSize, fontWeight, textAlign, color, ...rest } = props;
   return {
     ...rest,
-    content: textContentToMarkdown(textContentFromLegacyHtml(text)),
+    // taken as plain text: the rare item with HTML markup in it is touched
+    // up by hand
+    content: textContentToMarkdown(createTextContent(text)),
     variant: textDefaultProps.variant,
     tone: textDefaultProps.tone,
     alignment: TEXT_ALIGNMENTS.includes(textAlign as TextAlignment)

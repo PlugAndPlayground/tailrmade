@@ -1,21 +1,12 @@
 // The token language shared by every text host: Handlebars path expressions
-// ({{d.temp}}) and the `format` helper, nothing else. Headless - keep React,
-// PIXI, MUI and node classes out of this module.
+// ({{name}}, {{d.temp}}) and nothing else - values are formatted by other
+// nodes before they reach an input. Headless - keep React, PIXI, MUI and node
+// classes out of this module.
 import Handlebars from 'handlebars/dist/handlebars';
-
-export const FORMAT_HELPER = 'format';
-
-export type TokenFormat = {
-  decimals?: number;
-  suffix?: string;
-  dateFormat?: string;
-  fallback?: string;
-};
 
 export type ParsedToken = {
   // path[0] is the input socket name, the rest is traversed inside its value
   path: string[];
-  format?: TokenFormat;
 };
 
 export type TokenResolution =
@@ -24,58 +15,16 @@ export type TokenResolution =
 
 const RESERVED_INPUT_NAMES = new Set([
   'this',
-  FORMAT_HELPER,
   'true',
   'false',
   'null',
   'undefined',
   'else',
 ]);
-const MAX_DECIMALS = 20;
 // a segment Handlebars reads as a plain id; anything else needs [brackets]
 const PLAIN_SEGMENT = /^[A-Za-z_$][\w$-]*$/;
 
-function parsePath(node: any): string[] | undefined {
-  if (
-    node?.type !== 'PathExpression' ||
-    node.data ||
-    node.depth !== 0 ||
-    node.parts.length === 0 ||
-    /^this\b/.test(node.original)
-  ) {
-    return undefined;
-  }
-  return node.parts;
-}
-
-function parseFormat(
-  pairs: { key: string; value: any }[],
-): TokenFormat | undefined {
-  const format: TokenFormat = {};
-  for (const { key, value } of pairs) {
-    if (key === 'decimals') {
-      if (
-        value.type !== 'NumberLiteral' ||
-        !Number.isInteger(value.value) ||
-        value.value < 0 ||
-        value.value > MAX_DECIMALS
-      ) {
-        return undefined;
-      }
-      format.decimals = value.value;
-    } else if (key === 'suffix' || key === 'dateFormat' || key === 'fallback') {
-      if (value.type !== 'StringLiteral') {
-        return undefined;
-      }
-      format[key] = value.value;
-    } else {
-      return undefined;
-    }
-  }
-  return format;
-}
-
-/** Parses one `{{…}}` token, or undefined if it is not a supported token. */
+/** Parses one `{{…}}` token, or undefined if it is not a plain path. */
 export function parseToken(source: string): ParsedToken | undefined {
   let program: any;
   try {
@@ -89,26 +38,23 @@ export function parseToken(source: string): ParsedToken | undefined {
     statement.type !== 'MustacheStatement' ||
     !statement.escaped ||
     statement.strip.open ||
-    statement.strip.close
+    statement.strip.close ||
+    statement.params.length > 0 ||
+    statement.hash
   ) {
     return undefined;
   }
-  const path = parsePath(statement.path);
-  if (!path) {
+  const { path } = statement;
+  if (
+    path?.type !== 'PathExpression' ||
+    path.data ||
+    path.depth !== 0 ||
+    path.parts.length === 0 ||
+    /^this\b/.test(path.original)
+  ) {
     return undefined;
   }
-  const pairs = statement.hash?.pairs ?? [];
-  if (path.length === 1 && path[0] === FORMAT_HELPER) {
-    const valuePath = parsePath(statement.params[0]);
-    const format = parseFormat(pairs);
-    return statement.params.length === 1 && valuePath && format
-      ? { path: valuePath, format }
-      : undefined;
-  }
-  if (statement.params.length > 0 || pairs.length > 0) {
-    return undefined;
-  }
-  return { path };
+  return { path: path.parts };
 }
 
 export function tokenPathToString(path: string[]): string {
@@ -119,18 +65,7 @@ export function tokenPathToString(path: string[]): string {
 
 /** The canonical source of a token - what gets persisted. */
 export function formatToken(token: ParsedToken): string {
-  const path = tokenPathToString(token.path);
-  const format = token.format;
-  if (!format) {
-    return `{{${path}}}`;
-  }
-  const hash = [
-    format.decimals !== undefined ? `decimals=${format.decimals}` : '',
-    ...(['suffix', 'dateFormat', 'fallback'] as const).map((key) =>
-      format[key] !== undefined ? `${key}=${JSON.stringify(format[key])}` : '',
-    ),
-  ].filter(Boolean);
-  return `{{${[FORMAT_HELPER, path, ...hash].join(' ')}}}`;
+  return `{{${tokenPathToString(token.path)}}}`;
 }
 
 /**
@@ -143,10 +78,11 @@ export function scanTokenSpans(
   const spans: { start: number; end: number; token: ParsedToken }[] = [];
   let index = text.indexOf('{{');
   while (index !== -1) {
-    const end = findMustacheEnd(text, index + 2);
-    if (end === -1) {
+    const close = text.indexOf('}}', index + 2);
+    if (close === -1) {
       break;
     }
+    const end = close + 2;
     const token =
       text[index - 1] === '\\' || text[index + 2] === '{'
         ? undefined
@@ -159,22 +95,6 @@ export function scanTokenSpans(
     }
   }
   return spans;
-}
-
-// index just past the closing `}}`, skipping over quoted hash values
-function findMustacheEnd(text: string, from: number): number {
-  let quote: string | undefined;
-  for (let i = from; i < text.length; i++) {
-    const char = text[i];
-    if (quote) {
-      if (char === quote) quote = undefined;
-    } else if (char === '"' || char === "'") {
-      quote = char;
-    } else if (char === '}' && text[i + 1] === '}') {
-      return i + 2;
-    }
-  }
-  return -1;
 }
 
 const hasOwn = (value: object, key: string): boolean =>
@@ -204,46 +124,12 @@ export function resolveTokenPath(
     : { resolved: true, value: current };
 }
 
-function toDate(value: unknown): Date | undefined {
-  const date =
-    value instanceof Date
-      ? value
-      : typeof value === 'number' || typeof value === 'string'
-        ? new Date(value)
-        : undefined;
-  return date && !Number.isNaN(date.getTime()) ? date : undefined;
-}
-
-const pad = (value: number, length = 2) => String(value).padStart(length, '0');
-
-function formatDate(date: Date, pattern: string): string {
-  const parts: Record<string, string> = {
-    YYYY: String(date.getFullYear()),
-    YY: pad(date.getFullYear() % 100),
-    MM: pad(date.getMonth() + 1),
-    M: String(date.getMonth() + 1),
-    DD: pad(date.getDate()),
-    D: String(date.getDate()),
-    HH: pad(date.getHours()),
-    H: String(date.getHours()),
-    mm: pad(date.getMinutes()),
-    ss: pad(date.getSeconds()),
-  };
-  return pattern.replace(/YYYY|YY|MM|M|DD|D|HH|H|mm|ss/g, (key) => parts[key]);
-}
-
-function toNumber(value: unknown): number | undefined {
-  if (typeof value === 'number') {
-    return Number.isFinite(value) ? value : undefined;
+/** The text a resolved value shows as; an unresolved one shows nothing. */
+export function tokenValueToText(resolution: TokenResolution): string {
+  if (!resolution.resolved) {
+    return '';
   }
-  if (typeof value === 'string' && value.trim() !== '') {
-    const number = Number(value);
-    return Number.isFinite(number) ? number : undefined;
-  }
-  return undefined;
-}
-
-function stringify(value: unknown): string {
+  const { value } = resolution;
   if (typeof value === 'string') {
     return value;
   }
@@ -257,35 +143,13 @@ function stringify(value: unknown): string {
   return String(value);
 }
 
-/** Null fallback, then number/date formatting, then the suffix. */
-export function formatTokenValue(
-  resolution: TokenResolution,
-  format: TokenFormat = {},
-): string {
-  if (!resolution.resolved) {
-    return format.fallback ?? '';
-  }
-  const { value } = resolution;
-  let text: string | undefined;
-  const date = format.dateFormat !== undefined ? toDate(value) : undefined;
-  if (date) {
-    text = formatDate(date, format.dateFormat!);
-  } else if (format.decimals !== undefined) {
-    text = toNumber(value)?.toFixed(format.decimals);
-  }
-  return (text ?? stringify(value)) + (format.suffix ?? '');
-}
-
 /** What an end user sees for a token source - never the raw `{{…}}`. */
 export function renderTokenSource(
   source: string,
   inputs: Record<string, unknown>,
 ): string {
   const token = parseToken(source);
-  if (!token) {
-    return '';
-  }
-  return formatTokenValue(resolveTokenPath(token.path, inputs), token.format);
+  return token ? tokenValueToText(resolveTokenPath(token.path, inputs)) : '';
 }
 
 /** A reason the name cannot be used for a new input, or undefined. */
@@ -305,7 +169,6 @@ export function validateInputName(
   const token = parseToken(`{{${name}}}`);
   if (
     !token ||
-    token.format ||
     token.path.length !== 1 ||
     token.path[0] !== name ||
     !PLAIN_SEGMENT.test(name)

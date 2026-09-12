@@ -1,11 +1,11 @@
 import {
   formatToken,
-  formatTokenValue,
   migrateLegacyMentions,
   parseToken,
   renderTokenSource,
   resolveTokenPath,
   scanTokenSpans,
+  tokenValueToText,
   validateInputName,
 } from '../../../src/text/tokens';
 
@@ -15,19 +15,6 @@ describe('parseToken', () => {
     expect(parseToken('{{d.temp}}')).toEqual({ path: ['d', 'temp'] });
     expect(parseToken('{{ name }}')).toEqual({ path: ['name'] });
     expect(parseToken('{{[Input 2]}}')).toEqual({ path: ['Input 2'] });
-  });
-
-  it('reads the format helper and its supported fields', () => {
-    expect(
-      parseToken('{{format d.temp decimals=1 suffix=" °C" fallback="—"}}'),
-    ).toEqual({
-      path: ['d', 'temp'],
-      format: { decimals: 1, suffix: ' °C', fallback: '—' },
-    });
-    expect(parseToken('{{format when dateFormat="YYYY-MM-DD"}}')).toEqual({
-      path: ['when'],
-      format: { dateFormat: 'YYYY-MM-DD' },
-    });
   });
 
   it.each([
@@ -43,11 +30,9 @@ describe('parseToken', () => {
     '{{"str"}}',
     '{{x y}}',
     '{{macro "name"}}',
-    '{{format (lookup d x)}}',
-    '{{format}}',
-    '{{format d decimals="1"}}',
-    '{{format d decimals=1.5}}',
-    '{{format d color="red"}}',
+    '{{format d.temp}}',
+    '{{format d decimals=1 suffix=" °C"}}',
+    '{{d key=1}}',
     '{{!-- comment --}}',
     '{{> partial}}',
     '{{a}}{{b}}',
@@ -60,39 +45,25 @@ describe('parseToken', () => {
 
 describe('formatToken', () => {
   it('writes canonical sources that parse back to the same token', () => {
-    const tokens = [
-      { path: ['name'] },
-      { path: ['d', 'temp'] },
-      { path: ['Input 2'] },
-      {
-        path: ['d', 'temp'],
-        format: { decimals: 1, suffix: ' °C', fallback: '—' },
+    [{ path: ['name'] }, { path: ['d', 'temp'] }, { path: ['Input 2'] }].forEach(
+      (token) => {
+        expect(parseToken(formatToken(token))).toEqual(token);
       },
-      { path: ['d'], format: { dateFormat: 'HH:mm', suffix: '"' } },
-    ];
-    tokens.forEach((token) => {
-      expect(parseToken(formatToken(token))).toEqual(token);
-    });
+    );
     expect(formatToken({ path: ['Input 2'] })).toBe('{{[Input 2]}}');
-    expect(
-      formatToken({
-        path: ['d', 'temp'],
-        format: { decimals: 1, suffix: ' °C' },
-      }),
-    ).toBe('{{format d.temp decimals=1 suffix=" °C"}}');
+    expect(formatToken({ path: ['d', 'temp'] })).toBe('{{d.temp}}');
   });
 });
 
 describe('scanTokenSpans', () => {
   it('finds valid tokens and leaves everything else as text', () => {
-    const text =
-      'a {{x}} b {{#if y}} c {{{z}}} d \\{{w}} e {{format t suffix="}}"}} f';
+    const text = 'a {{x}} b {{#if y}} c {{{z}}} d \\{{w}} e {{format t}} f {{t}}';
     const spans = scanTokenSpans(text);
     expect(spans.map((span) => text.slice(span.start, span.end))).toEqual([
       '{{x}}',
-      '{{format t suffix="}}"}}',
+      '{{t}}',
     ]);
-    expect(spans[1].token).toEqual({ path: ['t'], format: { suffix: '}}' } });
+    expect(spans[1].token).toEqual({ path: ['t'] });
   });
 
   it('recovers after an unterminated or invalid span', () => {
@@ -161,55 +132,27 @@ describe('resolveTokenPath', () => {
   });
 });
 
-describe('formatTokenValue', () => {
+describe('tokenValueToText', () => {
   const resolved = (value: unknown) => ({ resolved: true as const, value });
-  const unresolved = { resolved: false as const };
 
-  it('uses the fallback for null values and nothing otherwise', () => {
-    expect(formatTokenValue(unresolved, { fallback: '—', suffix: ' °C' })).toBe(
-      '—',
-    );
-    expect(formatTokenValue(unresolved, { suffix: ' °C' })).toBe('');
+  it('shows nothing for an unresolved value', () => {
+    expect(tokenValueToText({ resolved: false })).toBe('');
   });
 
-  it('applies decimals, then the suffix', () => {
-    expect(
-      formatTokenValue(resolved(21.456), { decimals: 1, suffix: ' °C' }),
-    ).toBe('21.5 °C');
-    expect(formatTokenValue(resolved('3'), { decimals: 2 })).toBe('3.00');
-    expect(formatTokenValue(resolved(0), { decimals: 0, suffix: '%' })).toBe(
-      '0%',
-    );
-    expect(formatTokenValue(resolved('n/a'), { decimals: 2 })).toBe('n/a');
-  });
-
-  it('formats dates with a pattern', () => {
-    const date = new Date(2026, 8, 5, 7, 3, 9);
-    expect(
-      formatTokenValue(resolved(date), { dateFormat: 'YYYY-MM-DD HH:mm:ss' }),
-    ).toBe('2026-09-05 07:03:09');
-    expect(
-      formatTokenValue(resolved(date.getTime()), {
-        dateFormat: 'D.M.YY',
-        suffix: '!',
-      }),
-    ).toBe('5.9.26!');
-    expect(
-      formatTokenValue(resolved('not a date'), { dateFormat: 'YYYY' }),
-    ).toBe('not a date');
-  });
-
-  it('stringifies booleans and objects', () => {
-    expect(formatTokenValue(resolved(false))).toBe('false');
-    expect(formatTokenValue(resolved({ a: 1 }))).toBe('{"a":1}');
+  it('shows values as they are, objects as JSON', () => {
+    expect(tokenValueToText(resolved('Ada'))).toBe('Ada');
+    expect(tokenValueToText(resolved(21.456))).toBe('21.456');
+    expect(tokenValueToText(resolved(0))).toBe('0');
+    expect(tokenValueToText(resolved(false))).toBe('false');
+    expect(tokenValueToText(resolved({ a: 1 }))).toBe('{"a":1}');
   });
 });
 
 describe('renderTokenSource', () => {
   it('never shows raw source to an end user', () => {
     expect(renderTokenSource('{{#if x}}', { x: 1 })).toBe('');
+    expect(renderTokenSource('{{format x}}', { x: 1 })).toBe('');
     expect(renderTokenSource('{{gone}}', {})).toBe('');
-    expect(renderTokenSource('{{format gone fallback="?"}}', {})).toBe('?');
     expect(renderTokenSource('{{d.temp}}', { d: { temp: 4 } })).toBe('4');
   });
 });
@@ -218,6 +161,7 @@ describe('validateInputName', () => {
   it('accepts simple names', () => {
     expect(validateInputName('temp', ['Other'])).toBeUndefined();
     expect(validateInputName('my_value-2', [])).toBeUndefined();
+    expect(validateInputName('format', [])).toBeUndefined();
   });
 
   it.each([
@@ -225,7 +169,6 @@ describe('validateInputName', () => {
     ['  ', 'needs a name'],
     ['temp', 'already exists'],
     ['this', 'reserved'],
-    ['format', 'reserved'],
     ['true', 'reserved'],
     ['d.temp', 'not a valid'],
     ['two words', 'not a valid'],

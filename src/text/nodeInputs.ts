@@ -9,7 +9,7 @@ import {
 } from '../classes/Action';
 import { AnyType } from '../nodes/datatypes/anyType';
 import { serializeType } from '../nodes/datatypes/typehelper';
-import { formatTokenValue } from './tokens';
+import { tokenValueToText } from './tokens';
 import type { TokenPickerProps } from './lexical/TokenPickerPlugin';
 
 /** Inputs the node added beyond its content, styling and control sockets. */
@@ -33,7 +33,7 @@ export function getTokenPickerProps(
   return {
     inputs: getBindableInputSockets(node).map((socket) => ({
       name: socket.name,
-      preview: formatTokenValue(
+      preview: tokenValueToText(
         socket.data === undefined || socket.data === null
           ? { resolved: false }
           : { resolved: true, value: socket.data },

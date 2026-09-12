@@ -7,8 +7,6 @@ import {
   textContentToPlain,
   textDefaultProps,
 } from '../../../src/text/model';
-import { textContentToMarkdown } from '../../../src/text/inlineMarkdown';
-import { textContentFromLegacyHtml } from '../../../src/text/legacyHtml';
 import { renderTokenSource } from '../../../src/text/tokens';
 
 describe('text content', () => {
@@ -64,7 +62,7 @@ describe('text content', () => {
         {
           runs: [
             { type: 'text', text: 'T: ' },
-            { type: 'token', source: '{{format d.temp decimals=1}}' },
+            { type: 'token', source: '{{d.temp}}' },
             { type: 'break' },
             { type: 'token', source: '{{missing}}' },
           ],
@@ -77,7 +75,7 @@ describe('text content', () => {
       textContentToPlain(content, (source) =>
         renderTokenSource(source, inputs),
       ),
-    ).toBe('T: 20.0\n\nend');
+    ).toBe('T: 20.04\n\nend');
     expect(textContentToPlain(content)).toBe('T: \n\nend');
   });
 
@@ -132,47 +130,5 @@ describe('text props', () => {
         customStyles: { fontSize: '9px', color: 'red' },
       }),
     ).toMatchObject({ fontSize: '9px', fontWeight: 700, color: 'red' });
-  });
-});
-
-describe('textContentFromLegacyHtml', () => {
-  it('imports supported formatting, links and line breaks', () => {
-    const content = textContentFromLegacyHtml(
-      'Hello <b>bold <i>both</i></b><br><a href="https://x.io">link</a>\n<code>c</code> &amp; &lt;done&gt;',
-    );
-    expect(content.paragraphs).toEqual([
-      {
-        runs: [
-          { type: 'text', text: 'Hello ' },
-          { type: 'text', text: 'bold ', marks: { strong: true } },
-          {
-            type: 'text',
-            text: 'both',
-            marks: { strong: true, emphasis: true },
-          },
-        ],
-      },
-      {
-        runs: [{ type: 'text', text: 'link', marks: { link: 'https://x.io' } }],
-      },
-      {
-        runs: [
-          { type: 'text', text: 'c', marks: { code: true } },
-          { type: 'text', text: ' & <done>' },
-        ],
-      },
-    ]);
-  });
-
-  it('drops unsafe and unsupported markup but keeps text', () => {
-    const content = textContentFromLegacyHtml(
-      '<span style="color:red" onclick="x()">kept</span><script>alert(1)</script><style>p{}</style><a href="javascript:alert(1)">plain</a><div>next</div><!-- hidden -->',
-    );
-    expect(textContentToMarkdown(content)).toBe('keptplain\nnext');
-  });
-
-  it('matches the old plain-text newline handling', () => {
-    expect(textContentToPlain(textContentFromLegacyHtml('a\nb'))).toBe('a\nb');
-    expect(textContentToPlain(textContentFromLegacyHtml('Hi'))).toBe('Hi');
   });
 });

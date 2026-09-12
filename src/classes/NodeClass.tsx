@@ -1636,8 +1636,11 @@ ${Math.round(bounds.minX)}, ${Math.round(
         );
       });
 
-      // make sure the best match is not incompatible
+      // make sure the best match is not incompatible - with the data a socket
+      // holds; one that holds nothing yet (a new input) has nothing to clash
       if (
+        socket.data === undefined ||
+        socket.data === null ||
         IsCompatible(
           sortedMatchQuality[0].dataType.getCompatability(
             socket.data,

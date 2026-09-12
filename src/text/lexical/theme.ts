@@ -1,7 +1,5 @@
 import type { EditorThemeClasses } from 'lexical';
 
-// class names styled by styles.css; kept as a plain object so headless
-// editors (converters, jest) can share it without importing the stylesheet
 export const textEditorTheme: EditorThemeClasses = {
   ltr: 'ltr',
   rtl: 'rtl',

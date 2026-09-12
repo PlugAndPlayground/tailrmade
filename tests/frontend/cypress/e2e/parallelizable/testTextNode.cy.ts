@@ -2,6 +2,7 @@ import {
   clearGraph,
   closeBothDrawers,
   doWithTestController,
+  dragFromAtoB,
   exitDashboardEditMode,
   openNewGraph,
   shouldWithTestController,
@@ -124,12 +125,106 @@ describe('dynamic Text node', () => {
     });
   });
 
-  it('rejects reserved and duplicate input names', () => {
-    addTextNode('names-text');
-    canvasEditor('names-text').type('{selectall}{backspace}@format', {
+  it('completes input names with Tab, cycling through the matches', () => {
+    addTextNode('tab-text');
+    doWithTestController((testController) => {
+      testController.createTokenInput('tab-text', 'temp');
+      testController.createTokenInput('tab-text', 'temperature');
+    });
+    // inputs are added through the undo stack, so they exist a step later
+    doWithTestController(async (testController) => {
+      testController.setNodeInputValue('tab-text', 'temp', { max: 30 });
+      await testController.executeNodeByID('tab-text');
+    });
+    canvasEditor('tab-text').type('{selectall}{backspace}@te', {
       force: true,
     });
-    pickerOption('＋ new input "format"')
+    cy.get('[data-cy="text-token-picker"]').should('be.visible');
+    cy.realPress('Tab');
+    canvasEditor('tab-text').should('have.text', '@temp');
+    cy.realPress('Tab');
+    canvasEditor('tab-text').should('have.text', '@temperature');
+    cy.realPress(['Shift', 'Tab']);
+    canvasEditor('tab-text').should('have.text', '@temp');
+
+    // then on into the value's fields
+    canvasEditor('tab-text').type('.', { force: true });
+    cy.realPress('Tab');
+    canvasEditor('tab-text').should('have.text', '@temp.max');
+  });
+
+  it('keeps the @ menu still while a name is typed', () => {
+    addTextNode('menu-text');
+    canvasEditor('menu-text').type('{selectall}{backspace}Hello @', {
+      force: true,
+    });
+    cy.get('[data-cy="text-token-picker"]').should('be.visible');
+
+    // where the menu is in every frame: typing must not move it, not even for
+    // a frame
+    cy.window().then((win) => {
+      const positions = new Set<string>();
+      const sample = () => {
+        const menu = win.document.querySelector(
+          '[data-cy="text-token-picker"]',
+        );
+        if (menu) {
+          const { top, left } = menu.getBoundingClientRect();
+          positions.add(`${Math.round(top)},${Math.round(left)}`);
+        }
+        frame = win.requestAnimationFrame(sample);
+      };
+      let frame = win.requestAnimationFrame(sample);
+      cy.wrap({ positions, stop: () => win.cancelAnimationFrame(frame) }).as(
+        'menuPositions',
+      );
+    });
+    canvasEditor('menu-text').type('newname', { force: true, delay: 120 });
+    cy.get<{ positions: Set<string>; stop: () => void }>(
+      '@menuPositions',
+    ).then(({ positions, stop }) => {
+      stop();
+      expect([...positions]).to.have.length(1);
+    });
+  });
+
+  it('connects a node added from an input that holds no value yet', () => {
+    doWithTestController(async (testController) => {
+      await testController.addNode('Text', 'drag-text', -100, -100);
+    });
+    doWithTestController((testController) => {
+      testController.createTokenInput('drag-text', 'temp');
+    });
+    cy.wait(500);
+    doWithTestController((testController) => {
+      expect(testController.getNodeInputValue('drag-text', 'temp')).to.eq(
+        null,
+      );
+      const [x, y] = testController.getSocketCenterByNodeIDAndSocketName(
+        'drag-text',
+        'temp',
+      );
+      // released over empty canvas, which opens node search for the wire
+      dragFromAtoB(x, y, x - 150, y + 150);
+    });
+    cy.get('input#node-search:visible').type('Constant', { force: true });
+    cy.wait(400);
+    cy.get('input#node-search:visible').type('{enter}', { force: true });
+
+    shouldWithTestController((testController) => {
+      expect(
+        testController.getSocketLinks('drag-text', 'temp'),
+        'the added node is linked into the input',
+      ).to.have.length(1);
+    });
+  });
+
+  it('rejects reserved and duplicate input names', () => {
+    addTextNode('names-text');
+    canvasEditor('names-text').type('{selectall}{backspace}@this', {
+      force: true,
+    });
+    pickerOption('＋ new input "this"')
       .closest('[data-cy="text-token-picker-option"]')
       .should('have.class', 'Mui-disabled')
       .and('contain.text', 'reserved');
@@ -228,21 +323,21 @@ describe('dynamic Text node', () => {
     addTextNode('invalid-text');
     setContent(
       'invalid-text',
-      'Now: {{missing}} / {{format missing fallback="none"}}',
+      'Now: {{missing}} / {{other.field}}',
     );
     canvasEditor('invalid-text')
       .find('[data-token-state="unresolved"]')
       .should('have.length', 2);
     shouldWithTestController((testController) => {
       expect(testController.getNodeOutputValue('invalid-text', 'Output')).to.eq(
-        'Now:  / none',
+        'Now:  / ',
       );
     });
 
     placeOnSurface([{ widget: 'invalid-text' }]);
     exitDashboardEditMode();
     cy.get('[data-cy="widget of NODE_invalid-text"]')
-      .should('contain.text', 'Now:  / none')
+      .should('contain.text', 'Now:  / ')
       .and('not.contain.text', '{{')
       .find('[data-cy="text-token"]')
       .should('not.exist');
@@ -412,7 +507,7 @@ describe('dynamic Text node', () => {
       updateBehaviour: { load: true, update: true, interval: false },
     });
     const graph = {
-      version: 7,
+      version: 5,
       graphSettings: {
         showExecutionVisualisation: true,
         viewportCenterPosition: { x: 0, y: 0 },

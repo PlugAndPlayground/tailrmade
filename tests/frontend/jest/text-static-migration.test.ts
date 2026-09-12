@@ -8,7 +8,7 @@ import {
 } from '../../../src/text/model';
 
 const legacyProps = {
-  text: 'Hello <b>world</b>\nnext',
+  text: 'Hello world\nnext',
   fontSize: 24,
   fontWeight: '700',
   textAlign: 'center',
@@ -31,7 +31,7 @@ describe('legacy static Text props', () => {
     });
     expect(migrated).not.toHaveProperty('text');
     expect(migrated).not.toHaveProperty('fontSize');
-    expect(migrated.content).toBe('Hello **world**\nnext');
+    expect(migrated.content).toBe('Hello world\nnext');
   });
 
   it('renders the same computed style the old widget used', () => {
@@ -76,9 +76,10 @@ describe('legacy static Text props', () => {
     ).toBe('red');
   });
 
-  it('does not render a trailing newline as an extra empty line', () => {
-    const migrated = migrateLegacyStaticTextProps({ text: 'Hello\n\n' });
-    expect(migrated.content).toBe('Hello\n');
+  it('keeps legacy markup as literal text, escaped for Markdown', () => {
+    expect(
+      migrateLegacyStaticTextProps({ text: 'a <b>b</b> *c*' }).content,
+    ).toBe('a <b>b</b> \\*c\\*');
   });
 });
 

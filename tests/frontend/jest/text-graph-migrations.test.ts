@@ -14,7 +14,7 @@ const legacyTextTree = () => ({
   t1: {
     type: { resolvedName: 'Text' },
     props: {
-      text: 'Hi <i>there</i>',
+      text: 'Hi there',
       fontSize: 30,
       fontWeight: '700',
       textAlign: 'right',
@@ -85,7 +85,7 @@ describe('text editor mention migration', () => {
 describe('static Text migration', () => {
   const expectMigrated = (tree: Record<string, any>) => {
     const props = tree.t1.props;
-    expect(props.content).toBe('Hi *there*');
+    expect(props.content).toBe('Hi there');
     expect(props.alignment).toBe('right');
     expect(props.customStyles).toEqual({
       fontSize: '30px',

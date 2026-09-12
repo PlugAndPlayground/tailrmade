@@ -82,17 +82,12 @@ describe('markdown <-> lexical', () => {
     expect(roundTrip(markdown)).toBe(markdown);
   });
 
-  it('imports plain and formatted tokens as canonical Handlebars', () => {
+  it('imports path tokens as canonical Handlebars and helpers as text', () => {
     expect(
-      tokenSources(
-        'Hi {{ name }}, it is {{format d.temp decimals=1 suffix=" °C" fallback="—"}}',
-      ),
-    ).toEqual([
-      '{{name}}',
-      '{{format d.temp decimals=1 suffix=" °C" fallback="—"}}',
-    ]);
-    expect(roundTrip('Hi {{name}} and {{format d.temp decimals=1}}')).toBe(
-      'Hi {{name}} and {{format d.temp decimals=1}}',
+      tokenSources('Hi {{ name }}, it is {{d.temp}}, not {{format d.temp}}'),
+    ).toEqual(['{{name}}', '{{d.temp}}']);
+    expect(roundTrip('Hi {{name}} and {{d.temp}}')).toBe(
+      'Hi {{name}} and {{d.temp}}',
     );
   });
 
@@ -130,13 +125,13 @@ describe('rendered text content', () => {
     const editor = createHeadlessTextEditor(TEXT_EDITOR2_PROFILE);
     editor.setEditorState(
       editor.parseEditorState(
-        markdownToLexicalState('# {{format t decimals=1}}\n\n{{missing}} ok'),
+        markdownToLexicalState('# {{t}}\n\n{{missing}} ok'),
       ),
     );
     const text = editor
       .getEditorState()
       .read(() => $getRenderedTextContent({ t: 3 }), { editor });
-    expect(text).toBe('3.0\n\n ok');
+    expect(text).toBe('3\n\n ok');
   });
 });
 
@@ -147,13 +142,13 @@ describe('inline markdown', () => {
   it('reads emphasis, code, links, spans and tokens', () => {
     expect(
       parse(
-        '**Temp:** {{format t decimals=1}} *ok* __big__ `c` [site](https://x.io){.muted} [hot]{.negative .nowrap} ~~old~~',
+        '**Temp:** {{t}} *ok* __big__ `c` [site](https://x.io){.muted} [hot]{.negative .nowrap} ~~old~~',
       ),
     ).toEqual([
       [
         { type: 'text', text: 'Temp:', marks: { strong: true } },
         { type: 'text', text: ' ' },
-        { type: 'token', source: '{{format t decimals=1}}' },
+        { type: 'token', source: '{{t}}' },
         { type: 'text', text: ' ' },
         { type: 'text', text: 'ok', marks: { emphasis: true } },
         { type: 'text', text: ' ' },
@@ -203,7 +198,7 @@ describe('inline markdown', () => {
           { type: 'text', text: 'Temp: ' },
           {
             type: 'token',
-            source: '{{format d.temp decimals=1 suffix=" °C"}}',
+            source: '{{d.temp}}',
             marks: { strong: true },
           },
           { type: 'text', text: ' is ' },
@@ -254,7 +249,7 @@ describe('inline markdown', () => {
   it('writes readable Markdown', () => {
     expect(textContentToMarkdown(rich)).toBe(
       [
-        'Temp: **{{format d.temp decimals=1 suffix=" °C"}}** is *fine*, see [docs](https://x.io/a_b) or [alarm]{.negative .nowrap}',
+        'Temp: **{{d.temp}}** is *fine*, see [docs](https://x.io/a_b) or [alarm]{.negative .nowrap}',
         '',
         '**bold *both*Hello**_{{name}}_ then [**site**](https://e.com){.muted} [_{{name}}_]{.accent} ``a]`b``',
         'price ~~10~~ now 8 \\~',
