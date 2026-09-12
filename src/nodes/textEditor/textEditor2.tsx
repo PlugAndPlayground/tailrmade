@@ -486,7 +486,7 @@ export class TextEditor2 extends HybridNode2 {
     useEffect(() => {
       const editor = editorRef.current;
       const markdown = props[textEditorMarkdownName];
-      if (pauseUpdate || !markdown || !editor) return;
+      if (pauseUpdate || markdown == null || !editor) return;
       editor.setEditorState(
         editor.parseEditorState(markdownToLexicalState(markdown)),
       );

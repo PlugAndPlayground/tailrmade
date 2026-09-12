@@ -59,8 +59,6 @@ export function migrateLegacyStaticTextProps(
   const { text, fontSize, fontWeight, textAlign, color, ...rest } = props;
   return {
     ...rest,
-    // taken as plain text: the rare item with HTML markup in it is touched
-    // up by hand
     content: textContentToMarkdown(createTextContent(text)),
     variant: textDefaultProps.variant,
     tone: textDefaultProps.tone,

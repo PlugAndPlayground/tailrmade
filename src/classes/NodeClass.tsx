@@ -377,9 +377,13 @@ export default class PPNode extends PIXI.Container implements IWarningHandler {
     // add static inputs and outputs
     this.getAllInitialSockets().forEach((IO) => {
       // add in default data if supplied
-      const newDefault = customArgs?.defaultArguments?.[IO.name];
-      if (newDefault) {
-        IO.data = newDefault;
+      const defaults = customArgs?.defaultArguments;
+      if (
+        defaults &&
+        Object.prototype.hasOwnProperty.call(defaults, IO.name) &&
+        defaults[IO.name] !== undefined
+      ) {
+        IO.data = defaults[IO.name];
       }
       this.addSocket(IO);
     });
@@ -1636,11 +1640,16 @@ ${Math.round(bounds.minX)}, ${Math.round(
         );
       });
 
-      // make sure the best match is not incompatible - with the data a socket
-      // holds; one that holds nothing yet (a new input) has nothing to clash
+      // A newly-created Any input intentionally has no value yet. It can ask
+      // an upstream node for its preferred output, but other empty sockets
+      // still use the normal compatibility rules so their declared types are
+      // not bypassed globally.
+      const isEmptyAnyInput =
+        socket.isInput() &&
+        socket.data == null &&
+        socket.dataType instanceof AnyType;
       if (
-        socket.data === undefined ||
-        socket.data === null ||
+        isEmptyAnyInput ||
         IsCompatible(
           sortedMatchQuality[0].dataType.getCompatability(
             socket.data,

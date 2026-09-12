@@ -13,19 +13,23 @@ import {
 } from '../../text/model';
 import { TextStyleSettings } from '../../text/TextStyleSettings';
 import { TextView } from '../../text/TextView';
+import { resolveStaticTextFrameStyle } from '../../text/staticLayout';
+import { useParentDirection } from './hooks';
 
 // consecutive keystrokes merge into one craft history entry
 const CONTENT_THROTTLE_MS = 500;
 
 /** Static text: tokens are off, so `{{name}}` is just text. */
-export const Text = (props: Partial<TextProps>) => {
+export const Text = (props: Partial<TextProps> & Record<string, unknown>) => {
   const { isEditMode } = useEditor((state) => ({
     isEditMode: state.options.enabled,
   }));
   const {
     connectors: { connect, drag },
     actions: { setProp },
-  } = useNode();
+    parent,
+  } = useNode((node) => ({ parent: node.data.parent ?? null }));
+  const parentDirection = useParentDirection(parent) ?? 'column';
   const textProps = normalizeTextProps(props);
 
   return (
@@ -33,7 +37,7 @@ export const Text = (props: Partial<TextProps>) => {
       ref={(ref) => {
         if (ref) connect(drag(ref));
       }}
-      style={{ width: '100%' }}
+      style={resolveStaticTextFrameStyle(props, parentDirection)}
       data-cy="static-text"
     >
       {isEditMode ? (

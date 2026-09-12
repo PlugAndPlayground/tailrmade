@@ -104,6 +104,11 @@ export class SerializableActionHandler {
     return SerializableActionHandler.instance;
   }
 
+  /** Registers a feature-owned action without making Action.ts import it. */
+  registerAction(id: string, action: SerializableAction): void {
+    this.actions[id] = action;
+  }
+
   async performSerializableAction(
     id: string,
     args: any,

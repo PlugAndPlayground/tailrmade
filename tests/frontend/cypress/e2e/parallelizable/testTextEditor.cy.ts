@@ -214,6 +214,17 @@ describe('testTextEditor', () => {
       expect(html).to.contain('<ol');
       expect(html).to.contain('<pre');
     });
+
+    doWithTestController(async (testController) => {
+      testController.setNodeInputValue('TextEditor2', 'Markdown', '');
+      await testController.executeNodeByID('TextEditor2');
+    });
+    getEditor('TextEditor2-canvas').should('have.text', '');
+    shouldWithTestController((testController) => {
+      expect(testController.getNodeOutputValue('TextEditor2', 'Plain')).to.eq(
+        '',
+      );
+    });
   });
 
   it('Is editable on the canvas only in interaction mode and in the running app only', () => {

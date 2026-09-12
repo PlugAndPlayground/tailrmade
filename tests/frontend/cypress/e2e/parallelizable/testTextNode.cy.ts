@@ -180,12 +180,12 @@ describe('dynamic Text node', () => {
       );
     });
     canvasEditor('menu-text').type('newname', { force: true, delay: 120 });
-    cy.get<{ positions: Set<string>; stop: () => void }>(
-      '@menuPositions',
-    ).then(({ positions, stop }) => {
-      stop();
-      expect([...positions]).to.have.length(1);
-    });
+    cy.get<{ positions: Set<string>; stop: () => void }>('@menuPositions').then(
+      ({ positions, stop }) => {
+        stop();
+        expect([...positions]).to.have.length(1);
+      },
+    );
   });
 
   it('connects a node added from an input that holds no value yet', () => {
@@ -197,9 +197,7 @@ describe('dynamic Text node', () => {
     });
     cy.wait(500);
     doWithTestController((testController) => {
-      expect(testController.getNodeInputValue('drag-text', 'temp')).to.eq(
-        null,
-      );
+      expect(testController.getNodeInputValue('drag-text', 'temp')).to.eq(null);
       const [x, y] = testController.getSocketCenterByNodeIDAndSocketName(
         'drag-text',
         'temp',
@@ -321,10 +319,7 @@ describe('dynamic Text node', () => {
 
   it('marks invalid tokens while editing and hides them at runtime', () => {
     addTextNode('invalid-text');
-    setContent(
-      'invalid-text',
-      'Now: {{missing}} / {{other.field}}',
-    );
+    setContent('invalid-text', 'Now: {{missing}} / {{other.field}}');
     canvasEditor('invalid-text')
       .find('[data-token-state="unresolved"]')
       .should('have.length', 2);
@@ -347,14 +342,26 @@ describe('dynamic Text node', () => {
       .find('[data-token-state="unresolved"]')
       .should('have.length', 2);
     // editing in place on the surface brings the toolbar, outside the widget
-    cy.get('[data-cy="widget of NODE_invalid-text"] [contenteditable="true"]')
-      .click({ force: true });
+    cy.get(
+      '[data-cy="widget of NODE_invalid-text"] [contenteditable="true"]',
+    ).click({ force: true });
     cy.get('[data-cy="text-inline-toolbar"]').should('be.visible');
   });
 
   it('converts static to dynamic and back as single undo steps', () => {
     placeOnSurface([
-      { id: 'greeting', text: 'Hello ', variant: 'h2', tone: 'accent' },
+      {
+        id: 'greeting',
+        text: 'Hello ',
+        variant: 'h2',
+        tone: 'accent',
+        props: {
+          width: '320px',
+          padding: [3, 4, 5, 6],
+          background: { r: 10, g: 20, b: 30, a: 0.5 },
+          color: { r: 200, g: 210, b: 220, a: 1 },
+        },
+      },
     ]);
     openEditMode();
     cy.get('[data-cy="dashboard"] [data-cy="static-text"]').click({
@@ -373,6 +380,14 @@ describe('dynamic Text node', () => {
       const item = surfaceTree(testController).greeting;
       expect(item.type.resolvedName).to.eq('DynamicWidget');
       expect(item.props.id).to.eq(`NODE_${nodeId}`);
+      expect(item.props.width).to.eq('320px');
+      expect(item.props.padding).to.deep.eq([3, 4, 5, 6]);
+      expect(item.props.background).to.deep.eq({
+        r: 10,
+        g: 20,
+        b: 30,
+        a: 0.5,
+      });
       expect(testController.getNodeInputValue(nodeId, 'Variant')).to.eq('h2');
       expect(testController.getNodeInputValue(nodeId, 'Tone')).to.eq('accent');
     });
@@ -410,6 +425,8 @@ describe('dynamic Text node', () => {
       expect(item.type.resolvedName).to.eq('Text');
       expect(item.props.tone).to.eq('accent');
       expect(item.props.content).to.eq('**Hello Ada**');
+      expect(item.props.width).to.eq('320px');
+      expect(item.props.padding).to.deep.eq([3, 4, 5, 6]);
     });
 
     doWithTestController(async (testController) => {
@@ -426,6 +443,23 @@ describe('dynamic Text node', () => {
       expect(surfaceTree(testController).greeting.type.resolvedName).to.eq(
         'Text',
       );
+    });
+  });
+
+  it('keeps empty content when converting static text to a node', () => {
+    placeOnSurface([{ id: 'empty-text', text: '' }]);
+    openEditMode();
+    cy.get('[data-cy="dashboard"] [data-cy="static-text"]')
+      .first()
+      .click({ force: true });
+    doWithTestController((testController) => {
+      testController.toggleRightSideDrawer('OPEN');
+    });
+    cy.get('[data-cy="convert-to-dynamic-text"]').click({ force: true });
+
+    shouldWithTestController((testController) => {
+      const [node] = textNodes(testController);
+      expect(testController.getNodeInputValue(node.id, 'Content')).to.eq('');
     });
   });
 
