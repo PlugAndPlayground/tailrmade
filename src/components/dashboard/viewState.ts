@@ -69,6 +69,7 @@ export const resolveCustomStylesForPreviewWidth = (
     return customStyles;
   }
   const result: Record<string, any> = {};
+  const matchingBlocks: Record<string, any>[] = [];
   for (const [key, value] of Object.entries(customStyles)) {
     const trimmedKey = key.trim();
     if (!trimmedKey.startsWith('@media')) {
@@ -96,10 +97,14 @@ export const resolveCustomStylesForPreviewWidth = (
       // unknown media feature - leave it to the browser
       result[key] = value;
     } else if (matches && value && typeof value === 'object') {
-      Object.assign(result, value);
+      matchingBlocks.push(value);
     }
     // recognized but not matching: dropped
   }
+  // the browser emits a rule's own declarations before its nested @media
+  // rules, so a matching block beats a base property whatever the key order -
+  // and saved trees are key-sorted, which always puts `@media` keys first
+  matchingBlocks.forEach((block) => Object.assign(result, block));
   return result;
 };
 

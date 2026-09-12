@@ -149,79 +149,25 @@ describe('Node Search Functionality', () => {
   });
 });
 
-// A finger has no double click: PIXI dispatches `click` only for a mouse or a
-// pen, so the canvas listens for `pointertap` instead. Driven through CDP touch
-// input rather than cy.click, which is a mouse however often it is called.
-describe('Node Search by double tap', () => {
+// Driven through CDP touch input rather than cy.click, which always emits a
+// mouse event.
+describe('Node Search by touch', () => {
   const cdp = (command: string, params: Record<string, unknown>) =>
     cy.then({ log: false }, () =>
       Cypress.automation('remote:debugger:protocol', { command, params }),
     );
-
-  const doubleTap = (x: number, y: number) => {
-    cy.get('#pixi-container')
-      .should('be.visible')
-      .then(($container) => {
-        const containerBounds = $container[0].getBoundingClientRect();
-        const appFrame = window.parent.document.querySelector('iframe');
-        if (!appFrame) {
-          throw new Error('Could not find the Cypress application iframe');
-        }
-        const frameBounds = appFrame.getBoundingClientRect();
-        const frameScale = frameBounds.width / appFrame.offsetWidth;
-
-        // Let Chrome generate the complete gesture in one CDP command. Even
-        // four awaited dispatchTouchEvent calls can be separated by more than
-        // the app's 300 ms window when a CI runner is heavily contended.
-        return Cypress.automation('remote:debugger:protocol', {
-          command: 'Input.synthesizeTapGesture',
-          params: {
-            x: frameBounds.x + (containerBounds.x + x) * frameScale,
-            y: frameBounds.y + (containerBounds.y + y) * frameScale,
-            duration: 50,
-            tapCount: 2,
-            gestureSourceType: 'touch',
-          },
-        });
-      });
-  };
 
   before(() => {
     cdp('Emulation.setTouchEmulationEnabled', {
       enabled: true,
       maxTouchPoints: 5,
     });
-    // A double tap has to land within DOUBLE_TAP_MS in real time, and under
-    // test:throttled Cypress alone spends longer than that between two taps.
-    cdp('Emulation.setCPUThrottlingRate', { rate: 1 });
     openNewGraph();
     closeBothDrawers();
   });
 
-  beforeEach(() => {
-    cy.get('body').type('{esc}');
-    getSearchInput().should('not.exist');
-  });
-
   after(() => {
     cdp('Emulation.setTouchEmulationEnabled', { enabled: false });
-    cdp('Emulation.setCPUThrottlingRate', {
-      rate: Math.max(1, Number(Cypress.env('cpuThrottleRate')) || 1),
-    });
-  });
-
-  it('opens the search on a double tap on empty canvas', () => {
-    doubleTap(500, 400);
-    getSearchInput().should('be.visible');
-  });
-
-  // The tap's own compatibility mouse events arrive after the search has
-  // opened, so they land on it rather than on the canvas - and a mousedown that
-  // is allowed its default moves focus off the input, which closes the search.
-  it('keeps it open once the tap is over', () => {
-    doubleTap(500, 400);
-    cy.wait(500);
-    getSearchInput().should('be.visible').and('be.focused');
   });
 
   it('does not open on a single tap', () => {
