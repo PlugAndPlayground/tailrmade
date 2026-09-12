@@ -91,6 +91,15 @@ const BROWSE_TYPES = lowercase([
 const KEY_PATTERN = /\$TM_KEY\{([^}]+)\}/g;
 const RUNTIME = Symbol('runtime');
 
+// The HTTP node's default headers reference this placeholder, so nearly every
+// HTTP node carries it without using a key
+const PLACEHOLDER_KEY_NAME = 'YOUR_ENVIRONMENTAL_COMPANION_VARIABLE_HERE';
+
+export const getKeyNames = (text: string): string[] =>
+  [...text.matchAll(KEY_PATTERN)]
+    .map(([, name]) => name)
+    .filter((name) => name !== PLACEHOLDER_KEY_NAME);
+
 const isInput = (socket: SerializedSocket) => socket.socketType !== 'out';
 
 const inputKey = (nodeId: string, socketName: string) =>
@@ -111,7 +120,7 @@ const getEffectiveType = (node: SerializedNode) => {
   return type === 'placeholder' ? node.name.toLowerCase() : type;
 };
 
-const getHost = (value: unknown): string | undefined => {
+export const getHost = (value: unknown): string | undefined => {
   if (typeof value !== 'string') return undefined;
   try {
     return new URL(value).host || undefined;
@@ -127,6 +136,20 @@ const pushTo = <K>(map: Map<K, string[]>, key: K, nodeId: string) => {
   map.set(key, [...(map.get(key) ?? []), nodeId]);
 };
 
+// Also checked on live nodes, which are blocked while full access is off. HTML
+// is sanitised instead of blocked, so it is left out here.
+export const runsCode = (type: string, hasCodeInput: boolean): boolean => {
+  const lowercaseType = type.toLowerCase();
+  if (CODE_TYPES.has(lowercaseType) || NPM_TYPES.has(lowercaseType)) {
+    return true;
+  }
+  return (
+    hasCodeInput &&
+    !NON_JS_CODE_TYPES.has(lowercaseType) &&
+    !HTML_TYPES.has(lowercaseType)
+  );
+};
+
 const getFullAccessReason = (
   type: string,
   node: SerializedNode,
@@ -139,11 +162,10 @@ const getFullAccessReason = (
       ? undefined
       : 'html';
   }
-  if (CODE_TYPES.has(type)) return 'code';
   const hasCodeInput = node.socketArray.some(
     (socket) => isInput(socket) && getDataTypeClass(socket) === 'CodeType',
   );
-  return hasCodeInput && !NON_JS_CODE_TYPES.has(type) ? 'code' : undefined;
+  return runsCode(type, hasCodeInput) ? 'code' : undefined;
 };
 
 export const scanGraph = (graph: SerializedGraph): Manifest => {
@@ -196,7 +218,7 @@ export const scanGraph = (graph: SerializedGraph): Manifest => {
     }
 
     node.socketArray.filter(isInput).forEach((socket) => {
-      for (const [, name] of toText(socket.data).matchAll(KEY_PATTERN)) {
+      for (const name of getKeyNames(toText(socket.data))) {
         const key = keys.get(name) ?? { hosts: new Set<string>(), nodeIds: [] };
         if (host) key.hosts.add(host);
         if (!key.nodeIds.includes(node.id)) key.nodeIds.push(node.id);

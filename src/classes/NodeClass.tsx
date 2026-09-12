@@ -63,12 +63,19 @@ import { TextStyle } from 'pixi.js';
 import {
   NodeConfigurationError,
   NodeExecutionError,
+  NodeExecutionWarning,
   PNPCustomStatus,
   PNPError,
   PNPStatus,
   PNPSuccess,
 } from './ErrorClass';
 import { shouldEnterHybridEditModeOnCanvasClick } from '../utils/nodeInteractivity';
+import {
+  areIntervalsGranted,
+  isFullAccessGranted,
+  OFF_FOR_THIS_APP,
+} from '../utils/appGrants';
+import { runsCode } from '../utils/scanGraph';
 import {
   CONSTANT_NAME,
   ENTIRE_OBJECT_NAME,
@@ -1328,6 +1335,7 @@ ${Math.round(bounds.minX)}, ${Math.round(
   async tick(currentTime: number, deltaTime: number): Promise<void> {
     if (
       this.updateBehaviour?.interval &&
+      areIntervalsGranted(PPGraph.currentGraph.grants) &&
       currentTime - this.lastTimeTicked >=
         this.updateBehaviour?.intervalFrequency
     ) {
@@ -1351,6 +1359,22 @@ ${Math.round(bounds.minX)}, ${Math.round(
   // if you want to optimize the mapping of arguments, override this function instead of execute(), but most of the time just override onExecute()
   protected async rawExecute(): Promise<void> {
     if (!this.hasBeenAdded) {
+      return;
+    }
+    // Every way a node runs reaches this, including nodes that call it
+    // directly instead of execute()
+    if (
+      !isFullAccessGranted(PPGraph.currentGraph.grants) &&
+      runsCode(
+        this.type,
+        this.inputSocketArray.some(
+          (socket) => socket._dataType.getName() === 'Code',
+        ),
+      )
+    ) {
+      this.setStatus(
+        new NodeExecutionWarning(`${OFF_FOR_THIS_APP}: running code`),
+      );
       return;
     }
 

@@ -20,6 +20,9 @@ import { DynamicEnumType } from '../datatypes/dynamicEnumType';
 import { JSONType } from '../datatypes/jsonType';
 import { StringType } from '../datatypes/stringType';
 import { HTTPNode, outputContentName } from './http';
+import PPGraph from '../../classes/GraphClass';
+import { NodeExecutionWarning } from '../../classes/ErrorClass';
+import { isAIGranted, OFF_FOR_THIS_APP } from '../../utils/appGrants';
 
 export const AIDataName = 'Data';
 const legacyPromptName = 'Prompt';
@@ -164,6 +167,10 @@ export class AINode extends HTTPNode {
     outputObject: Record<string, unknown>,
   ): Promise<void> {
     this.clearStatuses();
+    if (!isAIGranted(PPGraph.currentGraph.grants)) {
+      this.setStatus(new NodeExecutionWarning(`${OFF_FOR_THIS_APP}: AI`));
+      return;
+    }
     const provider = inputObject[AIProviderName] as AIProvider;
     const model = normalizeAIModel(provider, inputObject[AIModelName]);
     const options = inputObject[AIOptionsName] || {};

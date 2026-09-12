@@ -6,6 +6,9 @@ import { NODE_TYPE_COLOR, SOCKET_TYPE } from '../../utils/constants';
 import { AnyType } from '../datatypes/anyType';
 import { BooleanType } from '../datatypes/booleanType';
 import { StringType } from '../datatypes/stringType';
+import PPGraph from '../../classes/GraphClass';
+import { NodeExecutionWarning } from '../../classes/ErrorClass';
+import { isHostGranted, OFF_FOR_THIS_APP } from '../../utils/appGrants';
 
 export class WebSocketNode extends PPNode {
   private connection?: WebSocket;
@@ -64,6 +67,12 @@ export class WebSocketNode extends PPNode {
     this.setOutputData('Connected', false);
     this.setOutputData('Error', '');
     if (!input.Enabled || !url) return;
+    if (!isHostGranted(PPGraph.currentGraph.grants, url)) {
+      const refusal = `${OFF_FOR_THIS_APP}: connecting to ${url}`;
+      this.setOutputData('Error', refusal);
+      this.setStatus(new NodeExecutionWarning(refusal));
+      return;
+    }
 
     try {
       if (!/^wss?:\/\//i.test(url)) {

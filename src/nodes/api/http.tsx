@@ -13,6 +13,8 @@ import { JSONType } from '../datatypes/jsonType';
 import { StringType } from '../datatypes/stringType';
 import UpdateBehaviourClass from '../../classes/UpdateBehaviourClass';
 import { CompanionBackend } from '../../services/CompanionBackend';
+import PPGraph from '../../classes/GraphClass';
+import { getRequestRefusal } from '../../utils/appGrants';
 
 export const urlInputName = 'URL';
 const bodyInputName = 'Body';
@@ -135,6 +137,16 @@ The user must configure the key in the chosen source.`;
     usingCompanion = false,
   ): Promise<object | string> {
     this.clearStatuses();
+    const refusal = getRequestRefusal(PPGraph.currentGraph.grants, {
+      url,
+      headers,
+      body,
+      usingCompanion,
+    });
+    if (refusal) {
+      this.setStatus(new NodeExecutionWarning(refusal));
+      return {};
+    }
     try {
       if (usingCompanion) {
         this.status.custom.push(

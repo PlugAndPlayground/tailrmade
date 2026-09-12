@@ -25,6 +25,7 @@ import { StringType } from '../datatypes/stringType';
 import { TriggerType } from '../datatypes/triggerType';
 import { CLOUD_MODE } from '../../services/shared-types';
 import { BackendGateway } from '../../services/BackendGateway';
+import { getStorageRefusal } from '../../utils/appGrants';
 
 const LOCATION_NAME = 'Location';
 export const STORAGE_BACKEND_NAME = 'Storage type';
@@ -446,6 +447,20 @@ async function notifyStorageReadNodes(
   await FlowLogic.executeOptimizedChainBatch(nodesToExecute);
 }
 
+function assertStorageGranted(
+  storageBackend: string,
+  location: string | undefined,
+): void {
+  const refusal = getStorageRefusal(
+    PPGraph.currentGraph.grants,
+    storageBackend,
+    location,
+  );
+  if (refusal) {
+    throw new Error(refusal);
+  }
+}
+
 async function readStorageValue(
   storageBackend: string,
   location: string,
@@ -655,6 +670,7 @@ export class StorageWrite extends StorageMutation {
     try {
       const storageBackend = getStorageBackend(input);
       const location: string = input[LOCATION_NAME];
+      assertStorageGranted(storageBackend, location);
       const key: string = input[KEY_NAME];
       const value = input[VALUE_NAME];
       const nonEmptyOnly = input[NON_EMPTY_ONLY_NAME];
@@ -823,6 +839,7 @@ export class StorageRead extends StorageReader {
       const storageBackend = getStorageBackend(input);
       const location = input[LOCATION_NAME];
       const key = input[KEY_NAME];
+      assertStorageGranted(storageBackend, location);
 
       if (!key) {
         const result = await readStorageLocation(storageBackend, location);
@@ -883,6 +900,7 @@ export class StorageDelete extends StorageMutation {
       const storageBackend = getStorageBackend(input);
       const location = input[LOCATION_NAME];
       const key = input[KEY_NAME];
+      assertStorageGranted(storageBackend, location);
 
       if (storageBackend === STORAGE_BACKEND_LOCAL_STORAGE) {
         const localStorageObject = readLocalStorageObject(location);
@@ -976,10 +994,11 @@ export class StorageBrowse extends StorageReader {
     initStorageError(output);
     try {
       const storageBackend = getStorageBackend(input);
-      const objects = await browseStorageObjects(
-        storageBackend,
-        input[FILTER_BY_LOCATION_NAME] ? input[LOCATION_NAME] : undefined,
-      );
+      const location = input[FILTER_BY_LOCATION_NAME]
+        ? input[LOCATION_NAME]
+        : undefined;
+      assertStorageGranted(storageBackend, location);
+      const objects = await browseStorageObjects(storageBackend, location);
       output[OUTPUT_OBJECT_NAMES_NAME] = objects;
       maybeShowToast(
         input,

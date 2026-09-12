@@ -23,6 +23,9 @@ import {
   TRIGGER_TYPE_OPTIONS,
 } from '../../utils/constants';
 import HybridNode2 from '../../classes/HybridNode2';
+import DOMPurify from 'dompurify';
+import PPGraph from '../../classes/GraphClass';
+import { isFullAccessGranted } from '../../utils/appGrants';
 
 const VERSION = '5.1.0';
 const IMPORT_NAME = 'reveal.js@' + VERSION;
@@ -442,7 +445,15 @@ const MyFunctionalComponent = ({
           '&&& .slide-background.present': backgroundStylesOverrides,
         }}
       >
-        <Box className="slides" dangerouslySetInnerHTML={{ __html: data }} />
+        <Box
+          className="slides"
+          dangerouslySetInnerHTML={{
+            // Inline event handlers in slide HTML run, so they need full access
+            __html: isFullAccessGranted(PPGraph.currentGraph.grants)
+              ? data
+              : DOMPurify.sanitize(data),
+          }}
+        />
       </Box>
     </ErrorBoundary>
   );

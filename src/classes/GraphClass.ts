@@ -26,6 +26,7 @@ import {
   isPhone,
 } from '../utils/utils';
 import { getLoadSeedNodes } from '../utils/updateBehaviour';
+import { ALL_GRANTS, GraphGrants } from '../utils/appGrants';
 import {
   EMPTY_THEME_DOCUMENT,
   parseThemeDocument,
@@ -110,6 +111,7 @@ export default class PPGraph {
   isRemote: boolean;
   access: AccessType = DEFAULT_ACCESS;
   provenance: StoredGraph['provenance'] = 'local';
+  grants: GraphGrants = ALL_GRANTS;
 
   tempConnection: PIXI.Graphics;
   selection: PPSelection;
@@ -1487,6 +1489,8 @@ export default class PPGraph {
     this.date = storedGraph.date;
     this.isRemote = storedGraph.isRemote;
     this.provenance = storedGraph.provenance;
+    // Every app keeps everything granted until the permission sheet can ask
+    this.grants = ALL_GRANTS;
     this.selection.deselectAllNodesAndResetSelection();
 
     if (Object.keys(this.nodes).length > 0) {

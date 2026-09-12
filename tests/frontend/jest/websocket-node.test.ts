@@ -10,6 +10,7 @@ jest.mock('../../../src/classes/NodeClass', () => ({
       return this.outputs[name];
     }
     executeChildren = jest.fn().mockResolvedValue(undefined);
+    setStatus = jest.fn();
     getTags() {
       return [];
     }
@@ -46,6 +47,15 @@ jest.mock('../../../src/utils/constants', () => ({
   SOCKET_TYPE: { IN: 'in', OUT: 'out' },
 }));
 
+jest.mock('../../../src/classes/GraphClass', () => ({
+  __esModule: true,
+  default: { currentGraph: { grants: 'all' } },
+}));
+jest.mock('../../../src/classes/ErrorClass', () => ({
+  NodeExecutionWarning: class extends Error {},
+}));
+
+import PPGraph from '../../../src/classes/GraphClass';
 import { WebSocketNode } from '../../../src/nodes/api/websocket';
 
 class MockWebSocket {
@@ -95,6 +105,7 @@ describe('WebSocket node', () => {
     node = new TestNode('websocket', {});
   });
   afterEach(() => {
+    PPGraph.currentGraph.grants = 'all';
     node.onNodeRemoved();
     if (originalWebSocket) {
       Object.defineProperty(globalThis, 'WebSocket', originalWebSocket);
@@ -242,5 +253,24 @@ describe('WebSocket node', () => {
       socket.onclose,
     ]).toEqual([null, null, null, null]);
     expect(node.executeChildren).not.toHaveBeenCalled();
+  });
+
+  it('refuses hosts the app was not granted', async () => {
+    PPGraph.currentGraph.grants = {
+      fullAccess: false,
+      keys: [],
+      hosts: ['allowed.test'],
+      companion: false,
+      storage: [],
+      ai: false,
+      intervals: false,
+    };
+    await node.run('wss://blocked.test/live');
+    expect(MockWebSocket.instances).toHaveLength(0);
+    expect(node.getOutputData('Error')).toBe(
+      'Off for this app: connecting to wss://blocked.test/live',
+    );
+    await node.run('wss://allowed.test/live');
+    expect(MockWebSocket.instances).toHaveLength(1);
   });
 });

@@ -19,6 +19,8 @@ import { StringType } from '../datatypes/stringType';
 import { TriggerType } from '../datatypes/triggerType';
 import { inputResourceIdSocketName } from '../../nodes/draw/video';
 import { DynamicImport } from '../../utils/dynamicImport';
+import PPGraph from '../../classes/GraphClass';
+import { isHostGranted, OFF_FOR_THIS_APP } from '../../utils/appGrants';
 
 const inputResourceURLSocketName = 'Resource URL';
 export const sqlQuerySocketName = 'SQL query';
@@ -206,18 +208,30 @@ export class SqliteReader extends PPNode {
 
     this.closeDatabase();
 
+    const resourceId = this.getInputData(inputResourceIdSocketName);
+    const resourceURL = this.getInputData(inputResourceURLSocketName);
+    if (
+      !resourceId &&
+      !isHostGranted(PPGraph.currentGraph.grants, resourceURL)
+    ) {
+      this.clearOutputs();
+      this.setStatus(
+        new NodeExecutionWarning(
+          `${OFF_FOR_THIS_APP}: connecting to ${resourceURL}`,
+        ),
+      );
+      return;
+    }
+
     const sqlite3 = await getSqlite3();
     if (this.destroyed) {
       return;
     }
     this.sqlite3 = sqlite3;
 
-    const resourceId = this.getInputData(inputResourceIdSocketName);
     const blob = resourceId
       ? await this.loadResourceLocal(resourceId)
-      : await this.loadResourceURL(
-          this.getInputData(inputResourceURLSocketName),
-        );
+      : await this.loadResourceURL(resourceURL);
     if (!blob) {
       this.clearOutputs();
       if (!this.destroyed) {

@@ -26,6 +26,7 @@ import {
   TailrmadeMCPServer,
 } from './services/TailrmadeMCPServer';
 import { AIBackend } from './services/AIBackend';
+import type { GraphGrants } from './utils/appGrants';
 
 export default class TestController {
   identify(): string {
@@ -398,6 +399,10 @@ export default class TestController {
 
   setShowUnsavedChangesWarning(show: boolean) {
     InterfaceController.showUnsavedChangesWarning = show;
+  }
+
+  setAppGrants(grants: GraphGrants) {
+    PPGraph.currentGraph.grants = grants;
   }
 
   toggleLeftSideDrawer(

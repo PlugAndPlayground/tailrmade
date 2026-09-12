@@ -46,6 +46,7 @@ import InterfaceController, { ListenEvent } from '../../InterfaceController';
 import { SurfaceCanvasPreviewContext } from '../../components/dashboard/SurfaceRenderer';
 import { DeferredReactTypeInterface } from '../datatypes/deferredHtmlType';
 import { AnyType } from '../datatypes/anyType';
+import { isFullAccessGranted } from '../../utils/appGrants';
 
 // Register common Handlebars helpers
 Handlebars.registerHelper('eq', (a, b) => a === b);
@@ -139,6 +140,11 @@ When the surface color is unknown, keep an explicit contrasting background.`;
 
   public shouldRenderWhenOffScreen(): boolean {
     return true;
+  }
+
+  // Unsanitised HTML runs its scripts, so it needs full access
+  public shouldSanitize(sanitizeInput: boolean): boolean {
+    return sanitizeInput || !isFullAccessGranted(PPGraph.currentGraph.grants);
   }
 
   public isCallingMacro(macroName: string): boolean {
@@ -389,7 +395,7 @@ export class HtmlRenderer extends HtmlNodeBase {
     const data = inputObject[dataInputSocketName];
     const passthrough = inputObject[passthroughHandlebarsName];
     const partials = inputObject[partialsInputSocketName];
-    const sanitize = inputObject[SANITIZE_NAME];
+    const sanitize = this.shouldSanitize(inputObject[SANITIZE_NAME]);
 
     if (typeof htmlContent === 'string') {
       let processedHtml = this.replaceHandlebarsInHtml(
@@ -436,7 +442,7 @@ const HtmlComponent = (props): React.ReactElement => {
   // Sanitize HTML if enabled to protect against XSS attacks
   // Note: DOMPurify removes <style> tags and onclick attributes, so disable
   // sanitization on intermediate template nodes and only enable on final output
-  if (props[SANITIZE_NAME]) {
+  if (node.shouldSanitize(props[SANITIZE_NAME])) {
     // Add hook to automatically add rel="noopener noreferrer" to links with target="_blank"
     DOMPurify.addHook('afterSanitizeAttributes', function (node) {
       if (node.tagName === 'A' && node.hasAttribute('target')) {
@@ -856,7 +862,7 @@ const IFrameComponent = (props): React.ReactElement => {
   );
   let headerContent = props[inputSocketNameHeader];
 
-  if (props[SANITIZE_NAME]) {
+  if (node.shouldSanitize(props[SANITIZE_NAME])) {
     htmlContent = DOMPurify.sanitize(htmlContent);
     headerContent = DOMPurify.sanitize(headerContent);
   }
