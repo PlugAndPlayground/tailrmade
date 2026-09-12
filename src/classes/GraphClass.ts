@@ -23,7 +23,6 @@ import {
   calculateDistance,
   clearDocumentSelection,
   perform_action_connectNodeToSocket,
-  isPhone,
   swallowGhostMouseDown,
 } from '../utils/utils';
 import {
@@ -32,6 +31,8 @@ import {
   TouchGesture,
 } from '../utils/touchGestures';
 import { isCanvasExploreOnly, isStackLayout } from '../utils/stackLayout';
+import { BackendGateway } from '../services/BackendGateway';
+import { CLOUD_MODE } from '../services/shared-types';
 import { getLoadSeedNodes } from '../utils/updateBehaviour';
 import {
   EMPTY_THEME_DOCUMENT,
@@ -74,6 +75,23 @@ import PPStorage, { DEFAULT_ACCESS, DEFAULT_LOCATION } from '../PPStorage';
 // withtout this the compilation order breaks
 const DUMMY_IMPORT = getNodesBounds;
 const EMPTY_DEFAULT_MACRO_NAME = 'EmptyDefaultMacro';
+
+const EMPTY_CANVAS_TEXT = `<span style="color:#0c1122;">Add data and logic</span>
+  Double click canvas or drag files in
+  Then connect the nodes
+
+  <span style="color:#0c1122;">Create user interface</span>
+  Press 2 to open the panel
+  Then add widgets/nodes
+
+  Right click for more options`;
+
+// the canvas cannot be edited by hand in the stack layout, so point to AI,
+// which is only offered once signed in
+const EMPTY_CANVAS_TEXT_EXPLORE_ONLY = `<span style="color:#0c1122;">This app is empty</span>
+  Open AI to build it`;
+const EMPTY_CANVAS_TEXT_SIGNED_OUT = `<span style="color:#0c1122;">This app is empty</span>
+  Sign in to build it with AI`;
 
 type LongPressTarget = {
   global: PIXI.Point;
@@ -245,6 +263,7 @@ export default class PPGraph {
 
     // when authentication changes some nodes need executing
     InterfaceController.addListener(ListenEvent.UserIsLoggedIn, async () => {
+      this.updateEmptyCanvasVisibility();
       await this.notifyUserDataChanged(true);
     });
 
@@ -330,7 +349,7 @@ export default class PPGraph {
       return;
     }
 
-    if (isDoubleActivation(event)) {
+    if (!isCanvasExploreOnly() && isDoubleActivation(event)) {
       event.stopPropagation();
       const target = event.target;
       if (target instanceof Viewport) {
@@ -1875,17 +1894,6 @@ export default class PPGraph {
 
   initEmptyCanvasIndicator(): void {
     this.emptyCanvasText = new PIXI.HTMLText({
-      text: isPhone()
-        ? 'To add nodes open the 3 dot menu<br>Then press Find node'
-        : `<span style="color:#0c1122;">Add data and logic</span>
-  Double click canvas or drag files in
-  Then connect the nodes
-
-  <span style="color:#0c1122;">Create user interface</span>
-  Press 2 to open the panel
-  Then add widgets/nodes
-
-  Right click for more options`,
       style: {
         fontFamily: 'Arial',
         fontSize: 20,
@@ -1910,6 +1918,18 @@ export default class PPGraph {
 
     // Center in screen
     if (this.emptyCanvasText.visible) {
+      // chosen here rather than once at init, as resizing can cross into the
+      // stack layout and signing in can happen after the graph loads
+      if (!isCanvasExploreOnly()) {
+        this.emptyCanvasText.text = EMPTY_CANVAS_TEXT;
+      } else if (
+        CLOUD_MODE &&
+        BackendGateway.getInstance().getCurrentUser() === null
+      ) {
+        this.emptyCanvasText.text = EMPTY_CANVAS_TEXT_SIGNED_OUT;
+      } else {
+        this.emptyCanvasText.text = EMPTY_CANVAS_TEXT_EXPLORE_ONLY;
+      }
       const centerX = window.innerWidth / 2;
       const centerY = window.innerHeight / 2;
       this.emptyCanvasText.position.set(centerX, centerY);
