@@ -161,7 +161,7 @@ describe('Node Search by double tap', () => {
   const doubleTap = (x: number, y: number) => {
     cy.get('#pixi-container')
       .should('be.visible')
-      .then(async ($container) => {
+      .then(($container) => {
         const containerBounds = $container[0].getBoundingClientRect();
         const appFrame = window.parent.document.querySelector('iframe');
         if (!appFrame) {
@@ -169,27 +169,20 @@ describe('Node Search by double tap', () => {
         }
         const frameBounds = appFrame.getBoundingClientRect();
         const frameScale = frameBounds.width / appFrame.offsetWidth;
-        const touchPoints = [
-          {
+
+        // Let Chrome generate the complete gesture in one CDP command. Even
+        // four awaited dispatchTouchEvent calls can be separated by more than
+        // the app's 300 ms window when a CI runner is heavily contended.
+        return Cypress.automation('remote:debugger:protocol', {
+          command: 'Input.synthesizeTapGesture',
+          params: {
             x: frameBounds.x + (containerBounds.x + x) * frameScale,
             y: frameBounds.y + (containerBounds.y + y) * frameScale,
-            radiusX: 1,
-            radiusY: 1,
+            duration: 50,
+            tapCount: 2,
+            gestureSourceType: 'touch',
           },
-        ];
-        const dispatch = (type: 'touchStart' | 'touchEnd') =>
-          Cypress.automation('remote:debugger:protocol', {
-            command: 'Input.dispatchTouchEvent',
-            params: { type, touchPoints },
-          });
-
-        // Keep both taps inside one Cypress command. Separate realTouch()
-        // commands include Cypress scheduling and snapshot overhead, which can
-        // exceed the app's 300 ms double-tap window on a busy CI runner.
-        await dispatch('touchStart');
-        await dispatch('touchEnd');
-        await dispatch('touchStart');
-        await dispatch('touchEnd');
+        });
       });
   };
 
