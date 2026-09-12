@@ -12,6 +12,7 @@ import {
 } from './utils/utils';
 import PPGraph from './classes/GraphClass';
 import type { Tooltipable } from './components/Tooltip';
+import type { URLSocketChange } from './utils/urlSocketData';
 import PPStorage from './PPStorage';
 import { zoomInOutViewport, zoomToFitNodes } from './pixi/utils-pixi';
 import { getDefaultDrawerState } from './utils/sessionStorageHandler';
@@ -356,6 +357,11 @@ export default class InterfaceController {
   static setGraphToBeModified: (graph: IGraphSearch) => void = () => {};
   static setShowGraphEdit: (show: boolean) => void = () => {};
   static setShowGraphDelete: (show: boolean) => void = () => {};
+  // Resolves false until the app mounts, so link changes are never applied unasked
+  static confirmURLSocketData: (
+    appName: string,
+    changes: URLSocketChange[],
+  ) => Promise<boolean> = async () => false;
   static setBackgroundColor: (number) => void = () => {};
   static setNodeSearchActiveItem: (
     updateFunction: (oldArray: INodeSearch[]) => INodeSearch[],

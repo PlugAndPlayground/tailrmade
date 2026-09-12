@@ -55,8 +55,12 @@ import {
 } from '../nodes/textEditor/textEditor2';
 import { BackendGateway } from '../services/BackendGateway';
 import { ActionHandler } from '../classes/Action';
-import type { URLSetSocketData } from '../nodes/state/storage';
 import FlowLogic from '../classes/FlowLogic';
+import {
+  getURLSocketDataRefusalMessage,
+  parseURLSocketData,
+  partitionURLSocketData,
+} from './urlSocketData';
 
 export function isFunction(funcOrClass: any): boolean {
   const propertyNames = Object.getOwnPropertyNames(funcOrClass);
@@ -1469,28 +1473,56 @@ export const loadGraph = async (urlParams: URLSearchParams) => {
     }
   }
   if (setSocketData) {
-    const socketDatas = JSON.parse(setSocketData) as URLSetSocketData[];
-    let foundNodes: PPNode[] = [];
-    for (const socketData of socketDatas) {
-      const node = PPGraph.currentGraph.getNodeById(socketData.node);
-      foundNodes.push(node);
-      const socket = node.getInputSocketByName(socketData.socket);
-      console.log(
-        'Setting data via URL, node: ' +
-          node.id +
-          ', socket: ' +
-          socket.name +
-          ', data: ' +
-          JSON.stringify(socketData.data),
-      );
-      socket.data = socketData.data;
-      const nodesThatShouldExecute = foundNodes.filter(
-        (node) => node.updateBehaviour.load || node.updateBehaviour.update,
-      );
-      await FlowLogic.executeOptimizedChainBatch(nodesThatShouldExecute);
-    }
+    await applyURLSocketData(setSocketData);
   }
   ActionHandler.setUnsavedChange(false); // reset unsaved changes after loading a graph
+};
+
+const applyURLSocketData = async (raw: string): Promise<void> => {
+  const graph = PPGraph.currentGraph;
+  const entries = parseURLSocketData(raw);
+  if (!entries) {
+    InterfaceController.showSnackBar(
+      `This link's changes couldn't be read, so ${graph.name} opened unchanged.`,
+      { variant: 'warning' },
+    );
+    return;
+  }
+
+  const { allowed, refusals } = partitionURLSocketData(entries, (entry) =>
+    graph.getNodeById(entry.node)?.getInputSocketByName(entry.socket),
+  );
+  // One refused change makes the whole link suspect, so nothing is applied
+  if (refusals.length > 0) {
+    InterfaceController.showSnackBar(
+      getURLSocketDataRefusalMessage(refusals, graph.name),
+      { variant: 'warning' },
+    );
+    return;
+  }
+  if (allowed.length === 0) {
+    return;
+  }
+
+  const accepted = await InterfaceController.confirmURLSocketData(
+    graph.name,
+    allowed.map(({ entry, socket }) => ({
+      nodeName: socket.getNode().nodeName,
+      socketName: socket.name,
+      data: entry.data,
+    })),
+  );
+  if (!accepted) {
+    return;
+  }
+
+  allowed.forEach(({ entry, socket }) => {
+    socket.data = entry.data;
+  });
+  const nodesToExecute = [
+    ...new Set(allowed.map(({ socket }) => socket.getNode())),
+  ].filter((node) => node.updateBehaviour.load || node.updateBehaviour.update);
+  await FlowLogic.executeOptimizedChainBatch(nodesToExecute);
 };
 
 export const sortByDate = (a, b) =>

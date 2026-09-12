@@ -30,6 +30,7 @@ import LockIcon from '@mui/icons-material/Lock';
 import PublicIcon from '@mui/icons-material/Public';
 import BusinessIcon from '@mui/icons-material/Business';
 import InterfaceController from '../InterfaceController';
+import { URLSocketChange, previewURLSocketValue } from '../utils/urlSocketData';
 
 interface DeleteConfirmationDialogProps {
   graphToBeModified: IGraphSearch;
@@ -109,6 +110,69 @@ export const DeleteConfirmationDialog = React.memo(
 );
 
 DeleteConfirmationDialog.displayName = 'DeleteConfirmationDialog';
+
+interface URLSocketDataDialogProps {
+  appName: string;
+  changes: URLSocketChange[];
+  onClose: (accepted: boolean) => void;
+}
+
+export const URLSocketDataDialog = ({
+  appName,
+  changes,
+  onClose,
+}: URLSocketDataDialogProps) => (
+  <Dialog
+    open={true}
+    onClose={() => onClose(false)}
+    fullWidth
+    maxWidth="sm"
+    data-cy="urlSocketDataDialog"
+    sx={dialogStyles}
+  >
+    <DialogTitle>
+      This link opens <b>{appName}</b> and sets…
+    </DialogTitle>
+    <DialogContent>
+      <Box component="ul" sx={{ m: 0, pl: 2 }}>
+        {changes.map((change, index) => (
+          <li key={index}>
+            <Typography variant="body2">
+              {change.nodeName} · {change.socketName}
+            </Typography>
+            <Typography
+              variant="body2"
+              sx={{
+                fontFamily: 'monospace',
+                color: 'text.secondary',
+                wordBreak: 'break-all',
+              }}
+            >
+              {previewURLSocketValue(change.data)}
+            </Typography>
+          </li>
+        ))}
+      </Box>
+    </DialogContent>
+    <DialogActions>
+      <Button
+        onClick={() => onClose(false)}
+        autoFocus
+        color="secondary"
+        data-cy="urlSocketDataOpenUnchangedButton"
+      >
+        Open without changes
+      </Button>
+      <Button
+        onClick={() => onClose(true)}
+        color="secondary"
+        data-cy="urlSocketDataOpenButton"
+      >
+        Open
+      </Button>
+    </DialogActions>
+  </Dialog>
+);
 
 export const EditDialog = (props) => {
   const [name, setName] = useState<string>(props.graphName);

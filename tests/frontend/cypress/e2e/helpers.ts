@@ -553,12 +553,15 @@ export const openNewGraph = () => {
   prepareLoadedGraph();
 };
 
-export const openStringifiedGraph = (graph: string) => {
-  cy.visit(`${PNP_BASE_URL}/?toastEverything=true&loadFullGraph=` + graph, {
+export const openGraphWithURLParams = (params: string) => {
+  cy.visit(`${PNP_BASE_URL}/?toastEverything=true&${params}`, {
     timeout: 120000,
   });
   prepareLoadedGraph();
 };
+
+export const openStringifiedGraph = (graph: string) =>
+  openGraphWithURLParams('loadFullGraph=' + graph);
 
 export const clickNode = (
   nodeId: string,

@@ -11,7 +11,12 @@ import PixiContainer from './containers/PixiContainer';
 import { onOpenFileBrowser, StyledDropzone } from './dragAndDrop';
 import { Tooltip } from './components/Tooltip';
 
-import { EditDialog, DeleteConfirmationDialog } from './components/Dialogs';
+import {
+  EditDialog,
+  DeleteConfirmationDialog,
+  URLSocketDataDialog,
+} from './components/Dialogs';
+import type { URLSocketChange } from './utils/urlSocketData';
 import PPGraph from './classes/GraphClass';
 import {
   CONTEXTMENU_GRAPH_HEIGHT,
@@ -129,6 +134,11 @@ const App = (): JSX.Element => {
   // dialogs
   const [showEdit, setShowEdit] = useState(false);
   const [showDeleteGraph, setShowDeleteGraph] = useState(false);
+  const [urlSocketDataRequest, setURLSocketDataRequest] = useState<{
+    appName: string;
+    changes: URLSocketChange[];
+    resolve: (accepted: boolean) => void;
+  } | null>(null);
   let lastTimeTicked = 0;
 
   // on mount
@@ -161,6 +171,10 @@ const App = (): JSX.Element => {
     InterfaceController.setGraphToBeModified = setGraphToBeModified;
     InterfaceController.setShowGraphDelete = setShowDeleteGraph;
     InterfaceController.setShowGraphEdit = setShowEdit;
+    InterfaceController.confirmURLSocketData = (appName, changes) =>
+      new Promise((resolve) =>
+        setURLSocketDataRequest({ appName, changes, resolve }),
+      );
     InterfaceController.setNodeSearchActiveItem = setNodeSearchActiveItem;
   }, []);
 
@@ -316,6 +330,16 @@ const App = (): JSX.Element => {
               graphName={graphToBeModified.name}
               graphAccess={graphToBeModified.access}
               graphLocation={graphToBeModified.location}
+            />
+          )}
+          {urlSocketDataRequest && (
+            <URLSocketDataDialog
+              appName={urlSocketDataRequest.appName}
+              changes={urlSocketDataRequest.changes}
+              onClose={(accepted) => {
+                urlSocketDataRequest.resolve(accepted);
+                setURLSocketDataRequest(null);
+              }}
             />
           )}
           <SpinnerContainer />
