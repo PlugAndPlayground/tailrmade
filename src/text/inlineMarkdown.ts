@@ -1,5 +1,6 @@
 // The inline Markdown static Text and the Text node store: CommonMark
-// emphasis, code spans and links, plus Pandoc-style attributes for tone and
+// emphasis, code spans and links, GFM ~~strikethrough~~, plus Pandoc-style
+// attributes for tone and
 // no-wrap - [text]{.accent .nowrap}, [text](url){.muted}. One line is one
 // paragraph. Written here, headless, so migrations can produce it; Lexical
 // reads it (lexical/markdown.ts), so there is one writer and one reader.
@@ -36,7 +37,7 @@ const rawText = (run: InlineRun) => (run.type === 'text' ? run.text : run.source
 // `{{` stays as it is, so token-enabled hosts read their tokens back; a
 // character reference would be decoded on import, so its `&` is one too
 const escapeText = (text: string) =>
-  text.replace(/[\\*_`[\]]/g, '\\$&').replace(/&(#\d+;)/g, '&#38;$1');
+  text.replace(/[\\*_`~[\]]/g, '\\$&').replace(/&(#\d+;)/g, '&#38;$1');
 
 function codeSpan(code: string): string {
   const longestRun = Math.max(
@@ -115,6 +116,11 @@ const LAYERS: Layer[] = [
         inner,
       );
     },
+  },
+  {
+    key: ({ strikethrough }) => strikethrough,
+    wrap: (inner, { strikethrough }) =>
+      strikethrough ? delimit('~~', inner) : inner,
   },
 ];
 

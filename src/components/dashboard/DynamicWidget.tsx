@@ -29,7 +29,7 @@ import InterfaceController from '../../InterfaceController';
 import { useHoverEvents, useParentDirection } from './hooks';
 import { DynamicWidgetName } from '../../utils/constants_shared';
 import { dynamicWidgetDefaultProps } from '../../utils/surfaceTree';
-import { ColorSetting } from '../../utils/themeColors';
+import { ColorSetting, colorSettingToCss } from '../../utils/themeColors';
 
 export type DynamicWidgetBaseProps = {
   background: Record<'r' | 'g' | 'b' | 'a', number>;
@@ -196,7 +196,8 @@ export const DynamicWidgetView = (viewProps: DynamicWidgetViewProps) => {
         // r/g/b/a channels whenever the stored object's key order isn't
         // exactly r,g,b,a
         background: Object.assign(new TRgba(), background).toString(),
-        color: Object.assign(new TRgba(), color).toString(),
+        // may be the 'inherit' keyword, which TRgba cannot hold
+        color: colorSettingToCss(color),
         padding: `${padding[0]}px ${padding[1]}px ${padding[2]}px ${padding[3]}px`,
         ...style,
       }}

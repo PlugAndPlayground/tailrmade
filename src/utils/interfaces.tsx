@@ -12,6 +12,7 @@ import {
 } from './constants';
 import type { UISurfaceNode } from '../nodes/layout/uiSurface';
 import type { ThemeDocument } from './theme/document';
+import type { ColorSetting } from './themeColors';
 export { TRgba } from './color';
 export type { TColorHsva } from './color';
 
@@ -138,6 +139,8 @@ export type DashboardIconProps = {
 
 export type WidgetProps = {
   background: Record<'r' | 'g' | 'b' | 'a', number>;
+  // text color; without it a widget gets the container default
+  color?: ColorSetting;
   width: string;
   height: string;
   minWidth: string;

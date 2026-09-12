@@ -7,22 +7,27 @@ import {
   MenuOption,
   useBasicTypeaheadTriggerMatch,
 } from '@lexical/react/LexicalTypeaheadMenuPlugin';
-import { formatToken, tokenPathToString, validateInputName } from '../tokens';
+import {
+  formatToken,
+  formatTokenValue,
+  resolveTokenPath,
+  tokenPathToString,
+  validateInputName,
+} from '../tokens';
 import { $createTokenNode } from './TokenNode';
-
-export type TokenInputKind = 'scalar' | 'object';
 
 export type TokenPickerInput = {
   name: string;
   preview: string;
-  isObject: boolean;
+  // the current value, whose fields `@name.` offers
+  value: unknown;
 };
 
 export type TokenPickerProps = {
   inputs: TokenPickerInput[];
   // every socket name on the node, bindable or not - new names must be unique
   takenNames: string[];
-  onCreateInput: (name: string, kind: TokenInputKind) => void;
+  onCreateInput: (name: string) => void;
 };
 
 // '.', '_' and '-' belong to input names and paths, so they must not end the
@@ -34,7 +39,7 @@ class PickerOption extends MenuOption {
   label: string;
   detail: string;
   path?: string[];
-  create?: { name: string; kind: TokenInputKind };
+  createName?: string;
   disabledReason?: string;
 
   constructor(
@@ -48,7 +53,7 @@ class PickerOption extends MenuOption {
     this.label = fields.label;
     this.detail = fields.detail;
     this.path = fields.path;
-    this.create = fields.create;
+    this.createName = fields.createName;
     this.disabledReason = fields.disabledReason;
   }
 }
@@ -60,16 +65,40 @@ function buildOptions(
   const [root, ...rest] = query.split('.');
   if (rest.length > 0) {
     const input = inputs.find((candidate) => candidate.name === root);
-    const path = [root, ...rest];
-    return input && rest.every(Boolean)
-      ? [
-          new PickerOption(`path:${query}`, {
-            label: tokenPathToString(path),
-            detail: 'path',
-            path,
-          }),
-        ]
-      : [];
+    if (!input) {
+      return [];
+    }
+    // `@d.` lists the fields d holds right now; typing narrows them down
+    const values = { [root]: input.value };
+    const parentPath = [root, ...rest.slice(0, -1)];
+    const prefix = rest[rest.length - 1];
+    const parent = resolveTokenPath(parentPath, values);
+    const fields =
+      parent.resolved && typeof parent.value === 'object'
+        ? Object.keys(parent.value as object).filter((key) =>
+            key.toLowerCase().startsWith(prefix.toLowerCase()),
+          )
+        : [];
+    const options = fields.map((key) => {
+      const path = [...parentPath, key];
+      return new PickerOption(`field:${path.join('.')}`, {
+        label: tokenPathToString(path),
+        detail: formatTokenValue(resolveTokenPath(path, values)),
+        path,
+      });
+    });
+    // a field the value does not hold yet can still be typed out in full
+    if (rest.every(Boolean) && !fields.includes(prefix)) {
+      const path = [root, ...rest];
+      options.push(
+        new PickerOption(`path:${query}`, {
+          label: tokenPathToString(path),
+          detail: 'path',
+          path,
+        }),
+      );
+    }
+    return options;
   }
 
   const options = inputs
@@ -83,20 +112,27 @@ function buildOptions(
         }),
     );
 
-  if (query !== '' && !inputs.some((input) => input.name === query)) {
+  if (query === '') {
+    // the menu opens on `@` alone, even while there is nothing to list yet
+    return options.length > 0
+      ? options
+      : [
+          new PickerOption('hint', {
+            label: 'Type a name to add an input',
+            detail: '',
+            disabledReason: 'no inputs yet',
+          }),
+        ];
+  }
+  if (!inputs.some((input) => input.name === query)) {
     const disabledReason = validateInputName(query, takenNames);
-    (['scalar', 'object'] as const).forEach((kind) =>
-      options.push(
-        new PickerOption(`create:${kind}`, {
-          label:
-            kind === 'scalar'
-              ? `＋ new input "${query}"`
-              : `＋ new object input "${query}"`,
-          detail: disabledReason ?? '',
-          create: { name: query, kind },
-          disabledReason,
-        }),
-      ),
+    options.push(
+      new PickerOption('create', {
+        label: `＋ new input "${query}"`,
+        detail: disabledReason ?? '',
+        createName: query,
+        disabledReason,
+      }),
     );
   }
   return options;
@@ -127,10 +163,10 @@ export default function TokenPickerPlugin(
         if (option.disabledReason) {
           return;
         }
-        if (option.create) {
-          props.onCreateInput(option.create.name, option.create.kind);
+        if (option.createName) {
+          props.onCreateInput(option.createName);
         }
-        const path = option.path ?? [option.create!.name];
+        const path = option.path ?? [option.createName!];
         editor.update(() => {
           const token = $createTokenNode(formatToken({ path }));
           if (textNodeContainingQuery) {

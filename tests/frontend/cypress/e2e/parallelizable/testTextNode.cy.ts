@@ -90,9 +90,15 @@ describe('dynamic Text node', () => {
 
   it('creates inputs from the token picker through the undo stack', () => {
     addTextNode('dyn-text');
-    canvasEditor('dyn-text').type('{selectall}{backspace}Temp: @temp', {
+    canvasEditor('dyn-text').type('{selectall}{backspace}Temp: @', {
       force: true,
     });
+    // the menu opens on `@` alone, before a name is typed
+    cy.get('[data-cy="text-token-picker"]').should(
+      'contain.text',
+      'Type a name to add an input',
+    );
+    canvasEditor('dyn-text').type('temp', { force: true });
     clickPickerOption('＋ new input "temp"');
 
     shouldWithTestController((testController) => {
@@ -141,10 +147,10 @@ describe('dynamic Text node', () => {
     canvasEditor('object-text').type('{selectall}{backspace}@d', {
       force: true,
     });
-    clickPickerOption('＋ new object input "d"');
+    clickPickerOption('＋ new input "d"');
     shouldWithTestController((testController) => {
       expect(testController.getInputSocketType('object-text', 'd')).to.eq(
-        'JSON',
+        'Any',
       );
     });
     doWithTestController(async (testController) => {
@@ -153,7 +159,11 @@ describe('dynamic Text node', () => {
     });
     canvasEditor('object-text')
       .focus()
-      .type('{moveToEnd} @d.temp', { force: true });
+      .type('{moveToEnd} @d.', { force: true });
+    // the fields d holds are offered as soon as the dot is typed
+    pickerOption('d.temp')
+      .closest('[data-cy="text-token-picker-option"]')
+      .should('contain.text', '21.5');
     clickPickerOption('d.temp');
 
     canvasEditor('object-text')
@@ -176,6 +186,14 @@ describe('dynamic Text node', () => {
         const { backgroundColor, color } = getComputedStyle($card[0]);
         expect(backgroundColor).to.not.eq('rgba(0, 0, 0, 0)');
         expect(color).to.not.eq(backgroundColor);
+      })
+      // the toolbar floats above the node instead of inside it
+      .then(($card) => {
+        cy.get('[data-cy="text-inline-toolbar"]').should(($toolbar) => {
+          expect($toolbar[0].getBoundingClientRect().bottom).to.be.lte(
+            $card[0].getBoundingClientRect().top,
+          );
+        });
       });
 
     // the node inspector is its plain socket list
@@ -190,6 +208,20 @@ describe('dynamic Text node', () => {
       await testController.executeNodeByID('styled-text');
     });
     canvasEditor('styled-text').should('have.css', 'font-size', '24px');
+  });
+
+  it('takes the text color its widget names', () => {
+    addTextNode('colored-text');
+    placeOnSurface([
+      {
+        widget: 'colored-text',
+        props: { color: { r: 200, g: 10, b: 10, a: 1 } },
+      },
+    ]);
+    exitDashboardEditMode();
+    cy.get('[data-cy="widget of NODE_colored-text"]')
+      .contains('Text')
+      .should('have.css', 'color', 'rgb(200, 10, 10)');
   });
 
   it('marks invalid tokens while editing and hides them at runtime', () => {
@@ -219,6 +251,10 @@ describe('dynamic Text node', () => {
     cy.get('[data-cy="widget of NODE_invalid-text"]')
       .find('[data-token-state="unresolved"]')
       .should('have.length', 2);
+    // editing in place on the surface brings the toolbar, outside the widget
+    cy.get('[data-cy="widget of NODE_invalid-text"] [contenteditable="true"]')
+      .click({ force: true });
+    cy.get('[data-cy="text-inline-toolbar"]').should('be.visible');
   });
 
   it('converts static to dynamic and back as single undo steps', () => {
@@ -260,7 +296,7 @@ describe('dynamic Text node', () => {
         `NODE_${nodeId}`,
       );
 
-      testController.createTokenInput(nodeId, 'name', 'scalar');
+      testController.createTokenInput(nodeId, 'name');
     });
     doWithTestController(async (testController) => {
       testController.setNodeInputValue(nodeId, 'name', 'Ada');

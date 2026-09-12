@@ -252,6 +252,8 @@ export const SurfaceRenderer: React.FC<SurfaceRendererProps> = ({
           width: '100%',
           height: '100%',
           overflow: 'auto',
+          // the text color everything inside inherits, as on the app's ground
+          color: 'text.primary',
           pointerEvents: interactive ? 'auto' : 'none',
         }}
       >

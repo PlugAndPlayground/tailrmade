@@ -47,6 +47,7 @@ import {
 } from '../utils/constants';
 import { DEFAULT_DASHBOARD_ICON } from '../components/dashboard/dashboardIcons';
 import { AppThemeProvider } from '../components/dashboard/AppThemeProvider';
+import { INHERIT_COLOR } from '../utils/themeColors';
 import { getEnumValue } from '../utils/utils';
 import { NumberType } from './datatypes/numberType';
 import { StringType } from './datatypes/stringType';
@@ -672,6 +673,7 @@ const TextNodeSettings: React.FC<{ nodeId: string }> = ({ nodeId }) => {
     <Stack spacing={0.5} sx={{ bgcolor: 'background.default', p: 0.5 }}>
       <Button
         variant="outlined"
+        color="secondary"
         size="small"
         disabled={!guard.allowed}
         onClick={() => void convertDynamicTextToStatic(nodeId)}
@@ -708,12 +710,14 @@ const TextNodeWidget: React.FC<HybridWidgetContentProps<Text>> = (props) => {
       content={textProps.content}
       editable={props.inDashboard || props.isInteractionEnabled}
       autoFocus={shouldAutoFocusWidgetContent(props)}
+      // on the canvas the text fills its node, so the toolbar goes above it
+      toolbarPlacement={props.inDashboard ? 'bottom-start' : 'top-start'}
       onChange={(content) => node.setContent(content)}
       tokens={{
         inputs,
         picker: {
           ...getTokenPickerProps(node),
-          onCreateInput: (name, kind) => createTokenInput(node, name, kind),
+          onCreateInput: (name) => createTokenInput(node, name),
         },
       }}
       dataCy={props.dataCyId}
@@ -809,7 +813,9 @@ Connecting an output to this node adds an input named after that output.
 
   public getWidgetProps(): WidgetProps {
     return {
+      // both defer to the app theme, like static text
       background: { r: 0, g: 0, b: 0, a: 0 },
+      color: INHERIT_COLOR,
       width: '100%',
       height: 'auto',
       minWidth: '48px',

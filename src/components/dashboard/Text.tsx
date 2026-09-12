@@ -1,6 +1,6 @@
 import React from 'react';
 import { useEditor, useNode } from '@craftjs/core';
-import { Alert, Button } from '@mui/material';
+import { Box, Button } from '@mui/material';
 import InterfaceController from '../../InterfaceController';
 import { convertStaticTextToDynamic } from '../../text/conversion';
 import { InlineTextEditor } from '../../text/lexical/InlineTextEditor';
@@ -73,30 +73,24 @@ const TextSettings = () => {
       props={normalizeTextProps(props)}
       update={(mutate) => setProp(mutate)}
     >
-      <Alert
-        severity="info"
-        data-cy="text-dynamic-hint"
-        sx={{ mt: 1 }}
-        action={
-          <Button
-            color="inherit"
-            size="small"
-            data-cy="convert-to-dynamic-text"
-            onClick={() =>
-              // the editor's own tree: its latest edits may not be saved yet
-              void convertStaticTextToDynamic(
-                InterfaceController.displayedSurfaceNodeId!,
-                id,
-                query.serialize(),
-              )
-            }
-          >
-            Convert
-          </Button>
-        }
-      >
-        Want this dynamic? Convert to a Text node.
-      </Alert>
+      <Box sx={{ bgcolor: 'background.default', p: 0.5 }}>
+        <Button
+          variant="outlined"
+          color="secondary"
+          size="small"
+          data-cy="convert-to-dynamic-text"
+          onClick={() =>
+            // the editor's own tree: its latest edits may not be saved yet
+            void convertStaticTextToDynamic(
+              InterfaceController.displayedSurfaceNodeId!,
+              id,
+              query.serialize(),
+            )
+          }
+        >
+          Convert to text node
+        </Button>
+      </Box>
     </TextStyleSettings>
   );
 };

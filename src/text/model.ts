@@ -71,6 +71,7 @@ export const VARIANT_STYLES: Record<
 export type TextMarks = {
   strong?: true;
   emphasis?: true;
+  strikethrough?: true;
   code?: true;
   nowrap?: true;
   tone?: TextTone;
@@ -132,9 +133,11 @@ function normalizeMarks(marks: unknown): TextMarks | undefined {
     return undefined;
   }
   const result: TextMarks = {};
-  (['strong', 'emphasis', 'code', 'nowrap'] as const).forEach((key) => {
-    if (marks[key] === true) result[key] = true;
-  });
+  (['strong', 'emphasis', 'strikethrough', 'code', 'nowrap'] as const).forEach(
+    (key) => {
+      if (marks[key] === true) result[key] = true;
+    },
+  );
   if (includes(TEXT_TONES, marks.tone) && marks.tone !== 'default') {
     result.tone = marks.tone;
   }
@@ -258,7 +261,9 @@ export function resolveTextElementStyle(
   return {
     ...variant,
     fontSize: `${fontSize}px`,
-    color: TONE_PALETTE[props.tone],
+    // the default tone takes the color around it: the theme's text color,
+    // unless a container or the widget names another
+    color: props.tone === 'default' ? 'inherit' : TONE_PALETTE[props.tone],
     textAlign: props.alignment,
     ...props.customStyles,
   };

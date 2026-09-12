@@ -151,20 +151,37 @@ describe('static Text', () => {
       });
   });
 
-  it('applies a tone to the selected run from the toolbar', () => {
-    setLayout([{ text: 'tone me' }]);
+  it('keeps the selected run on one line from the toolbar below the text', () => {
+    setLayout([{ text: 'keep together' }]);
     openEditMode();
     cy.get('[data-cy="static-text-editor"]')
       .first()
       .click({ force: true })
       .type(`${controlOrMetaKey()}a`, { force: true });
-    cy.get('[data-cy="text-inline-toolbar"] [data-cy="tone-select"]').click();
-    cy.get('[data-cy="tone-option-positive"]').click();
+    cy.get('[data-cy="static-text-editor"]')
+      .first()
+      .then(($editor) => {
+        const editorBottom = $editor[0].getBoundingClientRect().bottom;
+        cy.get('[data-cy="text-inline-toolbar"]').should(($toolbar) => {
+          expect($toolbar[0].getBoundingClientRect().top).to.be.gte(
+            editorBottom,
+          );
+        });
+      });
+    cy.get('[data-cy="text-inline-toolbar"]').within(() => {
+      cy.get('[data-cy="undo-button"]').should('not.exist');
+      cy.get('[data-cy="strikethrough-button"]').should('exist');
+      cy.get('[data-cy="tone-select"]').should('not.exist');
+      cy.get('[data-cy="nowrap-button"]').click();
+    });
 
     shouldWithTestController((testController) => {
       const [item] = getTextItems(testController);
-      expect(item.props.content).to.eq('[tone me]{.positive}');
+      expect(item.props.content).to.eq('[keep together]{.nowrap}');
     });
+    cy.get('[data-cy="static-text-editor"]')
+      .contains('keep together')
+      .should('have.css', 'white-space', 'nowrap');
   });
 
   it('sets the variant and tone from the inspector', () => {

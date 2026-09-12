@@ -8,13 +8,9 @@ import {
   PNPAction,
 } from '../classes/Action';
 import { AnyType } from '../nodes/datatypes/anyType';
-import { JSONType } from '../nodes/datatypes/jsonType';
 import { serializeType } from '../nodes/datatypes/typehelper';
 import { formatTokenValue } from './tokens';
-import type {
-  TokenInputKind,
-  TokenPickerProps,
-} from './lexical/TokenPickerPlugin';
+import type { TokenPickerProps } from './lexical/TokenPickerPlugin';
 
 /** Inputs the node added beyond its content, styling and control sockets. */
 export function getBindableInputSockets(node: PPNode): Socket[] {
@@ -42,22 +38,21 @@ export function getTokenPickerProps(
           ? { resolved: false }
           : { resolved: true, value: socket.data },
       ),
-      isObject: socket.dataType instanceof JSONType,
+      value: socket.data,
     })),
     takenNames: node.getAllInputSockets().map((socket) => socket.name),
   };
 }
 
-/** Adds the input through the undo stack; the caller validated the name. */
-export function createTokenInput(
-  node: PPNode,
-  name: string,
-  kind: TokenInputKind,
-): void {
+/**
+ * Adds the input through the undo stack; the caller validated the name. Any
+ * value fits, objects included - `{{d.temp}}` reads a field of one.
+ */
+export function createTokenInput(node: PPNode, name: string): void {
   const args = new AddInputSocketActionArgs(
     node.id,
     name,
-    serializeType(kind === 'object' ? new JSONType() : new AnyType()),
+    serializeType(new AnyType()),
   );
   void PNPAction(ACTIONS.ADD_INPUT_SOCKET, args, args);
 }

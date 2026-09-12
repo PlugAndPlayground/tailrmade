@@ -68,7 +68,6 @@ import {
   RangeSelection,
   TextNode,
 } from 'lexical';
-import { TEXT_TONES, TextTone } from '../../model';
 import type { TextHostProfile } from '../editorConfig';
 import { $getSelectionStyleMarks, $setSelectionStyleMarks } from '../content';
 import {
@@ -219,7 +218,6 @@ function ToolbarPlugin({
   const [codeLanguage, setCodeLanguage] = useState<string>('');
   const [isEditable, setIsEditable] = useState(() => editor.isEditable());
   const [showBlockTypeDropDown, setShowBlockTypeDropDown] = useState(false);
-  const [tone, setTone] = useState<TextTone>('default');
   const [isNowrap, setIsNowrap] = useState(false);
 
   const $updateToolbar = useCallback(() => {
@@ -250,7 +248,6 @@ function ToolbarPlugin({
       setIsSuperscript(selection.hasFormat('superscript'));
       setIsCode(selection.hasFormat('code'));
       const styleMarks = $getSelectionStyleMarks(selection);
-      setTone(styleMarks.tone ?? 'default');
       setIsNowrap(Boolean(styleMarks.nowrap));
       setIsRTL($isParentElementRTL(selection));
 
@@ -682,31 +679,36 @@ function ToolbarPlugin({
         },
       }}
     >
-      <ButtonGroup variant="outlined" size="small">
-        <StyledIconButton
-          disabled={!canUndo || !isEditable}
-          onClick={() => {
-            editor.dispatchCommand(UNDO_COMMAND, undefined);
-            onHistoryChange?.();
-          }}
-          title={`Undo (${controlOrMetaKey()}+Z)`}
-          data-cy="undo-button"
-        >
-          <UndoIcon />
-        </StyledIconButton>
-        <StyledIconButton
-          disabled={!canRedo}
-          onClick={() => {
-            editor.dispatchCommand(REDO_COMMAND, undefined);
-            onHistoryChange?.();
-          }}
-          title={`Redo (${controlOrMetaKey()}+Y)`}
-          data-cy="redo-button"
-        >
-          <RedoIcon />
-        </StyledIconButton>
-      </ButtonGroup>
-      <Divider orientation="vertical" flexItem />
+      {/* inline hosts keep undo on the keyboard */}
+      {profile.markdown && (
+        <>
+          <ButtonGroup variant="outlined" size="small">
+            <StyledIconButton
+              disabled={!canUndo || !isEditable}
+              onClick={() => {
+                editor.dispatchCommand(UNDO_COMMAND, undefined);
+                onHistoryChange?.();
+              }}
+              title={`Undo (${controlOrMetaKey()}+Z)`}
+              data-cy="undo-button"
+            >
+              <UndoIcon />
+            </StyledIconButton>
+            <StyledIconButton
+              disabled={!canRedo}
+              onClick={() => {
+                editor.dispatchCommand(REDO_COMMAND, undefined);
+                onHistoryChange?.();
+              }}
+              title={`Redo (${controlOrMetaKey()}+Y)`}
+              data-cy="redo-button"
+            >
+              <RedoIcon />
+            </StyledIconButton>
+          </ButtonGroup>
+          <Divider orientation="vertical" flexItem />
+        </>
+      )}
       {profile.markdown &&
         blockType in blockTypeToBlockName &&
         activeEditor === editor && (
@@ -778,23 +780,21 @@ function ToolbarPlugin({
           >
             <FormatItalicIcon fontSize="small" />
           </StyledToggleButton>
-          {profile.markdown && (
-            <StyledToggleButton
-              disabled={!isEditable}
-              onClick={() => {
-                activeEditor.dispatchCommand(
-                  FORMAT_TEXT_COMMAND,
-                  'strikethrough',
-                );
-              }}
-              value="strikethrough"
-              selected={isStrikethrough}
-              title="Strikethrough"
-              data-cy="strikethrough-button"
-            >
-              <FormatStrikethroughIcon fontSize="small" />
-            </StyledToggleButton>
-          )}
+          <StyledToggleButton
+            disabled={!isEditable}
+            onClick={() => {
+              activeEditor.dispatchCommand(
+                FORMAT_TEXT_COMMAND,
+                'strikethrough',
+              );
+            }}
+            value="strikethrough"
+            selected={isStrikethrough}
+            title="Strikethrough"
+            data-cy="strikethrough-button"
+          >
+            <FormatStrikethroughIcon fontSize="small" />
+          </StyledToggleButton>
           <StyledToggleButton
             disabled={!isEditable}
             onClick={() => {
@@ -836,38 +836,6 @@ function ToolbarPlugin({
             >
               <WrapTextIcon fontSize="small" />
             </StyledToggleButton>
-          )}
-          {!profile.markdown && (
-            <Select
-              value={tone}
-              disabled={!isEditable}
-              onChange={(event) => {
-                activeEditor.update(() =>
-                  $setSelectionStyleMarks({
-                    tone: event.target.value as TextTone,
-                  }),
-                );
-              }}
-              size="small"
-              title="Tone"
-              data-cy="tone-select"
-              sx={{
-                minWidth: '90px',
-                '& .MuiOutlinedInput-input': { p: 1 },
-                '& .MuiOutlinedInput-notchedOutline': { border: 'none' },
-                '& .MuiSvgIcon-root': { m: 0 },
-              }}
-            >
-              {TEXT_TONES.map((option) => (
-                <MenuItem
-                  key={option}
-                  value={option}
-                  data-cy={`tone-option-${option}`}
-                >
-                  {option}
-                </MenuItem>
-              ))}
-            </Select>
           )}
           {profile.markdown && (
             <ToggleButtonGroup>

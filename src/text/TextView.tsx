@@ -45,6 +45,7 @@ const Run: React.FC<{ marks?: TextMarks; children: React.ReactNode }> = ({
     );
   }
   if (marks.emphasis) run = <em>{run}</em>;
+  if (marks.strikethrough) run = <s>{run}</s>;
   if (marks.strong) run = <strong>{run}</strong>;
   if (marks.tone || marks.nowrap) {
     run = (

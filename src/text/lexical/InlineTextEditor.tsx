@@ -36,6 +36,7 @@ export type InlineTextEditorProps = {
   editable: boolean;
   // take the caret (at the end) whenever editing starts
   autoFocus?: boolean;
+  toolbarPlacement?: 'top-start' | 'bottom-start';
   // required exactly when the profile enables tokens
   tokens?: { inputs: TokenInputs; picker: TokenPickerProps };
   dataCy?: string;
@@ -124,6 +125,7 @@ export function InlineTextEditor({
   onChange,
   editable,
   autoFocus = false,
+  toolbarPlacement = 'bottom-start',
   tokens,
   dataCy,
   sx,
@@ -131,6 +133,7 @@ export function InlineTextEditor({
   const [wrapper, setWrapper] = useState<HTMLDivElement | null>(null);
   const [isFocused, setIsFocused] = useState(false);
   const [isLinkEditMode, setIsLinkEditMode] = useState(false);
+  const toolbarRef = useRef<HTMLDivElement>(null);
   const initialConfig = useMemo(() => {
     const parsed = markdownToTextContent(content, profile.tokens);
     return {
@@ -144,11 +147,15 @@ export function InlineTextEditor({
       <LexicalComposer initialConfig={initialConfig}>
         <Box
           ref={setWrapper}
-          // focus-within: the toolbar and its menus render inside, so using
-          // them does not count as leaving the text
+          // focus-within, toolbar included: it is portalled out of this box,
+          // but React still bubbles its focus events here
           onFocus={() => setIsFocused(true)}
           onBlur={(event) => {
-            if (!event.currentTarget.contains(event.relatedTarget)) {
+            const next = event.relatedTarget;
+            if (
+              !event.currentTarget.contains(next) &&
+              !toolbarRef.current?.contains(next)
+            ) {
               setIsFocused(false);
             }
           }}
@@ -187,17 +194,21 @@ export function InlineTextEditor({
             />
           )}
           <ThemeProvider theme={customTheme}>
-            {/* below the text: above it, the dashboard editor's selection
-                header covers it. Popper flips it up when there is no room */}
+            {/* portalled to the page, so no widget or canvas node clips it;
+                below the text by default, clear of the dashboard editor's
+                selection header */}
             <Popper
               open={editable && isFocused && Boolean(wrapper)}
               anchorEl={wrapper}
-              placement="bottom-start"
+              placement={toolbarPlacement}
               modifiers={[{ name: 'offset', options: { offset: [0, 4] } }]}
-              disablePortal
               sx={{ zIndex: 1500 }}
             >
-              <Paper elevation={4} data-cy="text-inline-toolbar">
+              <Paper
+                ref={toolbarRef}
+                elevation={4}
+                data-cy="text-inline-toolbar"
+              >
                 <ToolbarPlugin
                   setIsLinkEditMode={setIsLinkEditMode}
                   profile={profile}

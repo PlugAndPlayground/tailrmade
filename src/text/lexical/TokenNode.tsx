@@ -80,6 +80,7 @@ const TokenChip: React.FC<{
         cursor: 'default',
         fontWeight: hasFormat('bold') ? 700 : undefined,
         fontStyle: hasFormat('italic') ? 'italic' : undefined,
+        textDecoration: hasFormat('strikethrough') ? 'line-through' : undefined,
         fontFamily: hasFormat('code') ? 'monospace' : undefined,
         whiteSpace: css['white-space'],
         ...(resolution.resolved

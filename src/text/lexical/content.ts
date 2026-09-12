@@ -1,6 +1,6 @@
 // Text content (the headless model) <-> Lexical, for the inline hosts. Run
-// marks map to bold/italic/code formats, link nodes, and a style string that
-// only ever holds a tone variable and nowrap.
+// marks map to bold/italic/strikethrough/code formats, link nodes, and a
+// style string that only ever holds a tone variable and nowrap.
 import { $createLinkNode, $isLinkNode } from '@lexical/link';
 import {
   $getSelectionStyleValueForProperty,
@@ -39,6 +39,7 @@ import { $createTokenNode, $isTokenNode, TokenNode } from './TokenNode';
 const MARK_FORMATS = [
   ['strong', 'bold'],
   ['emphasis', 'italic'],
+  ['strikethrough', 'strikethrough'],
   ['code', 'code'],
 ] as const satisfies readonly (readonly [keyof TextMarks, TextFormatType])[];
 
@@ -217,7 +218,8 @@ export function $contentToLexical(content: TextContent): void {
 
 /**
  * Keeps typed and pasted text within the inline vocabulary: formats other
- * than bold/italic/code and any CSS beyond tone and nowrap are dropped.
+ * than bold/italic/strikethrough/code and any CSS beyond tone and nowrap are
+ * dropped.
  */
 export function registerInlineTextSanitizer(editor: LexicalEditor): () => void {
   return editor.registerNodeTransform(TextNode, (node) => {

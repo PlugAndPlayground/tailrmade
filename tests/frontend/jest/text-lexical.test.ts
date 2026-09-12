@@ -147,7 +147,7 @@ describe('inline markdown', () => {
   it('reads emphasis, code, links, spans and tokens', () => {
     expect(
       parse(
-        '**Temp:** {{format t decimals=1}} *ok* __big__ `c` [site](https://x.io){.muted} [hot]{.negative .nowrap}',
+        '**Temp:** {{format t decimals=1}} *ok* __big__ `c` [site](https://x.io){.muted} [hot]{.negative .nowrap} ~~old~~',
       ),
     ).toEqual([
       [
@@ -168,6 +168,8 @@ describe('inline markdown', () => {
         },
         { type: 'text', text: ' ' },
         { type: 'text', text: 'hot', marks: { tone: 'negative', nowrap: true } },
+        { type: 'text', text: ' ' },
+        { type: 'text', text: 'old', marks: { strikethrough: true } },
       ],
     ]);
   });
@@ -239,6 +241,13 @@ describe('inline markdown', () => {
           { type: 'text', text: 'a]`b', marks: { code: true } },
         ],
       },
+      {
+        runs: [
+          { type: 'text', text: 'price ' },
+          { type: 'text', text: '10', marks: { strikethrough: true } },
+          { type: 'text', text: ' now 8 ~' },
+        ],
+      },
     ],
   });
 
@@ -248,6 +257,7 @@ describe('inline markdown', () => {
         'Temp: **{{format d.temp decimals=1 suffix=" °C"}}** is *fine*, see [docs](https://x.io/a_b) or [alarm]{.negative .nowrap}',
         '',
         '**bold *both*Hello**_{{name}}_ then [**site**](https://e.com){.muted} [_{{name}}_]{.accent} ``a]`b``',
+        'price ~~10~~ now 8 \\~',
       ].join('\n'),
     );
   });

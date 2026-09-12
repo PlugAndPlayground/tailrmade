@@ -594,8 +594,8 @@ export class TextEditor2 extends HybridNode2 {
                   <TokenBehaviourPlugin />
                   <TokenPickerPlugin
                     {...getTokenPickerProps(node)}
-                    onCreateInput={(name, kind) =>
-                      createTokenInput(node, name, kind)
+                    onCreateInput={(name) =>
+                      createTokenInput(node, name)
                     }
                   />
                   {floatingAnchorElem && (

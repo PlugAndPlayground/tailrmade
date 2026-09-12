@@ -123,6 +123,9 @@ describe('text props', () => {
       color: 'primary.main',
       textAlign: 'center',
     });
+    expect(resolveTextElementStyle({ ...base, tone: 'default' }).color).toBe(
+      'inherit',
+    );
     expect(
       resolveTextElementStyle({
         ...base,

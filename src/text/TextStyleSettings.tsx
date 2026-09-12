@@ -1,6 +1,5 @@
 import React from 'react';
-import { Box, MenuItem, Select, Stack, ToggleButton } from '@mui/material';
-import { AppThemeProvider } from '../components/dashboard/AppThemeProvider';
+import { MenuItem, Select, Stack, ToggleButton } from '@mui/material';
 import {
   AlignmentControl,
   CustomCSSSection,
@@ -15,7 +14,6 @@ import {
   TextProps,
   TextTone,
   TextVariant,
-  TONE_PALETTE,
 } from './model';
 
 export type TextStyleSettingsProps = {
@@ -23,22 +21,6 @@ export type TextStyleSettingsProps = {
   update: (mutate: (props: TextProps) => void) => void;
   children?: React.ReactNode;
 };
-
-// the inspector is editor chrome; the swatch shows the app theme's color
-const ToneSwatch: React.FC<{ tone: TextTone }> = ({ tone }) => (
-  <AppThemeProvider>
-    <Box
-      sx={{
-        width: 12,
-        height: 12,
-        borderRadius: '50%',
-        bgcolor: TONE_PALETTE[tone],
-        outline: '1px solid',
-        outlineColor: 'divider',
-      }}
-    />
-  </AppThemeProvider>
-);
 
 /** Inspector for the style of static Text. */
 export const TextStyleSettings: React.FC<TextStyleSettingsProps> = ({
@@ -86,11 +68,9 @@ export const TextStyleSettings: React.FC<TextStyleSettingsProps> = ({
           size="small"
           value={tone}
           key={tone}
-          title={tone}
-          aria-label={tone}
           data-cy={`text-tone-${tone}`}
         >
-          <ToneSwatch tone={tone} />
+          {tone}
         </ToggleButton>
       ))}
     />
