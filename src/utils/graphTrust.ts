@@ -25,3 +25,6 @@ export const getCloudProvenance = ({
     ? 'own-cloud'
     : 'imported';
 };
+
+export const getCloudSource = (owner: string, location: string, name: string) =>
+  `cloud:${owner}/${location}/${name}`;

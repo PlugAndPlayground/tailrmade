@@ -3,7 +3,7 @@ import { hri } from 'human-readable-ids';
 import PPGraph from './classes/GraphClass';
 import PPLink from './classes/LinkClass';
 import PPNode from './classes/NodeClass';
-import InterfaceController from './InterfaceController';
+import InterfaceController, { ListenEvent } from './InterfaceController';
 import Socket from './classes/SocketClass';
 import { getAllNodeTypes } from './nodes/allNodes';
 import { NODE_MARGIN, STATUS_SEVERITY } from './utils/constants';
@@ -26,7 +26,7 @@ import {
   TailrmadeMCPServer,
 } from './services/TailrmadeMCPServer';
 import { AIBackend } from './services/AIBackend';
-import type { GraphGrants } from './utils/appGrants';
+import { ALL_GRANTS, GraphGrants } from './utils/appGrants';
 
 export default class TestController {
   identify(): string {
@@ -405,6 +405,24 @@ export default class TestController {
     PPGraph.currentGraph.grants = grants;
   }
 
+  // Fixtures opened from a link are imported apps, so they open paused
+  async runPausedApp() {
+    if (PPGraph.currentGraph.paused) {
+      await PPGraph.currentGraph.run(ALL_GRANTS);
+      InterfaceController.notifyListeners(
+        ListenEvent.AppPermissionsChanged,
+        undefined,
+      );
+    }
+  }
+
+  getCompressedCurrentGraph(): string {
+    return PPStorage.getInstance().getDownloadReadyGraph(
+      PPGraph.currentGraph.getSerializedStoredGraph(),
+      true,
+    );
+  }
+
   toggleLeftSideDrawer(
     action: VISIBILITY_ACTION = VISIBILITY_ACTION.TOGGLE,
     content: LeftDrawerView = LeftDrawerView.GRAPHS,
@@ -525,9 +543,11 @@ export default class TestController {
   }
 
   async loadStringifiedGraph(graph: string) {
+    // Tests load their own fixtures, so these open like apps made here
     await PPStorage.getInstance().loadGraphFromData(
       PPStorage.getInstance().stringToStoredGraph(graph),
-      'imported',
+      'local',
+      undefined,
     );
   }
 

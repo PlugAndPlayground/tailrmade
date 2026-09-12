@@ -222,7 +222,11 @@ export const handleFileDrop = async (
         // Handle node creation based on file type
         switch (fileCategory) {
           case 'graph':
-            await PPStorage.getInstance().loadGraphFromData(data, 'imported');
+            await PPStorage.getInstance().loadGraphFromData(
+              data,
+              'imported',
+              `file:${file.name}`,
+            );
             break;
 
           case 'spreadsheet':

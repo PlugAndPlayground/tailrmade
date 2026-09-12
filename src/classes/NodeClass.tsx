@@ -1358,11 +1358,11 @@ ${Math.round(bounds.minX)}, ${Math.round(
 
   // if you want to optimize the mapping of arguments, override this function instead of execute(), but most of the time just override onExecute()
   protected async rawExecute(): Promise<void> {
-    if (!this.hasBeenAdded) {
-      return;
-    }
     // Every way a node runs reaches this, including nodes that call it
     // directly instead of execute()
+    if (!this.hasBeenAdded || PPGraph.currentGraph.paused) {
+      return;
+    }
     if (
       !isFullAccessGranted(PPGraph.currentGraph.grants) &&
       runsCode(

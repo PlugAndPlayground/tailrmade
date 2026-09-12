@@ -11,10 +11,20 @@ export interface AppGrants {
   intervals: boolean;
 }
 
-// Trusted apps get everything, and so does every app until the permission
-// sheet can ask
+// Trusted apps get everything
 export const ALL_GRANTS = 'all';
 export type GraphGrants = AppGrants | typeof ALL_GRANTS;
+
+// Imported apps open paused with this until the user runs them
+export const NO_GRANTS: AppGrants = {
+  fullAccess: false,
+  keys: [],
+  hosts: [],
+  companion: false,
+  storage: [],
+  ai: false,
+  intervals: false,
+};
 
 export const OFF_FOR_THIS_APP = 'Off for this app';
 

@@ -25,7 +25,22 @@ import { CLOUD_MODE } from './services/shared-types';
 import { DASHBOARD_DEFAULT } from './utils/constants';
 import _ from 'lodash';
 import { BackendGateway } from './services/BackendGateway';
-import { GraphProvenance, getCloudProvenance } from './utils/graphTrust';
+import {
+  GraphProvenance,
+  getCloudProvenance,
+  getCloudSource,
+  isTrustedGraph,
+} from './utils/graphTrust';
+import { getManifestHash, scanGraph } from './utils/scanGraph';
+import {
+  AppPermissionsContext,
+  getAppGrantsId,
+  getDefaultTicked,
+  getGrantsFromTicked,
+  getPermissionItems,
+  getPromptKind,
+} from './utils/appPermissions';
+import type { AppGrants } from './utils/appGrants';
 
 (window as any).__PIXI_INSPECTOR_GLOBAL_HOOK__ &&
   (window as any).__PIXI_INSPECTOR_GLOBAL_HOOK__.register({ PIXI: PIXI });
@@ -34,6 +49,16 @@ export const DEFAULT_LOCATION = 'Default';
 export const DEFAULT_ACCESS = 'private';
 
 export const autoSaveSuffix = ' - Autosave';
+
+// Key domains decide which key uses are already blocked. Only signed-in cloud
+// users have keys with domains.
+const getKeyDomains = async (): Promise<Record<string, string>> => {
+  if (!CLOUD_MODE || !BackendGateway.getInstance().getIsLoggedIn()) {
+    return {};
+  }
+  const keys = await BackendGateway.getInstance().getApiKeys();
+  return Object.fromEntries(keys.map(({ name, domain }) => [name, domain]));
+};
 
 const autoLocalBackupInterval = 1000 * 60 * 3;
 
@@ -173,6 +198,10 @@ export default class PPStorage {
     InterfaceController.notifyListeners(
       ListenEvent.GraphChanged,
       PPGraph.currentGraph,
+    );
+    InterfaceController.notifyListeners(
+      ListenEvent.AppPermissionsChanged,
+      undefined,
     );
     InterfaceController.showSnackBar('Created new empty app');
 
@@ -418,20 +447,26 @@ export default class PPStorage {
         currentUserId: BackendGateway.getInstance().getCurrentUserId(),
         storedProvenance: data.provenance,
       }),
+      getCloudSource(owner, location, name),
     );
     console.log('loaded graph');
     // Remove the URL parameter after loading
     removeUrlParameter(constants.URL_PARAMETER_NAME.LOADGRAPH);
   }
 
-  async loadGraphFromData(fileData: StoredGraph, provenance: GraphProvenance) {
+  async loadGraphFromData(
+    fileData: StoredGraph,
+    provenance: GraphProvenance,
+    source: string | undefined,
+  ) {
     try {
       document.body.style.cursor = 'wait';
       PPStorage.getInstance().dateOfLastGraphLoaded = new Date(fileData.date);
       const migratedFileData = {
         ...fileData,
-        // Files carry a provenance field too, and anyone can edit a file
+        // Files carry these fields too, and anyone can edit a file
         provenance,
+        source,
         graphData: migrateGraphDataOnLoad(fileData.graphData),
       };
       await PPGraph.currentGraph.configure(migratedFileData);
@@ -441,6 +476,15 @@ export default class PPStorage {
         name: fileData.name,
       });
       ActionHandler.setUnsavedChange(false); // reset unsaved changes after loading a graph
+
+      if (isTrustedGraph(migratedFileData)) {
+        InterfaceController.notifyListeners(
+          ListenEvent.AppPermissionsChanged,
+          undefined,
+        );
+      } else {
+        await this.openImportedApp(migratedFileData);
+      }
 
       // Log app open event for analytics
       BackendGateway.getInstance().logAppOpened(fileData.name);
@@ -462,11 +506,65 @@ export default class PPStorage {
     }
   }
 
+  // Imported apps open paused. They run straight away when the user already
+  // allowed exactly these capabilities, or when there is nothing to ask.
+  private async openImportedApp(storedGraph: StoredGraph): Promise<void> {
+    const manifest = scanGraph(storedGraph.graphData);
+    // crypto.subtle only exists on secure origins, so a plain-http self-hosted
+    // build can't remember decisions
+    const grantsId = crypto.subtle
+      ? getAppGrantsId(
+          storedGraph.source,
+          await getManifestHash(storedGraph.graphData),
+        )
+      : undefined;
+    const context: AppPermissionsContext = {
+      appName: storedGraph.name,
+      source: storedGraph.source,
+      manifest,
+      items: getPermissionItems(manifest, await getKeyDomains()),
+      grantsId,
+    };
+    const remembered =
+      grantsId === undefined
+        ? undefined
+        : await this.db.app_grants.get(grantsId);
+    if (remembered) {
+      await PPGraph.currentGraph.run(remembered.grants);
+    } else if (getPromptKind(context.items) === 'none') {
+      await PPGraph.currentGraph.run(
+        getGrantsFromTicked(manifest, getDefaultTicked(context.items)),
+      );
+    }
+    InterfaceController.notifyListeners(
+      ListenEvent.AppPermissionsChanged,
+      context,
+    );
+  }
+
+  async runImportedApp(
+    context: AppPermissionsContext,
+    grants: AppGrants,
+  ): Promise<void> {
+    if (context.grantsId !== undefined) {
+      await this.db.app_grants.put({
+        id: context.grantsId,
+        grants,
+        date: new Date(),
+      });
+    }
+    await PPGraph.currentGraph.run(grants);
+    InterfaceController.notifyListeners(
+      ListenEvent.AppPermissionsChanged,
+      context,
+    );
+  }
+
   async loadGraphFromDataEmbeddedInURL(
     stringifiedGraph: string,
   ): Promise<StoredGraph | undefined> {
     const graph = this.stringToStoredGraph(stringifiedGraph);
-    const result = await this.loadGraphFromData(graph, 'imported');
+    const result = await this.loadGraphFromData(graph, 'imported', 'link');
     // Remove the URL parameter after loading - this is a one-time load from URL
     removeUrlParameter(constants.URL_PARAMETER_NAME.LOADURLGRAPH);
     return result;
@@ -506,6 +604,7 @@ export default class PPStorage {
           constants.GET_STARTED_GRAPH,
         ),
         'imported',
+        getCloudSource('publicUser', 'Default', constants.GET_STARTED_GRAPH),
       );
     } catch (error) {
       // the get-started graph may be unreachable
@@ -559,7 +658,11 @@ export default class PPStorage {
     console.log('loaded', loadedGraph);
     if (loadedGraph !== undefined) {
       try {
-        await this.loadGraphFromData(loadedGraph, loadedGraph.provenance);
+        await this.loadGraphFromData(
+          loadedGraph,
+          loadedGraph.provenance,
+          loadedGraph.source,
+        );
       } catch (e) {
         console.warn('Error loading graph:', e);
         await this.createEmptyGraph();

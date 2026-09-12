@@ -560,8 +560,12 @@ export const openGraphWithURLParams = (params: string) => {
   prepareLoadedGraph();
 };
 
-export const openStringifiedGraph = (graph: string) =>
+// Fixtures opened from a link are imported apps, so run them once loaded
+export const openStringifiedGraph = (graph: string) => {
   openGraphWithURLParams('loadFullGraph=' + graph);
+  waitForGraphToBeReady();
+  doWithTestController((testController) => testController.runPausedApp());
+};
 
 export const clickNode = (
   nodeId: string,

@@ -73,6 +73,7 @@ export enum ListenEvent {
   DisplayedSurfaceChanged, // data = { nodeId: string } - the UI surface shown in the dashboard changed
   SurfaceRuntimeChanged, // data = { nodeId: string } - a surface's runtime override sockets (visible/layout) changed
   ModalOpenChanged, // data = { nodeId: string } - a UI modal node's open/closed state changed
+  AppPermissionsChanged, // data = AppPermissionsContext for an imported app, undefined otherwise
 }
 
 type InterfaceEventListener = (data: any, event: ListenEvent) => void;

@@ -45,6 +45,7 @@ function ActionButtons(props: ActionButtonProps) {
         await PPStorage.getInstance().loadGraphFromData(
           newStoredGraph,
           PPGraph.currentGraph.provenance,
+          PPGraph.currentGraph.source,
         );
       });
   };

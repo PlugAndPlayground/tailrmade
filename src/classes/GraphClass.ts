@@ -26,7 +26,8 @@ import {
   isPhone,
 } from '../utils/utils';
 import { getLoadSeedNodes } from '../utils/updateBehaviour';
-import { ALL_GRANTS, GraphGrants } from '../utils/appGrants';
+import { ALL_GRANTS, GraphGrants, NO_GRANTS } from '../utils/appGrants';
+import { isTrustedGraph } from '../utils/graphTrust';
 import {
   EMPTY_THEME_DOCUMENT,
   parseThemeDocument,
@@ -112,6 +113,9 @@ export default class PPGraph {
   access: AccessType = DEFAULT_ACCESS;
   provenance: StoredGraph['provenance'] = 'local';
   grants: GraphGrants = ALL_GRANTS;
+  source: string | undefined;
+  // Imported apps open paused, and no node runs until the user runs the app
+  paused = false;
 
   tempConnection: PIXI.Graphics;
   selection: PPSelection;
@@ -242,6 +246,9 @@ export default class PPGraph {
     this.date = metadata.date ?? new Date();
     this.isRemote = metadata.isRemote ?? false;
     this.provenance = 'local';
+    this.source = undefined;
+    this.grants = ALL_GRANTS;
+    this.paused = false;
   }
 
   async notifyUserDataChanged(alsoOnLoad: boolean): Promise<void> {
@@ -1361,6 +1368,7 @@ export default class PPGraph {
       owner: this.owner,
       isRemote: this.isRemote,
       provenance: this.provenance,
+      source: this.source,
     };
   }
 
@@ -1489,8 +1497,9 @@ export default class PPGraph {
     this.date = storedGraph.date;
     this.isRemote = storedGraph.isRemote;
     this.provenance = storedGraph.provenance;
-    // Every app keeps everything granted until the permission sheet can ask
-    this.grants = ALL_GRANTS;
+    this.source = storedGraph.source;
+    this.paused = !isTrustedGraph(storedGraph);
+    this.grants = this.paused ? NO_GRANTS : ALL_GRANTS;
     this.selection.deselectAllNodesAndResetSelection();
 
     if (Object.keys(this.nodes).length > 0) {
@@ -1576,17 +1585,13 @@ export default class PPGraph {
       }
     }
 
-    // execute all seed nodes to make sure there are values everywhere
-    await this.executeAllSeedNodes(Object.values(this.nodes));
-
-    // Fire DashboardLoaded after nodes are created and executed,
-    // so page nodes have their listeners registered for default page activation
-    InterfaceController.notifyListeners(ListenEvent.DashboardLoaded, {
-      id: storedGraph.id,
-      name: storedGraph.name,
-    });
-
-    this.graphConfiguredAndReady = true;
+    // Imported apps start their nodes when the user runs them, but are shown
+    // as soon as they load
+    if (this.paused) {
+      this.graphConfiguredAndReady = true;
+    } else {
+      await this.startNodes();
+    }
 
     this.updateEmptyCanvasVisibility();
 
@@ -1599,6 +1604,26 @@ export default class PPGraph {
     });
 
     return true;
+  }
+
+  async run(grants: GraphGrants): Promise<void> {
+    this.grants = grants;
+    this.paused = false;
+    await this.startNodes();
+  }
+
+  // Load execution runs before the graph counts as ready, so macros don't
+  // re-trigger their callers and If/Else fills both branches
+  private async startNodes(): Promise<void> {
+    this.graphConfiguredAndReady = false;
+    await this.executeAllSeedNodes(Object.values(this.nodes));
+    // Fire DashboardLoaded after nodes are created and executed,
+    // so page nodes have their listeners registered for default page activation
+    InterfaceController.notifyListeners(ListenEvent.DashboardLoaded, {
+      id: this.id,
+      name: this.name,
+    });
+    this.graphConfiguredAndReady = true;
   }
 
   async executeAllSeedNodes(nodes: PPNode[]): Promise<void> {
