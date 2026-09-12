@@ -50,6 +50,7 @@ import {
 } from '../../nodes/layout/surfaceSync';
 import type { UISurfaceNode } from '../../nodes/layout/uiSurface';
 import { useDevicePreviewWidth, useDisplayedSurfaceLocked } from './hooks';
+import { useIsStackLayout } from '../../utils/layoutModel';
 import { setSurfaceStack } from './viewState';
 import { MAIN_COLOR } from '../../utils/constants';
 
@@ -998,6 +999,7 @@ export const DashboardEditor: React.FC<DashboardEditorProps> = ({
         minWidth: 0,
         minHeight: 0,
         overflowY: 'auto',
+        overscrollBehavior: 'contain',
         background: `${getDashboardBackground()}`,
         position: 'relative',
       }}
@@ -1070,9 +1072,10 @@ export const DashboardEditor: React.FC<DashboardEditorProps> = ({
                       width: `${devicePreviewWidth}px`,
                       maxWidth: 'calc(100% - 28px)',
                       minWidth: 0,
-                      border: '10px solid #111111',
+                      border: '10px solid #262a36',
                       borderRadius: '18px',
-                      boxShadow: '0 0 24px rgba(0, 0, 0, 0.5)',
+                      boxShadow:
+                        '0 0 0 1px rgba(255, 255, 255, 0.3), 0 16px 48px rgba(0, 0, 0, 0.7)',
                       overflow: 'auto',
                     }
                   : {
@@ -1081,10 +1084,6 @@ export const DashboardEditor: React.FC<DashboardEditorProps> = ({
               }}
             >
               <AppThemeProvider>
-                {/* the app's own ground. The root container paints a
-                    translucent tint over this, so without it a preset or mode
-                    change would only show up on controls, not on the surface
-                    they sit on */}
                 <Box
                   data-cy="app-theme-surface"
                   sx={{
@@ -1093,6 +1092,14 @@ export const DashboardEditor: React.FC<DashboardEditorProps> = ({
                     minWidth: 0,
                     bgcolor: 'background.default',
                     color: 'text.primary',
+                    touchAction: 'manipulation',
+                    WebkitTapHighlightColor: 'transparent',
+                    ...(appView && {
+                      pt: 'env(safe-area-inset-top)',
+                      pb: 'env(safe-area-inset-bottom)',
+                      pl: 'env(safe-area-inset-left)',
+                      pr: 'env(safe-area-inset-right)',
+                    }),
                   }}
                 >
                   <Frame>
@@ -1116,41 +1123,56 @@ export const DashboardEditor: React.FC<DashboardEditorProps> = ({
 
 export const EmptyState: React.FC<{ appView?: boolean }> = ({
   appView = false,
-}) => (
-  <AppThemeProvider>
-    <Box
-      data-cy="dashboard-empty-state"
-      sx={{
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-        height: '100dvh',
-        textAlign: 'left',
-        userSelect: 'none',
-        p: 4,
-        lineHeight: 1.5,
-        bgcolor: 'background.default',
-        color: 'text.primary',
-      }}
-    >
-      {appView ? (
-        <>
-          <Typography variant="h5" gutterBottom>
-            Nothing to show
-          </Typography>
-          <Typography variant="body1" color="text.secondary">
-            This Tailrmade app has no user interface yet.
-            <br />
-            To build one, click the logo on the top left or press <em>T</em>.
-          </Typography>
-        </>
-      ) : (
-        <EmptyStateBuildSteps />
-      )}
-    </Box>
-  </AppThemeProvider>
-);
+}) => {
+  const stackLayout = useIsStackLayout();
+  return (
+    <AppThemeProvider>
+      <Box
+        data-cy="dashboard-empty-state"
+        sx={{
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          height: '100dvh',
+          textAlign: 'left',
+          userSelect: 'none',
+          p: 4,
+          lineHeight: 1.5,
+          bgcolor: 'background.default',
+          color: 'text.primary',
+        }}
+      >
+        {appView ? (
+          <>
+            <Typography variant="h5" gutterBottom>
+              {stackLayout ? 'No user interface yet' : 'Nothing to show'}
+            </Typography>
+            <Typography variant="body1" color="text.secondary">
+              {stackLayout ? (
+                <>
+                  This app doesn&apos;t have one yet, and building one needs a
+                  desktop.
+                  <br />
+                  To see how the app works, open the Graph tab.
+                </>
+              ) : (
+                <>
+                  This Tailrmade app has no user interface yet.
+                  <br />
+                  To build one, click the logo on the top left or press{' '}
+                  <em>T</em>.
+                </>
+              )}
+            </Typography>
+          </>
+        ) : (
+          <EmptyStateBuildSteps />
+        )}
+      </Box>
+    </AppThemeProvider>
+  );
+};
 
 const EmptyStateBuildSteps: React.FC = () => (
   <>

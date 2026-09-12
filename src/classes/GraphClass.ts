@@ -23,8 +23,16 @@ import {
   calculateDistance,
   clearDocumentSelection,
   perform_action_connectNodeToSocket,
-  isPhone,
+  swallowGhostMouseDown,
 } from '../utils/utils';
+import {
+  isDoubleActivation,
+  shouldDrawSelectionMarquee,
+  TouchGesture,
+} from '../utils/touchGestures';
+import { isCanvasExploreOnly, isStackLayout } from '../utils/stackLayout';
+import { BackendGateway } from '../services/BackendGateway';
+import { CLOUD_MODE } from '../services/shared-types';
 import { getLoadSeedNodes } from '../utils/updateBehaviour';
 import {
   EMPTY_THEME_DOCUMENT,
@@ -36,7 +44,7 @@ import {
   getThemeDocument,
   setThemeDocument,
 } from '../utils/theme/store';
-import { getNodesBounds } from '../pixi/utils-pixi';
+import { frameGraphForStackLayout, getNodesBounds } from '../pixi/utils-pixi';
 import PPNode from './NodeClass';
 import PPSocket from './SocketClass';
 import PPLink from './LinkClass';
@@ -49,7 +57,6 @@ import { DynamicImport } from '../utils/dynamicImport';
 import {
   DASHBOARD_DEFAULT,
   MAX_LATEST_NODES_IN_SEARCH,
-  ONCLICK_DOUBLECLICK,
 } from '../utils/constants';
 import { VISIBILITY_ACTION } from '../utils/constants_shared';
 import HybridNode2 from './HybridNode2';
@@ -69,6 +76,28 @@ import PPStorage, { DEFAULT_ACCESS, DEFAULT_LOCATION } from '../PPStorage';
 const DUMMY_IMPORT = getNodesBounds;
 const EMPTY_DEFAULT_MACRO_NAME = 'EmptyDefaultMacro';
 
+const EMPTY_CANVAS_TEXT = `<span style="color:#0c1122;">Add data and logic</span>
+  Double click canvas or drag files in
+  Then connect the nodes
+
+  <span style="color:#0c1122;">Create user interface</span>
+  Press 2 to open the panel
+  Then add widgets/nodes
+
+  Right click for more options`;
+
+// the canvas cannot be edited by hand in the stack layout, so point to AI,
+// which is only offered once signed in
+const EMPTY_CANVAS_TEXT_EXPLORE_ONLY = `<span style="color:#0c1122;">This app is empty</span>
+  Open AI to build it`;
+const EMPTY_CANVAS_TEXT_SIGNED_OUT = `<span style="color:#0c1122;">This app is empty</span>
+  Sign in to build it with AI`;
+
+type LongPressTarget = {
+  global: PIXI.Point;
+  target: PIXI.Container;
+};
+
 export default class PPGraph {
   static currentGraph: PPGraph;
   app: PIXI.Application;
@@ -87,6 +116,9 @@ export default class PPGraph {
   pointerEvent: PIXI.FederatedPointerEvent | undefined = undefined; // lets try to get rid of this undefined
   dragSourcePoint: PIXI.Point | undefined;
   dragLastPoint: PIXI.Point;
+
+  // the finger's stand-in for a right click and for a deliberate click
+  private touchGesture: TouchGesture<LongPressTarget>;
 
   // For separate logic update loop
   private logicAnimationFrameId: number | null = null;
@@ -194,12 +226,34 @@ export default class PPGraph {
       'rightclick',
       this.onPointerRightClicked.bind(this),
     );
-    this.viewport.addEventListener('click', this.onPointerClick.bind(this));
+    this.viewport.addEventListener(
+      'pointertap',
+      this.onPointerClick.bind(this),
+    );
 
     this.viewport.addEventListener('moved', () => this.socketFocus.refresh());
     this.viewport.addEventListener('pointermove', (event) =>
       this.onViewportMove(event),
     );
+
+    // Touch has no second button, so a long press opens a context menu
+    this.touchGesture = new TouchGesture<LongPressTarget>(
+      ({ global, target }) => this.openLongPressContextMenu(global, target),
+    );
+    this.viewport.addEventListener(
+      'pointerdown',
+      (event: PIXI.FederatedPointerEvent) =>
+        this.touchGesture.start(event, {
+          global: event.global.clone(),
+          target: event.target as PIXI.Container,
+        }),
+      { capture: true },
+    );
+    window.addEventListener('pointermove', (event: PointerEvent) =>
+      this.touchGesture.move(event.clientX, event.clientY),
+    );
+    window.addEventListener('pointerup', () => this.touchGesture.settle());
+    window.addEventListener('pointercancel', () => this.touchGesture.end());
 
     // NEVER CLEARED !
     InterfaceController.addListener(
@@ -209,6 +263,7 @@ export default class PPGraph {
 
     // when authentication changes some nodes need executing
     InterfaceController.addListener(ListenEvent.UserIsLoggedIn, async () => {
+      this.updateEmptyCanvasVisibility();
       await this.notifyUserDataChanged(true);
     });
 
@@ -266,15 +321,42 @@ export default class PPGraph {
     }
   }
 
+  private openLongPressContextMenu(
+    global: PIXI.Point,
+    target: PIXI.Container,
+  ): void {
+    if (isCanvasExploreOnly()) {
+      return;
+    }
+    this.stopConnecting();
+    this.selection.stopDragAction(undefined);
+
+    if (target instanceof PPNode && !target.selected) {
+      this.selection.selectNodes([target], false);
+    }
+
+    InterfaceController.onRightClick(
+      { global } as PIXI.FederatedPointerEvent,
+      target,
+    );
+  }
+
   onPointerClick(event: PIXI.FederatedPointerEvent): void {
     console.log('onPointerClick', event.detail);
 
-    // check if double clicked
-    if (event.detail === ONCLICK_DOUBLECLICK) {
+    // pointertap, unlike click, also fires for the right button
+    if (event.button === 2) {
+      return;
+    }
+
+    if (!isCanvasExploreOnly() && isDoubleActivation(event)) {
       event.stopPropagation();
       const target = event.target;
       if (target instanceof Viewport) {
         this.overrideNodeCursorPosition = this.viewport.toWorld(event.global);
+        if (event.pointerType === 'touch') {
+          swallowGhostMouseDown();
+        }
         InterfaceController.openNodeSearch(new PIXI.Point(event.x, event.y));
       }
     }
@@ -294,7 +376,7 @@ export default class PPGraph {
       open: false,
     });
 
-    if (event.button === 0 && !isPhone()) {
+    if (shouldDrawSelectionMarquee(event) && !isCanvasExploreOnly()) {
       if (!this.socketFocus.hovered) {
         this.selection.drawSelectionStart(event, event.shiftKey);
       }
@@ -340,6 +422,14 @@ export default class PPGraph {
     }
 
     this.selection.drawSelectionFinish(event);
+
+    if (
+      this.touchGesture.end() === 'tap' &&
+      event.target instanceof Viewport &&
+      !this.selectedSocket
+    ) {
+      this.selection.deselectAllNodesAndResetSelection();
+    }
 
     document.body.style.cursor = 'default';
     this.viewport.plugins.resume('drag');
@@ -1580,6 +1670,10 @@ export default class PPGraph {
 
     this.graphConfiguredAndReady = true;
 
+    if (isStackLayout()) {
+      frameGraphForStackLayout();
+    }
+
     this.updateEmptyCanvasVisibility();
 
     console.timeEnd('graph_configure');
@@ -1800,17 +1894,6 @@ export default class PPGraph {
 
   initEmptyCanvasIndicator(): void {
     this.emptyCanvasText = new PIXI.HTMLText({
-      text: isPhone()
-        ? 'To add nodes open the 3 dot menu<br>Then press Find node'
-        : `<span style="color:#0c1122;">Add data and logic</span>
-  Double click canvas or drag files in
-  Then connect the nodes
-
-  <span style="color:#0c1122;">Create user interface</span>
-  Press 2 to open the panel
-  Then add widgets/nodes
-
-  Right click for more options`,
       style: {
         fontFamily: 'Arial',
         fontSize: 20,
@@ -1835,6 +1918,18 @@ export default class PPGraph {
 
     // Center in screen
     if (this.emptyCanvasText.visible) {
+      // chosen here rather than once at init, as resizing can cross into the
+      // stack layout and signing in can happen after the graph loads
+      if (!isCanvasExploreOnly()) {
+        this.emptyCanvasText.text = EMPTY_CANVAS_TEXT;
+      } else if (
+        CLOUD_MODE &&
+        BackendGateway.getInstance().getCurrentUser() === null
+      ) {
+        this.emptyCanvasText.text = EMPTY_CANVAS_TEXT_SIGNED_OUT;
+      } else {
+        this.emptyCanvasText.text = EMPTY_CANVAS_TEXT_EXPLORE_ONLY;
+      }
       const centerX = window.innerWidth / 2;
       const centerY = window.innerHeight / 2;
       this.emptyCanvasText.position.set(centerX, centerY);

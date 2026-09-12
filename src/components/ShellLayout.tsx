@@ -1,13 +1,23 @@
-import React from 'react';
-import { Box, IconButton, Tooltip } from '@mui/material';
+import React, { useEffect } from 'react';
+import { Box, IconButton, Tooltip, Typography } from '@mui/material';
 import PPGraph from '../classes/GraphClass';
-import InterfaceController from '../InterfaceController';
+import InterfaceController, { ListenEvent } from '../InterfaceController';
 import { Rail } from './Rail';
 import LeftRightDrawer from './LeftRightDrawer';
 import DashboardColumn from './dashboard/GraphOverlayDashboard';
 import { TMIconNoShadow } from '../utils/icons';
 import { useResolvedAppTheme } from '../utils/theme/store';
 import { useIsSmallScreen } from '../utils/utils';
+import {
+  getStackView,
+  goToOpenedApp,
+  useIsStackLayout,
+  useStackView,
+} from '../utils/layoutModel';
+import { BottomBar } from './BottomBar';
+import { LeftsideContainer } from '../containers/LeftsideContainer';
+import { DashboardEditor } from './dashboard/DashboardEditor';
+import { getDashboardBackground, LeftDrawerView } from '../utils/constants';
 import { DrawerSide, IOverlay } from '../utils/interfaces';
 import { SHELL_CONSTANTS } from '../utils/constants';
 import { VISIBILITY_ACTION } from '../utils/constants_shared';
@@ -27,14 +37,121 @@ type ShellLayoutProps = {
 
 const ShellLayout: React.FunctionComponent<ShellLayoutProps> = (props) => {
   const smallScreen = useIsSmallScreen();
+  const stackLayout = useIsStackLayout();
+  const stackView = useStackView();
   const { appView, overlayState } = props;
   const appTokens = useResolvedAppTheme().tokens;
   const isDashboardMaximised =
     overlayState[DrawerSide.DASHBOARD].visible &&
     overlayState[DrawerSide.DASHBOARD].maximized;
 
-  // the row must not swallow pointer events - the canvas behind it has to
-  // stay interactive through the canvas strip
+  // Picking an app out of the apps list on the phone goes to the opened app
+  useEffect(() => {
+    if (!stackLayout) {
+      return;
+    }
+    const listenerId = InterfaceController.addListener(
+      ListenEvent.GraphConfigured,
+      () => {
+        if (
+          PPGraph.currentGraph.graphConfiguredAndReady &&
+          getStackView() === 'apps'
+        ) {
+          goToOpenedApp(PPGraph.currentGraph);
+        }
+      },
+    );
+    return () => InterfaceController.removeListener(listenerId);
+  }, [stackLayout]);
+
+  if (stackLayout) {
+    return (
+      <>
+        {stackView !== 'graph' && (
+          <Box
+            data-cy="stack-view"
+            data-stack-view={stackView}
+            sx={{
+              position: 'fixed',
+              left: 0,
+              right: 0,
+              top: 0,
+              bottom: 0,
+              zIndex: 20,
+              display: 'flex',
+              flexDirection: 'column',
+              overflow: 'hidden',
+              background: getDashboardBackground().toString(),
+              pointerEvents: 'auto',
+            }}
+          >
+            {stackView === 'ui' && (
+              <DashboardEditor
+                isVisible
+                isEditMode={false}
+                appView
+                overlayState={overlayState}
+                updateOverlayState={props.updateOverlayState}
+              />
+            )}
+            {stackView === 'ai' && (
+              <LeftsideContainer activeView={LeftDrawerView.AI} />
+            )}
+            {stackView === 'apps' && (
+              <LeftsideContainer activeView={LeftDrawerView.GRAPHS} />
+            )}
+          </Box>
+        )}
+
+        {stackView === 'graph' && props.currentGraph && (
+          <Box
+            data-cy="stack-graph-header"
+            sx={{
+              position: 'fixed',
+              top: 'calc(env(safe-area-inset-top) + 12px)',
+              left: '12px',
+              right: '12px',
+              zIndex: 30,
+              display: 'flex',
+              alignItems: 'baseline',
+              gap: '8px',
+              userSelect: 'none',
+              pointerEvents: 'none',
+            }}
+          >
+            <Typography
+              data-cy="stack-app-name"
+              sx={{
+                color: 'primary.main',
+                fontSize: '14px',
+                fontWeight: 500,
+                minWidth: 0,
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {props.currentGraph.name}
+            </Typography>
+            <Typography
+              data-cy="stack-explore-only"
+              sx={{
+                flex: 'none',
+                color: 'primary.main',
+                opacity: 0.6,
+                fontSize: '11px',
+              }}
+            >
+              View only · edit on desktop
+            </Typography>
+          </Box>
+        )}
+
+        <BottomBar />
+      </>
+    );
+  }
+
   return (
     <Box
       data-cy="shell-layout"

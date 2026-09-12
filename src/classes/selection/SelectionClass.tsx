@@ -7,7 +7,6 @@ import PPNode from '../NodeClass';
 import {
   ALIGNOPTIONS,
   SUCCESS_COLOR,
-  ONCLICK_DOUBLECLICK,
   PIXI_TRANSPARENT_ALPHA,
   SCALEHANDLE_SIZE,
   SELECTION_COLOR_HEX,
@@ -15,6 +14,7 @@ import {
   WHITE_HEX,
   PIXI_OVERLAY_ALPHA,
 } from '../../utils/constants';
+import { isDoubleActivation } from '../../utils/touchGestures';
 import { TAlignOptions } from '../../utils/interfaces';
 import { getObjectsInsideBounds } from '../../pixi/utils-pixi';
 import {
@@ -1039,7 +1039,7 @@ class ScaleHandle extends PIXI.Graphics {
     this.addEventListener('pointerdown', this.onPointerDown.bind(this));
     this.addEventListener('pointerup', this.onPointerUp.bind(this));
     this.addEventListener('pointerupoutside', this.onPointerUp.bind(this));
-    this.addEventListener('click', this.onPointerClick.bind(this));
+    this.addEventListener('pointertap', this.onPointerClick.bind(this));
 
     this.onRender = () => {
       this.drawScaleHandle();
@@ -1113,8 +1113,12 @@ class ScaleHandle extends PIXI.Graphics {
   }
 
   protected onPointerClick(event: PIXI.FederatedPointerEvent): void {
-    // check if double clicked
-    if (event.detail === ONCLICK_DOUBLECLICK) {
+    // pointertap, unlike click, also fires for the right button
+    if (event.button === 2) {
+      return;
+    }
+
+    if (isDoubleActivation(event)) {
       event.stopPropagation();
       this.selection.onScaleReset();
     }

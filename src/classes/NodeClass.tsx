@@ -27,7 +27,6 @@ import {
   NODE_SOURCE,
   NODE_TEXTSTYLE,
   NODE_WIDTH,
-  ONCLICK_DOUBLECLICK,
   STATUS_SEVERITY,
   SOCKET_HEIGHT,
   SOCKET_TYPE,
@@ -40,7 +39,9 @@ import {
   SUCCESS_COLOR,
   RightDrawerView,
 } from '../utils/constants';
+import { isDoubleActivation } from '../utils/touchGestures';
 import UpdateBehaviourClass from './UpdateBehaviourClass';
+import { isCanvasExploreOnly } from '../utils/stackLayout';
 import NodeHeaderClass from './NodeHeaderClass';
 import PPGraph from './GraphClass';
 import Socket from './SocketClass';
@@ -1517,7 +1518,7 @@ ${Math.round(bounds.minX)}, ${Math.round(
     this.addEventListener('pointerup', this.onPointerUp.bind(this));
     this.addEventListener('pointerover', this.onPointerOver.bind(this));
     this.addEventListener('pointerout', this.onPointerOut.bind(this));
-    this.addEventListener('click', this.onPointerClick.bind(this));
+    this.addEventListener('pointertap', this.onPointerClick.bind(this));
     this.addEventListener('removed', this.onRemoved.bind(this));
 
     this.onViewportPointerUpHandler = this.onViewportPointerUp.bind(this);
@@ -1530,6 +1531,9 @@ ${Math.round(bounds.minX)}, ${Math.round(
 
   async onPointerDown(event: PIXI.FederatedPointerEvent): Promise<void> {
     console.log('Node: onPointerDown');
+    if (isCanvasExploreOnly()) {
+      return;
+    }
     clearDocumentSelection();
     InterfaceController.spamToast(
       `${event.shiftKey ? 'node_shift_clicked' : 'node_clicked'} ${this.id}`,
@@ -1821,8 +1825,12 @@ ${Math.round(bounds.minX)}, ${Math.round(
   }
 
   onPointerClick(event: PIXI.FederatedPointerEvent): void {
-    // check if double clicked
-    if (event.detail === ONCLICK_DOUBLECLICK) {
+    // pointertap, unlike click, also fires for the right button
+    if (event.button === 2) {
+      return;
+    }
+
+    if (isDoubleActivation(event)) {
       //event.stopPropagation();
       this.listenId.push(
         InterfaceController.addListener(

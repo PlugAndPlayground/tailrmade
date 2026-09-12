@@ -7,7 +7,7 @@ import {
   colorName,
   getColorSocket,
   getSizeSocket,
-  getWidgetControlProps,
+  getWidgetDragControlProps,
   labelName,
   outName,
   sizeName,
@@ -27,6 +27,7 @@ import {
   SerializableActionHandler,
 } from '../../classes/Action';
 import { limitRange } from '../../utils/utils';
+import { TOUCH_TARGET_PX } from '../../utils/theme';
 import { WidgetContentProps } from '../../utils/interfaces';
 
 // Socket names
@@ -158,6 +159,10 @@ export class WidgetSlider extends WidgetHybridBase {
     const sliderHeight = props.inDashboard
       ? 32 * tokens.scale
       : (node.nodeHeight / 3) * tokens.scale;
+    const coarseTouchPadding = Math.max(
+      0,
+      (TOUCH_TARGET_PX - sliderHeight) / 2,
+    );
 
     // Format the value displayed based on rounding setting
     const displayValue = shouldRound
@@ -189,7 +194,7 @@ export class WidgetSlider extends WidgetHybridBase {
             {displayValue}
           </Typography>
           <Slider
-            {...getWidgetControlProps(props.disabled)}
+            {...getWidgetDragControlProps(props.disabled)}
             color={color}
             disabled={props.disabled}
             size={getMuiSize(size)}
@@ -203,6 +208,10 @@ export class WidgetSlider extends WidgetHybridBase {
             sx={{
               width: '100%',
               padding: 0,
+              '@media (pointer: coarse)': {
+                paddingTop: `${coarseTouchPadding}px`,
+                paddingBottom: `${coarseTouchPadding}px`,
+              },
               pointerEvents: props.disabled ? 'none' : undefined,
               height: sliderHeight,
               '& .MuiSlider-track': {

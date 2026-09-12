@@ -19,7 +19,11 @@ import {
 } from '../../utils/constants';
 import { useIsSmallScreen } from '../../utils/utils';
 import { shareOptions } from './ShareContextMenu';
+import { openAuthDialog } from '../AuthDialog';
+import { BackendGateway } from '../../services/BackendGateway';
+import { CLOUD_MODE } from '../../services/shared-types';
 import AddIcon from '@mui/icons-material/Add';
+import FolderOpenIcon from '@mui/icons-material/FolderOpen';
 import SearchIcon from '@mui/icons-material/Search';
 import UploadIcon from '@mui/icons-material/Upload';
 import SaveIcon from '@mui/icons-material/Save';
@@ -34,6 +38,7 @@ import ZoomOutMapIcon from '@mui/icons-material/ZoomOutMap';
 import MouseIcon from '@mui/icons-material/Mouse';
 import SwipeIcon from '@mui/icons-material/Swipe';
 import QuestionMarkIcon from '@mui/icons-material/QuestionMark';
+import PersonIcon from '@mui/icons-material/Person';
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
 import SensorsIcon from '@mui/icons-material/Sensors';
 import { VISIBILITY_ACTION } from '../../utils/constants_shared';
@@ -83,6 +88,113 @@ function gestureModes(): any {
   ];
 }
 
+// The part of this menu that is also the bottom bars overview menu
+export function appMenuOptions(controlOrMetaKey?: string): any {
+  const isLoggedIn =
+    CLOUD_MODE && BackendGateway.getInstance().getCurrentUser() !== null;
+  // undefined on the phone, where there is no keyboard to show a shortcut for
+  const shortcut = (keys: string) =>
+    controlOrMetaKey ? (
+      <Typography variant="body2" color="text.secondary">
+        {keys.replace('$mod', controlOrMetaKey)}
+      </Typography>
+    ) : null;
+
+  return [
+    CLOUD_MODE && !isLoggedIn && (
+      <MenuItem key="Sign in" data-cy="menu-sign-in" onClick={openAuthDialog}>
+        <ListItemIcon>
+          <PersonIcon fontSize="small" />
+        </ListItemIcon>
+        <ListItemText>Sign in</ListItemText>
+      </MenuItem>
+    ),
+    CLOUD_MODE && isLoggedIn && (
+      <MenuItem
+        key="Logout"
+        data-cy="menu-sign-out"
+        onClick={() => {
+          const currentUrl = window.location.href;
+          window.location.href = `/logout?redirectUrl=${currentUrl}`;
+        }}
+      >
+        <ListItemIcon>
+          <LogoutIcon fontSize="small" />
+        </ListItemIcon>
+        <ListItemText>Logout</ListItemText>
+      </MenuItem>
+    ),
+    <MenuItem
+      key="Save"
+      data-cy="menu-save"
+      onClick={() => PPStorage.getInstance().saveGraphAction(false)}
+    >
+      <ListItemIcon>
+        <SaveIcon fontSize="small" />
+      </ListItemIcon>
+      <ListItemText>Save</ListItemText>
+      {shortcut('$mod+S')}
+    </MenuItem>,
+    <MenuItem
+      key="Save as new"
+      onClick={() => PPStorage.getInstance().saveGraphAction(true)}
+    >
+      <ListItemIcon>
+        <SaveAsIcon fontSize="small" />
+      </ListItemIcon>
+      <ListItemText>Save as new</ListItemText>
+      {shortcut('$mod+Shift+S')}
+    </MenuItem>,
+    // the phone's only way to rename an app
+    <MenuItem
+      key="Edit details"
+      data-cy="menu-edit-details"
+      onClick={() => {
+        InterfaceController.setShowGraphEdit(true);
+      }}
+    >
+      <ListItemIcon>
+        <EditIcon fontSize="small" />
+      </ListItemIcon>
+      <ListItemText>Edit details</ListItemText>
+      {shortcut('$mod+E')}
+    </MenuItem>,
+    <MenuItem
+      key="Create new app"
+      onClick={() => {
+        void PPStorage.getInstance().createNewGraph();
+      }}
+    >
+      <ListItemIcon>
+        <AddIcon fontSize="small" />
+      </ListItemIcon>
+      <ListItemText>Create new app</ListItemText>
+    </MenuItem>,
+    <MenuItem
+      key="Load from file"
+      onClick={() => {
+        InterfaceController.onOpenFileBrowser();
+      }}
+    >
+      <ListItemIcon>
+        <UploadIcon fontSize="small" />
+      </ListItemIcon>
+      <ListItemText>Load from file</ListItemText>
+    </MenuItem>,
+    <MenuItem
+      key="Open help"
+      onClick={() => {
+        window.open('https://tailrmade.app/help', '_blank');
+      }}
+    >
+      <ListItemIcon>
+        <QuestionMarkIcon fontSize="small" />
+      </ListItemIcon>
+      <ListItemText>Open help</ListItemText>
+    </MenuItem>,
+  ].filter(Boolean);
+}
+
 export const GraphContextMenu = (props) => {
   useEffect(() => {
     window.addEventListener('contextmenu', handleContextMenu);
@@ -114,6 +226,7 @@ export const GraphContextMenu = (props) => {
     >
       <MenuList dense>
         <MenuItem disabled>Tailrmade</MenuItem>
+        {appMenuOptions(props.controlOrMetaKey)}
         <MenuItem
           onClick={() =>
             InterfaceController.toggleLeftSideDrawer(
@@ -123,54 +236,11 @@ export const GraphContextMenu = (props) => {
           }
         >
           <ListItemIcon>
-            <SearchIcon fontSize="small" />
+            <FolderOpenIcon fontSize="small" />
           </ListItemIcon>
           <ListItemText>Open app</ListItemText>
           <Typography variant="body2" color="text.secondary">
             {`${props.controlOrMetaKey}+O`}
-          </Typography>
-        </MenuItem>
-        <MenuItem
-          onClick={() => {
-            InterfaceController.onOpenFileBrowser();
-          }}
-        >
-          <ListItemIcon>
-            <UploadIcon fontSize="small" />
-          </ListItemIcon>
-          <ListItemText>Load from file</ListItemText>
-        </MenuItem>
-        <MenuItem
-          onClick={() => {
-            InterfaceController.setShowGraphEdit(true);
-          }}
-        >
-          <ListItemIcon>
-            <EditIcon fontSize="small" />
-          </ListItemIcon>
-          <ListItemText>Edit details</ListItemText>
-          <Typography variant="body2" color="text.secondary">
-            {`${props.controlOrMetaKey}+E`}
-          </Typography>
-        </MenuItem>
-        <MenuItem
-          onClick={() => PPStorage.getInstance().saveGraphAction(false)}
-        >
-          <ListItemIcon>
-            <SaveIcon fontSize="small" />
-          </ListItemIcon>
-          <ListItemText>Save</ListItemText>
-          <Typography variant="body2" color="text.secondary">
-            {`${props.controlOrMetaKey}+S`}
-          </Typography>
-        </MenuItem>
-        <MenuItem onClick={() => PPStorage.getInstance().saveGraphAction(true)}>
-          <ListItemIcon>
-            <SaveAsIcon fontSize="small" />
-          </ListItemIcon>
-          <ListItemText>Save as new</ListItemText>
-          <Typography variant="body2" color="text.secondary">
-            {`${props.controlOrMetaKey}+Shift+S`}
           </Typography>
         </MenuItem>
         {useIsSmallScreen() ? (
@@ -213,19 +283,6 @@ export const GraphContextMenu = (props) => {
           </ListItemIcon>
           <ListItemText>Clear</ListItemText>
         </MenuItem>
-        {props.isLoggedIn && (
-          <MenuItem
-            onClick={() => {
-              const currentUrl = window.location.href;
-              window.location.href = `/logout?redirectUrl=${currentUrl}`;
-            }}
-          >
-            <ListItemIcon>
-              <LogoutIcon fontSize="small" />
-            </ListItemIcon>
-            <ListItemText>Logout</ListItemText>
-          </MenuItem>
-        )}
         <Divider />
         <MenuItem disabled>Menus</MenuItem>
         <MenuItem
@@ -295,16 +352,6 @@ export const GraphContextMenu = (props) => {
             <AutoAwesomeIcon fontSize="small" />
           </ListItemIcon>
           <ListItemText>Toggle AI assistant</ListItemText>
-        </MenuItem>
-        <MenuItem
-          onClick={() => {
-            window.open('https://tailrmade.app/help', '_blank');
-          }}
-        >
-          <ListItemIcon>
-            <QuestionMarkIcon fontSize="small" />
-          </ListItemIcon>
-          <ListItemText>Open help</ListItemText>
         </MenuItem>
         <Divider />
         <MenuItem disabled>Viewport</MenuItem>

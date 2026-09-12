@@ -148,3 +148,31 @@ describe('Node Search Functionality', () => {
     clearSearch();
   });
 });
+
+// Driven through CDP touch input rather than cy.click, which always emits a
+// mouse event.
+describe('Node Search by touch', () => {
+  const cdp = (command: string, params: Record<string, unknown>) =>
+    cy.then({ log: false }, () =>
+      Cypress.automation('remote:debugger:protocol', { command, params }),
+    );
+
+  before(() => {
+    cdp('Emulation.setTouchEmulationEnabled', {
+      enabled: true,
+      maxTouchPoints: 5,
+    });
+    openNewGraph();
+    closeBothDrawers();
+  });
+
+  after(() => {
+    cdp('Emulation.setTouchEmulationEnabled', { enabled: false });
+  });
+
+  it('does not open on a single tap', () => {
+    cy.get('#pixi-container').realTouch({ x: 500, y: 400 });
+    cy.wait(500);
+    getSearchInput().should('not.exist');
+  });
+});

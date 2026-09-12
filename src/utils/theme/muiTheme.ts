@@ -40,6 +40,26 @@ const DENSITY_DEFAULTS: Record<
   XL: { size: 'medium', margin: 'normal' },
 };
 
+export const TOUCH_TARGET_PX = 44;
+const COARSE = '@media (pointer: coarse)';
+
+// grows the hit area without moving the glyph
+const coarseMinBox = {
+  [COARSE]: {
+    minWidth: `${TOUCH_TARGET_PX}px`,
+    minHeight: `${TOUCH_TARGET_PX}px`,
+  },
+};
+
+// Switch cannot use coarseMinBox
+const coarseSwitchRoot = (trackHeight: number) => ({
+  [COARSE]: {
+    height: `${TOUCH_TARGET_PX}px`,
+    paddingTop: `${(TOUCH_TARGET_PX - trackHeight) / 2}px`,
+    paddingBottom: `${(TOUCH_TARGET_PX - trackHeight) / 2}px`,
+  },
+});
+
 const fontStack = (family: string, fallbacks: string[]): string =>
   [`"${family}"`, ...fallbacks].join(', ');
 
@@ -91,14 +111,38 @@ export const tokensToThemeOptions = (resolved: ResolvedTheme): ThemeOptions => {
       MuiPaper: { styleOverrides: { root: { backgroundImage: 'none' } } },
       MuiButton: {
         defaultProps: { variant: tokens.buttonVariant, size: density.size },
+        styleOverrides: { root: coarseMinBox },
       },
       MuiButtonGroup: { defaultProps: { size: density.size } },
-      MuiCheckbox: { defaultProps: { size: density.size } },
+      MuiCheckbox: {
+        defaultProps: { size: density.size },
+        styleOverrides: { root: coarseMinBox },
+      },
       MuiFab: { defaultProps: { size: density.size } },
-      MuiIconButton: { defaultProps: { size: density.size } },
-      MuiRadio: { defaultProps: { size: density.size } },
-      MuiSwitch: { defaultProps: { size: density.size } },
+      MuiIconButton: {
+        defaultProps: { size: density.size },
+        styleOverrides: { root: coarseMinBox },
+      },
+      MuiRadio: {
+        defaultProps: { size: density.size },
+        styleOverrides: { root: coarseMinBox },
+      },
+      MuiSwitch: {
+        defaultProps: { size: density.size },
+        styleOverrides: {
+          root: coarseSwitchRoot(14),
+          sizeSmall: coarseSwitchRoot(10),
+        },
+      },
       MuiTable: { defaultProps: { size: density.size } },
+      MuiMenuItem: {
+        styleOverrides: { root: { [COARSE]: { minHeight: 48 } } },
+      },
+      MuiTab: {
+        styleOverrides: {
+          root: { [COARSE]: { minHeight: `${TOUCH_TARGET_PX}px` } },
+        },
+      },
       MuiFormControl: {
         defaultProps: {
           variant: tokens.inputVariant,
