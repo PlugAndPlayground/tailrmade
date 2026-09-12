@@ -124,6 +124,11 @@ const sidebars: SidebarsConfig = {
         },
         {
           type: 'doc',
+          id: 'opening-apps',
+          label: "Open someone else's app",
+        },
+        {
+          type: 'doc',
           id: 'self-hosting',
           label: 'Self-host tailrmade',
         },

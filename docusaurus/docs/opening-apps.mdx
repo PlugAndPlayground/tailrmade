@@ -1,0 +1,52 @@
+# Open someone else's app
+
+A _tailrmade_ app is code. When you open an app someone else made, from a link, a file or their public cloud app, _tailrmade_ pauses it first and shows what it can do. You decide what it may use before anything runs.
+
+Apps you made yourself open and run as before.
+
+## What you see
+
+- **Nothing**, when everything the app does stays inside it. It runs straight away.
+- **A slim bar** at the top, when the app only connects to the outside, for example to fetch data or use AI. Choose **Run**, or **Details** to see the full list.
+- **A sheet**, when the app needs your OK for something that could affect you or your other apps.
+
+## The sheet
+
+The sheet groups what the app can do.
+
+**Needs your OK** is off unless you tick it:
+
+- **Use your API key**: the app sends one of your stored keys, only to the hosts listed.
+- **Full access to Tailrmade in this tab**: the app runs code, loads code packages or shows HTML with scripts. Code like this could see your other apps and act as you.
+- **Read or change data from your other apps**: the app uses storage locations that other apps can use too.
+- **Reach devices on your network**: the app sends requests through the Companion.
+
+**Connects to** is on unless you untick it:
+
+- **Sends and receives data** with the hosts listed.
+- **Uses AI on your account**.
+- **Keeps running in the background** on an interval.
+
+**Already blocked** lists what _tailrmade_ stops without asking, such as one of your keys sent to a host outside the domain you set for it, or an address the app puts together while running.
+
+Choose **Show node** next to a line to jump to that node on the canvas.
+
+**Run** starts the app with what you ticked. Everything else stays off, and the line under the button says how many things that is. **Stay paused** closes the sheet without running anything.
+
+## While the app runs
+
+When something is off, a badge at the top says **Running with limits**. Click it to open the sheet again and change your choice.
+
+A node that tries to use something that is off shows **Off for this app** and what it tried to do.
+
+## Your choice is remembered
+
+_tailrmade_ remembers what you allowed for each app in this browser. The next time you open the same app, it runs with the same choices. If the app changes what it can do, for example with new code or a new host, you are asked again.
+
+## Links that change settings
+
+A link can open an app with some of its inputs already filled in. _tailrmade_ lists those values first, and you can choose **Open without changes**. Links can't change code, HTML or settings that decide where an app sends data. If a link tries, the app opens unchanged and a message says so.
+
+:::info
+Full access is all or nothing for now. Code runs in the same page as _tailrmade_, so only give full access to apps you trust.
+:::

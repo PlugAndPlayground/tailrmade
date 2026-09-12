@@ -26,6 +26,12 @@ Every app records where it came from. This is never read from the app file.
 
 ### What is contained
 
+- Imported apps open paused. Nothing in them runs until you choose Run, and
+  what they can do is listed first. Code, API keys, storage and the Companion
+  stay off unless you tick them. Connections, AI and intervals are on unless
+  you untick them. Addresses an app puts together while running stay blocked.
+  Your choice is remembered for that app in this browser until what it can do
+  changes.
 - Links can't change code. The `setSocketData` link parameter refuses code and
   HTML inputs and the settings that decide what an app runs or where it sends
   data: Main Thread, Sanitize input, Send Through Companion, Headers, URL, Body,
@@ -37,10 +43,6 @@ Every app records where it came from. This is never read from the app file.
   built at runtime are caught. WebSocket and SQLite URLs check the host,
   storage nodes check the backend and location, and AI nodes and intervals
   check their own grant.
-
-**Not active yet:** the permission sheet that asks before an imported app runs
-has not shipped. Until it does, every app still runs with everything granted
-when it opens.
 
 ### What is not contained
 
