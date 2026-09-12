@@ -42,7 +42,10 @@ function ActionButtons(props: ActionButtonProps) {
           );
         newStoredGraph.name = graphName || graphId;
         newStoredGraph.id = graphId;
-        await PPStorage.getInstance().loadGraphFromData(newStoredGraph);
+        await PPStorage.getInstance().loadGraphFromData(
+          newStoredGraph,
+          PPGraph.currentGraph.provenance,
+        );
       });
   };
 

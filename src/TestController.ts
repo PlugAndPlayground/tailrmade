@@ -522,6 +522,7 @@ export default class TestController {
   async loadStringifiedGraph(graph: string) {
     await PPStorage.getInstance().loadGraphFromData(
       PPStorage.getInstance().stringToStoredGraph(graph),
+      'imported',
     );
   }
 

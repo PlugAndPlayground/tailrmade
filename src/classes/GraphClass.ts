@@ -109,6 +109,7 @@ export default class PPGraph {
   date: Date;
   isRemote: boolean;
   access: AccessType = DEFAULT_ACCESS;
+  provenance: StoredGraph['provenance'] = 'local';
 
   tempConnection: PIXI.Graphics;
   selection: PPSelection;
@@ -238,6 +239,7 @@ export default class PPGraph {
     this.owner = metadata.owner ?? 'unknown';
     this.date = metadata.date ?? new Date();
     this.isRemote = metadata.isRemote ?? false;
+    this.provenance = 'local';
   }
 
   async notifyUserDataChanged(alsoOnLoad: boolean): Promise<void> {
@@ -1356,6 +1358,7 @@ export default class PPGraph {
       date: new Date(),
       owner: this.owner,
       isRemote: this.isRemote,
+      provenance: this.provenance,
     };
   }
 
@@ -1483,6 +1486,7 @@ export default class PPGraph {
     this.owner = storedGraph.owner;
     this.date = storedGraph.date;
     this.isRemote = storedGraph.isRemote;
+    this.provenance = storedGraph.provenance;
     this.selection.deselectAllNodesAndResetSelection();
 
     if (Object.keys(this.nodes).length > 0) {

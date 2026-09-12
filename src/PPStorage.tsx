@@ -25,6 +25,7 @@ import { CLOUD_MODE } from './services/shared-types';
 import { DASHBOARD_DEFAULT } from './utils/constants';
 import _ from 'lodash';
 import { BackendGateway } from './services/BackendGateway';
+import { GraphProvenance, getCloudProvenance } from './utils/graphTrust';
 
 (window as any).__PIXI_INSPECTOR_GLOBAL_HOOK__ &&
   (window as any).__PIXI_INSPECTOR_GLOBAL_HOOK__.register({ PIXI: PIXI });
@@ -270,6 +271,7 @@ export default class PPStorage {
       access: graph.access || DEFAULT_ACCESS,
       owner: graph.owner || 'unknown',
       isRemote: graph.isRemote || false,
+      provenance: 'imported',
     };
   }
 
@@ -408,18 +410,28 @@ export default class PPStorage {
     );
     data.isRemote = true;
     console.log('data', data);
-    await this.loadGraphFromData(data);
+    await this.loadGraphFromData(
+      data,
+      getCloudProvenance({
+        owner,
+        isPublic,
+        currentUserId: BackendGateway.getInstance().getCurrentUserId(),
+        storedProvenance: data.provenance,
+      }),
+    );
     console.log('loaded graph');
     // Remove the URL parameter after loading
     removeUrlParameter(constants.URL_PARAMETER_NAME.LOADGRAPH);
   }
 
-  async loadGraphFromData(fileData: StoredGraph) {
+  async loadGraphFromData(fileData: StoredGraph, provenance: GraphProvenance) {
     try {
       document.body.style.cursor = 'wait';
       PPStorage.getInstance().dateOfLastGraphLoaded = new Date(fileData.date);
       const migratedFileData = {
         ...fileData,
+        // Files carry a provenance field too, and anyone can edit a file
+        provenance,
         graphData: migrateGraphDataOnLoad(fileData.graphData),
       };
       await PPGraph.currentGraph.configure(migratedFileData);
@@ -454,7 +466,7 @@ export default class PPStorage {
     stringifiedGraph: string,
   ): Promise<StoredGraph | undefined> {
     const graph = this.stringToStoredGraph(stringifiedGraph);
-    const result = await this.loadGraphFromData(graph);
+    const result = await this.loadGraphFromData(graph, 'imported');
     // Remove the URL parameter after loading - this is a one-time load from URL
     removeUrlParameter(constants.URL_PARAMETER_NAME.LOADURLGRAPH);
     return result;
@@ -493,6 +505,7 @@ export default class PPStorage {
           'Default',
           constants.GET_STARTED_GRAPH,
         ),
+        'imported',
       );
     } catch (error) {
       // the get-started graph may be unreachable
@@ -546,7 +559,7 @@ export default class PPStorage {
     console.log('loaded', loadedGraph);
     if (loadedGraph !== undefined) {
       try {
-        await this.loadGraphFromData(loadedGraph);
+        await this.loadGraphFromData(loadedGraph, loadedGraph.provenance);
       } catch (e) {
         console.warn('Error loading graph:', e);
         await this.createEmptyGraph();

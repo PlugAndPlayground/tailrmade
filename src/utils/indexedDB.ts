@@ -1,5 +1,6 @@
 import Dexie from 'dexie';
 import { SerializedGraph, AccessType } from './interfaces';
+import type { GraphProvenance } from './graphTrust';
 
 export interface StoredGraph {
   id: string;
@@ -10,6 +11,7 @@ export interface StoredGraph {
   graphData: SerializedGraph;
   owner: string;
   isRemote: boolean;
+  provenance: GraphProvenance;
 }
 
 export interface Settings {
@@ -53,6 +55,23 @@ export class GraphDatabase extends Dexie {
       localResources: '&id',
       user_data: '&id, location, key',
     });
+    // Imported and self-made graphs were stored alike before this, so every
+    // existing graph counts as local
+    this.version(7)
+      .stores({
+        graphs_data: '&id',
+        settings: '&name',
+        localResources: '&id',
+        user_data: '&id, location, key',
+      })
+      .upgrade((transaction) =>
+        transaction
+          .table('graphs_data')
+          .toCollection()
+          .modify((graph: StoredGraph) => {
+            graph.provenance = 'local';
+          }),
+      );
     this.graphs_data = this.table('graphs_data');
     this.settings = this.table('settings');
     this.localResources = this.table('localResources');

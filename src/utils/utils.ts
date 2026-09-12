@@ -61,6 +61,7 @@ import {
   parseURLSocketData,
   partitionURLSocketData,
 } from './urlSocketData';
+import { getCloudProvenance } from './graphTrust';
 
 export function isFunction(funcOrClass: any): boolean {
   const propertyNames = Object.getOwnPropertyNames(funcOrClass);
@@ -1398,6 +1399,12 @@ export const getGraphFromIGraphSearch = async (
       graphData.owner = graph.owner;
       graphData.isRemote = true;
       graphData.access = graph.access;
+      graphData.provenance = getCloudProvenance({
+        owner: graph.owner,
+        isPublic,
+        currentUserId: BackendGateway.getInstance().getCurrentUserId(),
+        storedProvenance: graphData.provenance,
+      });
       InterfaceController.hideSpinner(DOWNLOADING_GRAPH_SPINNER_MESSAGE);
       return graphData;
     } catch (e) {
@@ -1418,7 +1425,7 @@ export const loadGraphFromIGraphSearch = async (graph: IGraphSearch) => {
     getGraphFromIGraphSearch(graph),
   ]);
   if (data) {
-    await PPStorage.getInstance().loadGraphFromData(data);
+    await PPStorage.getInstance().loadGraphFromData(data, data.provenance);
   } else {
     console.warn(`No graph data found for:`, graph);
     await PPStorage.getInstance().createEmptyGraph();
