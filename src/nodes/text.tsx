@@ -765,11 +765,11 @@ format a value with other nodes before it reaches an input. A token whose
 input is missing or null shows nothing.
 
 "Content" is inline Markdown with tokens: **bold**, *italic*, \`code\`,
-[link](https://…), and [words]{.accent .nowrap} for a run's tone or no-wrap;
+[link](https://…), and [words]{.primary .nowrap} for a run's tone or no-wrap;
 each line is a paragraph.
 Styling: Variant (display|h1|h2|body|caption|label|stat) sets size, weight and
-line height; Tone (default|muted|accent|positive|negative) a theme color;
-Alignment. "Custom styles" takes CSS for anything else.
+line height; Tone (default|muted|primary|secondary|success|warning|error) a
+theme color; Alignment. "Custom styles" takes CSS for anything else.
 
 Connecting an output to this node adds an input named after that output.
 "Output" is the rendered plain text.`;

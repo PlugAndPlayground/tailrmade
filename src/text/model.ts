@@ -11,12 +11,16 @@ export const TEXT_VARIANTS = [
 ] as const;
 export type TextVariant = (typeof TEXT_VARIANTS)[number];
 
+// named after the theme roles they resolve to, except default and muted,
+// which are text.primary and text.secondary
 export const TEXT_TONES = [
   'default',
   'muted',
-  'accent',
-  'positive',
-  'negative',
+  'primary',
+  'secondary',
+  'success',
+  'warning',
+  'error',
 ] as const;
 export type TextTone = (typeof TEXT_TONES)[number];
 
@@ -26,9 +30,11 @@ export type TextAlignment = (typeof TEXT_ALIGNMENTS)[number];
 export const TONE_PALETTE: Record<TextTone, string> = {
   default: 'text.primary',
   muted: 'text.secondary',
-  accent: 'primary.main',
-  positive: 'success.main',
-  negative: 'error.main',
+  primary: 'primary.main',
+  secondary: 'secondary.main',
+  success: 'success.main',
+  warning: 'warning.main',
+  error: 'error.main',
 };
 
 export const toneCssVariable = (tone: TextTone): string =>

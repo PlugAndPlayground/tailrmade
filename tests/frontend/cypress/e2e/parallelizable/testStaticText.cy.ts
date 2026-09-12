@@ -123,10 +123,10 @@ describe('static Text', () => {
   it('renders run marks and tones on top of the element style', () => {
     setLayout([
       {
-        text: '**bold** *italic* `mono` [site](https://example.com) [alarm]{.negative .nowrap}',
+        text: '**bold** *italic* `mono` [site](https://example.com) [alarm]{.error .nowrap}',
         tone: 'muted',
       },
-      { text: 'element negative', tone: 'negative' },
+      { text: 'element error', tone: 'error' },
     ]);
     exitDashboardEditMode();
 
@@ -140,7 +140,7 @@ describe('static Text', () => {
       .should('have.css', 'white-space', 'nowrap')
       .then(($alarm) => {
         const runColor = getComputedStyle($alarm[0]).color;
-        appText('element negative')
+        appText('element error')
           .closest('[data-cy="static-text"] > div')
           .should('have.css', 'color', runColor);
         appText('bold')
@@ -215,13 +215,14 @@ describe('static Text', () => {
     doWithTestController((testController) => {
       testController.toggleRightSideDrawer('OPEN');
     });
-    cy.get('[data-cy="text-tone-accent"]').click();
+    cy.get('[data-cy="text-tone-select"] [aria-haspopup="listbox"]').click();
+    cy.get('[data-cy="text-tone-primary"]').click();
     cy.get('[data-cy="text-variant-select"] [aria-haspopup="listbox"]').click();
     cy.get('[data-cy="text-variant-h2"]').click();
 
     shouldWithTestController((testController) => {
       const [item] = getTextItems(testController);
-      expect(item.props.tone).to.eq('accent');
+      expect(item.props.tone).to.eq('primary');
       expect(item.props.variant).to.eq('h2');
     });
     cy.get('[data-cy="text-settings"]').should('not.contain.text', 'Font size');

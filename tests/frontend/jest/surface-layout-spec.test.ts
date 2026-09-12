@@ -305,7 +305,7 @@ describe('surfaceLayoutSpec', () => {
           {
             text: 'Title',
             variant: 'h1',
-            tone: 'accent',
+            tone: 'primary',
             alignment: 'center',
           },
           {
@@ -345,7 +345,7 @@ describe('surfaceLayoutSpec', () => {
       expect(root.children[0]).toMatchObject({
         text: 'Title',
         variant: 'h1',
-        tone: 'accent',
+        tone: 'primary',
         alignment: 'center',
       });
       const row = root.children[1] as ContainerSpecItem;
@@ -594,7 +594,7 @@ describe('findLayoutItemId', () => {
 
 describe('text spec items', () => {
   it('round-trips rich content and variants', () => {
-    const text = '**Hi** [there]{.positive}\nsecond line';
+    const text = '**Hi** [there]{.success}\nsecond line';
     const { tree, warnings } = compileSurfaceSpec(
       {
         direction: 'column',

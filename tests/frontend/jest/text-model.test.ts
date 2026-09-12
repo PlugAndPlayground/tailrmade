@@ -37,7 +37,7 @@ describe('text content', () => {
             {
               type: 'text',
               text: 'd',
-              marks: { tone: 'accent', nowrap: true },
+              marks: { tone: 'primary', nowrap: true },
             },
             { type: 'token', source: '{{x}}', marks: { emphasis: true } },
             { type: 'image', src: 'x' },
@@ -49,7 +49,7 @@ describe('text content', () => {
     expect(content.paragraphs[0].runs).toEqual([
       { type: 'text', text: 'ab', marks: { strong: true } },
       { type: 'text', text: 'c' },
-      { type: 'text', text: 'd', marks: { nowrap: true, tone: 'accent' } },
+      { type: 'text', text: 'd', marks: { nowrap: true, tone: 'primary' } },
       { type: 'token', source: '{{x}}', marks: { emphasis: true } },
     ]);
     expect(normalizeTextContent(42)).toEqual(createTextContent(''));
@@ -111,7 +111,7 @@ describe('text props', () => {
   it('applies custom styles over the variant, tone and alignment', () => {
     const base = {
       variant: 'h1' as const,
-      tone: 'accent' as const,
+      tone: 'primary' as const,
       alignment: 'center' as const,
       customStyles: {},
     };

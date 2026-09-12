@@ -142,7 +142,7 @@ describe('inline markdown', () => {
   it('reads emphasis, code, links, spans and tokens', () => {
     expect(
       parse(
-        '**Temp:** {{t}} *ok* __big__ `c` [site](https://x.io){.muted} [hot]{.negative .nowrap} ~~old~~',
+        '**Temp:** {{t}} *ok* __big__ `c` [site](https://x.io){.muted} [hot]{.error .nowrap} ~~old~~',
       ),
     ).toEqual([
       [
@@ -162,7 +162,7 @@ describe('inline markdown', () => {
           marks: { tone: 'muted', link: 'https://x.io' },
         },
         { type: 'text', text: ' ' },
-        { type: 'text', text: 'hot', marks: { tone: 'negative', nowrap: true } },
+        { type: 'text', text: 'hot', marks: { tone: 'error', nowrap: true } },
         { type: 'text', text: ' ' },
         { type: 'text', text: 'old', marks: { strikethrough: true } },
       ],
@@ -178,15 +178,15 @@ describe('inline markdown', () => {
   });
 
   it('leaves tokens, block syntax and loose brackets as text', () => {
-    const text = '# Hi {{name}} [plain] {.accent} [x]{bold}';
+    const text = '# Hi {{name}} [plain] {.primary} [x]{bold}';
     expect(parse(text, false)).toEqual([[{ type: 'text', text }]]);
   });
 
   it('escapes literal markup so it reads back as text', () => {
-    const literal = createTextContent('2*3 = 6_ [x](y) [z]{.accent} `q` &#65;');
+    const literal = createTextContent('2*3 = 6_ [x](y) [z]{.primary} `q` &#65;');
     const markdown = textContentToMarkdown(literal);
     expect(markdown).toBe(
-      '2\\*3 = 6\\_ \\[x\\](y) \\[z\\]{.accent} \\`q\\` &#38;#65;',
+      '2\\*3 = 6\\_ \\[x\\](y) \\[z\\]{.primary} \\`q\\` &#38;#65;',
     );
     expect(markdownToTextContent(markdown, false)).toEqual(literal);
   });
@@ -209,7 +209,7 @@ describe('inline markdown', () => {
           {
             type: 'text',
             text: 'alarm',
-            marks: { tone: 'negative', nowrap: true },
+            marks: { tone: 'error', nowrap: true },
           },
         ],
       },
@@ -230,7 +230,7 @@ describe('inline markdown', () => {
           {
             type: 'token',
             source: '{{name}}',
-            marks: { tone: 'accent', emphasis: true },
+            marks: { tone: 'primary', emphasis: true },
           },
           { type: 'text', text: ' ' },
           { type: 'text', text: 'a]`b', marks: { code: true } },
@@ -249,9 +249,9 @@ describe('inline markdown', () => {
   it('writes readable Markdown', () => {
     expect(textContentToMarkdown(rich)).toBe(
       [
-        'Temp: **{{d.temp}}** is *fine*, see [docs](https://x.io/a_b) or [alarm]{.negative .nowrap}',
+        'Temp: **{{d.temp}}** is *fine*, see [docs](https://x.io/a_b) or [alarm]{.error .nowrap}',
         '',
-        '**bold *both*Hello**_{{name}}_ then [**site**](https://e.com){.muted} [_{{name}}_]{.accent} ``a]`b``',
+        '**bold *both*Hello**_{{name}}_ then [**site**](https://e.com){.muted} [_{{name}}_]{.primary} ``a]`b``',
         'price ~~10~~ now 8 \\~',
       ].join('\n'),
     );
@@ -297,7 +297,7 @@ describe('content <-> lexical', () => {
           {
             type: 'text',
             text: 'toned',
-            marks: { tone: 'negative', nowrap: true },
+            marks: { tone: 'error', nowrap: true },
           },
         ],
       },
@@ -325,7 +325,7 @@ describe('content <-> lexical', () => {
         text.toggleFormat('bold');
         text.toggleFormat('underline');
         text.setStyle(
-          'font-size: 40px; color: var(--text-tone-accent); white-space: nowrap;',
+          'font-size: 40px; color: var(--text-tone-primary); white-space: nowrap;',
         );
         $getRoot().append($createParagraphNode().append(text));
       },
@@ -339,7 +339,7 @@ describe('content <-> lexical', () => {
               {
                 type: 'text',
                 text: 'x',
-                marks: { strong: true, tone: 'accent', nowrap: true },
+                marks: { strong: true, tone: 'primary', nowrap: true },
               },
             ],
           },
@@ -350,7 +350,7 @@ describe('content <-> lexical', () => {
       const [node] = $getRoot().getAllTextNodes();
       expect(node.hasFormat('underline')).toBe(false);
       expect(node.getStyle()).toBe(
-        styleForMarks({ tone: 'accent', nowrap: true }),
+        styleForMarks({ tone: 'primary', nowrap: true }),
       );
     });
   });

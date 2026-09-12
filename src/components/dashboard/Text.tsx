@@ -82,6 +82,7 @@ const TextSettings = () => {
           variant="outlined"
           color="secondary"
           size="small"
+          fullWidth
           data-cy="convert-to-dynamic-text"
           onClick={() =>
             // the editor's own tree: its latest edits may not be saved yet

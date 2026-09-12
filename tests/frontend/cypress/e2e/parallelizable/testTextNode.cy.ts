@@ -354,7 +354,7 @@ describe('dynamic Text node', () => {
         id: 'greeting',
         text: 'Hello ',
         variant: 'h2',
-        tone: 'accent',
+        tone: 'primary',
         props: {
           width: '320px',
           padding: [3, 4, 5, 6],
@@ -389,7 +389,7 @@ describe('dynamic Text node', () => {
         a: 0.5,
       });
       expect(testController.getNodeInputValue(nodeId, 'Variant')).to.eq('h2');
-      expect(testController.getNodeInputValue(nodeId, 'Tone')).to.eq('accent');
+      expect(testController.getNodeInputValue(nodeId, 'Tone')).to.eq('primary');
     });
 
     doWithTestController(async (testController) => {
@@ -423,7 +423,7 @@ describe('dynamic Text node', () => {
       expect(textNodes(testController)).to.have.length(0);
       const item = surfaceTree(testController).greeting;
       expect(item.type.resolvedName).to.eq('Text');
-      expect(item.props.tone).to.eq('accent');
+      expect(item.props.tone).to.eq('primary');
       expect(item.props.content).to.eq('**Hello Ada**');
       expect(item.props.width).to.eq('320px');
       expect(item.props.padding).to.deep.eq([3, 4, 5, 6]);

@@ -55,25 +55,28 @@ export const TextStyleSettings: React.FC<TextStyleSettingsProps> = ({
         ))}
       </Select>
     </FormWrapper>
-    <AlignmentControl
-      value={props.tone}
-      label="Tone"
-      onChange={(value) =>
-        update((draft) => {
-          draft.tone = value as TextTone;
-        })
-      }
-      options={TEXT_TONES.map((tone) => (
-        <ToggleButton
-          size="small"
-          value={tone}
-          key={tone}
-          data-cy={`text-tone-${tone}`}
-        >
-          {tone}
-        </ToggleButton>
-      ))}
-    />
+    <FormWrapper>
+      <StyledFormLabel>Tone</StyledFormLabel>
+      <Select
+        fullWidth
+        variant="filled"
+        value={props.tone}
+        data-cy="text-tone-select"
+        MenuProps={{ style: { zIndex: 1500 } }}
+        sx={{ height: '32px', fontSize: '16px', lineHeight: '8px' }}
+        onChange={(event) =>
+          update((draft) => {
+            draft.tone = event.target.value as TextTone;
+          })
+        }
+      >
+        {TEXT_TONES.map((tone) => (
+          <MenuItem key={tone} value={tone} data-cy={`text-tone-${tone}`}>
+            {tone}
+          </MenuItem>
+        ))}
+      </Select>
+    </FormWrapper>
     <AlignmentControl
       value={props.alignment}
       label="Alignment"

@@ -1,7 +1,7 @@
 // The inline Markdown static Text and the Text node store: CommonMark
 // emphasis, code spans and links, GFM ~~strikethrough~~, plus Pandoc-style
 // attributes for tone and
-// no-wrap - [text]{.accent .nowrap}, [text](url){.muted}. One line is one
+// no-wrap - [text]{.primary .nowrap}, [text](url){.muted}. One line is one
 // paragraph. Written here, headless, so migrations can produce it; Lexical
 // reads it (lexical/markdown.ts), so there is one writer and one reader.
 import {

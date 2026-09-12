@@ -108,7 +108,7 @@ export function $exportMarkdown(): string {
 const isEscaped = (text: string, index: number) =>
   /\\*$/.exec(text.slice(0, index))![0].length % 2 === 1;
 
-// import only: [text]{.accent .nowrap}, [text](url), [text](url){.muted}. The
+// import only: [text]{.primary .nowrap}, [text](url), [text](url){.muted}. The
 // text holds no unescaped brackets - textContentToMarkdown escapes them
 const LINK_OR_SPAN_TRANSFORMER: TextMatchTransformer = {
   dependencies: [LinkNode],

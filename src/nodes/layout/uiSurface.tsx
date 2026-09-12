@@ -179,9 +179,10 @@ everything to keep. Omitted connected widgets are appended with a warning.
   stacks its children, 'wrap' lets them wrap, 'row' keeps them side by side.
 - Static text: {text:'...', variant?, tone?, alignment?}. text is
   inline Markdown: **bold**, *italic*, \`code\`, [link](https://…), and
-  [words]{.accent .nowrap} for a run's tone or no-wrap; each line is a
+  [words]{.primary .nowrap} for a run's tone or no-wrap; each line is a
   paragraph. variant: 'display'|'h1'|'h2'|'body'|'caption'|'label'|'stat';
-  tone: 'default'|'muted'|'accent'|'positive'|'negative' (theme colors);
+  tone: 'default'|'muted'|'primary'|'secondary'|'success'|'warning'|'error'
+  (theme colors);
   alignment: 'left'|'center'|'right'|'justify'. The variant sets size, weight
   and line height and the tone a theme color, so text follows the app theme.
   Static text shows {{…}} literally - to show a value from the graph, use a
