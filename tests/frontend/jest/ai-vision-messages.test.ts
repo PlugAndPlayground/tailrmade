@@ -66,6 +66,61 @@ describe('withoutVisionImages', () => {
 });
 
 describe('prepareAIProviderTurn with a capture attached', () => {
+  it('builds a plain Claude request with history, images and protected options', () => {
+    const { body } = prepareAIProviderTurn({
+      provider: 'claude',
+      model: 'selected-model',
+      maxTokens: 1024,
+      systemPrompt: 'selected system',
+      messages: [
+        {
+          role: 'assistant',
+          content: [{ type: 'text', text: 'previous reply' }],
+        },
+        {
+          role: 'user',
+          content: [
+            { type: 'image', ...attachment },
+            { type: 'text', text: 'new prompt' },
+          ],
+        },
+      ],
+      options: {
+        temperature: 0.5,
+        model: 'override',
+        messages: [],
+        stream: false,
+        tools: [],
+      },
+    });
+    expect(body).toEqual({
+      model: 'selected-model',
+      system: 'selected system',
+      max_tokens: 1024,
+      temperature: 0.5,
+      messages: [
+        {
+          role: 'assistant',
+          content: [{ type: 'text', text: 'previous reply' }],
+        },
+        {
+          role: 'user',
+          content: [
+            {
+              type: 'image',
+              source: {
+                type: 'base64',
+                media_type: 'image/webp',
+                data: 'AAAA',
+              },
+            },
+            { type: 'text', text: 'new prompt' },
+          ],
+        },
+      ],
+    });
+  });
+
   it('leads the anthropic turn with tool results, then the capture', () => {
     const { body } = prepareAIProviderTurn({
       ...baseRequest,
