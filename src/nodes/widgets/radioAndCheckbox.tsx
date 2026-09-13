@@ -65,8 +65,6 @@ const useOptionGroupStyle = (props: WidgetContentProps) => {
   };
 };
 
-const CONTROL_PADDING = 9;
-
 const getOptionLabelSx = (rowLayout: boolean) => ({
   ml: 0,
   mr: rowLayout ? 1 : 0,
@@ -113,7 +111,7 @@ const OptionGroupFrame: React.FC<{
         <Box
           sx={{
             flex: 1,
-            ml: `-${CONTROL_PADDING}px`,
+            ml: `-9px`,
             overflowY: 'auto',
             overflowX: 'hidden',
             maxHeight: props.inDashboard

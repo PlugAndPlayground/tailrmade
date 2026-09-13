@@ -203,7 +203,6 @@ export class WidgetSlider extends WidgetHybridBase {
             sx={{
               width: '100%',
               padding: 0,
-              // MUI re-adds 20px top and bottom on touch devices
               '@media (pointer: coarse)': { padding: 0 },
               pointerEvents: props.disabled ? 'none' : undefined,
               height: sliderHeight,

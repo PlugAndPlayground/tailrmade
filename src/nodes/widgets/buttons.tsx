@@ -684,8 +684,6 @@ export class WidgetSwitch extends WidgetHybridBase {
           component="fieldset"
           sx={{
             margin: 'auto',
-            // the Switch is enlarged with a transform, which takes no layout
-            // space, so reserve the control height it visually fills
             minHeight: props.inDashboard
               ? `${tokens.controlHeight}px`
               : undefined,
