@@ -158,7 +158,12 @@ export function markdownToTextContent(
   let content!: TextContent;
   editor.update(
     () => {
-      $convertFromMarkdownString(markdown, INLINE_TRANSFORMERS, undefined, true);
+      $convertFromMarkdownString(
+        markdown,
+        INLINE_TRANSFORMERS,
+        undefined,
+        true,
+      );
       if (tokens) {
         $tokenizeAll();
       }

@@ -10,8 +10,7 @@ export type ParsedToken = {
 };
 
 export type TokenResolution =
-  | { resolved: true; value: unknown }
-  | { resolved: false };
+  { resolved: true; value: unknown } | { resolved: false };
 
 const RESERVED_INPUT_NAMES = new Set([
   'this',

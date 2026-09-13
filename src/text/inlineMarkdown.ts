@@ -4,13 +4,7 @@
 // no-wrap - [text]{.primary .nowrap}, [text](url){.muted}. One line is one
 // paragraph. Written here, headless, so migrations can produce it; Lexical
 // reads it (lexical/markdown.ts), so there is one writer and one reader.
-import {
-  TEXT_TONES,
-  TextContent,
-  TextMarks,
-  TextRun,
-  TextTone,
-} from './model';
+import { TEXT_TONES, TextContent, TextMarks, TextRun, TextTone } from './model';
 
 export const NOWRAP_CLASS = 'nowrap';
 
@@ -32,7 +26,8 @@ export function marksFromClasses(
   return marks;
 }
 
-const rawText = (run: InlineRun) => (run.type === 'text' ? run.text : run.source);
+const rawText = (run: InlineRun) =>
+  run.type === 'text' ? run.text : run.source;
 
 // `{{` stays as it is, so token-enabled hosts read their tokens back; a
 // character reference would be decoded on import, so its `&` is one too

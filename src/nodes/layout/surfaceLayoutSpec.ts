@@ -152,9 +152,7 @@ export interface WidgetSpecItem extends SpecItemIdentity {
 }
 
 export type SurfaceLayoutSpecItem =
-  | ContainerSpecItem
-  | TextSpecItem
-  | WidgetSpecItem;
+  ContainerSpecItem | TextSpecItem | WidgetSpecItem;
 
 export interface CompileSurfaceSpecResult {
   tree: SerializedCraftTree;
@@ -762,9 +760,7 @@ export function decompileSurfaceTree(
     }
     if (diffed.mobileBehavior !== undefined) {
       result.mobileBehavior = diffed.mobileBehavior as
-        | 'row'
-        | 'column'
-        | 'wrap';
+        'row' | 'column' | 'wrap';
     }
     const extras = collectExtraProps(props, defaults, [
       'flexDirection', // handled as `direction`

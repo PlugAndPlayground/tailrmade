@@ -892,7 +892,9 @@ function migrateSurfaceColorsV4ToV5(
 const TEXT_EDITOR_NODE_TYPE = 'texteditor2';
 const TEXT_EDITOR_MARKDOWN_SOCKET = 'Markdown';
 
-function migrateTextEditorMentions(graphData: SerializedGraph): SerializedGraph {
+function migrateTextEditorMentions(
+  graphData: SerializedGraph,
+): SerializedGraph {
   return {
     ...graphData,
     nodes: graphData.nodes.map((node) =>
