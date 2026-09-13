@@ -175,7 +175,7 @@ export class WidgetSlider extends WidgetHybridBase {
         >
           <Typography
             id={`slider-label-${node.id}`}
-            gutterBottom
+            gutterBottom={!props.inDashboard}
             sx={{
               fontSize: props.inDashboard
                 ? `${tokens.fontSize}px`
@@ -203,6 +203,8 @@ export class WidgetSlider extends WidgetHybridBase {
             sx={{
               width: '100%',
               padding: 0,
+              // MUI re-adds 20px top and bottom on touch devices
+              '@media (pointer: coarse)': { padding: 0 },
               pointerEvents: props.disabled ? 'none' : undefined,
               height: sliderHeight,
               '& .MuiSlider-track': {
