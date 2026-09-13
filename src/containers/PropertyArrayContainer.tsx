@@ -18,7 +18,7 @@ import PPGraph from '../classes/GraphClass';
 import PPNode from '../classes/NodeClass';
 import Socket from '../classes/SocketClass';
 import { SourceContent } from '../components/SourceContent';
-import { NumberInput } from '../components/NumberInput';
+import { InspectorNumberInput } from '../components/NumberInput';
 import { SocketContainer, CommonSocket } from './SocketContainer';
 import InterfaceController, { ListenEvent } from '../InterfaceController';
 import { Interaction } from '../classes/selection/SelectionClass';
@@ -223,7 +223,7 @@ function CommonContent(props: CommonContentProps) {
         {/* Interval Input */}
         {props.interval && (
           <Box sx={{ gridColumn: '1/-1' }}>
-            <NumberInput
+            <InspectorNumberInput
               sx={{ width: '100%' }}
               size="small"
               min={0}

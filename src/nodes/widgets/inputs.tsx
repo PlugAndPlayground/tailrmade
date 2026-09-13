@@ -1,19 +1,5 @@
-import React, { useEffect, useId, useState } from 'react';
-import {
-  Box,
-  FilledInput,
-  FormControl,
-  FormHelperText,
-  IconButton,
-  Input,
-  InputAdornment,
-  InputLabel,
-  OutlinedInput,
-  TextField,
-} from '@mui/material';
-import { NumberField } from '@base-ui/react/number-field';
-import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
-import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
+import React, { useEffect, useState } from 'react';
+import { Box, FormControl, TextField } from '@mui/material';
 import {
   WidgetHybridBase,
   WidgetPaper,
@@ -46,7 +32,7 @@ import {
 } from '../../classes/Action';
 import { WidgetContentProps } from '../../utils/interfaces';
 import { useResolvedInputVariant } from '../../utils/theme';
-import { useNumberFieldValue } from '../../components/NumberInput';
+import { NumberInput } from '../../components/NumberInput';
 import {
   WidgetNumberBase,
   decimalsName,
@@ -275,19 +261,6 @@ const steppersName = 'Show Steppers';
 const numberFieldDefaultValue = 0;
 const numberFieldDefaultLabel = 'Number Field';
 
-const inputComponents = {
-  filled: FilledInput,
-  outlined: OutlinedInput,
-  standard: Input,
-};
-
-// FormControl reads the value off an 'Input' child on its first render, so the
-// label starts shrunk instead of animating in on mount
-function InitialFilledMarker(_: { value: number | null }) {
-  return null;
-}
-InitialFilledMarker.muiName = 'Input';
-
 export class WidgetNumberField extends WidgetNumberBase {
   public getName(): string {
     return 'Number Field';
@@ -369,128 +342,41 @@ export class WidgetNumberField extends WidgetNumberBase {
 
   getWidgetContent(props: WidgetContentProps): React.ReactElement {
     const node = props.node as WidgetNumberField;
-    const numberValue = useNumberFieldValue(
-      props[initialValueName],
-      (value) => void node.handleValueChange(value),
-    );
-    const id = useId();
     const size = useWidgetSize(props[sizeName]);
-    const muiSize = getMuiSize(size);
     const tokens = useSizeTokens(size);
     const sizeSx = useSizeSx(size);
     const inputVariant = useResolvedInputVariant();
-    const InputComponent = inputComponents[
-      inputVariant
-    ] as typeof OutlinedInput;
-    const label = props[labelName];
-    const helperText = props[helperTextName];
     const limitRange = props[limitRangeName];
     const decimals = getDecimals(props[decimalsName]);
-    const isInteractive = !(props.inDashboard && props.disabled);
 
     return (
       <WidgetPaper node={node} inDashboard={props.inDashboard}>
-        <NumberField.Root
-          {...numberValue}
+        <NumberInput
+          {...getWidgetControlProps(props.disabled)}
+          label={props[labelName]}
+          value={props[initialValueName]}
+          onChange={(value) => void node.handleValueChange(value)}
           min={limitRange ? props[minValueName] : undefined}
           max={limitRange ? props[maxValueName] : undefined}
           step={Math.max(props[stepName], 10 ** -decimals)}
-          format={{ maximumFractionDigits: decimals }}
+          decimals={decimals}
           required={props[requiredName]}
           disabled={props.disabled}
-          readOnly={!isInteractive}
-          render={(rootProps, state) => (
-            <FormControl
-              {...getWidgetControlProps(props.disabled)}
-              ref={rootProps.ref}
-              fullWidth
-              margin="none"
-              variant={inputVariant}
-              color={props[colorName]}
-              size={muiSize}
-              disabled={state.disabled}
-              required={state.required}
-              sx={{
-                pointerEvents: props.disabled ? 'none' : undefined,
-                ...sizeSx,
-              }}
-            >
-              {rootProps.children}
-            </FormControl>
-          )}
-        >
-          <InitialFilledMarker value={numberValue.value} />
-          <InputLabel htmlFor={id}>{label}</InputLabel>
-          <NumberField.Input
-            id={id}
-            placeholder={props[placeholderName]}
-            aria-describedby={helperText ? `${id}-helper-text` : undefined}
-            render={(inputProps, state) => (
-              <InputComponent
-                {...(inputVariant === 'outlined' && { label })}
-                inputRef={inputProps.ref}
-                value={state.inputValue}
-                onChange={inputProps.onChange}
-                onKeyUp={inputProps.onKeyUp}
-                onKeyDown={inputProps.onKeyDown}
-                onFocus={inputProps.onFocus}
-                onBlur={inputProps.onBlur}
-                slotProps={{ input: inputProps }}
-                endAdornment={
-                  props[steppersName] && isInteractive ? (
-                    <InputAdornment
-                      position="end"
-                      sx={{
-                        flexDirection: 'column',
-                        alignSelf: 'stretch',
-                        height: 'auto',
-                        maxHeight: 'unset',
-                        ml: 0,
-                        '& .MuiIconButton-root': {
-                          p: 0,
-                          flex: 1,
-                          borderRadius: 0.5,
-                        },
-                        '& .MuiSvgIcon-root': {
-                          fontSize: `${Math.round(tokens.iconSize * 0.75)}px`,
-                        },
-                      }}
-                    >
-                      <NumberField.Increment
-                        render={
-                          <IconButton
-                            size={muiSize}
-                            sx={{ alignItems: 'flex-end' }}
-                          />
-                        }
-                        aria-label="Increase"
-                      >
-                        <KeyboardArrowUpIcon />
-                      </NumberField.Increment>
-                      <NumberField.Decrement
-                        render={
-                          <IconButton
-                            size={muiSize}
-                            sx={{ alignItems: 'flex-start' }}
-                          />
-                        }
-                        aria-label="Decrease"
-                      >
-                        <KeyboardArrowDownIcon />
-                      </NumberField.Decrement>
-                    </InputAdornment>
-                  ) : undefined
-                }
-                sx={{ pr: 0.5 }}
-              />
-            )}
-          />
-          {helperText && (
-            <FormHelperText id={`${id}-helper-text`}>
-              {helperText}
-            </FormHelperText>
-          )}
-        </NumberField.Root>
+          readOnly={props.inDashboard && props.disabled}
+          size={getMuiSize(size)}
+          variant={inputVariant}
+          color={props[colorName]}
+          placeholder={props[placeholderName]}
+          helperText={props[helperTextName]}
+          hideSteppers={!props[steppersName]}
+          sx={{
+            pointerEvents: props.disabled ? 'none' : undefined,
+            ...sizeSx,
+            '& .MuiInputAdornment-root .MuiSvgIcon-root': {
+              fontSize: `${Math.round(tokens.iconSize * 0.75)}px`,
+            },
+          }}
+        />
       </WidgetPaper>
     );
   }

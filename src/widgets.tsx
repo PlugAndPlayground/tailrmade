@@ -54,7 +54,7 @@ import {
   roundNumber,
 } from './utils/utils';
 import * as styles from './utils/style.module.css';
-import { NumberInput } from './components/NumberInput';
+import { InspectorNumberInput } from './components/NumberInput';
 import { TRgba } from './utils/color';
 import { DataTypeProps } from './nodes/datatypes/abstractType';
 import { ArrayTypeProps } from './nodes/datatypes/arrayType';
@@ -201,7 +201,7 @@ const ConfigForm = React.memo(
       >
         {round ? 'Int' : 'Float'}
       </ToggleButton>
-      <NumberInput
+      <InspectorNumberInput
         label="Min"
         dataCy={`${propertyName}-min`}
         sx={{ width: '100%' }}
@@ -209,7 +209,7 @@ const ConfigForm = React.memo(
         onChange={onMinChange}
         value={minValue}
       />
-      <NumberInput
+      <InspectorNumberInput
         label="Max"
         dataCy={`${propertyName}-max`}
         sx={{ width: '100%' }}
@@ -330,16 +330,19 @@ export const SliderWidget: React.FunctionComponent<
           gap: '2px',
         }}
       >
-        <NumberInput
+        <InspectorNumberInput
           disabled={disabled}
           size="small"
           hideSteppers
           dataCy={`${property.name}-value`}
-          sx={{ width: '100px', flexGrow: 1 }}
-          inputSx={{
-            textAlign: 'right',
-            paddingLeft: '4px',
-            paddingRight: '4px',
+          sx={{
+            width: '100px',
+            flexGrow: 1,
+            '& .MuiInputBase-input': {
+              textAlign: 'right',
+              paddingLeft: '4px',
+              paddingRight: '4px',
+            },
           }}
           step={round ? undefined : stepSizeValue}
           onChange={async (value) => {
@@ -1383,7 +1386,7 @@ function getVectorFieldWidget<T extends Record<string, number>>(
   cypressName: string,
 ) {
   return (
-    <NumberInput
+    <InspectorNumberInput
       label={field as string}
       dataCy={cypressName}
       sx={{ flexGrow: 1 }}
@@ -1510,7 +1513,7 @@ export const NumberOutputWidget: React.FunctionComponent<DataTypeProps> = (
           flexWrap: 'nowrap',
         }}
       >
-        <NumberInput
+        <InspectorNumberInput
           sx={{ flexGrow: 1 }}
           disabled={true}
           readOnly
