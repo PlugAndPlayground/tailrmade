@@ -126,7 +126,7 @@ type CommonContentProps = {
   interval: boolean;
   intervalFrequency: number;
   onCheckboxChange: (event: any) => void;
-  onFrequencyChange: (value: number | null) => void;
+  onFrequencyChange: (value: number) => void;
   onUpdateNow: (event: any) => void;
 };
 
@@ -535,17 +535,16 @@ const onCheckboxChange = (
 };
 
 const onFrequencyChange = (
-  value: number | null,
+  value: number,
   selectedNodes: PPNode[],
   setUpdatebehaviour,
 ) => {
-  const frequency = value ?? 0;
   selectedNodes.forEach((selectedNode) => {
-    selectedNode.updateBehaviour.intervalFrequency = frequency;
+    selectedNode.updateBehaviour.intervalFrequency = value;
   });
   setUpdatebehaviour((prevState) => ({
     ...prevState,
-    intervalFrequency: frequency,
+    intervalFrequency: value,
   }));
 };
 

@@ -206,7 +206,7 @@ const ConfigForm = React.memo(
         dataCy={`${propertyName}-min`}
         sx={{ width: '100%' }}
         step={round ? 1 : stepSizeValue}
-        onChange={(value) => onMinChange(value ?? 0)}
+        onChange={onMinChange}
         value={minValue}
       />
       <NumberInput
@@ -214,7 +214,7 @@ const ConfigForm = React.memo(
         dataCy={`${propertyName}-max`}
         sx={{ width: '100%' }}
         step={round ? 1 : stepSizeValue}
-        onChange={(value) => onMaxChange(value ?? 0)}
+        onChange={onMaxChange}
         value={maxValue}
       />
     </FormGroup>
@@ -344,9 +344,8 @@ export const SliderWidget: React.FunctionComponent<
           step={round ? undefined : stepSizeValue}
           onChange={async (value) => {
             if (disabled) return;
-            const newValue = value ?? 0;
-            setData(newValue);
-            await handleUpdate(newValue, updateInProgress, lastValue, props);
+            setData(value);
+            await handleUpdate(value, updateInProgress, lastValue, props);
           }}
           value={data || 0}
         />
@@ -1389,7 +1388,7 @@ function getVectorFieldWidget<T extends Record<string, number>>(
       dataCy={cypressName}
       sx={{ flexGrow: 1 }}
       onChange={(value) => {
-        const updatedVector = { ...prevFullVector, [field]: value ?? 0 };
+        const updatedVector = { ...prevFullVector, [field]: value };
         setVector(updatedVector);
       }}
       value={prevFullVector[field]}

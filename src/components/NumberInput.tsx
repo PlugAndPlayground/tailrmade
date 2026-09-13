@@ -1,4 +1,4 @@
-import React, { useId } from 'react';
+import React, { useEffect, useId, useState } from 'react';
 import { NumberField } from '@base-ui/react/number-field';
 import { styled } from '@mui/material/styles';
 import ArrowDropUpIcon from '@mui/icons-material/ArrowDropUp';
@@ -7,8 +7,7 @@ import type { SxProps, Theme } from '@mui/material/styles';
 import Box from '@mui/material/Box';
 
 /**
- * Number input composed from Base UI's `NumberField`, styled to match the
- * `variant="filled"` MUI TextField look used across the widgets.
+ * Number input composed from Base UI's `NumberField`, styled for the inspector.
  *
  * Replaces the previous `TextField` + `inputProps={{ type: 'number' }}`
  * workaround: it keeps values numeric (no string round-tripping), clamps to
@@ -18,8 +17,8 @@ import Box from '@mui/material/Box';
 export interface NumberInputProps {
   /** Floating label shown at the top. Omit for a compact, label-less field. */
   label?: string;
-  value: number | null;
-  onChange?: (value: number | null) => void;
+  value: number;
+  onChange?: (value: number) => void;
   min?: number;
   max?: number;
   /** Step for the +/- buttons and arrow keys. `'any'` disables step snapping. */
@@ -129,6 +128,34 @@ const StepButton = styled('button')(({ theme }) => ({
   '& svg': { fontSize: 18 },
 }));
 
+/**
+ * `NumberField.Root` value props that keep a partial entry (an empty field or a
+ * lone '-') local: it never reaches onChange, and leaving the field brings the
+ * last value back.
+ */
+export const useNumberFieldValue = (
+  value: number,
+  onChange?: (value: number) => void,
+) => {
+  const [typed, setTyped] = useState<number | null>(value);
+  useEffect(() => setTyped(value), [value]);
+
+  return {
+    value: typed,
+    onValueChange: (next: number | null) => {
+      setTyped(next);
+      if (next !== null) {
+        onChange?.(next);
+      }
+    },
+    onValueCommitted: (next: number | null) => {
+      if (next === null) {
+        setTyped(value);
+      }
+    },
+  };
+};
+
 export const NumberInput: React.FC<NumberInputProps> = ({
   label,
   value,
@@ -146,6 +173,7 @@ export const NumberInput: React.FC<NumberInputProps> = ({
   inputSx,
 }) => {
   const id = useId();
+  const numberValue = useNumberFieldValue(value, onChange);
   const hasLabel = Boolean(label);
   const small = size === 'small';
 
@@ -170,8 +198,7 @@ export const NumberInput: React.FC<NumberInputProps> = ({
     <Box sx={[{ minWidth: 0 }, ...(Array.isArray(sx) ? sx : [sx])]}>
       <NumberField.Root
         id={id}
-        value={value}
-        onValueChange={onChange}
+        {...numberValue}
         min={min}
         max={max}
         step={step}
@@ -183,15 +210,24 @@ export const NumberInput: React.FC<NumberInputProps> = ({
           <Input
             data-cy={dataCy}
             aria-label={label}
-            sx={[inputBaseSx, ...(Array.isArray(inputSx) ? inputSx : [inputSx])]}
+            sx={[
+              inputBaseSx,
+              ...(Array.isArray(inputSx) ? inputSx : [inputSx]),
+            ]}
           />
           {endAdornment && <EndAdornment>{endAdornment}</EndAdornment>}
           {!hideSteppers && !readOnly && (
             <Stepper>
-              <NumberField.Increment render={<StepButton />} aria-label="Increase">
+              <NumberField.Increment
+                render={<StepButton sx={{ alignItems: 'flex-end' }} />}
+                aria-label="Increase"
+              >
                 <ArrowDropUpIcon />
               </NumberField.Increment>
-              <NumberField.Decrement render={<StepButton />} aria-label="Decrease">
+              <NumberField.Decrement
+                render={<StepButton sx={{ alignItems: 'flex-start' }} />}
+                aria-label="Decrease"
+              >
                 <ArrowDropDownIcon />
               </NumberField.Decrement>
             </Stepper>

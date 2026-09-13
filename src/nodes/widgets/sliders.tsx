@@ -1,41 +1,35 @@
 import React from 'react';
 import { Slider, Typography, Box } from '@mui/material';
 import {
-  WidgetHybridBase,
   WidgetPaper,
   getMuiSize,
   colorName,
   getColorSocket,
   getSizeSocket,
   getWidgetControlProps,
+  initialValueName,
   labelName,
   outName,
   sizeName,
   useWidgetSize,
   useSizeTokens,
 } from './abstract';
+import {
+  WidgetNumberBase,
+  decimalsName,
+  getDecimals,
+  getDecimalsSocket,
+  maxValueName,
+  minValueName,
+  roundToDecimals,
+} from './number-base';
 import Socket from '../../classes/SocketClass';
 import { StringType } from '../datatypes/stringType';
-import { BooleanType } from '../datatypes/booleanType';
 import { NumberType } from '../datatypes/numberType';
-import { BackPropagation } from '../../interfaces';
 import { SOCKET_TYPE } from '../../utils/constants';
-import {
-  ActionHandler,
-  BakedAction,
-  SerializableAction,
-  SerializableActionHandler,
-} from '../../classes/Action';
-import { limitRange } from '../../utils/utils';
 import { WidgetContentProps } from '../../utils/interfaces';
 
-// Socket names
-const initialValueName = 'Initial Value';
-const minValueName = 'Min';
-const maxValueName = 'Max';
-const roundName = 'Round';
-
-export class WidgetSlider extends WidgetHybridBase {
+export class WidgetSlider extends WidgetNumberBase {
   prevMinValue = -1;
   prevMaxValue = -1;
   prevValue = -1;
@@ -54,7 +48,7 @@ export class WidgetSlider extends WidgetHybridBase {
       new Socket(SOCKET_TYPE.IN, initialValueName, new NumberType(), 0, false),
       new Socket(SOCKET_TYPE.IN, minValueName, new NumberType(), 0, false),
       new Socket(SOCKET_TYPE.IN, maxValueName, new NumberType(), 100, false),
-      new Socket(SOCKET_TYPE.IN, roundName, new BooleanType(), false, false),
+      getDecimalsSocket(),
       new Socket(SOCKET_TYPE.IN, labelName, new StringType(), 'Slider', false),
       getColorSocket(),
       getSizeSocket(),
@@ -70,11 +64,20 @@ export class WidgetSlider extends WidgetHybridBase {
     return 104;
   }
 
-  protected getBackPropagationTargets(): BackPropagation {
-    return {
-      SocketToGetValue: this.getInputSocketByName(initialValueName),
-      SocketToTakeName: this.getInputSocketByName(labelName),
-    };
+  public getVersion(): number {
+    return 2;
+  }
+
+  public async migrate(previousVersion: number): Promise<void> {
+    const roundSocket = this.getInputSocketByName('Round');
+    if (previousVersion < 2 && roundSocket) {
+      // with Round off the slider stepped by 0.01
+      this.setInputData(decimalsName, roundSocket.data ? 0 : 2);
+      await this.replaceSocketWithOtherSocket(
+        roundSocket,
+        this.getInputSocketByName(decimalsName),
+      );
+    }
   }
 
   protected async onExecute(
@@ -82,11 +85,10 @@ export class WidgetSlider extends WidgetHybridBase {
     outputObject: any,
   ): Promise<void> {
     await super.onExecute(inputObject, outputObject);
-    const value = inputObject[initialValueName];
     const minValue = inputObject[minValueName];
     const maxValue = inputObject[maxValueName];
 
-    let valueToSet = limitRange(value, minValue, maxValue);
+    let valueToSet = this.getOutputValue(inputObject, true);
     // if we just changed our min or max value, we might want to also adjust the actual value (if it was previously at a limit)
     if (
       this.hasSetPrevValues &&
@@ -116,40 +118,12 @@ export class WidgetSlider extends WidgetHybridBase {
     this.hasSetPrevValues = true;
   }
 
-  handleOnChange = (event, newValue) => {
-    const id = this.id;
-    const prev = this.getInputData(initialValueName);
-    const shouldRound = this.getInputData(roundName);
-
-    // Round the value if needed
-    const formattedValue = shouldRound ? Math.round(newValue) : newValue;
-
-    const applyFunction = async (value) => {
-      const safeNode = SerializableActionHandler.getSafeNode(id);
-      safeNode.setInputData(initialValueName, value);
-      safeNode.setOutputData(outName, value);
-      await safeNode.executeOptimizedChain();
-    };
-
-    void ActionHandler.performRawAction(
-      new BakedAction(
-        new SerializableAction(
-          applyFunction,
-          applyFunction,
-          'Set Slider Value',
-        ),
-        formattedValue,
-        prev,
-      ),
-    );
-  };
-
   getWidgetContent(props: WidgetContentProps): React.ReactElement {
     const node = props.node as WidgetSlider;
     const min = props[minValueName];
     const max = props[maxValueName];
     const value = props[initialValueName];
-    const shouldRound = props[roundName];
+    const decimals = getDecimals(props[decimalsName]);
     const size = useWidgetSize(props[sizeName]);
     const color = props[colorName];
     const tokens = useSizeTokens(size);
@@ -159,10 +133,7 @@ export class WidgetSlider extends WidgetHybridBase {
       ? 32 * tokens.scale
       : (node.nodeHeight / 3) * tokens.scale;
 
-    // Format the value displayed based on rounding setting
-    const displayValue = shouldRound
-      ? Math.round(value)
-      : Number(value.toFixed(2));
+    const displayValue = roundToDecimals(value, decimals);
 
     return (
       <WidgetPaper node={node} inDashboard={props.inDashboard}>
@@ -197,8 +168,10 @@ export class WidgetSlider extends WidgetHybridBase {
             value={value}
             min={min}
             max={max}
-            step={shouldRound ? 1 : 0.01}
-            onChange={node.handleOnChange}
+            step={10 ** -decimals}
+            onChange={(_event, newValue) =>
+              void node.handleValueChange(newValue as number)
+            }
             valueLabelDisplay="off"
             sx={{
               width: '100%',
@@ -227,21 +200,5 @@ export class WidgetSlider extends WidgetHybridBase {
         </Box>
       </WidgetPaper>
     );
-  }
-
-  public async populateDefaults(socket: Socket): Promise<void> {
-    const target = socket;
-    if (
-      target.dataType.constructor === new NumberType().constructor &&
-      0 === this.getInputData(initialValueName)
-    ) {
-      const { round, minValue, maxValue } = target.dataType as NumberType;
-      this.setInputData(minValueName, minValue);
-      this.setInputData(maxValueName, maxValue);
-      this.setInputData(roundName, round);
-      this.setInputData(initialValueName, target.defaultData);
-      this.setInputData(labelName, target.name);
-    }
-    await super.populateDefaults(socket);
   }
 }
