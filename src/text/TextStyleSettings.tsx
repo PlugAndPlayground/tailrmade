@@ -22,61 +22,78 @@ export type TextStyleSettingsProps = {
   children?: React.ReactNode;
 };
 
+type OptionSelectProps<T extends string> = {
+  label: string;
+  name: string;
+  value: T;
+  options: readonly T[];
+  onChange: (value: T) => void;
+};
+
+const OptionSelect = <T extends string>({
+  label,
+  name,
+  value,
+  options,
+  onChange,
+}: OptionSelectProps<T>) => (
+  <FormWrapper>
+    <StyledFormLabel>{label}</StyledFormLabel>
+    <Select
+      fullWidth
+      variant="filled"
+      value={value}
+      data-cy={`text-${name}-select`}
+      MenuProps={{ style: { zIndex: 1500 } }}
+      sx={{ height: '32px', fontSize: '16px', lineHeight: '8px' }}
+      onChange={(event) => onChange(event.target.value as T)}
+    >
+      {options.map((option) => (
+        <MenuItem
+          key={option}
+          value={option}
+          data-cy={`text-${name}-${option}`}
+        >
+          {option}
+        </MenuItem>
+      ))}
+    </Select>
+  </FormWrapper>
+);
+
 /** Inspector for the style of static Text. */
 export const TextStyleSettings: React.FC<TextStyleSettingsProps> = ({
   props,
   update,
   children,
 }) => (
-  <Stack spacing={0.5} sx={{ bgcolor: 'background.paper' }} data-cy="text-settings">
-    <FormWrapper>
-      <StyledFormLabel>Variant</StyledFormLabel>
-      <Select
-        fullWidth
-        variant="filled"
-        value={props.variant}
-        data-cy="text-variant-select"
-        MenuProps={{ style: { zIndex: 1500 } }}
-        sx={{ height: '32px', fontSize: '16px', lineHeight: '8px' }}
-        onChange={(event) =>
-          update((draft) => {
-            draft.variant = event.target.value as TextVariant;
-          })
-        }
-      >
-        {TEXT_VARIANTS.map((variant) => (
-          <MenuItem
-            key={variant}
-            value={variant}
-            data-cy={`text-variant-${variant}`}
-          >
-            {variant}
-          </MenuItem>
-        ))}
-      </Select>
-    </FormWrapper>
-    <FormWrapper>
-      <StyledFormLabel>Tone</StyledFormLabel>
-      <Select
-        fullWidth
-        variant="filled"
-        value={props.tone}
-        data-cy="text-tone-select"
-        MenuProps={{ style: { zIndex: 1500 } }}
-        sx={{ height: '32px', fontSize: '16px', lineHeight: '8px' }}
-        onChange={(event) =>
-          update((draft) => {
-            draft.tone = event.target.value as TextTone;
-          })
-        }
-      >
-        {TEXT_TONES.map((tone) => (
-          <MenuItem key={tone} value={tone} data-cy={`text-tone-${tone}`}>
-            {tone}
-          </MenuItem>
-        ))}
-      </Select>
-    </FormWrapper>
+  <Stack
+    spacing={0.5}
+    sx={{ bgcolor: 'background.paper' }}
+    data-cy="text-settings"
+  >
+    <OptionSelect<TextVariant>
+      label="Variant"
+      name="variant"
+      value={props.variant}
+      options={TEXT_VARIANTS}
+      onChange={(value) =>
+        update((draft) => {
+          draft.variant = value;
+        })
+      }
+    />
+    <OptionSelect<TextTone>
+      label="Tone"
+      name="tone"
+      value={props.tone}
+      options={TEXT_TONES}
+      onChange={(value) =>
+        update((draft) => {
+          draft.tone = value;
+        })
+      }
+    />
     <AlignmentControl
       value={props.alignment}
       label="Alignment"
