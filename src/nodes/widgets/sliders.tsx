@@ -146,7 +146,7 @@ export class WidgetSlider extends WidgetNumberBase {
         >
           <Typography
             id={`slider-label-${node.id}`}
-            gutterBottom
+            gutterBottom={!props.inDashboard}
             sx={{
               fontSize: props.inDashboard
                 ? `${tokens.fontSize}px`
@@ -176,6 +176,7 @@ export class WidgetSlider extends WidgetNumberBase {
             sx={{
               width: '100%',
               padding: 0,
+              '@media (pointer: coarse)': { padding: 0 },
               pointerEvents: props.disabled ? 'none' : undefined,
               height: sliderHeight,
               '& .MuiSlider-track': {

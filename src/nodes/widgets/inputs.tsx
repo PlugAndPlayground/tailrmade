@@ -217,9 +217,10 @@ export class WidgetTextField extends WidgetHybridBase {
     return (
       <WidgetPaper node={node} inDashboard={props.inDashboard}>
         <Box sx={{ width: '100%' }}>
-          <FormControl fullWidth>
+          <FormControl fullWidth margin="none">
             <TextField
               {...getWidgetControlProps(props.disabled)}
+              margin="none"
               value={internalValue}
               label={props[labelName]}
               placeholder={placeholder}

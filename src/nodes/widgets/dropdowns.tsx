@@ -10,7 +10,6 @@ import {
 import Socket from '../../classes/SocketClass';
 import {
   defaultOptions,
-  fallbackValueName,
   getMuiSize,
   colorName,
   getColorSocket,
@@ -21,7 +20,6 @@ import {
   getWidgetControlProps,
   labelName,
   optionsName,
-  outName,
   selectedOptionName,
   sizeName,
   useWidgetSize,
@@ -121,6 +119,7 @@ abstract class WidgetDropdownBase extends WidgetSelectableBase {
           variant={inputVariant}
           color={color}
           size={getMuiSize(size)}
+          margin="none"
           sx={{
             pointerEvents: props.disabled ? 'none' : undefined,
             ...sizeSx,
