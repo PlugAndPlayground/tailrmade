@@ -66,7 +66,8 @@ const useOptionGroupStyle = (props: WidgetContentProps) => {
 };
 
 const getOptionLabelSx = (rowLayout: boolean) => ({
-  mx: rowLayout ? 0.5 : 0,
+  ml: 0,
+  mr: rowLayout ? 1 : 0,
   width: rowLayout ? 'auto' : '100%',
   boxSizing: 'border-box' as const,
 });
@@ -90,7 +91,8 @@ const OptionGroupFrame: React.FC<{
           width: '100%',
           height: '100%',
           userSelect: 'none',
-          padding: 1,
+          px: 1,
+          py: props.inDashboard ? 0 : 1,
           display: 'flex',
           flexDirection: 'column',
         }}
@@ -100,8 +102,6 @@ const OptionGroupFrame: React.FC<{
             variant="subtitle1"
             sx={{
               fontSize: `${tokens.fontSize}px`,
-              mb: 1,
-              textAlign: 'center',
             }}
           >
             {props[labelName]}
@@ -111,6 +111,7 @@ const OptionGroupFrame: React.FC<{
         <Box
           sx={{
             flex: 1,
+            ml: `-9px`,
             overflowY: 'auto',
             overflowX: 'hidden',
             maxHeight: props.inDashboard

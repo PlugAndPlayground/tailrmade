@@ -3,6 +3,8 @@ export type AIProvider = 'claude' | 'deepseek' | 'gemini' | 'openai' | 'kimi';
 export interface AIModelDefinition {
   value: string;
   label: string;
+  generatesImages?: boolean;
+  maxOutputTokens?: number;
 }
 
 export interface AIProviderDefinition {
@@ -41,13 +43,38 @@ function extractGeminiResponseText(data: unknown): string {
   return joinTextParts(firstCandidate.content.parts);
 }
 
-export const DEFAULT_MODEL = 'claude-sonnet-4-6';
-export const DEFAULT_MODEL_GEMINI = 'gemini-2.5-flash';
+export const DEFAULT_MODEL = 'claude-sonnet-5';
+export const DEFAULT_MODEL_GEMINI = 'gemini-3.8-flash';
 export const DEEPSEEK_V4_PRO_MODEL = 'deepseek-v4-pro';
-export const DEFAULT_MODEL_OPENAI = 'gpt-5.6';
-export const DEFAULT_MODEL_KIMI = 'kimi-k2.6';
+export const DEFAULT_MODEL_OPENAI = 'gpt-5.6-sol';
+export const DEFAULT_MODEL_KIMI = 'kimi-k3';
 
-// This is the single catalog used by both the agent and graph AI controls.
+// Resolve saved selections without keeping superseded models in the menus.
+const MODEL_REPLACEMENTS: Readonly<Record<string, string>> = {
+  'claude-fable-5': 'claude-fable-5-1',
+  'claude-opus-4-8': 'claude-opus-5',
+  'claude-sonnet-4-6': DEFAULT_MODEL,
+  'deepseek-v4-flash': 'deepseek-flash',
+  'gemini-3.7-flash': DEFAULT_MODEL_GEMINI,
+  'gemini-3.6-flash': DEFAULT_MODEL_GEMINI,
+  'gemini-3.5-flash': DEFAULT_MODEL_GEMINI,
+  'gemini-3-flash-preview': DEFAULT_MODEL_GEMINI,
+  'gemini-2.5-flash': DEFAULT_MODEL_GEMINI,
+  'gemini-3.1-flash-lite': 'gemini-3.5-flash-lite',
+  'gemini-2.5-flash-lite': 'gemini-3.5-flash-lite',
+  'gemini-2.5-pro': 'gemini-3.1-pro-preview',
+  'gemini-2.5-flash-image': 'gemini-3.1-flash-image',
+  'gpt-5.6': DEFAULT_MODEL_OPENAI,
+  'kimi-k2.6': DEFAULT_MODEL_KIMI,
+};
+
+function resolveAIModel(model: string): string {
+  return Object.prototype.hasOwnProperty.call(MODEL_REPLACEMENTS, model)
+    ? MODEL_REPLACEMENTS[model]
+    : model;
+}
+
+// Shared by agent and graph AI controls; verified against provider docs 2026-09-14.
 export const AI_PROVIDERS: AIProviderDefinition[] = [
   {
     value: 'claude',
@@ -56,10 +83,10 @@ export const AI_PROVIDERS: AIProviderDefinition[] = [
     supportsAgent: true,
     extractResponseText: extractContentResponseText,
     models: [
-      { value: 'claude-fable-5', label: 'Claude Fable 5' },
-      { value: 'claude-opus-4-8', label: 'Claude Opus 4.8' },
-      { value: 'claude-sonnet-5', label: 'Claude Sonnet 5' },
-      { value: DEFAULT_MODEL, label: 'Claude Sonnet 4.6' },
+      { value: 'claude-fable-5-1', label: 'Claude Fable 5.1' },
+      { value: 'claude-opus-5', label: 'Claude Opus 5' },
+      { value: DEFAULT_MODEL, label: 'Claude Sonnet 5' },
+      { value: 'claude-haiku-4-5-20251001', label: 'Claude Haiku 4.5' },
     ],
   },
   {
@@ -70,7 +97,7 @@ export const AI_PROVIDERS: AIProviderDefinition[] = [
     extractResponseText: extractContentResponseText,
     models: [
       { value: DEEPSEEK_V4_PRO_MODEL, label: 'DeepSeek V4 Pro' },
-      { value: 'deepseek-v4-flash', label: 'DeepSeek V4 Flash' },
+      { value: 'deepseek-flash', label: 'DeepSeek V4.1 Flash' },
     ],
   },
   {
@@ -80,11 +107,25 @@ export const AI_PROVIDERS: AIProviderDefinition[] = [
     supportsAgent: true,
     extractResponseText: extractGeminiResponseText,
     models: [
-      { value: 'gemini-2.5-flash-image', label: 'Nano Banana' },
-      { value: 'gemini-3.5-flash', label: 'Gemini 3.5 Flash' },
+      { value: DEFAULT_MODEL_GEMINI, label: 'Gemini 3.8 Flash' },
+      { value: 'gemini-3.5-flash-lite', label: 'Gemini 3.5 Flash-Lite' },
       { value: 'gemini-3.1-pro-preview', label: 'Gemini 3.1 Pro Preview' },
-      { value: 'gemini-2.5-pro', label: 'Gemini 2.5 Pro' },
-      { value: DEFAULT_MODEL_GEMINI, label: 'Gemini 2.5 Flash' },
+      {
+        value: 'gemini-3-pro-image',
+        label: 'Nano Banana Pro',
+        generatesImages: true,
+      },
+      {
+        value: 'gemini-3.1-flash-image',
+        label: 'Nano Banana 2',
+        generatesImages: true,
+      },
+      {
+        value: 'gemini-3.1-flash-lite-image',
+        label: 'Nano Banana 2 Lite',
+        generatesImages: true,
+        maxOutputTokens: 4096,
+      },
     ],
   },
   {
@@ -93,7 +134,12 @@ export const AI_PROVIDERS: AIProviderDefinition[] = [
     defaultModel: DEFAULT_MODEL_OPENAI,
     supportsAgent: true,
     extractResponseText: extractContentResponseText,
-    models: [{ value: DEFAULT_MODEL_OPENAI, label: 'GPT-5.6' }],
+    models: [
+      { value: 'gpt-6-astra', label: 'GPT-6 Astra' },
+      { value: DEFAULT_MODEL_OPENAI, label: 'GPT-5.6 Sol' },
+      { value: 'gpt-5.6-terra', label: 'GPT-5.6 Terra' },
+      { value: 'gpt-5.6-luna', label: 'GPT-5.6 Luna' },
+    ],
   },
   {
     value: 'kimi',
@@ -102,8 +148,9 @@ export const AI_PROVIDERS: AIProviderDefinition[] = [
     supportsAgent: true,
     extractResponseText: extractContentResponseText,
     models: [
-      { value: 'kimi-k3', label: 'Kimi K3' },
-      { value: DEFAULT_MODEL_KIMI, label: 'Kimi K2.6' },
+      { value: DEFAULT_MODEL_KIMI, label: 'Kimi K3' },
+      { value: 'kimi-k2.7-code', label: 'Kimi K2.7 Code' },
+      { value: 'kimi-k2.7-code-highspeed', label: 'Kimi K2.7 Code High-Speed' },
     ],
   },
 ];
@@ -111,8 +158,8 @@ export const AI_PROVIDERS: AIProviderDefinition[] = [
 export const AI_AGENT_PROVIDERS = AI_PROVIDERS.filter(
   (provider) => provider.supportsAgent,
 );
-export const AI_AGENT_MODELS = AI_AGENT_PROVIDERS.flatMap(
-  (provider) => provider.models,
+export const AI_AGENT_MODELS = AI_AGENT_PROVIDERS.flatMap((provider) =>
+  getAIAgentModelsForProvider(provider.value),
 );
 
 export type AIAgentProvider = AIProvider;
@@ -135,13 +182,34 @@ export function getDefaultAIModel(provider: AIProvider): string {
   return getAIProvider(provider).defaultModel;
 }
 
+export function getAIAgentModelsForProvider(
+  provider: AIProvider,
+): AIModelDefinition[] {
+  const definition = getAIProvider(provider);
+  return definition.supportsAgent
+    ? definition.models.filter((model) => !model.generatesImages)
+    : [];
+}
+
+export function getAIModelDefinition(
+  provider: AIProvider,
+  model: string,
+): AIModelDefinition | undefined {
+  return getAIModelsForProvider(provider).find(
+    (candidate) => candidate.value === model,
+  );
+}
+
 export function getAIResponseText(provider: AIProvider, data: unknown): string {
   return getAIProvider(provider).extractResponseText(data);
 }
 
 export function getAIProviderForModel(model: string): AIProvider {
+  const resolvedModel = resolveAIModel(model);
   const provider = AI_PROVIDERS.find((candidate) =>
-    candidate.models.some((modelDefinition) => modelDefinition.value === model),
+    candidate.models.some(
+      (modelDefinition) => modelDefinition.value === resolvedModel,
+    ),
   );
   if (!provider) throw new Error(`Unknown AI model: ${model}`);
   return provider.value;
@@ -149,14 +217,18 @@ export function getAIProviderForModel(model: string): AIProvider {
 
 export function normalizeAIModel(provider: AIProvider, model?: string): string {
   const definition = getAIProvider(provider);
-  return definition.models.some((candidate) => candidate.value === model)
-    ? model!
+  const resolvedModel = resolveAIModel(model || '');
+  return definition.models.some(
+    (candidate) => candidate.value === resolvedModel,
+  )
+    ? resolvedModel
     : definition.defaultModel;
 }
 
 export function normalizeAIAgentModel(model?: string): string {
-  return AI_AGENT_MODELS.some((candidate) => candidate.value === model)
-    ? model!
+  const resolvedModel = resolveAIModel(model || '');
+  return AI_AGENT_MODELS.some((candidate) => candidate.value === resolvedModel)
+    ? resolvedModel
     : DEFAULT_MODEL;
 }
 

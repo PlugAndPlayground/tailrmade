@@ -1,4 +1,4 @@
-import type { AIProvider } from './aiModels';
+import { getAIModelDefinition, type AIProvider } from './aiModels';
 
 export interface AIProviderTool {
   name: string;
@@ -267,6 +267,7 @@ function buildOpenAI(request: AIProviderTurnRequest): PreparedAIProviderTurn {
         'max_output_tokens',
         'max_tokens',
         'input',
+        'include',
         'tools',
         'store',
         'stream',
@@ -277,6 +278,15 @@ function buildOpenAI(request: AIProviderTurnRequest): PreparedAIProviderTurn {
       input,
       ...(request.tools?.length ? { tools: openAITools(request.tools) } : {}),
       store: false,
+      // Stateless tool turns must carry the model's reasoning back to the API.
+      include: Array.from(
+        new Set([
+          ...(Array.isArray(request.options?.include)
+            ? request.options.include
+            : []),
+          'reasoning.encrypted_content',
+        ]),
+      ),
     },
   };
 }
@@ -335,6 +345,7 @@ function buildKimi(request: AIProviderTurnRequest): PreparedAIProviderTurn {
 }
 
 function buildGemini(request: AIProviderTurnRequest): PreparedAIProviderTurn {
+  const model = getAIModelDefinition('gemini', request.model);
   let contents = request.state?.contents
     ? [...request.state.contents]
     : mapMessages(
@@ -386,9 +397,7 @@ function buildGemini(request: AIProviderTurnRequest): PreparedAIProviderTurn {
           }
         : {}),
       generationConfig: {
-        ...(contents.some((content: any) =>
-          content.parts?.some((part: any) => part.inlineData),
-        )
+        ...(model?.generatesImages
           ? { responseModalities: ['TEXT', 'IMAGE'] }
           : {}),
         ...options(request, [
@@ -399,7 +408,10 @@ function buildGemini(request: AIProviderTurnRequest): PreparedAIProviderTurn {
           'max_tokens',
           'maxOutputTokens',
         ]),
-        maxOutputTokens: request.maxTokens || 16384,
+        maxOutputTokens: Math.min(
+          request.maxTokens || 16384,
+          model?.maxOutputTokens ?? Infinity,
+        ),
       },
     },
   };
