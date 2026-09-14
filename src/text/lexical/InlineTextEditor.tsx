@@ -6,18 +6,19 @@ import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext
 import { ContentEditable } from '@lexical/react/LexicalContentEditable';
 import { HistoryPlugin } from '@lexical/react/LexicalHistoryPlugin';
 import { LinkPlugin } from '@lexical/react/LexicalLinkPlugin';
+import { ListPlugin } from '@lexical/react/LexicalListPlugin';
+import { MarkdownShortcutPlugin } from '@lexical/react/LexicalMarkdownShortcutPlugin';
 import { RichTextPlugin } from '@lexical/react/LexicalRichTextPlugin';
 import { LexicalErrorBoundary } from '@lexical/react/LexicalErrorBoundary';
 import { customTheme, DATA_DASHBOARD_EDITABLE } from '../../utils/constants';
-import { textContentToMarkdown } from '../inlineMarkdown';
 import { toneCssVariables } from '../TextView';
-import {
-  $contentToLexical,
-  $lexicalToContent,
-  registerInlineTextSanitizer,
-} from './content';
+import { registerInlineTextSanitizer } from './content';
 import { createTextEditorConfig, TextHostProfile } from './editorConfig';
-import { markdownToTextContent } from './markdown';
+import {
+  $importMarkdown,
+  lexicalStateToMarkdown,
+  MARKDOWN_TRANSFORMERS,
+} from './markdown';
 import {
   TokenBehaviourPlugin,
   TokenInputs,
@@ -30,7 +31,7 @@ import './styles.css';
 
 export type InlineTextEditorProps = {
   profile: TextHostProfile;
-  // inline Markdown
+  // Markdown
   content: string;
   onChange: (content: string) => void;
   editable: boolean;
@@ -72,8 +73,7 @@ function ContentSyncPlugin({
     }
     if (content !== lastContent.current) {
       lastContent.current = content;
-      const parsed = markdownToTextContent(content, profile.tokens);
-      editor.update(() => $contentToLexical(parsed));
+      editor.update(() => $importMarkdown(content, profile.tokens));
     }
   }, [editor, content]);
 
@@ -84,9 +84,7 @@ function ContentSyncPlugin({
           if (dirtyElements.size === 0 && dirtyLeaves.size === 0) {
             return;
           }
-          const next = editorState.read(() =>
-            textContentToMarkdown($lexicalToContent()),
-          );
+          const next = lexicalStateToMarkdown(editorState.toJSON());
           if (next !== lastContent.current) {
             lastContent.current = next;
             pendingContents.current.push(next);
@@ -134,13 +132,13 @@ export function InlineTextEditor({
   const [isFocused, setIsFocused] = useState(false);
   const [isLinkEditMode, setIsLinkEditMode] = useState(false);
   const toolbarRef = useRef<HTMLDivElement>(null);
-  const initialConfig = useMemo(() => {
-    const parsed = markdownToTextContent(content, profile.tokens);
-    return {
-      ...createTextEditorConfig(profile, 'Text'),
-      editorState: () => $contentToLexical(parsed),
-    };
-  }, []);
+  const initialConfig = useMemo(
+    () => ({
+      ...createTextEditorConfig('Text'),
+      editorState: () => $importMarkdown(content, profile.tokens),
+    }),
+    [],
+  );
 
   return (
     <TokenInputsContext.Provider value={tokens?.inputs ?? {}}>
@@ -184,6 +182,8 @@ export function InlineTextEditor({
           />
           <HistoryPlugin />
           <LinkPlugin />
+          <ListPlugin />
+          <MarkdownShortcutPlugin transformers={MARKDOWN_TRANSFORMERS} />
           {tokens && <TokenBehaviourPlugin />}
           {tokens && <TokenPickerPlugin {...tokens.picker} />}
           {wrapper && (

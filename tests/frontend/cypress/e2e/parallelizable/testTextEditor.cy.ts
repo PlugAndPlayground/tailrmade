@@ -17,18 +17,13 @@ const testTextDashboard = 'test line dashboard';
 const testTextCanvas = 'test line canvas';
 const testWord = 'word';
 
+// every line is a paragraph: the blank lines are where Enter left a list empty
 const resultInMarkdown = `word
-
 **word**
-
 ***word***
-
 # test line
-
 ### test line
-
 ##### test line
-
 - test line
 - test line
 
@@ -42,7 +37,7 @@ cy.get('body')
   .type('Enter')
 \`\`\``;
 
-const resultInHtml = `<p class="editor-paragraph" dir="ltr"><span style="white-space: pre-wrap;">word</span></p><p class="editor-paragraph" dir="ltr"><b><strong class="editor-text-bold" style="white-space: pre-wrap;">word</strong></b></p><p class="editor-paragraph" dir="ltr"><i><b><strong class="editor-text-bold editor-text-italic" style="white-space: pre-wrap;">word</strong></b></i></p><h1 class="editor-heading-h1" dir="ltr"><span style="white-space: pre-wrap;">test line</span></h1><h3 class="editor-heading-h3" dir="ltr"><span style="white-space: pre-wrap;">test line</span></h3><h5 class="editor-heading-h5" dir="ltr"><span style="white-space: pre-wrap;">test line</span></h5><ul class="editor-list-ul"><li value="1" class="editor-listitem" dir="ltr"><span style="white-space: pre-wrap;">test line</span></li><li value="2" class="editor-listitem" dir="ltr"><span style="white-space: pre-wrap;">test line</span></li></ul><ol class="editor-list-ol"><li value="1" class="editor-listitem" dir="ltr"><span style="white-space: pre-wrap;">test line</span></li><li value="2" class="editor-listitem" dir="ltr"><span style="white-space: pre-wrap;">test line</span></li></ol><blockquote class="editor-quote" dir="ltr"><span style="white-space: pre-wrap;">test line</span></blockquote><pre class="editor-code" spellcheck="false"><span style="white-space: pre-wrap;">cy.get('body')
+const resultInHtml = `<p class="editor-paragraph" dir="ltr"><span style="white-space: pre-wrap;">word</span></p><p class="editor-paragraph" dir="ltr"><b><strong class="editor-text-bold" style="white-space: pre-wrap;">word</strong></b></p><p class="editor-paragraph" dir="ltr"><i><b><strong class="editor-text-bold editor-text-italic" style="white-space: pre-wrap;">word</strong></b></i></p><h1 class="editor-heading-h1" dir="ltr"><span style="white-space: pre-wrap;">test line</span></h1><h3 class="editor-heading-h3" dir="ltr"><span style="white-space: pre-wrap;">test line</span></h3><h5 class="editor-heading-h5" dir="ltr"><span style="white-space: pre-wrap;">test line</span></h5><ul class="editor-list-ul"><li value="1" class="editor-listitem" dir="ltr"><span style="white-space: pre-wrap;">test line</span></li><li value="2" class="editor-listitem" dir="ltr"><span style="white-space: pre-wrap;">test line</span></li></ul><p class="editor-paragraph"><br></p><ol class="editor-list-ol"><li value="1" class="editor-listitem" dir="ltr"><span style="white-space: pre-wrap;">test line</span></li><li value="2" class="editor-listitem" dir="ltr"><span style="white-space: pre-wrap;">test line</span></li></ol><p class="editor-paragraph"><br></p><blockquote class="editor-quote" dir="ltr"><span style="white-space: pre-wrap;">test line</span></blockquote><p class="editor-paragraph"><br></p><pre class="editor-code" spellcheck="false"><span style="white-space: pre-wrap;">cy.get('body')
   .type('Enter')</span></pre>`;
 
 const normalizeEditorHtml = (html) =>
@@ -327,9 +322,10 @@ describe('testTextEditor', () => {
 
     cy.get('#Container-TextEditor2').should('contain.text', testText);
 
+    // every line is a paragraph, so Enter is one line break
     doWithTestController((testController) => {
       expect(testController.getNodeOutputValue('TextEditor2', 'Plain')).to.eq(
-        `${testText}\n\n${testText}`,
+        `${testText}\n${testText}`,
       );
     });
   });

@@ -244,7 +244,10 @@ export function $tokenizeTextNode(node: TextNode): void {
   }
 }
 
-/** Like getTextContent, with tokens rendered the way an end user sees them. */
+/**
+ * Like getTextContent, with tokens rendered the way an end user sees them and
+ * each block on its own line, as in the Markdown.
+ */
 export function $getRenderedTextContent(
   inputs: TokenInputs,
   node: LexicalNode = $getRoot(),
@@ -263,7 +266,7 @@ export function $getRenderedTextContent(
         ($isElementNode(child) &&
         index < children.length - 1 &&
         !child.isInline()
-          ? '\n\n'
+          ? '\n'
           : ''),
     )
     .join('');

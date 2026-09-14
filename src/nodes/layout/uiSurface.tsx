@@ -178,9 +178,9 @@ everything to keep. Omitted connected widgets are appended with a warning.
   what a 'row' does on a narrow dashboard (< 600px): 'column' (the default)
   stacks its children, 'wrap' lets them wrap, 'row' keeps them side by side.
 - Static text: {text:'...', variant?, tone?, alignment?}. text is
-  inline Markdown: **bold**, *italic*, \`code\`, [link](https://…), and
-  [words]{.primary .nowrap} for a run's tone or no-wrap; each line is a
-  paragraph. variant: 'display'|'h1'|'h2'|'body'|'caption'|'label'|'stat';
+  Markdown: # headings, - lists, > quotes, code blocks, **bold**, *italic*,
+  \`code\`, [link](https://…), and [words]{.primary .nowrap} for a run's tone
+  or no-wrap; each line is a paragraph. variant: 'display'|'h1'|'h2'|'body'|'caption'|'label'|'stat';
   tone: 'default'|'muted'|'primary'|'secondary'|'success'|'warning'|'error'
   (theme colors);
   alignment: 'left'|'center'|'right'|'justify'. The variant sets size, weight

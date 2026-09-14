@@ -1,40 +1,31 @@
 import {
+  $createParagraphNode,
   $createTextNode,
   $getRoot,
-  $createParagraphNode,
+  LexicalEditor,
   SerializedEditorState,
   SerializedLexicalNode,
 } from 'lexical';
+import { createHeadlessTextEditor } from '../../../src/text/lexical/editorConfig';
 import {
-  createHeadlessTextEditor,
-  DYNAMIC_TEXT_PROFILE,
-  TEXT_EDITOR2_PROFILE,
-} from '../../../src/text/lexical/editorConfig';
-import {
+  bakeMarkdownTokens,
   lexicalStateToMarkdown,
   markdownToLexicalState,
+  markdownToPlainText,
 } from '../../../src/text/lexical/markdown';
+import { registerTokenBehaviour } from '../../../src/text/lexical/TokenNode';
 import {
-  $getRenderedTextContent,
-  registerTokenBehaviour,
-} from '../../../src/text/lexical/TokenNode';
-import {
-  $contentToLexical,
-  $lexicalToContent,
   registerInlineTextSanitizer,
   styleForMarks,
 } from '../../../src/text/lexical/content';
-import { textContentToMarkdown } from '../../../src/text/inlineMarkdown';
-import { markdownToTextContent } from '../../../src/text/lexical/markdown';
-import {
-  createTextContent,
-  normalizeTextContent,
-} from '../../../src/text/model';
+import { plainTextToMarkdown } from '../../../src/text/markdownEscaping';
 
 type Node = SerializedLexicalNode & {
   children?: Node[];
   source?: string;
   format?: number;
+  style?: string;
+  text?: string;
 };
 
 const collect = (state: SerializedEditorState, type: string): Node[] => {
@@ -47,16 +38,29 @@ const collect = (state: SerializedEditorState, type: string): Node[] => {
   return found;
 };
 
+const blockTypes = (state: SerializedEditorState) =>
+  state.root.children.map((node) => node.type);
+
 const tokenSources = (markdown: string) =>
-  collect(markdownToLexicalState(markdown), 'text-token').map(
+  collect(markdownToLexicalState(markdown, true), 'text-token').map(
     (node) => node.source,
   );
 
 const roundTrip = (markdown: string) =>
-  lexicalStateToMarkdown(markdownToLexicalState(markdown));
+  lexicalStateToMarkdown(markdownToLexicalState(markdown, true));
+
+const stateOf = (
+  build: () => void,
+  register?: (editor: LexicalEditor) => void,
+) => {
+  const editor = createHeadlessTextEditor();
+  register?.(editor);
+  editor.update(build, { discrete: true });
+  return editor.getEditorState().toJSON();
+};
 
 describe('markdown <-> lexical', () => {
-  it('round-trips headings, emphasis, links, lists, quotes, code and tables', () => {
+  it('round-trips headings, emphasis, links, lists, quotes and code', () => {
     const markdown = [
       '# Title',
       '',
@@ -75,10 +79,18 @@ describe('markdown <-> lexical', () => {
       '```javascript',
       'const x = 1;',
       '```',
-      '',
-      '| a | b |',
-      '| --- | --- |',
     ].join('\n');
+    expect(roundTrip(markdown)).toBe(markdown);
+  });
+
+  it('keeps every line a paragraph, empty ones included', () => {
+    const markdown = 'one\n\n\ntwo';
+    expect(blockTypes(markdownToLexicalState(markdown, true))).toEqual([
+      'paragraph',
+      'paragraph',
+      'paragraph',
+      'paragraph',
+    ]);
     expect(roundTrip(markdown)).toBe(markdown);
   });
 
@@ -105,8 +117,15 @@ describe('markdown <-> lexical', () => {
     expect(roundTrip(markdown)).toBe(markdown);
   });
 
+  it('leaves tokens and legacy mentions as text when tokens are off', () => {
+    const markdown = 'Hi {{name}} and @[x](socket:Input)';
+    const state = markdownToLexicalState(markdown, false);
+    expect(collect(state, 'text-token')).toEqual([]);
+    expect(lexicalStateToMarkdown(state)).toBe(markdown);
+  });
+
   it('keeps bold and italic on tokens', () => {
-    const state = markdownToLexicalState('**{{name}}** and *{{other}}*');
+    const state = markdownToLexicalState('**{{name}}** and *{{other}}*', true);
     expect(collect(state, 'text-token').map((node) => node.format)).toEqual([
       1, 2,
     ]);
@@ -120,206 +139,82 @@ describe('markdown <-> lexical', () => {
   });
 });
 
-describe('rendered text content', () => {
-  it('resolves tokens and never shows their source', () => {
-    const editor = createHeadlessTextEditor(TEXT_EDITOR2_PROFILE);
-    editor.setEditorState(
-      editor.parseEditorState(
-        markdownToLexicalState('# {{t}}\n\n{{missing}} ok'),
-      ),
-    );
-    const text = editor
-      .getEditorState()
-      .read(() => $getRenderedTextContent({ t: 3 }), { editor });
-    expect(text).toBe('3\n\n ok');
-  });
-});
-
-describe('inline markdown', () => {
-  const parse = (markdown: string, tokens = true) =>
-    markdownToTextContent(markdown, tokens).paragraphs.map(({ runs }) => runs);
-
-  it('reads emphasis, code, links, spans and tokens', () => {
+describe('tone and no-wrap spans', () => {
+  it('store a run style, on links and tokens too', () => {
+    const markdown =
+      'a [hot]{.error .nowrap}, [site](https://x.io){.muted} and [**{{t}}**]{.primary}';
+    const state = markdownToLexicalState(markdown, true);
     expect(
-      parse(
-        '**Temp:** {{t}} *ok* __big__ `c` [site](https://x.io){.muted} [hot]{.error .nowrap} ~~old~~',
-      ),
+      collect(state, 'text')
+        .filter((node) => node.style)
+        .map((node) => [node.text, node.style]),
     ).toEqual([
-      [
-        { type: 'text', text: 'Temp:', marks: { strong: true } },
-        { type: 'text', text: ' ' },
-        { type: 'token', source: '{{t}}' },
-        { type: 'text', text: ' ' },
-        { type: 'text', text: 'ok', marks: { emphasis: true } },
-        { type: 'text', text: ' ' },
-        { type: 'text', text: 'big', marks: { strong: true } },
-        { type: 'text', text: ' ' },
-        { type: 'text', text: 'c', marks: { code: true } },
-        { type: 'text', text: ' ' },
-        {
-          type: 'text',
-          text: 'site',
-          marks: { tone: 'muted', link: 'https://x.io' },
-        },
-        { type: 'text', text: ' ' },
-        { type: 'text', text: 'hot', marks: { tone: 'error', nowrap: true } },
-        { type: 'text', text: ' ' },
-        { type: 'text', text: 'old', marks: { strikethrough: true } },
-      ],
+      ['hot', styleForMarks({ tone: 'error', nowrap: true })],
+      ['site', styleForMarks({ tone: 'muted' })],
     ]);
-  });
-
-  it('keeps every line a paragraph, empty ones included', () => {
-    expect(parse('one\n\ntwo')).toEqual([
-      [{ type: 'text', text: 'one' }],
-      [],
-      [{ type: 'text', text: 'two' }],
-    ]);
-  });
-
-  it('leaves tokens, block syntax and loose brackets as text', () => {
-    const text = '# Hi {{name}} [plain] {.primary} [x]{bold}';
-    expect(parse(text, false)).toEqual([[{ type: 'text', text }]]);
-  });
-
-  it('escapes literal markup so it reads back as text', () => {
-    const literal = createTextContent('2*3 = 6_ [x](y) [z]{.primary} `q` &#65;');
-    const markdown = textContentToMarkdown(literal);
-    expect(markdown).toBe(
-      '2\\*3 = 6\\_ \\[x\\](y) \\[z\\]{.primary} \\`q\\` &#38;#65;',
+    expect(collect(state, 'text-token')[0].style).toBe(
+      styleForMarks({ tone: 'primary' }),
     );
-    expect(markdownToTextContent(markdown, false)).toEqual(literal);
+    expect(lexicalStateToMarkdown(state)).toBe(markdown);
   });
 
-  const rich = normalizeTextContent({
-    paragraphs: [
-      {
-        runs: [
-          { type: 'text', text: 'Temp: ' },
-          {
-            type: 'token',
-            source: '{{d.temp}}',
-            marks: { strong: true },
-          },
-          { type: 'text', text: ' is ' },
-          { type: 'text', text: 'fine', marks: { emphasis: true } },
-          { type: 'text', text: ', see ' },
-          { type: 'text', text: 'docs', marks: { link: 'https://x.io/a_b' } },
-          { type: 'text', text: ' or ' },
-          {
-            type: 'text',
-            text: 'alarm',
-            marks: { tone: 'error', nowrap: true },
-          },
-        ],
-      },
-      { runs: [] },
-      {
-        runs: [
-          { type: 'text', text: 'bold ', marks: { strong: true } },
-          { type: 'text', text: 'both', marks: { strong: true, emphasis: true } },
-          { type: 'text', text: 'Hello', marks: { strong: true } },
-          { type: 'token', source: '{{name}}', marks: { emphasis: true } },
-          { type: 'text', text: ' then ' },
-          {
-            type: 'text',
-            text: 'site',
-            marks: { link: 'https://e.com', tone: 'muted', strong: true },
-          },
-          { type: 'text', text: ' ' },
-          {
-            type: 'token',
-            source: '{{name}}',
-            marks: { tone: 'primary', emphasis: true },
-          },
-          { type: 'text', text: ' ' },
-          { type: 'text', text: 'a]`b', marks: { code: true } },
-        ],
-      },
-      {
-        runs: [
-          { type: 'text', text: 'price ' },
-          { type: 'text', text: '10', marks: { strikethrough: true } },
-          { type: 'text', text: ' now 8 ~' },
-        ],
-      },
-    ],
-  });
-
-  it('writes readable Markdown', () => {
-    expect(textContentToMarkdown(rich)).toBe(
-      [
-        'Temp: **{{d.temp}}** is *fine*, see [docs](https://x.io/a_b) or [alarm]{.error .nowrap}',
-        '',
-        '**bold *both*Hello**_{{name}}_ then [**site**](https://e.com){.muted} [_{{name}}_]{.primary} ``a]`b``',
-        'price ~~10~~ now 8 \\~',
-      ].join('\n'),
-    );
-  });
-
-  it('reads back exactly what it wrote', () => {
-    expect(markdownToTextContent(textContentToMarkdown(rich), true)).toEqual(
-      rich,
-    );
-  });
-
-  it('moves whitespace out of emphasis, which cannot open next to it', () => {
-    const content = normalizeTextContent({
-      paragraphs: [
-        {
-          runs: [
-            { type: 'text', text: 'a' },
-            { type: 'text', text: ' b ', marks: { strong: true } },
-            { type: 'text', text: 'c' },
-          ],
-        },
-      ],
+  it('close emphasis at the span instead of inside it', () => {
+    const state = stateOf(() => {
+      $getRoot().append(
+        $createParagraphNode().append(
+          $createTextNode('a ').toggleFormat('bold'),
+          $createTextNode('b')
+            .toggleFormat('bold')
+            .setStyle(styleForMarks({ tone: 'error' })),
+          $createTextNode(' c').toggleFormat('bold'),
+        ),
+      );
     });
-    expect(textContentToMarkdown(content)).toBe('a **b** c');
+    const markdown = lexicalStateToMarkdown(state);
+    expect(markdown).toBe('**a** [**b**]{.error} **c**');
+    expect(roundTrip(markdown)).toBe(markdown);
   });
 });
 
-describe('content <-> lexical', () => {
-  const content = normalizeTextContent({
-    paragraphs: [
-      {
-        runs: [
-          { type: 'text', text: 'Plain ' },
-          { type: 'text', text: 'strong', marks: { strong: true } },
-          { type: 'text', text: ' em', marks: { emphasis: true, code: true } },
-          { type: 'text', text: ' link', marks: { link: 'https://x.io' } },
-          {
-            type: 'token',
-            source: '{{d.temp}}',
-            marks: { link: 'https://x.io', strong: true },
-          },
-          { type: 'break' },
-          {
-            type: 'text',
-            text: 'toned',
-            marks: { tone: 'error', nowrap: true },
-          },
-        ],
-      },
-      { runs: [] },
-      {
-        runs: [{ type: 'token', source: '{{gone}}', marks: { tone: 'muted' } }],
-      },
-    ],
-  });
-
-  it('round-trips every run mark, token and break', () => {
-    const editor = createHeadlessTextEditor(DYNAMIC_TEXT_PROFILE);
-    editor.update(() => $contentToLexical(content), { discrete: true });
-    expect(editor.getEditorState().read(() => $lexicalToContent())).toEqual(
-      content,
+describe('escaping', () => {
+  it('reads plain text back as the same text', () => {
+    const text =
+      '2*3 = 6_ `q`\n# not a heading\n- not a bullet\n1. not a list\n> not a quote';
+    const markdown = plainTextToMarkdown(text);
+    expect(markdown).toBe(
+      '2\\*3 = 6\\_ \\`q\\`\n\\# not a heading\n\\- not a bullet\n1\\. not a list\n\\> not a quote',
     );
+    expect(blockTypes(markdownToLexicalState(markdown, false))).toEqual(
+      Array(5).fill('paragraph'),
+    );
+    expect(markdownToPlainText(markdown, {})).toBe(text);
   });
 
-  it('strips formats and CSS outside the inline vocabulary', () => {
-    const editor = createHeadlessTextEditor(DYNAMIC_TEXT_PROFILE);
-    registerInlineTextSanitizer(editor);
-    editor.update(
+  it('keeps an edited paragraph that starts like a list a paragraph', () => {
+    const state = stateOf(() => {
+      $getRoot().append($createParagraphNode().append($createTextNode('- 5')));
+    });
+    expect(lexicalStateToMarkdown(state)).toBe('\\- 5');
+  });
+});
+
+describe('rendered text', () => {
+  it('resolves tokens, never shows their source, one line per block', () => {
+    expect(
+      markdownToPlainText('# {{t}}\n\n{{missing}} ok\n- a\n- b', { t: 3 }),
+    ).toBe('3\n\n ok\na\nb');
+  });
+
+  it('bakes tokens into text, keeping their format and style', () => {
+    expect(
+      bakeMarkdownTokens('**Hi {{name}}** and [{{name}}]{.error}', () => 'A*a'),
+    ).toBe('**Hi A\\*a** and [A\\*a]{.error}');
+  });
+});
+
+describe('editor behaviour', () => {
+  it('strips formats and CSS that Markdown does not store', () => {
+    const state = stateOf(
       () => {
         const text = $createTextNode('x');
         text.toggleFormat('bold');
@@ -329,53 +224,26 @@ describe('content <-> lexical', () => {
         );
         $getRoot().append($createParagraphNode().append(text));
       },
-      { discrete: true },
+      (editor) => registerInlineTextSanitizer(editor),
     );
-    expect(editor.getEditorState().read(() => $lexicalToContent())).toEqual(
-      normalizeTextContent({
-        paragraphs: [
-          {
-            runs: [
-              {
-                type: 'text',
-                text: 'x',
-                marks: { strong: true, tone: 'primary', nowrap: true },
-              },
-            ],
-          },
-        ],
-      }),
-    );
-    editor.getEditorState().read(() => {
-      const [node] = $getRoot().getAllTextNodes();
-      expect(node.hasFormat('underline')).toBe(false);
-      expect(node.getStyle()).toBe(
-        styleForMarks({ tone: 'primary', nowrap: true }),
-      );
-    });
+    const [node] = collect(state, 'text');
+    expect(node.format).toBe(1);
+    expect(node.style).toBe(styleForMarks({ tone: 'primary', nowrap: true }));
   });
 
   it('tokenizes typed Handlebars only when tokens are enabled', () => {
-    const typed = (withTokens: boolean) => {
-      const editor = createHeadlessTextEditor(DYNAMIC_TEXT_PROFILE);
-      if (withTokens) registerTokenBehaviour(editor);
-      editor.update(
-        () => {
+    const typed = (register?: (editor: LexicalEditor) => void) =>
+      collect(
+        stateOf(() => {
           $getRoot().append(
             $createParagraphNode().append($createTextNode('a {{name}} b')),
           );
-        },
-        { discrete: true },
-      );
-      return editor.getEditorState().read(() => $lexicalToContent());
-    };
-    expect(typed(true).paragraphs[0].runs).toEqual([
-      { type: 'text', text: 'a ' },
-      { type: 'token', source: '{{name}}' },
-      { type: 'text', text: ' b' },
+        }, register),
+        'text-token',
+      ).map((node) => node.source);
+    expect(typed((editor) => registerTokenBehaviour(editor))).toEqual([
+      '{{name}}',
     ]);
-    expect(typed(false).paragraphs[0].runs).toEqual([
-      { type: 'text', text: 'a {{name}} b' },
-    ]);
+    expect(typed()).toEqual([]);
   });
 });

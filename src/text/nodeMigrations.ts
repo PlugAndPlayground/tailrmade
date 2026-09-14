@@ -7,8 +7,8 @@ import type {
   SerializedSocket,
 } from '../utils/interfaces';
 import { colorSettingToCss } from '../utils/themeColors';
-import { textContentToMarkdown } from './inlineMarkdown';
-import { createTextContent, TextAlignment, textDefaultProps } from './model';
+import { plainTextToMarkdown } from './markdownEscaping';
+import { TextAlignment, textDefaultProps } from './model';
 import {
   TEXT_NODE_SOCKETS,
   TEXT_NODE_TYPE,
@@ -102,9 +102,7 @@ function migrateNode(
 
   const content = inputIsLinked
     ? formatToken({ path: [LEGACY_INPUT] })
-    : textContentToMarkdown(
-        createTextContent(input?.data == null ? '' : String(input.data)),
-      );
+    : plainTextToMarkdown(input?.data == null ? '' : String(input.data));
 
   const values = textPropsToSocketValues({
     ...textDefaultProps,

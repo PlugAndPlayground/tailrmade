@@ -1,6 +1,6 @@
 import type { EditorThemeClasses } from 'lexical';
 
-export const textEditorTheme: EditorThemeClasses = {
+export const textEditorTheme = {
   ltr: 'ltr',
   rtl: 'rtl',
   paragraph: 'editor-paragraph',
@@ -66,4 +66,4 @@ export const textEditorTheme: EditorThemeClasses = {
     url: 'editor-tokenOperator',
     variable: 'editor-tokenVariable',
   },
-};
+} satisfies EditorThemeClasses;

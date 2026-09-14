@@ -14,27 +14,25 @@ import { TokenNode } from './TokenNode';
 import { textEditorTheme } from './theme';
 
 export type TextHostProfile = {
-  // headings, lists, quotes, code blocks and tables, persisted as Markdown
-  markdown: boolean;
+  // text placed in a layout: a compact toolbar, undo on the keyboard only
+  inline: boolean;
   tokens: boolean;
 };
 
 export const TEXT_EDITOR2_PROFILE: TextHostProfile = {
-  markdown: true,
+  inline: false,
   tokens: true,
 };
 export const STATIC_TEXT_PROFILE: TextHostProfile = {
-  markdown: false,
+  inline: true,
   tokens: false,
 };
 export const DYNAMIC_TEXT_PROFILE: TextHostProfile = {
-  markdown: false,
+  inline: true,
   tokens: true,
 };
 
-const INLINE_NODES: Klass<LexicalNode>[] = [LinkNode, AutoLinkNode, TokenNode];
-
-const MARKDOWN_NODES: Klass<LexicalNode>[] = [
+export const TEXT_NODES: Klass<LexicalNode>[] = [
   HeadingNode,
   ListNode,
   ListItemNode,
@@ -44,7 +42,9 @@ const MARKDOWN_NODES: Klass<LexicalNode>[] = [
   TableNode,
   TableCellNode,
   TableRowNode,
-  ...INLINE_NODES,
+  LinkNode,
+  AutoLinkNode,
+  TokenNode,
 ];
 
 export type TextEditorConfig = {
@@ -54,17 +54,11 @@ export type TextEditorConfig = {
   onError: (error: Error) => void;
 };
 
-export function createTextEditorConfig(
-  profile: TextHostProfile,
-  namespace: string,
-): TextEditorConfig {
+export function createTextEditorConfig(namespace: string): TextEditorConfig {
   return {
     namespace,
-    // inline text sits in a layout, so its paragraphs carry no margins
-    theme: profile.markdown
-      ? textEditorTheme
-      : { ...textEditorTheme, paragraph: 'text-inline-paragraph' },
-    nodes: profile.markdown ? MARKDOWN_NODES : INLINE_NODES,
+    theme: textEditorTheme,
+    nodes: TEXT_NODES,
     onError(error) {
       throw error;
     },
@@ -72,8 +66,6 @@ export function createTextEditorConfig(
 }
 
 /** An editor with no DOM, for converting between formats. */
-export function createHeadlessTextEditor(
-  profile: TextHostProfile,
-): LexicalEditor {
-  return createEditor(createTextEditorConfig(profile, 'TextConverter'));
+export function createHeadlessTextEditor(): LexicalEditor {
+  return createEditor(createTextEditorConfig('TextConverter'));
 }

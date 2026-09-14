@@ -22,9 +22,8 @@ import {
 } from '../utils/interfaces';
 import { SOCKET_NAME_DASHBOARD_CONTENT } from '../utils/layoutableHelpers';
 import type { SerializedCraftTree } from '../utils/surfaceTree';
-import { textContentToMarkdown } from './inlineMarkdown';
-import { markdownToTextContent } from './lexical/markdown';
-import { bakeTokens, normalizeTextProps } from './model';
+import { bakeMarkdownTokens } from './lexical/markdown';
+import { normalizeTextProps } from './model';
 import { getTokenInputs } from './nodeInputs';
 import {
   TEXT_NODE_TYPE,
@@ -309,10 +308,8 @@ export function convertDynamicTextToStatic(nodeId: string): Promise<boolean> {
   const staticProps: Record<string, unknown> = {
     ...getDynamicWidgetPlacementProps(placement.props),
     ...textProps,
-    content: textContentToMarkdown(
-      bakeTokens(markdownToTextContent(textProps.content, true), (source) =>
-        renderTokenSource(source, inputs),
-      ),
+    content: bakeMarkdownTokens(textProps.content, (source) =>
+      renderTokenSource(source, inputs),
     ),
   };
 

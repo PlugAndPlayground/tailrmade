@@ -1,62 +1,42 @@
-// Text content (the headless model) <-> Lexical, for the inline hosts. Run
-// marks map to bold/italic/strikethrough/code formats, link nodes, and a
-// style string that only ever holds a tone variable and nowrap.
-import { $createLinkNode, $isLinkNode } from '@lexical/link';
+// Run styling shared by every text host: formats are bold, italic,
+// strikethrough and code, and a run's CSS only ever holds a tone variable and
+// nowrap, which Markdown stores as [text]{.tone .nowrap}.
 import {
   $getSelectionStyleValueForProperty,
   $patchStyleText,
   getStyleObjectFromCSS,
 } from '@lexical/selection';
 import {
-  $createLineBreakNode,
-  $createParagraphNode,
-  $createTextNode,
-  $getRoot,
   $getSelection,
-  $isElementNode,
-  $isLineBreakNode,
   $isRangeSelection,
-  $isTextNode,
-  ElementNode,
   LexicalEditor,
   RangeSelection,
   TEXT_TYPE_TO_FORMAT,
   TextFormatType,
   TextNode,
 } from 'lexical';
-import {
-  normalizeTextContent,
-  sanitizeLink,
-  TEXT_TONES,
-  TextContent,
-  TextMarks,
-  TextRun,
-  TextTone,
-  toneCssVariable,
-} from '../model';
-import { $createTokenNode, $isTokenNode, TokenNode } from './TokenNode';
+import { TEXT_TONES, TextTone, toneCssVariable } from '../model';
+import { $isTokenNode } from './TokenNode';
 
-const MARK_FORMATS = [
-  ['strong', 'bold'],
-  ['emphasis', 'italic'],
-  ['strikethrough', 'strikethrough'],
-  ['code', 'code'],
-] as const satisfies readonly (readonly [keyof TextMarks, TextFormatType])[];
+const ALLOWED_FORMATS: TextFormatType[] = [
+  'bold',
+  'italic',
+  'strikethrough',
+  'code',
+];
 
-const ALLOWED_FORMAT_BITS = MARK_FORMATS.reduce(
-  (bits, [, format]) => bits | TEXT_TYPE_TO_FORMAT[format],
+const ALLOWED_FORMAT_BITS = ALLOWED_FORMATS.reduce(
+  (bits, format) => bits | TEXT_TYPE_TO_FORMAT[format],
   0,
 );
 
 const TONE_VARIABLE = /^var\(--text-tone-([a-z]+)\)$/;
+const NOWRAP_CLASS = 'nowrap';
 
-type StyleMarks = Pick<TextMarks, 'tone' | 'nowrap'>;
+type StyleMarks = { tone?: TextTone; nowrap?: boolean };
 
-/** The only run-level CSS an inline host stores. */
-export function styleForMarks(marks: {
-  tone?: TextTone;
-  nowrap?: boolean;
-}): string {
+/** The only run-level CSS a text host stores. */
+export function styleForMarks(marks: StyleMarks): string {
   return [
     marks.tone && marks.tone !== 'default'
       ? `color: var(${toneCssVariable(marks.tone)});`
@@ -85,6 +65,26 @@ export function styleMarks(style: string): StyleMarks {
   return styleMarksFromCss(getStyleObjectFromCSS(style));
 }
 
+/** A run's style as Markdown classes, `.error .nowrap`; empty without one. */
+export function styleToClasses(style: string): string {
+  const { tone, nowrap } = styleMarks(style);
+  return [tone && `.${tone}`, nowrap && `.${NOWRAP_CLASS}`]
+    .filter(Boolean)
+    .join(' ');
+}
+
+export function classesToStyle(classes: string): string {
+  const marks: StyleMarks = {};
+  classes.split(/[\s.]+/).forEach((name) => {
+    if (name === NOWRAP_CLASS) {
+      marks.nowrap = true;
+    } else if (TEXT_TONES.includes(name as TextTone)) {
+      marks.tone = name as TextTone;
+    }
+  });
+  return styleForMarks(marks);
+}
+
 export function $getSelectionStyleMarks(selection: RangeSelection): StyleMarks {
   return styleMarksFromCss({
     color: $getSelectionStyleValueForProperty(selection, 'color', ''),
@@ -97,10 +97,7 @@ export function $getSelectionStyleMarks(selection: RangeSelection): StyleMarks {
 }
 
 /** Sets tone and/or nowrap on the selected text and tokens. */
-export function $setSelectionStyleMarks(patch: {
-  tone?: TextTone;
-  nowrap?: boolean;
-}): void {
+export function $setSelectionStyleMarks(patch: StyleMarks): void {
   const selection = $getSelection();
   if (!$isRangeSelection(selection)) {
     return;
@@ -126,99 +123,9 @@ export function $setSelectionStyleMarks(patch: {
     );
 }
 
-function marksOf(node: TextNode | TokenNode, link?: string): TextMarks {
-  const marks: TextMarks = styleMarks(node.getStyle());
-  MARK_FORMATS.forEach(([mark, format]) => {
-    if (node.hasFormat(format)) marks[mark] = true;
-  });
-  if (link) marks.link = link;
-  return marks;
-}
-
-function $runsOf(element: ElementNode, link?: string): TextRun[] {
-  return element.getChildren().flatMap((child): TextRun[] => {
-    if ($isLinkNode(child)) {
-      return $runsOf(child, sanitizeLink(child.getURL()));
-    }
-    if ($isTokenNode(child)) {
-      return [
-        {
-          type: 'token',
-          source: child.getSource(),
-          marks: marksOf(child, link),
-        },
-      ];
-    }
-    if ($isLineBreakNode(child)) {
-      return [{ type: 'break' }];
-    }
-    if ($isTextNode(child)) {
-      return [
-        {
-          type: 'text',
-          text: child.getTextContent(),
-          marks: marksOf(child, link),
-        },
-      ];
-    }
-    return $isElementNode(child) ? $runsOf(child, link) : [];
-  });
-}
-
-export function $lexicalToContent(): TextContent {
-  return normalizeTextContent({
-    version: 1,
-    paragraphs: $getRoot()
-      .getChildren()
-      .map((block) => ({ runs: $isElementNode(block) ? $runsOf(block) : [] })),
-  });
-}
-
-function $applyMarks<T extends TextNode | TokenNode>(
-  node: T,
-  marks: TextMarks = {},
-): T {
-  node.setFormat(
-    MARK_FORMATS.reduce(
-      (bits, [mark, format]) =>
-        marks[mark] ? bits | TEXT_TYPE_TO_FORMAT[format] : bits,
-      0,
-    ),
-  );
-  node.setStyle(styleForMarks(marks));
-  return node;
-}
-
-export function $contentToLexical(content: TextContent): void {
-  const root = $getRoot();
-  root.clear();
-  content.paragraphs.forEach((paragraph) => {
-    const block = $createParagraphNode();
-    let link: ElementNode | undefined;
-    let href: string | undefined;
-    paragraph.runs.forEach((run) => {
-      const runHref = run.type === 'break' ? undefined : run.marks?.link;
-      if (runHref !== href) {
-        href = runHref;
-        link = href ? $createLinkNode(href) : undefined;
-        if (link) block.append(link);
-      }
-      const parent = link ?? block;
-      if (run.type === 'break') {
-        parent.append($createLineBreakNode());
-      } else if (run.type === 'token') {
-        parent.append($applyMarks($createTokenNode(run.source), run.marks));
-      } else {
-        parent.append($applyMarks($createTextNode(run.text), run.marks));
-      }
-    });
-    root.append(block);
-  });
-}
-
 /**
- * Keeps typed and pasted text within the inline vocabulary: formats other
- * than bold/italic/strikethrough/code and any CSS beyond tone and nowrap are
+ * Keeps typed and pasted text within what Markdown stores: formats other than
+ * bold/italic/strikethrough/code and any CSS beyond tone and nowrap are
  * dropped.
  */
 export function registerInlineTextSanitizer(editor: LexicalEditor): () => void {

@@ -50,8 +50,8 @@ import {
   TEXT_EDITOR2_PROFILE,
 } from '../../text/lexical/editorConfig';
 import {
-  $exportMarkdown,
   htmlToMarkdown,
+  lexicalStateToMarkdown,
   MARKDOWN_TRANSFORMERS,
   markdownToLexicalState,
 } from '../../text/lexical/markdown';
@@ -303,7 +303,7 @@ export class TextEditor2 extends HybridNode2 {
     const tokenInputs = getTokenInputs(node);
 
     const editorConfig = useMemo(
-      () => createTextEditorConfig(TEXT_EDITOR2_PROFILE, 'TextEditor2'),
+      () => createTextEditorConfig('TextEditor2'),
       [],
     );
 
@@ -481,14 +481,13 @@ export class TextEditor2 extends HybridNode2 {
     };
 
     // the markdown is the source of truth: whenever the editor is not being
-    // typed in, it shows exactly what the markdown holds (which also drops
-    // empty paragraphs left behind while typing)
+    // typed in, it shows exactly what the markdown holds
     useEffect(() => {
       const editor = editorRef.current;
       const markdown = props[textEditorMarkdownName];
       if (pauseUpdate || markdown == null || !editor) return;
       editor.setEditorState(
-        editor.parseEditorState(markdownToLexicalState(markdown)),
+        editor.parseEditorState(markdownToLexicalState(markdown, true)),
       );
     }, [props[textEditorMarkdownName], pauseUpdate]);
 
@@ -502,11 +501,13 @@ export class TextEditor2 extends HybridNode2 {
     const onChangeByInternal = () => {
       // EditorRefPlugin is a child, so its effect has set the ref by now
       const editor = editorRef.current!;
-      const hasAutoLinks = editor.getEditorState().read(
-        () => {
-          node.setInputData(textEditorMarkdownName, $exportMarkdown());
-          return $nodesOfType(AutoLinkNode).length > 0;
-        },
+      const editorState = editor.getEditorState();
+      node.setInputData(
+        textEditorMarkdownName,
+        lexicalStateToMarkdown(editorState.toJSON()),
+      );
+      const hasAutoLinks = editorState.read(
+        () => $nodesOfType(AutoLinkNode).length > 0,
         { editor },
       );
 
@@ -594,9 +595,7 @@ export class TextEditor2 extends HybridNode2 {
                   <TokenBehaviourPlugin />
                   <TokenPickerPlugin
                     {...getTokenPickerProps(node)}
-                    onCreateInput={(name) =>
-                      createTokenInput(node, name)
-                    }
+                    onCreateInput={(name) => createTokenInput(node, name)}
                   />
                   {floatingAnchorElem && (
                     <FloatingLinkEditorPlugin

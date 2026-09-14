@@ -1,16 +1,12 @@
+// The Markdown every text host stores, read and written by Lexical. On top of
+// its transformers: Handlebars tokens, [text]{.tone .nowrap} spans, escaped
+// block markers, and one paragraph per line.
 import { $generateNodesFromDOM } from '@lexical/html';
-import { $createLinkNode, LinkNode } from '@lexical/link';
+import { $createLinkNode, $isLinkNode, LinkNode } from '@lexical/link';
 import {
   $convertFromMarkdownString,
   $convertToMarkdownString,
-  BOLD_ITALIC_STAR,
-  BOLD_ITALIC_UNDERSCORE,
-  BOLD_STAR,
-  BOLD_UNDERSCORE,
-  INLINE_CODE,
-  ITALIC_STAR,
-  ITALIC_UNDERSCORE,
-  STRIKETHROUGH,
+  LINK,
   TextMatchTransformer,
   Transformer,
   TRANSFORMERS,
@@ -22,21 +18,28 @@ import {
   $getRoot,
   $isElementNode,
   $isTextNode,
+  createEditor,
+  ElementNode,
+  LexicalNode,
+  NodeKey,
   SerializedEditorState,
+  SerializedElementNode,
+  Spread,
 } from 'lexical';
-import { marksFromClasses } from '../inlineMarkdown';
-import { TextContent } from '../model';
+import { PARAGRAPH_ESCAPE } from '../markdownEscaping';
 import { legacyMentionToTokenSource } from '../tokens';
-import { $lexicalToContent, styleForMarks } from './content';
+import { classesToStyle, styleToClasses } from './content';
 import {
   createHeadlessTextEditor,
-  DYNAMIC_TEXT_PROFILE,
-  TEXT_EDITOR2_PROFILE,
+  createTextEditorConfig,
+  TEXT_NODES,
 } from './editorConfig';
 import {
   $createTokenNode,
+  $getRenderedTextContent,
   $isTokenNode,
   $tokenizeTextNode,
+  TokenInputs,
   TokenNode,
 } from './TokenNode';
 
@@ -46,6 +49,7 @@ const FORMAT_MARKERS = [
   ['italic', '*'],
   ['strikethrough', '~~'],
 ] as const;
+const CLASSES = /\{((?:\s*\.[\w-]+)+\s*)\}/.source;
 
 // export only: tokens are imported by $tokenizeTextNode, so the Handlebars
 // parser rather than a regular expression decides what a token is
@@ -82,117 +86,214 @@ const LEGACY_MENTION_TRANSFORMER: TextMatchTransformer = {
   type: 'text-match',
 };
 
-export const MARKDOWN_TRANSFORMERS: Transformer[] = [
-  LEGACY_MENTION_TRANSFORMER,
-  TOKEN_TRANSFORMER,
-  ...TRANSFORMERS,
-];
+type SerializedStyleSpanNode = Spread<
+  { classes: string },
+  SerializedElementNode
+>;
 
-function $tokenizeAll(): void {
+// export only: wraps equally styled runs, so emphasis around them closes at
+// the span's edges the way it does at a link's
+class StyleSpanNode extends ElementNode {
+  __classes: string;
+
+  static getType(): string {
+    return 'text-style-span';
+  }
+
+  static clone(node: StyleSpanNode): StyleSpanNode {
+    return new StyleSpanNode(node.__classes, node.__key);
+  }
+
+  static importJSON(json: SerializedStyleSpanNode): StyleSpanNode {
+    return new StyleSpanNode(json.classes);
+  }
+
+  constructor(classes: string, key?: NodeKey) {
+    super(key);
+    this.__classes = classes;
+  }
+
+  exportJSON(): SerializedStyleSpanNode {
+    return { ...super.exportJSON(), classes: this.__classes };
+  }
+
+  isInline(): true {
+    return true;
+  }
+}
+
+const runClasses = (node: LexicalNode) =>
+  $isTextNode(node) || $isTokenNode(node)
+    ? styleToClasses(node.getStyle())
+    : '';
+
+function $wrapStyledRuns(): void {
   $dfs().forEach(({ node }) => {
-    if ($isTextNode(node)) {
-      $tokenizeTextNode(node);
+    // a link carries its children's style itself
+    if (!$isElementNode(node) || $isLinkNode(node)) {
+      return;
     }
+    let span: StyleSpanNode | undefined;
+    node.getChildren().forEach((child) => {
+      const classes = runClasses(child);
+      if (!classes) {
+        span = undefined;
+        return;
+      }
+      if (span?.__classes !== classes) {
+        span = new StyleSpanNode(classes);
+        child.insertBefore(span);
+      }
+      span.append(child);
+    });
   });
-}
-
-export function $importMarkdown(markdown: string): void {
-  $convertFromMarkdownString(markdown, MARKDOWN_TRANSFORMERS);
-  $tokenizeAll();
-}
-
-export function $exportMarkdown(): string {
-  return $convertToMarkdownString(MARKDOWN_TRANSFORMERS);
 }
 
 const isEscaped = (text: string, index: number) =>
   /\\*$/.exec(text.slice(0, index))![0].length % 2 === 1;
 
-// import only: [text]{.primary .nowrap}, [text](url), [text](url){.muted}. The
-// text holds no unescaped brackets - textContentToMarkdown escapes them
-const LINK_OR_SPAN_TRANSFORMER: TextMatchTransformer = {
-  dependencies: [LinkNode],
-  export: () => null,
-  importRegExp:
-    /\[((?:\\.|`[^`]*`|[^\\[\]`])*)\](?:\(((?:[^()\s]|\([^()\s]*\))*)\)(?:\{((?:\s*\.[\w-]+)+\s*)\})?|\{((?:\s*\.[\w-]+)+\s*)\})/,
+// [text]{.error .nowrap}
+const STYLE_SPAN_TRANSFORMER: TextMatchTransformer = {
+  dependencies: [],
+  export: (node, exportChildren) =>
+    node instanceof StyleSpanNode
+      ? `[${exportChildren(node)}]{${node.__classes}}`
+      : null,
+  importRegExp: new RegExp(/\[((?:\\.|`[^`]*`|[^\\[\]`])*)\]/.source + CLASSES),
   getEndIndex: (node, match) =>
     isEscaped(node.getTextContent(), match.index!)
       ? false
       : match.index! + match[0].length,
   regExp: NEVER,
-  replace: (textNode, [, text, url, linkClasses, spanClasses]) => {
+  replace: (textNode, [, text, classes]) => {
     const inner = $createTextNode(text)
       .setFormat(textNode.getFormat())
-      .setStyle(
-        styleForMarks(marksFromClasses(linkClasses ?? spanClasses ?? '')),
-      );
-    textNode.replace(
-      url === undefined ? inner : $createLinkNode(url).append(inner),
-    );
+      .setStyle(classesToStyle(classes));
+    textNode.replace(inner);
     return inner;
   },
   type: 'text-match',
 };
 
-const INLINE_TRANSFORMERS: Transformer[] = [
-  INLINE_CODE,
-  BOLD_ITALIC_STAR,
-  BOLD_ITALIC_UNDERSCORE,
-  BOLD_STAR,
-  BOLD_UNDERSCORE,
-  ITALIC_STAR,
-  ITALIC_UNDERSCORE,
-  STRIKETHROUGH,
-  LINK_OR_SPAN_TRANSFORMER,
+// [text](url){.muted}: Lexical's link, then the classes of all its text
+const STYLED_LINK_TRANSFORMER: TextMatchTransformer = {
+  dependencies: [LinkNode],
+  export: (node, exportChildren, exportFormat) => {
+    if (!$isLinkNode(node)) {
+      return null;
+    }
+    const classes = new Set(node.getChildren().map(runClasses));
+    const [only] = classes;
+    const link =
+      classes.size === 1 && only
+        ? LINK.export!(node, exportChildren, exportFormat)
+        : null;
+    return link && `${link}{${only}}`;
+  },
+  importRegExp: new RegExp(LINK.importRegExp!.source + CLASSES),
+  regExp: NEVER,
+  replace: (textNode, match) => {
+    const linkText = LINK.replace!(textNode, match);
+    linkText?.setStyle(classesToStyle(match[match.length - 1]));
+    return linkText;
+  },
+  type: 'text-match',
+};
+
+// a match at the same index goes to the transformer listed first, and the
+// span goes before links: their text may run across brackets
+const FORMAT_TRANSFORMERS: Transformer[] = [
+  TOKEN_TRANSFORMER,
+  STYLE_SPAN_TRANSFORMER,
+  STYLED_LINK_TRANSFORMER,
+  PARAGRAPH_ESCAPE,
+  ...TRANSFORMERS,
 ];
 
-/**
- * Reads the inline Markdown static Text and the Text node store; the writer
- * is textContentToMarkdown. With tokens off, `{{…}}` stays text.
- */
-export function markdownToTextContent(
-  markdown: string,
-  tokens: boolean,
-): TextContent {
-  const editor = createHeadlessTextEditor(DYNAMIC_TEXT_PROFILE);
-  let content!: TextContent;
-  editor.update(
-    () => {
-      $convertFromMarkdownString(
-        markdown,
-        INLINE_TRANSFORMERS,
-        undefined,
-        true,
-      );
-      if (tokens) {
-        $tokenizeAll();
-      }
-      content = $lexicalToContent();
-    },
-    { discrete: true },
+export const MARKDOWN_TRANSFORMERS: Transformer[] = [
+  LEGACY_MENTION_TRANSFORMER,
+  ...FORMAT_TRANSFORMERS,
+];
+
+/** With tokens off, `{{…}}` and legacy mentions stay text. */
+export function $importMarkdown(markdown: string, tokens: boolean): void {
+  $convertFromMarkdownString(
+    markdown,
+    tokens ? MARKDOWN_TRANSFORMERS : FORMAT_TRANSFORMERS,
+    undefined,
+    true,
   );
-  return content;
+  if (tokens) {
+    $dfs().forEach(({ node }) => {
+      if ($isTextNode(node)) {
+        $tokenizeTextNode(node);
+      }
+    });
+  }
 }
 
 export function markdownToLexicalState(
   markdown: string,
+  tokens: boolean,
 ): SerializedEditorState {
-  const editor = createHeadlessTextEditor(TEXT_EDITOR2_PROFILE);
-  editor.update(() => $importMarkdown(markdown), { discrete: true });
+  const editor = createHeadlessTextEditor();
+  editor.update(() => $importMarkdown(markdown, tokens), { discrete: true });
   return editor.getEditorState().toJSON();
 }
 
 export function lexicalStateToMarkdown(state: SerializedEditorState): string {
-  const editor = createHeadlessTextEditor(TEXT_EDITOR2_PROFILE);
-  return editor.parseEditorState(state).read(() => $exportMarkdown(), {
-    editor,
+  // styled runs get wrapped, so this works on a copy
+  const editor = createEditor({
+    ...createTextEditorConfig('MarkdownExport'),
+    nodes: [...TEXT_NODES, StyleSpanNode],
   });
+  let markdown = '';
+  editor.parseEditorState(state, () => {
+    $wrapStyledRuns();
+    markdown = $convertToMarkdownString(MARKDOWN_TRANSFORMERS, undefined, true);
+  });
+  return markdown;
+}
+
+/** What an end user reads: tokens rendered, each block on its own line. */
+export function markdownToPlainText(
+  markdown: string,
+  inputs: TokenInputs,
+): string {
+  const editor = createHeadlessTextEditor();
+  editor.update(() => $importMarkdown(markdown, true), { discrete: true });
+  return editor
+    .getEditorState()
+    .read(() => $getRenderedTextContent(inputs), { editor });
+}
+
+/** Replaces every token with the text it renders, format and style kept. */
+export function bakeMarkdownTokens(
+  markdown: string,
+  render: (source: string) => string,
+): string {
+  const editor = createHeadlessTextEditor();
+  editor.update(
+    () => {
+      $importMarkdown(markdown, true);
+      $dfs().forEach(({ node }) => {
+        if ($isTokenNode(node)) {
+          node.replace(
+            $createTextNode(render(node.getSource()))
+              .setFormat(node.getFormat())
+              .setStyle(node.getStyle()),
+          );
+        }
+      });
+    },
+    { discrete: true },
+  );
+  return lexicalStateToMarkdown(editor.getEditorState().toJSON());
 }
 
 /** Needs a DOM (DOMParser), so browser only. */
 export function htmlToMarkdown(html: string): string {
-  const editor = createHeadlessTextEditor(TEXT_EDITOR2_PROFILE);
-  let markdown = '';
+  const editor = createHeadlessTextEditor();
   editor.update(
     () => {
       const dom = new DOMParser().parseFromString(html, 'text/html');
@@ -204,9 +305,8 @@ export function htmlToMarkdown(html: string): string {
             : $createParagraphNode().append(node),
         );
       });
-      markdown = $exportMarkdown();
     },
     { discrete: true },
   );
-  return markdown;
+  return lexicalStateToMarkdown(editor.getEditorState().toJSON());
 }

@@ -1,13 +1,8 @@
 // Headless migrations of persisted text into the v2 model. Graph migrations
 // import this early, so keep React, PIXI, MUI and node classes out.
 import { ColorSetting, colorSettingToCss } from '../utils/themeColors';
-import { textContentToMarkdown } from './inlineMarkdown';
-import {
-  createTextContent,
-  TEXT_ALIGNMENTS,
-  TextAlignment,
-  textDefaultProps,
-} from './model';
+import { plainTextToMarkdown } from './markdownEscaping';
+import { TEXT_ALIGNMENTS, TextAlignment, textDefaultProps } from './model';
 
 export const STATIC_TEXT_ITEM_TYPE = 'Text';
 
@@ -59,7 +54,7 @@ export function migrateLegacyStaticTextProps(
   const { text, fontSize, fontWeight, textAlign, color, ...rest } = props;
   return {
     ...rest,
-    content: textContentToMarkdown(createTextContent(text)),
+    content: plainTextToMarkdown(text),
     variant: textDefaultProps.variant,
     tone: textDefaultProps.tone,
     alignment: TEXT_ALIGNMENTS.includes(textAlign as TextAlignment)

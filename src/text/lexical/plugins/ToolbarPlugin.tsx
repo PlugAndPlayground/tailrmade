@@ -447,9 +447,6 @@ function ToolbarPlugin({
   );
 
   useEffect(() => {
-    if (!profile.markdown) {
-      return;
-    }
     const keyBindings = {
       'Mod-Alt-Digit0': () => {
         formatParagraph();
@@ -680,7 +677,7 @@ function ToolbarPlugin({
       }}
     >
       {/* inline hosts keep undo on the keyboard */}
-      {profile.markdown && (
+      {!profile.inline && (
         <>
           <ButtonGroup variant="outlined" size="small">
             <StyledIconButton
@@ -709,18 +706,16 @@ function ToolbarPlugin({
           <Divider orientation="vertical" flexItem />
         </>
       )}
-      {profile.markdown &&
-        blockType in blockTypeToBlockName &&
-        activeEditor === editor && (
-          <BlockFormatDropDown
-            blockType={blockType}
-            toolbarRef={toolbarRef}
-            blockTypeToBlockName={blockTypeToBlockName}
-            showBlockTypeDropDown={showBlockTypeDropDown}
-            setShowBlockTypeDropDown={setShowBlockTypeDropDown}
-          />
-        )}
-      {profile.markdown && blockType === 'code' ? (
+      {blockType in blockTypeToBlockName && activeEditor === editor && (
+        <BlockFormatDropDown
+          blockType={blockType}
+          toolbarRef={toolbarRef}
+          blockTypeToBlockName={blockTypeToBlockName}
+          showBlockTypeDropDown={showBlockTypeDropDown}
+          setShowBlockTypeDropDown={setShowBlockTypeDropDown}
+        />
+      )}
+      {!profile.inline && blockType === 'code' ? (
         <Select
           onChange={onCodeLanguageSelect}
           value={codeLanguage}
@@ -821,7 +816,7 @@ function ToolbarPlugin({
             <FormatClearIcon fontSize="small" />
           </StyledIconButton>
           <Divider orientation="vertical" flexItem />
-          {!profile.markdown && (
+          {profile.inline && (
             <StyledToggleButton
               disabled={!isEditable}
               onClick={() => {
@@ -837,7 +832,7 @@ function ToolbarPlugin({
               <WrapTextIcon fontSize="small" />
             </StyledToggleButton>
           )}
-          {profile.markdown && (
+          {!profile.inline && (
             <ToggleButtonGroup>
               <StyledToggleButton
                 onClick={() => {

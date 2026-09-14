@@ -132,7 +132,7 @@ export interface ContainerSpecItem extends SpecItemIdentity {
 }
 
 export interface TextSpecItem extends SpecItemIdentity {
-  // inline Markdown - the item's content prop as it is
+  // Markdown - the item's content prop as it is
   text: string;
   variant?: TextVariant;
   tone?: TextTone;

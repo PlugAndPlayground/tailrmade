@@ -6,16 +6,14 @@ import { JSONType } from './datatypes/jsonType';
 import { DynamicInputNodeFunctions } from './abstract/DynamicInputNode';
 import { InlineTextEditor } from '../text/lexical/InlineTextEditor';
 import { DYNAMIC_TEXT_PROFILE } from '../text/lexical/editorConfig';
-import { markdownToTextContent } from '../text/lexical/markdown';
+import { markdownToPlainText } from '../text/lexical/markdown';
 import {
   resolveTextElementStyle,
   TEXT_ALIGNMENTS,
   TEXT_TONES,
   TEXT_VARIANTS,
-  textContentToPlain,
   textDefaultProps,
 } from '../text/model';
-import { renderTokenSource } from '../text/tokens';
 import {
   createTokenInput,
   getTokenInputs,
@@ -764,9 +762,10 @@ for a field of an object input. Only paths work - no blocks or helpers, so
 format a value with other nodes before it reaches an input. A token whose
 input is missing or null shows nothing.
 
-"Content" is inline Markdown with tokens: **bold**, *italic*, \`code\`,
-[link](https://…), and [words]{.primary .nowrap} for a run's tone or no-wrap;
-each line is a paragraph.
+"Content" is Markdown with tokens: # headings, - lists, > quotes, code
+blocks, **bold**, *italic*, \`code\`, [link](https://…), and
+[words]{.primary .nowrap} for a run's tone or no-wrap; each line is a
+paragraph, so a blank line is an empty one.
 Styling: Variant (display|h1|h2|body|caption|label|stat) sets size, weight and
 line height; Tone (default|muted|primary|secondary|success|warning|error) a
 theme color; Alignment. "Custom styles" takes CSS for anything else.
@@ -902,10 +901,9 @@ Connecting an output to this node adds an input named after that output.
   }
 
   protected async onExecute(input: any, output: any): Promise<void> {
-    const inputs = getTokenInputs(this);
-    output[TEXT_NODE_SOCKETS.output] = textContentToPlain(
-      markdownToTextContent(textPropsFromSocketValues(input).content, true),
-      (source) => renderTokenSource(source, inputs),
+    output[TEXT_NODE_SOCKETS.output] = markdownToPlainText(
+      textPropsFromSocketValues(input).content,
+      getTokenInputs(this),
     );
     await super.onExecute(input, output);
   }
