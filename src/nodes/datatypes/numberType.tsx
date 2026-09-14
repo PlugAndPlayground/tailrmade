@@ -112,7 +112,7 @@ export class NumberType extends AbstractType {
   }
 
   recommendedInputNodeWidgets(): string[] {
-    return ['widgetslider', 'constant_number'];
+    return ['widgetslider', 'widgetnumberfield', 'constant_number'];
   }
 
   prefersToChangeAwayFromThisType(): boolean {
