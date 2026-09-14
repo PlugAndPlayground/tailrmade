@@ -25,7 +25,7 @@ import {
   AI_AGENT_PROVIDERS,
   getDefaultAIModel,
   getAIAgentProvider,
-  getAIModelsForProvider,
+  getAIAgentModelsForProvider,
   type AIAgentProvider,
 } from '../services/aiModels';
 import {
@@ -278,7 +278,7 @@ const AIConversationBrowser = () => {
                 onChange={(event) => setSelectedModel(event.target.value)}
                 sx={selectSx}
               >
-                {getAIModelsForProvider(selectedProvider).map((model) => (
+                {getAIAgentModelsForProvider(selectedProvider).map((model) => (
                   <MenuItem key={model.value} value={model.value}>
                     {model.label}
                   </MenuItem>

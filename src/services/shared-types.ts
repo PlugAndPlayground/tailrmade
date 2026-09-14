@@ -1,4 +1,5 @@
 // Browser-safe contracts shared with the backend API.
+import { DEFAULT_MODEL } from './aiModels';
 
 export const CLOUD_MODE = process.env.CLOUD_MODE !== 'false';
 export const EXECUTION_LOCATION_CLOUD = 'cloud' as const;
@@ -100,7 +101,7 @@ export function getDefaultPreferences(uid: string): UserPreferences {
       : EXECUTION_LOCATION_LOCAL,
     graphSortMode: 'date',
     graphSortDirection: true,
-    aiAgentModel: 'claude-sonnet-4-6',
+    aiAgentModel: DEFAULT_MODEL,
     aiAutoCapture: true,
   };
 }
