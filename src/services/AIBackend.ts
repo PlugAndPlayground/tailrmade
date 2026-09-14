@@ -7,6 +7,7 @@ import {
   DEFAULT_MODEL,
   DEFAULT_MODEL_GEMINI,
   getAIAgentProvider,
+  getAIModelDefinition,
   type AIProvider,
 } from './aiModels';
 import {
@@ -1304,9 +1305,11 @@ export class AIBackend {
       return {
         success: true,
         status: 200,
-        data: images?.length
-          ? responseData
-          : { content: [{ type: 'text', text: turn.text }] },
+        data:
+          images?.length ||
+          getAIModelDefinition(provider, model)?.generatesImages
+            ? responseData
+            : { content: [{ type: 'text', text: turn.text }] },
       };
     } catch (error) {
       return this.buildFailedAIResponse(error);

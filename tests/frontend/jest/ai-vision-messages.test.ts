@@ -115,6 +115,7 @@ describe('prepareAIProviderTurn with a capture attached', () => {
       inlineData: { mimeType: 'image/webp', data: 'AAAA' },
     });
     expect(contents[0].parts[2].text).toContain(VISION_NOTE_PREFIX);
+    expect(body.generationConfig).not.toHaveProperty('responseModalities');
   });
 
   it('puts kimi tool messages ahead of the injected capture', () => {

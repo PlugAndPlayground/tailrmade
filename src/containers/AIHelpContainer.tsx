@@ -21,7 +21,7 @@ import {
   AI_AGENT_PROVIDERS,
   getDefaultAIModel,
   getAIAgentProvider,
-  getAIModelsForProvider,
+  getAIAgentModelsForProvider,
   type AIAgentProvider,
 } from '../services/aiModels';
 import InterfaceController, { ListenEvent } from '../InterfaceController';
@@ -129,7 +129,7 @@ export const AIHelpContainer = () => {
                 },
               }}
             >
-              {getAIModelsForProvider(selectedProvider).map((model) => (
+              {getAIAgentModelsForProvider(selectedProvider).map((model) => (
                 <MenuItem key={model.value} value={model.value}>
                   {model.label}
                 </MenuItem>
