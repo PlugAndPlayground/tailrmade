@@ -22,6 +22,7 @@ import { StringType } from '../datatypes/stringType';
 import { BooleanType } from '../datatypes/booleanType';
 import { NumberType } from '../datatypes/numberType';
 import { EnumType, EnumStructure } from '../datatypes/enumType';
+import { AbstractType } from '../datatypes/abstractType';
 import { BackPropagation } from '../../interfaces';
 import { SOCKET_TYPE } from '../../utils/constants';
 import {
@@ -57,6 +58,13 @@ const textFieldDefaultLabel = 'Text Field';
 
 // Options
 const typeOptions: EnumStructure = [{ text: 'text' }, { text: 'password' }];
+
+const getFieldEndSockets = (outType: AbstractType): Socket[] => [
+  new Socket(SOCKET_TYPE.IN, requiredName, new BooleanType(), false, false),
+  getColorSocket(),
+  getSizeSocket(),
+  new Socket(SOCKET_TYPE.OUT, outName, outType),
+];
 
 export class WidgetTextField extends WidgetHybridBase {
   public getName(): string {
@@ -117,10 +125,7 @@ export class WidgetTextField extends WidgetHybridBase {
         0,
         false,
       ),
-      new Socket(SOCKET_TYPE.IN, requiredName, new BooleanType(), false, false),
-      getColorSocket(),
-      getSizeSocket(),
-      new Socket(SOCKET_TYPE.OUT, outName, new StringType()),
+      ...getFieldEndSockets(new StringType()),
     ];
   }
 
@@ -310,10 +315,7 @@ export class WidgetNumberField extends WidgetNumberBase {
       new Socket(SOCKET_TYPE.IN, helperTextName, new StringType(), '', false),
       new Socket(SOCKET_TYPE.IN, stepName, new NumberType(), 1, false),
       new Socket(SOCKET_TYPE.IN, steppersName, new BooleanType(), true, false),
-      new Socket(SOCKET_TYPE.IN, requiredName, new BooleanType(), false, false),
-      getColorSocket(),
-      getSizeSocket(),
-      new Socket(SOCKET_TYPE.OUT, outName, new NumberType()),
+      ...getFieldEndSockets(new NumberType()),
     ];
   }
 
