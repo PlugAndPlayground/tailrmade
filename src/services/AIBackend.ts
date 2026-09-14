@@ -7,6 +7,7 @@ import {
   DEFAULT_MODEL,
   DEFAULT_MODEL_GEMINI,
   getAIAgentProvider,
+  getAIModelDefinition,
   type AIProvider,
 } from './aiModels';
 import {
@@ -33,6 +34,7 @@ import {
   type AIInspectSource,
 } from './AIVisionService';
 import { startAILogRun, truncateForAILog } from './AIConversationLog';
+import { stripAIToolMarkers } from './aiToolMarkers';
 
 const LOCAL_COMPANION_AI_BASE_URL = 'http://localhost:6655/ai';
 
@@ -214,7 +216,7 @@ export class AIBackend {
   ): AnthropicConversationMessage[] {
     return conversation.map((entry) => ({
       role: entry.sender,
-      content: entry.content,
+      content: this.getModelFacingContent(entry),
     }));
   }
 
@@ -312,6 +314,13 @@ export class AIBackend {
     ];
   }
 
+  private getModelFacingContent(entry: AIConversationMessage): string {
+    if (entry.sender !== AIConversationSender.AI) {
+      return entry.content;
+    }
+    return stripAIToolMarkers(entry.content) || '(no written reply)';
+  }
+
   private buildProviderMessages(
     conversation: AIConversationMessage[],
     message: string,
@@ -320,7 +329,7 @@ export class AIBackend {
     return [
       ...conversation.map((entry) => ({
         role: entry.sender,
-        content: [{ type: 'text', text: entry.content }],
+        content: [{ type: 'text', text: this.getModelFacingContent(entry) }],
       })),
       {
         role: 'user',
@@ -793,7 +802,7 @@ export class AIBackend {
 
           if (result.is_error || !isInspectionTool) {
             assistantMessage += result.is_error
-              ? `\n*${toolName} failed: ${result.content}*`
+              ? `\n*${toolName} failed: ${String(result.content ?? '').replace(/\*/g, '')}*`
               : `\n*Used ${toolName}.*`;
             applyAssistantText(assistantMessage);
           }
@@ -1304,9 +1313,11 @@ export class AIBackend {
       return {
         success: true,
         status: 200,
-        data: images?.length
-          ? responseData
-          : { content: [{ type: 'text', text: turn.text }] },
+        data:
+          images?.length ||
+          getAIModelDefinition(provider, model)?.generatesImages
+            ? responseData
+            : { content: [{ type: 'text', text: turn.text }] },
       };
     } catch (error) {
       return this.buildFailedAIResponse(error);

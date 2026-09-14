@@ -18,7 +18,7 @@ import PPGraph from '../classes/GraphClass';
 import PPNode from '../classes/NodeClass';
 import Socket from '../classes/SocketClass';
 import { SourceContent } from '../components/SourceContent';
-import { NumberInput } from '../components/NumberInput';
+import { InspectorNumberInput } from '../components/NumberInput';
 import { SocketContainer, CommonSocket } from './SocketContainer';
 import InterfaceController, { ListenEvent } from '../InterfaceController';
 import { Interaction } from '../classes/selection/SelectionClass';
@@ -126,7 +126,7 @@ type CommonContentProps = {
   interval: boolean;
   intervalFrequency: number;
   onCheckboxChange: (event: any) => void;
-  onFrequencyChange: (value: number | null) => void;
+  onFrequencyChange: (value: number) => void;
   onUpdateNow: (event: any) => void;
 };
 
@@ -223,7 +223,7 @@ function CommonContent(props: CommonContentProps) {
         {/* Interval Input */}
         {props.interval && (
           <Box sx={{ gridColumn: '1/-1' }}>
-            <NumberInput
+            <InspectorNumberInput
               sx={{ width: '100%' }}
               size="small"
               min={0}
@@ -535,17 +535,16 @@ const onCheckboxChange = (
 };
 
 const onFrequencyChange = (
-  value: number | null,
+  value: number,
   selectedNodes: PPNode[],
   setUpdatebehaviour,
 ) => {
-  const frequency = value ?? 0;
   selectedNodes.forEach((selectedNode) => {
-    selectedNode.updateBehaviour.intervalFrequency = frequency;
+    selectedNode.updateBehaviour.intervalFrequency = value;
   });
   setUpdatebehaviour((prevState) => ({
     ...prevState,
-    intervalFrequency: frequency,
+    intervalFrequency: value,
   }));
 };
 
