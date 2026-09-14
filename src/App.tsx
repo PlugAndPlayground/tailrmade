@@ -206,6 +206,9 @@ const App = (): JSX.Element => {
           break;
         case target instanceof PPNode:
           console.log('app right click, node');
+          if (!target.selected) {
+            PPGraph.currentGraph.selection.selectNodes([target], false);
+          }
           setContextMenuPosition([contextMenuPosX, contextMenuPosY(220)]);
           setIsNodeContextMenuOpen(true);
           break;

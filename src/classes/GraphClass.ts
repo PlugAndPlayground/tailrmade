@@ -330,11 +330,6 @@ export default class PPGraph {
     }
     this.stopConnecting();
     this.selection.stopDragAction(undefined);
-
-    if (target instanceof PPNode && !target.selected) {
-      this.selection.selectNodes([target], false);
-    }
-
     InterfaceController.onRightClick(
       { global } as PIXI.FederatedPointerEvent,
       target,

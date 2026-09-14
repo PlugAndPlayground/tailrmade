@@ -1544,27 +1544,25 @@ ${Math.round(bounds.minX)}, ${Math.round(
 
     if (eventTarget == this) {
       const selection = PPGraph.currentGraph.selection;
-      if (event.button == 2) {
-        if (!this.selected) {
-          selection.selectNodes([this], false);
+      if (event.button != 2) {
+        if (event.shiftKey) {
+          selection.beginPendingClick(this, event, {
+            clearExistingSelection: false,
+            isShiftClick: true,
+            wasOnlySelectedAtPointerDown: false,
+          });
+          await selection.beginNodePointerInteraction(event);
+        } else if (PPGraph.currentGraph.socketFocus.hovered != undefined) {
+          // this clause is a bit hacky, it happened for me under some edge cases where i would drag the selected node (macro in my case) instead of dragging socket connection
+          PPGraph.currentGraph.socketFocus.hovered.onSocketPointerDown(event);
+        } else {
+          selection.beginPendingClick(this, event, {
+            clearExistingSelection: !this.selected,
+            isShiftClick: false,
+            wasOnlySelectedAtPointerDown: selection.isOnlySelectedNode(this),
+          });
+          await selection.beginNodePointerInteraction(event);
         }
-      } else if (event.shiftKey) {
-        selection.beginPendingClick(this, event, {
-          clearExistingSelection: false,
-          isShiftClick: true,
-          wasOnlySelectedAtPointerDown: false,
-        });
-        await selection.beginNodePointerInteraction(event);
-      } else if (PPGraph.currentGraph.socketFocus.hovered != undefined) {
-        // this clause is a bit hacky, it happened for me under some edge cases where i would drag the selected node (macro in my case) instead of dragging socket connection
-        PPGraph.currentGraph.socketFocus.hovered.onSocketPointerDown(event);
-      } else {
-        selection.beginPendingClick(this, event, {
-          clearExistingSelection: !this.selected,
-          isShiftClick: false,
-          wasOnlySelectedAtPointerDown: selection.isOnlySelectedNode(this),
-        });
-        await selection.beginNodePointerInteraction(event);
       }
 
       // Keep dashboard widget selection in sync while editing
