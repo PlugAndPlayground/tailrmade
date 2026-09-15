@@ -54,6 +54,22 @@ export class WebSocketNode extends PPNode {
     ];
   }
 
+  public getVersion(): number {
+    return 2;
+  }
+
+  public async migrate(previousVersion: number): Promise<void> {
+    if (previousVersion >= this.getVersion()) return;
+    // Version 1 saved Send as a boolean input. Swap the type in place so the
+    // socket keeps its links, and seed previousData with the saved value so
+    // the trigger does not fire (and send) while the graph loads.
+    const send = this.getInputSocketByName('Send');
+    if (!send || send.dataType instanceof TriggerType) return;
+    const trigger = new TriggerType(undefined, 'sendCurrentMessage');
+    trigger.previousData = send.data;
+    send.dataType = trigger;
+  }
+
   protected async onExecute(input: {
     URL: string;
     Enabled: boolean;
