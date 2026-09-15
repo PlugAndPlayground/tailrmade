@@ -76,17 +76,5 @@ export function isCSV(text) {
   // Numeric/date fields ratio bonus (up to 30 points)
   score += numericRatio * 30;
 
-  return {
-    isCSV: score >= 50,
-    confidence: score,
-    delimiter: mostLikelyDelimiter,
-    fieldCount: firstLineFieldCount,
-    sampleSize: lines.length,
-    details: {
-      consistencyScore,
-      hasQuotedFields,
-      numericFieldRatio: numericRatio,
-      score,
-    },
-  };
+  return score >= 50;
 }
