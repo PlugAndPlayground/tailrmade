@@ -2,7 +2,12 @@
 jest.mock('../../../src/classes/NodeClass', () => ({
   __esModule: true,
   default: class {
+    hasBeenAdded = true;
     outputs: Record<string, unknown> = {};
+    inputs: Record<string, unknown> = {};
+    getInputData(name: string) {
+      return this.inputs[name];
+    }
     setOutputData(name: string, value: unknown) {
       this.outputs[name] = value;
     }
@@ -40,19 +45,35 @@ jest.mock('../../../src/nodes/datatypes/booleanType', () => ({
 jest.mock('../../../src/nodes/datatypes/stringType', () => ({
   StringType: class {},
 }));
+jest.mock('../../../src/widgets', () => ({ TriggerWidget: () => null }));
+jest.mock('../../../src/nodes/datatypes/abstractType', () => ({
+  AbstractType: class {
+    async onDataSet() {}
+  },
+}));
 jest.mock('../../../src/utils/color', () => ({ TRgba: {} }));
 jest.mock('../../../src/utils/constants', () => ({
   NODE_TYPE_COLOR: {},
   SOCKET_TYPE: { IN: 'in', OUT: 'out' },
+  TRIGGER_TYPE_OPTIONS: [
+    { text: 'Increase' },
+    { text: 'Decrease' },
+    { text: 'Change' },
+    { text: 'Always' },
+  ],
 }));
 
 import { WebSocketNode } from '../../../src/nodes/api/websocket';
+import { TriggerType } from '../../../src/nodes/datatypes/triggerType';
 
 class MockWebSocket {
+  static CONNECTING = 0;
+  static OPEN = 1;
   static CLOSING = 2;
   static instances: MockWebSocket[] = [];
   readyState = 0;
   binaryType = 'blob';
+  send = jest.fn();
   onopen: (() => void) | null = null;
   onmessage: ((event: { data: unknown }) => void) | null = null;
   onerror: (() => void) | null = null;
@@ -71,8 +92,15 @@ class MockWebSocket {
 }
 
 class TestNode extends WebSocketNode {
-  run(URL = 'wss://example.test/live', Enabled = true) {
-    return this.onExecute({ URL, Enabled });
+  async run(
+    URL = 'wss://example.test/live',
+    Enabled = true,
+    Message?: unknown,
+    Send = false,
+  ) {
+    Object.assign((this as any).inputs, { URL, Enabled, Message });
+    await this.onExecute({ URL, Enabled });
+    if (Send) await this.sendCurrentMessage();
   }
   sockets() {
     return this.getDefaultIO();
@@ -107,6 +135,8 @@ describe('WebSocket node', () => {
     expect(node.sockets().map((s) => s.name)).toEqual([
       'URL',
       'Enabled',
+      'Message',
+      'Send',
       'Content',
       'Connected',
       'Error',
@@ -155,6 +185,158 @@ describe('WebSocket node', () => {
     const data = new Uint8Array([1, 2, 3]).buffer;
     MockWebSocket.instances[0].onmessage?.({ data });
     expect(node.getOutputData('Content')).toBe(data);
+  });
+
+  it('stays receive-only by default, including on execution and incoming messages', async () => {
+    await node.run();
+    const socket = MockWebSocket.instances[0];
+    socket.open();
+    await node.run(undefined, true, 'unused');
+    socket.onmessage?.({ data: 'hello' });
+    expect(socket.send).not.toHaveBeenCalled();
+  });
+
+  it('uses the real Send trigger and only sends when its condition fires', async () => {
+    await node.run(undefined, true, 'first');
+    const connection = MockWebSocket.instances[0];
+    connection.open();
+    const send = node.sockets().find((socket) => socket.name === 'Send') as any;
+    expect(send.type).toBeInstanceOf(TriggerType);
+    expect(send.type.customFunctionString).toBe('sendCurrentMessage');
+    const socket = { isInput: () => true, getNode: () => node } as any;
+    await send.type.onDataSet(0, socket);
+    expect(connection.send).not.toHaveBeenCalled();
+    await send.type.onDataSet(1, socket);
+    expect(connection.send.mock.calls).toEqual([['first']]);
+    await node.run(undefined, true, 'second');
+    await send.type.onDataSet(1, socket);
+    await send.type.onDataSet(0, socket);
+    expect(connection.send).toHaveBeenCalledTimes(1);
+    await send.type.onDataSet(1, socket);
+    expect(connection.send.mock.calls).toEqual([['first'], ['second']]);
+  });
+
+  it('migrates the boolean Send socket without sending or replacing its links', async () => {
+    const socket = { dataType: {}, data: true, links: [{}] };
+    const links = socket.links;
+    (node as any).getInputSocketByName = jest.fn(() => socket);
+    await node.migrate(1);
+    expect(node.getVersion()).toBe(2);
+    expect(socket.dataType).toBeInstanceOf(TriggerType);
+    expect(socket.dataType).toMatchObject({
+      customFunctionString: 'sendCurrentMessage',
+      previousData: true,
+    });
+    expect(socket.links).toBe(links);
+    expect(MockWebSocket.instances).toHaveLength(0);
+  });
+
+  it('does not send while restoring sockets before the node is added', async () => {
+    (node as any).inputs = {
+      URL: 'wss://example.test/live',
+      Enabled: true,
+      Message: 'saved',
+    };
+    node.hasBeenAdded = false;
+    await node.sendCurrentMessage();
+    expect(MockWebSocket.instances).toHaveLength(0);
+    expect(node.executeChildren).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['hello', 'hello'],
+    ['', ''],
+    [{ value: 42 }, '{"value":42}'],
+    [[1, 2], '[1,2]'],
+    [false, 'false'],
+    [0, '0'],
+    [null, 'null'],
+  ])(
+    'sends %j over the existing connection on each trigger',
+    async (data, expected) => {
+      await node.run();
+      const socket = MockWebSocket.instances[0];
+      socket.open();
+      await node.run(undefined, true, data, true);
+      await node.run(undefined, true, data, true);
+      expect(socket.send.mock.calls).toEqual([[expected], [expected]]);
+      socket.onmessage?.({ data: 'reply' });
+      expect(node.getOutputData('Content')).toBe('reply');
+      expect(socket.send).toHaveBeenCalledTimes(2);
+      expect(MockWebSocket.instances).toHaveLength(1);
+    },
+  );
+
+  it('queues snapshots in order until open', async () => {
+    const message = { value: 1 };
+    const binary = new Uint8Array([1, 2, 3]);
+    await node.run(undefined, true, message, true);
+    await node.run(undefined, true, binary.subarray(1), true);
+    message.value = 2;
+    binary.fill(0);
+    const socket = MockWebSocket.instances[0];
+    expect(socket.send).not.toHaveBeenCalled();
+    socket.open();
+    expect(socket.send.mock.calls).toEqual([
+      ['{"value":1}'],
+      [new Uint8Array([2, 3])],
+    ]);
+  });
+
+  it('sends binary payloads directly on an open connection', async () => {
+    await node.run();
+    const socket = MockWebSocket.instances[0];
+    socket.open();
+    for (const data of [
+      new ArrayBuffer(2),
+      new Uint8Array([1]),
+      new Blob(['hi']),
+    ]) {
+      await node.run(undefined, true, data, true);
+      expect(socket.send).toHaveBeenLastCalledWith(data);
+    }
+  });
+
+  it('discards pending messages when disabled or changing URL', async () => {
+    await node.run(undefined, true, 'old', true);
+    const old = MockWebSocket.instances[0];
+    const lateOpen = old.onopen!;
+    await node.run('ws://example.test/other', true, 'new', true);
+    const current = MockWebSocket.instances[1];
+    lateOpen();
+    current.open();
+    expect(old.send).not.toHaveBeenCalled();
+    expect(current.send).toHaveBeenCalledWith('new');
+    await node.run(undefined, true, 'discard', true);
+    const pending = MockWebSocket.instances[2];
+    await node.run(undefined, false, 'disabled', true);
+    pending.open();
+    await node.run();
+    const reconnected = MockWebSocket.instances[3];
+    reconnected.open();
+    expect(pending.send).not.toHaveBeenCalled();
+    expect(reconnected.send).not.toHaveBeenCalled();
+  });
+
+  it('reports serialization and send errors without losing the connection', async () => {
+    await node.run();
+    const socket = MockWebSocket.instances[0];
+    socket.open();
+    const circular: any = {};
+    circular.self = circular;
+    for (const data of [undefined, circular, BigInt(1)]) {
+      await node.run(undefined, true, data, true);
+      expect(node.getOutputData('Error')).not.toBe('');
+    }
+    expect(socket.send).not.toHaveBeenCalled();
+    socket.send.mockImplementationOnce(() => {
+      throw new Error('Send failed');
+    });
+    await node.run(undefined, true, 'hello', true);
+    expect(node.getOutputData('Error')).toBe('Send failed');
+    await node.run(undefined, true, 'retry', true);
+    expect(node.getOutputData('Error')).toBe('');
+    expect(node.getOutputData('Connected')).toBe(true);
   });
 
   it('replaces the connection when the URL changes and ignores stale events', async () => {
@@ -228,7 +410,8 @@ describe('WebSocket node', () => {
   });
 
   it('closes and detaches handlers on removal, even while connecting', async () => {
-    await node.run();
+    await node.run(undefined, true, 'pending', true);
+    (node.executeChildren as jest.Mock).mockClear();
     const socket = MockWebSocket.instances[0];
     const lateOpen = socket.onopen!;
     node.onNodeRemoved();
@@ -242,5 +425,6 @@ describe('WebSocket node', () => {
       socket.onclose,
     ]).toEqual([null, null, null, null]);
     expect(node.executeChildren).not.toHaveBeenCalled();
+    expect(socket.send).not.toHaveBeenCalled();
   });
 });
