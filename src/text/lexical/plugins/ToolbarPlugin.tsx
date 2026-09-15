@@ -68,7 +68,8 @@ import {
   RangeSelection,
   TextNode,
 } from 'lexical';
-import { useBeautifulMentions } from 'lexical-beautiful-mentions';
+import type { TextHostProfile } from '../editorConfig';
+import { $getSelectionStyleMarks, $setSelectionStyleMarks } from '../content';
 import {
   Box,
   ButtonGroup,
@@ -104,11 +105,11 @@ import FormatListBulletedIcon from '@mui/icons-material/FormatListBulleted';
 import FormatListNumberedIcon from '@mui/icons-material/FormatListNumbered';
 import FormatQuoteIcon from '@mui/icons-material/FormatQuote';
 import TitleIcon from '@mui/icons-material/Title';
+import WrapTextIcon from '@mui/icons-material/WrapText';
 import { controlOrMetaKey, isMac, useStateRef } from '../../../utils/utils';
 import { sanitizeUrl } from './url';
 import { TRgba } from '../../../utils/color';
 import { BlockFormatDropDown } from './BlockFormatDropDown';
-import { TextEditor2 } from '../textEditor2';
 
 interface BlockTypeEntry {
   name: string;
@@ -185,10 +186,13 @@ const StyledIconButton = styled(({ ...other }: IconButtonProps) => (
 
 function ToolbarPlugin({
   setIsLinkEditMode,
-  node,
+  profile,
+  onHistoryChange,
 }: {
   setIsLinkEditMode: Dispatch<boolean>;
-  node: TextEditor2;
+  profile: TextHostProfile;
+  // lets the host re-derive its outputs after a toolbar undo/redo
+  onHistoryChange?: () => void;
 }): JSX.Element {
   const [editor] = useLexicalComposerContext();
   const toolbarRef = useRef(null);
@@ -214,8 +218,7 @@ function ToolbarPlugin({
   const [codeLanguage, setCodeLanguage] = useState<string>('');
   const [isEditable, setIsEditable] = useState(() => editor.isEditable());
   const [showBlockTypeDropDown, setShowBlockTypeDropDown] = useState(false);
-
-  const { openMentionMenu } = useBeautifulMentions();
+  const [isNowrap, setIsNowrap] = useState(false);
 
   const $updateToolbar = useCallback(() => {
     const selection = $getSelection();
@@ -244,6 +247,8 @@ function ToolbarPlugin({
       setIsSubscript(selection.hasFormat('subscript'));
       setIsSuperscript(selection.hasFormat('superscript'));
       setIsCode(selection.hasFormat('code'));
+      const styleMarks = $getSelectionStyleMarks(selection);
+      setIsNowrap(Boolean(styleMarks.nowrap));
       setIsRTL($isParentElementRTL(selection));
 
       // Update links
@@ -671,31 +676,36 @@ function ToolbarPlugin({
         },
       }}
     >
-      <ButtonGroup variant="outlined" size="small">
-        <StyledIconButton
-          disabled={!canUndo || !isEditable}
-          onClick={() => {
-            editor.dispatchCommand(UNDO_COMMAND, undefined);
-            void node.executeOptimizedChain();
-          }}
-          title={`Undo (${controlOrMetaKey()}+Z)`}
-          data-cy="undo-button"
-        >
-          <UndoIcon />
-        </StyledIconButton>
-        <StyledIconButton
-          disabled={!canRedo}
-          onClick={() => {
-            editor.dispatchCommand(REDO_COMMAND, undefined);
-            void node.executeOptimizedChain();
-          }}
-          title={`Redo (${controlOrMetaKey()}+Y)`}
-          data-cy="redo-button"
-        >
-          <RedoIcon />
-        </StyledIconButton>
-      </ButtonGroup>
-      <Divider orientation="vertical" flexItem />
+      {/* inline hosts keep undo on the keyboard */}
+      {!profile.inline && (
+        <>
+          <ButtonGroup variant="outlined" size="small">
+            <StyledIconButton
+              disabled={!canUndo || !isEditable}
+              onClick={() => {
+                editor.dispatchCommand(UNDO_COMMAND, undefined);
+                onHistoryChange?.();
+              }}
+              title={`Undo (${controlOrMetaKey()}+Z)`}
+              data-cy="undo-button"
+            >
+              <UndoIcon />
+            </StyledIconButton>
+            <StyledIconButton
+              disabled={!canRedo}
+              onClick={() => {
+                editor.dispatchCommand(REDO_COMMAND, undefined);
+                onHistoryChange?.();
+              }}
+              title={`Redo (${controlOrMetaKey()}+Y)`}
+              data-cy="redo-button"
+            >
+              <RedoIcon />
+            </StyledIconButton>
+          </ButtonGroup>
+          <Divider orientation="vertical" flexItem />
+        </>
+      )}
       {blockType in blockTypeToBlockName && activeEditor === editor && (
         <BlockFormatDropDown
           blockType={blockType}
@@ -705,7 +715,7 @@ function ToolbarPlugin({
           setShowBlockTypeDropDown={setShowBlockTypeDropDown}
         />
       )}
-      {blockType === 'code' ? (
+      {!profile.inline && blockType === 'code' ? (
         <Select
           onChange={onCodeLanguageSelect}
           value={codeLanguage}
@@ -806,80 +816,114 @@ function ToolbarPlugin({
             <FormatClearIcon fontSize="small" />
           </StyledIconButton>
           <Divider orientation="vertical" flexItem />
-          <ToggleButtonGroup>
+          {profile.inline && (
             <StyledToggleButton
+              disabled={!isEditable}
               onClick={() => {
-                editor.dispatchCommand(FORMAT_ELEMENT_COMMAND, 'left');
+                activeEditor.update(() =>
+                  $setSelectionStyleMarks({ nowrap: !isNowrap }),
+                );
               }}
-              value="leftAlign"
-              selected={elementFormat === 'left'}
-              title="Left Align"
+              value="nowrap"
+              selected={isNowrap}
+              title="No wrap"
+              data-cy="nowrap-button"
             >
-              <FormatAlignLeftIcon fontSize="small" />
+              <WrapTextIcon fontSize="small" />
             </StyledToggleButton>
-            <StyledToggleButton
-              onClick={() => {
-                editor.dispatchCommand(FORMAT_ELEMENT_COMMAND, 'center');
-              }}
-              value="centerAlign"
-              selected={elementFormat === 'center'}
-              title="Center Align"
-            >
-              <FormatAlignCenterIcon fontSize="small" />
-            </StyledToggleButton>
-            <StyledToggleButton
-              onClick={() => {
-                editor.dispatchCommand(FORMAT_ELEMENT_COMMAND, 'right');
-              }}
-              value="rightAlign"
-              selected={elementFormat === 'right'}
-              title="Right Align"
-            >
-              <FormatAlignRightIcon fontSize="small" />
-            </StyledToggleButton>
-            <StyledToggleButton
-              onClick={() => {
-                editor.dispatchCommand(FORMAT_ELEMENT_COMMAND, 'justify');
-              }}
-              value="justifyAlign"
-              selected={elementFormat === 'justify'}
-              title="Justify Align"
-            >
-              <FormatAlignJustifyIcon fontSize="small" />
-            </StyledToggleButton>
-            <Divider orientation="vertical" flexItem />
+          )}
+          {!profile.inline && (
+            <ToggleButtonGroup>
+              <StyledToggleButton
+                onClick={() => {
+                  editor.dispatchCommand(FORMAT_ELEMENT_COMMAND, 'left');
+                }}
+                value="leftAlign"
+                selected={elementFormat === 'left'}
+                title="Left Align"
+              >
+                <FormatAlignLeftIcon fontSize="small" />
+              </StyledToggleButton>
+              <StyledToggleButton
+                onClick={() => {
+                  editor.dispatchCommand(FORMAT_ELEMENT_COMMAND, 'center');
+                }}
+                value="centerAlign"
+                selected={elementFormat === 'center'}
+                title="Center Align"
+              >
+                <FormatAlignCenterIcon fontSize="small" />
+              </StyledToggleButton>
+              <StyledToggleButton
+                onClick={() => {
+                  editor.dispatchCommand(FORMAT_ELEMENT_COMMAND, 'right');
+                }}
+                value="rightAlign"
+                selected={elementFormat === 'right'}
+                title="Right Align"
+              >
+                <FormatAlignRightIcon fontSize="small" />
+              </StyledToggleButton>
+              <StyledToggleButton
+                onClick={() => {
+                  editor.dispatchCommand(FORMAT_ELEMENT_COMMAND, 'justify');
+                }}
+                value="justifyAlign"
+                selected={elementFormat === 'justify'}
+                title="Justify Align"
+              >
+                <FormatAlignJustifyIcon fontSize="small" />
+              </StyledToggleButton>
+              <Divider orientation="vertical" flexItem />
+              <StyledIconButton
+                onClick={() => {
+                  editor.dispatchCommand(OUTDENT_CONTENT_COMMAND, undefined);
+                }}
+                title="Outdent"
+              >
+                {isRTL ? (
+                  <FormatIndentIncreaseIcon fontSize="small" />
+                ) : (
+                  <FormatIndentDecreaseIcon fontSize="small" />
+                )}
+              </StyledIconButton>
+              <StyledIconButton
+                onClick={() => {
+                  editor.dispatchCommand(INDENT_CONTENT_COMMAND, undefined);
+                }}
+                title="Indent"
+              >
+                {!isRTL ? (
+                  <FormatIndentIncreaseIcon fontSize="small" />
+                ) : (
+                  <FormatIndentDecreaseIcon fontSize="small" />
+                )}
+              </StyledIconButton>
+            </ToggleButtonGroup>
+          )}
+          {profile.tokens && (
             <StyledIconButton
+              disabled={!isEditable}
               onClick={() => {
-                editor.dispatchCommand(OUTDENT_CONTENT_COMMAND, undefined);
+                activeEditor.update(() => {
+                  const selection = $getSelection();
+                  if ($isRangeSelection(selection)) {
+                    const before = selection.anchor
+                      .getNode()
+                      .getTextContent()
+                      .slice(0, selection.anchor.offset);
+                    // the picker only opens on an @ that starts a word
+                    selection.insertText(/(^|\s)$/.test(before) ? '@' : ' @');
+                  }
+                });
+                activeEditor.focus();
               }}
-              title="Outdent"
-            >
-              {isRTL ? (
-                <FormatIndentIncreaseIcon fontSize="small" />
-              ) : (
-                <FormatIndentDecreaseIcon fontSize="small" />
-              )}
-            </StyledIconButton>
-            <StyledIconButton
-              onClick={() => {
-                editor.dispatchCommand(INDENT_CONTENT_COMMAND, undefined);
-              }}
-              title="Indent"
-            >
-              {!isRTL ? (
-                <FormatIndentIncreaseIcon fontSize="small" />
-              ) : (
-                <FormatIndentDecreaseIcon fontSize="small" />
-              )}
-            </StyledIconButton>
-            <Divider orientation="vertical" flexItem />
-            <StyledIconButton
-              onClick={() => openMentionMenu({ trigger: '@' })}
               title="Insert input"
+              data-cy="insert-token-button"
             >
               <AlternateEmailIcon fontSize="small" />
             </StyledIconButton>
-          </ToggleButtonGroup>
+          )}
         </>
       )}
     </Box>

@@ -12,6 +12,7 @@ import {
 } from './constants';
 import type { UISurfaceNode } from '../nodes/layout/uiSurface';
 import type { ThemeDocument } from './theme/document';
+import type { ColorSetting } from './themeColors';
 export { TRgba } from './color';
 export type { TColorHsva } from './color';
 
@@ -138,6 +139,8 @@ export type DashboardIconProps = {
 
 export type WidgetProps = {
   background: Record<'r' | 'g' | 'b' | 'a', number>;
+  // text color; without it a widget gets the container default
+  color?: ColorSetting;
   width: string;
   height: string;
   minWidth: string;
@@ -209,6 +212,9 @@ export interface Layoutable {
   getDashboardIcon(props: DashboardIconProps): React.ReactNode;
   getDashboardWrapper(props: DashboardWidgetProps): React.ReactNode;
   getWidgetContent(props: WidgetContentProps): React.ReactNode;
+  // widget-specific controls for the dashboard inspector
+  getDashboardSettings?(): React.ReactNode;
+  isEditableInSurfaceEditMode?(): boolean;
   getRelatedNode(): PPNode;
   isContainer(): boolean;
   isModalDialog?(): boolean;

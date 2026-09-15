@@ -31,8 +31,12 @@ import {
   ELEMENT_ID_SEPARATOR,
   parseLegacyElementId,
 } from './elementIds';
+// headless token module (Handlebars only), same isolation discipline
+import { migrateLegacyMentions } from '../text/tokens';
+import { migrateStaticTextItemsInTree } from '../text/migrations';
+import { migrateLegacyTextNodes } from '../text/nodeMigrations';
 
-export const GRAPH_DATA_VERSION = 5;
+export const GRAPH_DATA_VERSION = 6;
 const LEGACY_GRAPH_DATA_VERSION = 0.1;
 
 type GraphMigration = {
@@ -877,6 +881,47 @@ function migrateSurfaceColorsV4ToV5(
   return migrateSurfaceTrees(graphData, 5, migrateSurfaceColorsInTree);
 }
 
+// --- v5 -> v6: the text system ---
+// Three independent rewrites of persisted text, applied in one step:
+// - text editor mentions `@[value](socket:name)`, with a stale copy of the
+//   value baked in, become `{{name}}` tokens, resolved live
+// - static Text items take Markdown content (the old text as plain text),
+//   alignment, and custom styles that reproduce what the old widget rendered
+// - Text nodes become the token-based Text node; ids and links survive (see
+//   migrateLegacyTextNodes)
+const TEXT_EDITOR_NODE_TYPE = 'texteditor2';
+const TEXT_EDITOR_MARKDOWN_SOCKET = 'Markdown';
+
+function migrateTextEditorMentions(
+  graphData: SerializedGraph,
+): SerializedGraph {
+  return {
+    ...graphData,
+    nodes: graphData.nodes.map((node) =>
+      String(node.type).toLowerCase() !== TEXT_EDITOR_NODE_TYPE
+        ? node
+        : {
+            ...node,
+            socketArray: node.socketArray.map((socket) =>
+              socket.name === TEXT_EDITOR_MARKDOWN_SOCKET &&
+              socket.socketType !== SOCKET_TYPE.OUT &&
+              typeof socket.data === 'string'
+                ? { ...socket, data: migrateLegacyMentions(socket.data) }
+                : socket,
+            ),
+          },
+    ),
+  };
+}
+
+function migrateTextSystemV5ToV6(graphData: SerializedGraph): SerializedGraph {
+  return migrateSurfaceTrees(
+    migrateLegacyTextNodes(migrateTextEditorMentions(graphData)),
+    6,
+    migrateStaticTextItemsInTree,
+  );
+}
+
 const GRAPH_MIGRATIONS: GraphMigration[] = [
   {
     fromVersion: LEGACY_GRAPH_DATA_VERSION,
@@ -897,6 +942,11 @@ const GRAPH_MIGRATIONS: GraphMigration[] = [
     fromVersion: 4,
     toVersion: 5,
     migrate: migrateSurfaceColorsV4ToV5,
+  },
+  {
+    fromVersion: 5,
+    toVersion: 6,
+    migrate: migrateTextSystemV5ToV6,
   },
 ];
 
