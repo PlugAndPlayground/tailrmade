@@ -4,7 +4,7 @@ import { TextStyle } from 'pixi.js';
 import type { EnumStructure } from '../nodes/datatypes/enumType';
 import { darkThemeOverride } from './customTheme';
 import { TRgba } from './color';
-export { SOCKET_TYPE } from './constants_shared';
+export { ONCLICK_DOUBLECLICK, SOCKET_TYPE } from './constants_shared';
 
 export const URL_PARAMETER_NAME = {
   NEW: 'new',
@@ -24,7 +24,6 @@ export const GESTUREMODE = {
   AUTO: 'Auto detect',
 } as const;
 
-export const ONCLICK_DOUBLECLICK = 2;
 export const ONCLICK_TRIPPLECLICK = 3;
 
 export const ALIGNOPTIONS = {

@@ -95,7 +95,7 @@ const AIConversationBrowser = () => {
   const [performActions, setPerformActions] = useState(true);
   const [showSettings, setShowSettings] = useState(false);
   const activeModelLabel =
-    getAIModelsForProvider(selectedProvider).find(
+    getAIAgentModelsForProvider(selectedProvider).find(
       (model) => model.value === selectedModel,
     )?.label ?? selectedModel;
 

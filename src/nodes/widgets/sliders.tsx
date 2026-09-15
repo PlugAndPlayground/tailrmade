@@ -6,7 +6,7 @@ import {
   colorName,
   getColorSocket,
   getSizeSocket,
-  getWidgetControlProps,
+  getWidgetDragControlProps,
   initialValueName,
   labelName,
   outName,
@@ -27,6 +27,7 @@ import Socket from '../../classes/SocketClass';
 import { StringType } from '../datatypes/stringType';
 import { NumberType } from '../datatypes/numberType';
 import { SOCKET_TYPE } from '../../utils/constants';
+import { TOUCH_TARGET_PX } from '../../utils/theme';
 import { WidgetContentProps } from '../../utils/interfaces';
 
 export class WidgetSlider extends WidgetNumberBase {
@@ -132,6 +133,10 @@ export class WidgetSlider extends WidgetNumberBase {
     const sliderHeight = props.inDashboard
       ? 32 * tokens.scale
       : (node.nodeHeight / 3) * tokens.scale;
+    const coarseTouchPadding = Math.max(
+      0,
+      (TOUCH_TARGET_PX - sliderHeight) / 2,
+    );
 
     const displayValue = roundToDecimals(value, decimals);
 
@@ -160,7 +165,7 @@ export class WidgetSlider extends WidgetNumberBase {
             {displayValue}
           </Typography>
           <Slider
-            {...getWidgetControlProps(props.disabled)}
+            {...getWidgetDragControlProps(props.disabled)}
             color={color}
             disabled={props.disabled}
             size={getMuiSize(size)}

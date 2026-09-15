@@ -192,6 +192,14 @@ export class WidgetColorPicker extends WidgetHybridBase {
           anchorEl={ref.current}
           placement="top"
           transition
+          modifiers={[
+            { name: 'flip', enabled: true },
+            {
+              name: 'preventOverflow',
+              enabled: true,
+              options: { padding: 8, altAxis: true },
+            },
+          ]}
           sx={{ zIndex: 10 }}
         >
           {({ TransitionProps }) => (
@@ -199,6 +207,7 @@ export class WidgetColorPicker extends WidgetHybridBase {
               <Paper
                 sx={{
                   margin: '4px',
+                  touchAction: 'none',
                 }}
               >
                 <ClickAwayListener onClickAway={() => showColorPicker(false)}>

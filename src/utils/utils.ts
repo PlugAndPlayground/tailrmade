@@ -575,6 +575,26 @@ export const clearDocumentSelection = (): void => {
   }
 };
 
+// A tap that opens something under the finger is hit by its own ghost mousedown
+// a moment later: the browser hit-tests the compatibility mouse events against
+// the DOM as it stands then, so they land on what the tap just opened and move
+// focus off it - and the node search closes on blur. Only the focus change does
+// damage, so preventing the default is enough. Disarmed on the next pointerdown
+// rather than on a timer, the way the widget pan handoff swallows its own ghost
+// click: the ghost always arrives before the next press.
+export function swallowGhostMouseDown(): void {
+  const disarm = (): void => {
+    window.removeEventListener('mousedown', swallow, true);
+    window.removeEventListener('pointerdown', disarm, true);
+  };
+  const swallow = (event: MouseEvent): void => {
+    event.preventDefault();
+    disarm();
+  };
+  window.addEventListener('mousedown', swallow, true);
+  window.addEventListener('pointerdown', disarm, true);
+}
+
 export const calculateAspectRatioFit = (
   oldWidth: number,
   oldHeight: number,

@@ -14,6 +14,9 @@ export const SOCKET_TYPE = {
   GHOST: 'ghost',
 };
 
+// here for the same reason: touchGestures.ts reads it
+export const ONCLICK_DOUBLECLICK = 2;
+
 export const dashboardLayoutInputName = 'Layout';
 export const dashboardVisibilitySocketName = 'Visible';
 export const dashboardCollapseSocketName = 'Collapse Mode';
