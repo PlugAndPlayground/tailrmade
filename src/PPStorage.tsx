@@ -31,6 +31,7 @@ import { BackendGateway } from './services/BackendGateway';
 
 export const DEFAULT_LOCATION = 'Default';
 export const DEFAULT_ACCESS = 'private';
+export const GET_STARTED_GRAPH_OWNER = 'publicUser';
 
 export const autoSaveSuffix = ' - Autosave';
 
@@ -487,13 +488,19 @@ export default class PPStorage {
       return;
     }
     try {
-      await this.loadGraphFromData(
-        await BackendGateway.getInstance().getPublicGraph(
-          'publicUser',
-          'Default',
-          constants.GET_STARTED_GRAPH,
-        ),
+      const data = await BackendGateway.getInstance().getPublicGraph(
+        GET_STARTED_GRAPH_OWNER,
+        DEFAULT_LOCATION,
+        constants.GET_STARTED_GRAPH,
       );
+      // tag it with the coordinates it was fetched from, otherwise the URL ends up
+      // pointing at a local graph id which was never written to the database
+      data.name = constants.GET_STARTED_GRAPH;
+      data.location = DEFAULT_LOCATION;
+      data.owner = GET_STARTED_GRAPH_OWNER;
+      data.access = 'public';
+      data.isRemote = true;
+      await this.loadGraphFromData(data);
     } catch (error) {
       // the get-started graph may be unreachable
       console.log(error.stack || error);
