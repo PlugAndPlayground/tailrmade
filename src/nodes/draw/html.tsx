@@ -12,7 +12,7 @@ import { ErrorBoundary } from 'react-error-boundary';
 import Frame from 'react-frame-component';
 import DOMPurify from 'dompurify';
 import DashboardIcon from '@mui/icons-material/Dashboard';
-import { Box, Typography } from '@mui/material';
+import { Box, Typography, useTheme } from '@mui/material';
 import ErrorFallback from '../../components/ErrorFallback';
 import Socket from '../../classes/SocketClass';
 import PPGraph from '../../classes/GraphClass';
@@ -46,6 +46,7 @@ import InterfaceController, { ListenEvent } from '../../InterfaceController';
 import { SurfaceCanvasPreviewContext } from '../../components/dashboard/SurfaceRenderer';
 import { DeferredReactTypeInterface } from '../datatypes/deferredHtmlType';
 import { AnyType } from '../datatypes/anyType';
+import { themeToCssVariables } from '../../utils/theme';
 
 // Register common Handlebars helpers
 Handlebars.registerHelper('eq', (a, b) => a === b);
@@ -237,6 +238,7 @@ export class HtmlRenderer extends HtmlNodeBase {
   public getDescription(): string {
     return (
       'Renders HTML code. Write your own HTML markup with Tailwind CSS styling.' +
+      ' To follow the app theme, use the theme colors (bg-primary, text-primary-foreground, bg-background, bg-paper, text-foreground, text-muted-foreground, border-divider, text-error/warning/info/success), rounded-theme and font-theme; opacity modifiers like bg-primary/10 give tints, and dark: follows the theme mode.' +
       handlebarDescription +
       ' To compose modular layouts enable Template Passthrough to create templates, then combine them to a JSON object and feed it into the Templates input of another HTML node.'
     );
@@ -267,9 +269,9 @@ export class HtmlRenderer extends HtmlNodeBase {
   }
 
   getDefaultHTMLCode(): string {
-    return `<div class="p-4 text-black">
+    return `<div class="p-4 bg-paper text-foreground rounded-theme">
   <p class="mb-2">Write your own HTML content.<br />Use JSON or Array data on the "Data" socket and use Handlebars: <code>&#123;&#123;property&#125;&#125;</code></p>
-  <a href="https://en.wikipedia.org/wiki/Special:Random" target="_blank" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded inline-block">Button {{label}}</a>
+  <a href="https://en.wikipedia.org/wiki/Special:Random" target="_blank" class="bg-primary hover:bg-primary/80 text-primary-foreground font-bold py-2 px-4 rounded-theme inline-block">Button {{label}}</a>
 </div>`;
   }
 
@@ -306,7 +308,8 @@ export class HtmlRenderer extends HtmlNodeBase {
         SOCKET_TYPE.IN,
         SOCKETNAME_BACKGROUNDCOLOR,
         new ColorType(),
-        backgroundColor,
+        // the markup paints its own themed background
+        TRgba.white().setAlpha(0),
         false,
       ),
       new Socket(
@@ -664,9 +667,9 @@ const HtmlComponent = (props): React.ReactElement => {
   // instead of inheriting the app theme (which can be light-on-light). Any
   // explicit color the markup sets - Tailwind text-* classes, inline styles -
   // still wins, since this only lands on the wrapper. When the background is
-  // (near-)transparent the surface shows through, so leave the color to
-  // inherit the theme that matches that surface rather than guess from the
-  // node's own (invisible) background color.
+  // (near-)transparent the surface shows through, so use the text color of
+  // the theme the node renders under rather than guess from the node's own
+  // (invisible) background color.
   const backgroundTRgba = Object.assign(
     new TRgba(),
     props[SOCKETNAME_BACKGROUNDCOLOR],
@@ -675,16 +678,19 @@ const HtmlComponent = (props): React.ReactElement => {
     backgroundTRgba.a >= 0.5
       ? backgroundTRgba.getContrastTextColor().toString()
       : undefined;
+  const theme = useTheme();
 
   return (
     <ErrorBoundary FallbackComponent={ErrorFallback}>
       <div
         id={nodeComponentId}
+        data-tm-mode={theme.palette.mode}
         style={{
+          ...themeToCssVariables(theme),
           width: width,
           height: props.inDashboard ? height : '100%',
           background: props[SOCKETNAME_BACKGROUNDCOLOR].toString(),
-          color: defaultTextColor,
+          color: defaultTextColor ?? 'var(--tm-foreground)',
         }}
       >
         <div
