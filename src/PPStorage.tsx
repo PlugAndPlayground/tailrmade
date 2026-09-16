@@ -172,7 +172,7 @@ export default class PPStorage {
 
     InterfaceController.notifyListeners(
       ListenEvent.GraphChanged,
-      PPGraph.currentGraph,
+      this.currentGraphToIGraphSearch(),
     );
     InterfaceController.showSnackBar('Created new empty app');
 
@@ -425,10 +425,10 @@ export default class PPStorage {
       };
       await PPGraph.currentGraph.configure(migratedFileData);
 
-      InterfaceController.notifyListeners(ListenEvent.GraphChanged, {
-        id: fileData.id,
-        name: fileData.name,
-      });
+      InterfaceController.notifyListeners(
+        ListenEvent.GraphChanged,
+        this.currentGraphToIGraphSearch(),
+      );
       ActionHandler.setUnsavedChange(false); // reset unsaved changes after loading a graph
 
       // Log app open event for analytics
@@ -493,8 +493,6 @@ export default class PPStorage {
         DEFAULT_LOCATION,
         constants.GET_STARTED_GRAPH,
       );
-      // tag it with the coordinates it was fetched from, otherwise the URL ends up
-      // pointing at a local graph id which was never written to the database
       data.name = constants.GET_STARTED_GRAPH;
       data.location = DEFAULT_LOCATION;
       data.owner = GET_STARTED_GRAPH_OWNER;
@@ -588,6 +586,7 @@ export default class PPStorage {
 
       void BackendGateway.getInstance().refreshGraphsMetadata();
       InterfaceController.notifyListeners(ListenEvent.GraphChanged, {
+        ...this.currentGraphToIGraphSearch(),
         id: graphId,
         name: newName,
       });
@@ -719,7 +718,7 @@ export default class PPStorage {
         PPStorage.getInstance().dateOfLastGraphLoaded = savedDate;
         InterfaceController.notifyListeners(
           ListenEvent.GraphChanged,
-          PPGraph.currentGraph,
+          this.currentGraphToIGraphSearch(),
         );
       }
       void BackendGateway.getInstance().refreshGraphsMetadata();
@@ -774,6 +773,21 @@ export default class PPStorage {
     });
 
     return graphs;
+  }
+
+  // the payload of ListenEvent.GraphChanged, so listeners get the full metadata
+  // and not just the id and name
+  currentGraphToIGraphSearch(): IGraphSearch {
+    const graph = PPGraph.currentGraph;
+    return {
+      id: graph.id,
+      name: graph.name,
+      location: graph.location || DEFAULT_LOCATION,
+      owner: graph.owner || 'unknown',
+      date: graph.date,
+      access: graph.access || DEFAULT_ACCESS,
+      isRemote: graph.isRemote || false,
+    };
   }
 
   storedGraphToIGraphSearch(graph: StoredGraph): IGraphSearch {

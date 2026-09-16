@@ -170,7 +170,7 @@ const App = (): JSX.Element => {
   InterfaceController.hideSnackBar = closeSnackbar;
 
   useEffect(() => {
-    // data has id and name
+    // data is an IGraphSearch
     const ids: any[] = [];
     ids.push(
       InterfaceController.addListener(ListenEvent.GraphChanged, (data: any) => {
@@ -318,14 +318,7 @@ const App = (): JSX.Element => {
             <DeleteConfirmationDialog graphToBeModified={graphToBeModified} />
           )}
 
-          {showEdit && (
-            <EditDialog
-              graphId={graphToBeModified.id}
-              graphName={graphToBeModified.name}
-              graphAccess={graphToBeModified.access}
-              graphLocation={graphToBeModified.location}
-            />
-          )}
+          {showEdit && <EditDialog graphToBeModified={graphToBeModified} />}
           <SpinnerContainer />
           <AuthDialogHost />
 
