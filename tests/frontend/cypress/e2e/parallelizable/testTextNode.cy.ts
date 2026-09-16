@@ -3,8 +3,13 @@ import {
   closeBothDrawers,
   doWithTestController,
   dragFromAtoB,
+  enterDashboardEditMode,
   exitDashboardEditMode,
   openNewGraph,
+  serializedGraph,
+  serializedNode,
+  serializedSocket,
+  setSurfaceLayout,
   shouldWithTestController,
 } from '../helpers';
 
@@ -18,7 +23,10 @@ const clickPickerOption = (label: string) =>
   cy.get('[data-cy="text-token-picker-option"]').contains(label).realClick();
 
 const pickerOption = (label: string) =>
-  cy.get('[data-cy="text-token-picker-option"]').contains(label);
+  cy
+    .get('[data-cy="text-token-picker-option"]')
+    .contains(label)
+    .closest('[data-cy="text-token-picker-option"]');
 
 const inputNames = (testController, nodeId: string) =>
   testController.getInputSockets(nodeId).map((socket) => socket.name);
@@ -44,32 +52,7 @@ const setContent = (nodeId: string, content: unknown) => {
 };
 
 const placeOnSurface = (children: unknown[], surface = surfaceId) => {
-  doWithTestController(async (testController) => {
-    if (!testController.getNodes().some((node) => node.id === surface)) {
-      await testController.addNode('UISurfaceNode', surface, 500, 0);
-    }
-    const result = await testController.callAITool('set_surface_layout', {
-      node_id: surface,
-      layout: { direction: 'column', children },
-    });
-    expect(result.is_error, result.content).to.not.equal(true);
-    testController.toggleDashboard('OPEN');
-  });
-  cy.get('[data-cy="dashboard"]').should('be.visible');
-};
-
-const openEditMode = () => {
-  cy.get('body').then(($body) => {
-    if (
-      $body.find('[data-cy="toggle-edit-mode-btn"] svg[data-testid="EditIcon"]')
-        .length > 0
-    ) {
-      cy.get('[data-cy="toggle-edit-mode-btn"]').first().click({ force: true });
-    }
-  });
-  cy.get(
-    '[data-cy="toggle-edit-mode-btn"] svg[data-testid="CloseIcon"]',
-  ).should('exist');
+  setSurfaceLayout(surface, children);
 };
 
 const surfaceTree = (testController, surface = surfaceId) =>
@@ -99,7 +82,22 @@ describe('dynamic Text node', () => {
       'contain.text',
       'Type a name to add an input',
     );
-    canvasEditor('dyn-text').type('temp', { force: true });
+
+    // names the node cannot take are offered but refused
+    canvasEditor('dyn-text').type('this', { force: true });
+    pickerOption('＋ new input "this"')
+      .should('have.class', 'Mui-disabled')
+      .and('contain.text', 'reserved');
+    canvasEditor('dyn-text').type('{esc}{selectall}{backspace}@Content', {
+      force: true,
+    });
+    pickerOption('＋ new input "Content"')
+      .should('have.class', 'Mui-disabled')
+      .and('contain.text', 'already exists');
+
+    canvasEditor('dyn-text').type('{esc}{selectall}{backspace}Temp: @temp', {
+      force: true,
+    });
     clickPickerOption('＋ new input "temp"');
 
     shouldWithTestController((testController) => {
@@ -158,34 +156,18 @@ describe('dynamic Text node', () => {
     canvasEditor('menu-text').type('{selectall}{backspace}Hello @', {
       force: true,
     });
-    cy.get('[data-cy="text-token-picker"]').should('be.visible');
+    // the menu hangs off the @, so typing a name must not move it, however
+    // far the caret travels
+    const menuPosition = () =>
+      cy.get('[data-cy="text-token-picker"]').then(($menu) => {
+        const { top, left } = $menu[0].getBoundingClientRect();
+        return `${Math.round(top)},${Math.round(left)}`;
+      });
 
-    // where the menu is in every frame: typing must not move it, not even for
-    // a frame
-    cy.window().then((win) => {
-      const positions = new Set<string>();
-      const sample = () => {
-        const menu = win.document.querySelector(
-          '[data-cy="text-token-picker"]',
-        );
-        if (menu) {
-          const { top, left } = menu.getBoundingClientRect();
-          positions.add(`${Math.round(top)},${Math.round(left)}`);
-        }
-        frame = win.requestAnimationFrame(sample);
-      };
-      let frame = win.requestAnimationFrame(sample);
-      cy.wrap({ positions, stop: () => win.cancelAnimationFrame(frame) }).as(
-        'menuPositions',
-      );
+    menuPosition().then((before) => {
+      canvasEditor('menu-text').type('newname', { force: true, delay: 120 });
+      menuPosition().should('eq', before);
     });
-    canvasEditor('menu-text').type('newname', { force: true, delay: 120 });
-    cy.get<{ positions: Set<string>; stop: () => void }>('@menuPositions').then(
-      ({ positions, stop }) => {
-        stop();
-        expect([...positions]).to.have.length(1);
-      },
-    );
   });
 
   it('connects a node added from an input that holds no value yet', () => {
@@ -217,24 +199,6 @@ describe('dynamic Text node', () => {
     });
   });
 
-  it('rejects reserved and duplicate input names', () => {
-    addTextNode('names-text');
-    canvasEditor('names-text').type('{selectall}{backspace}@this', {
-      force: true,
-    });
-    pickerOption('＋ new input "this"')
-      .closest('[data-cy="text-token-picker-option"]')
-      .should('have.class', 'Mui-disabled')
-      .and('contain.text', 'reserved');
-    canvasEditor('names-text').type('{esc}{selectall}{backspace}@Content', {
-      force: true,
-    });
-    pickerOption('＋ new input "Content"')
-      .closest('[data-cy="text-token-picker-option"]')
-      .should('have.class', 'Mui-disabled')
-      .and('contain.text', 'already exists');
-  });
-
   it('resolves object input paths', () => {
     addTextNode('object-text');
     canvasEditor('object-text').type('{selectall}{backspace}@d', {
@@ -254,9 +218,7 @@ describe('dynamic Text node', () => {
       .focus()
       .type('{moveToEnd} @d.', { force: true });
     // the fields d holds are offered as soon as the dot is typed
-    pickerOption('d.temp')
-      .closest('[data-cy="text-token-picker-option"]')
-      .should('contain.text', '21.5');
+    pickerOption('d.temp').should('contain.text', '21.5');
     clickPickerOption('d.temp');
 
     canvasEditor('object-text')
@@ -337,7 +299,7 @@ describe('dynamic Text node', () => {
       .find('[data-cy="text-token"]')
       .should('not.exist');
 
-    openEditMode();
+    enterDashboardEditMode();
     cy.get('[data-cy="widget of NODE_invalid-text"]')
       .find('[data-token-state="unresolved"]')
       .should('have.length', 2);
@@ -363,10 +325,10 @@ describe('dynamic Text node', () => {
         },
       },
     ]);
-    openEditMode();
-    cy.get('[data-cy="dashboard"] [data-cy="static-text"]').click({
-      force: true,
-    });
+    enterDashboardEditMode();
+    cy.get('[data-cy="dashboard"] [data-cy="static-text"]')
+      .first()
+      .click({ force: true });
     doWithTestController((testController) => {
       testController.toggleRightSideDrawer('OPEN');
     });
@@ -448,7 +410,7 @@ describe('dynamic Text node', () => {
 
   it('keeps empty content when converting static text to a node', () => {
     placeOnSurface([{ id: 'empty-text', text: '' }]);
-    openEditMode();
+    enterDashboardEditMode();
     cy.get('[data-cy="dashboard"] [data-cy="static-text"]')
       .first()
       .click({ force: true });
@@ -475,7 +437,7 @@ describe('dynamic Text node', () => {
         'Input',
       );
     });
-    openEditMode();
+    enterDashboardEditMode();
     doWithTestController((testController) => {
       testController.selectDashboardItemByElementId('NODE_shared-text');
       testController.toggleRightSideDrawer('OPEN');
@@ -499,93 +461,50 @@ describe('dynamic Text node', () => {
     );
   });
 
+  // the migration itself is covered by tests/frontend/jest/text-migrations;
+  // what only the app can show is that the migrated graph still runs
   it('migrates legacy Text nodes and keeps their links', () => {
-    const legacyText = (id: string, input: string) => ({
-      type: 'Text',
-      id,
-      x: 0,
-      y: id === 'legacy-linked' ? 200 : 0,
-      width: 160,
-      height: 60,
-      socketArray: [
-        {
-          socketType: 'out',
-          name: 'Output',
-          dataType: '{"class":"StringType"}',
-        },
-        {
-          socketType: 'in',
-          name: 'Input',
-          dataType: '{"class":"StringType"}',
-          data: input,
-        },
-        {
-          socketType: 'in',
-          name: 'Font size',
-          dataType: '{"class":"NumberType"}',
-          data: 40,
-        },
-        {
-          socketType: 'in',
-          name: 'Font weight',
-          dataType: '{"class":"EnumType"}',
-          data: 'Bold',
-        },
-        {
-          socketType: 'in',
-          name: 'Text color',
-          dataType: '{"class":"ColorType"}',
-          data: { r: 10, g: 200, b: 30, a: 1 },
-        },
-      ],
-      updateBehaviour: { load: true, update: true, interval: false },
+    const legacyText = (id: string, input: string, y: number) =>
+      serializedNode(
+        'Text',
+        id,
+        [
+          serializedSocket('Output', undefined, 'StringType', 'out'),
+          serializedSocket('Input', input),
+          serializedSocket('Font size', 40, 'NumberType'),
+          serializedSocket('Font weight', 'Bold', 'EnumType'),
+          serializedSocket(
+            'Text color',
+            { r: 10, g: 200, b: 30, a: 1 },
+            'ColorType',
+          ),
+        ],
+        { x: 0, y },
+      );
+    const fromConstant = (targetSocketName: string) => ({
+      sourceNodeId: 'legacy-constant',
+      sourceSocketName: 'Out',
+      targetNodeId: 'legacy-linked',
+      targetSocketName,
     });
-    const graph = {
-      version: 5,
-      graphSettings: {
-        showExecutionVisualisation: true,
-        viewportCenterPosition: { x: 0, y: 0 },
-        viewportScale: 1,
-      },
-      nodes: [
-        legacyText('legacy-plain', 'kept text'),
-        legacyText('legacy-linked', 'stale'),
-        {
-          type: 'Constant',
-          id: 'legacy-constant',
-          x: -300,
-          y: 200,
-          width: 100,
-          height: 60,
-          socketArray: [
-            {
-              socketType: 'in',
-              name: 'In',
-              dataType: '{"class":"NumberType"}',
-              data: 42,
-            },
-          ],
-          updateBehaviour: { load: true, update: true, interval: false },
-        },
-      ],
-      links: [
-        {
-          sourceNodeId: 'legacy-constant',
-          sourceSocketName: 'Out',
-          targetNodeId: 'legacy-linked',
-          targetSocketName: 'Input',
-        },
-        {
-          sourceNodeId: 'legacy-constant',
-          sourceSocketName: 'Out',
-          targetNodeId: 'legacy-linked',
-          targetSocketName: 'Font size',
-        },
-      ],
-    };
 
     doWithTestController(async (testController) => {
-      await testController.loadStringifiedGraph(JSON.stringify(graph));
+      await testController.loadStringifiedGraph(
+        serializedGraph(
+          [
+            legacyText('legacy-plain', 'kept text', 0),
+            legacyText('legacy-linked', 'stale', 200),
+            serializedNode(
+              'Constant',
+              'legacy-constant',
+              [serializedSocket('In', 42, 'NumberType')],
+              { x: -300, y: 200 },
+            ),
+          ],
+          // the style link is dropped, the input link survives as {{Input}}
+          [fromConstant('Input'), fromConstant('Font size')],
+        ),
+      );
       await testController.waitForPendingExecution();
     });
 

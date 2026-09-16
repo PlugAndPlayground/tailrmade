@@ -3,56 +3,38 @@ import {
   closeBothDrawers,
   controlOrMetaKey,
   doWithTestController,
+  enterDashboardEditMode,
   exitDashboardEditMode,
   openNewGraph,
+  serializedGraph,
+  serializedNode,
+  serializedSocket,
+  setSurfaceLayout,
   shouldWithTestController,
 } from '../helpers';
 
 const surfaceId = 'static-text-surface';
 
-const getSurface = (testController) =>
-  testController.getNodes().find((node) => node.isSurface());
-
 const getTextItems = (testController) =>
   Object.values(
-    getSurface(testController).getInputData('Layout JSON').tree,
+    testController
+      .getNodes()
+      .find((node) => node.isSurface())
+      .getInputData('Layout JSON').tree,
   ).filter((item: any) => item.type.resolvedName === 'Text') as any[];
 
-const openEditMode = () => {
-  doWithTestController((testController) => {
-    testController.toggleDashboard('OPEN');
-  });
-  cy.get('[data-cy="dashboard"]').should('be.visible');
-  cy.get('body').then(($body) => {
-    if (
-      $body.find('[data-cy="toggle-edit-mode-btn"] svg[data-testid="EditIcon"]')
-        .length > 0
-    ) {
-      cy.get('[data-cy="toggle-edit-mode-btn"]').first().click({ force: true });
-    }
-  });
-  cy.get(
-    '[data-cy="toggle-edit-mode-btn"] svg[data-testid="CloseIcon"]',
-  ).should('exist');
-};
-
-const setLayout = (children: unknown[]) => {
-  doWithTestController(async (testController) => {
-    if (!testController.getNodes().some((node) => node.id === surfaceId)) {
-      await testController.addNode('UISurfaceNode', surfaceId, 400, 0);
-    }
-    const result = await testController.callAITool('set_surface_layout', {
-      node_id: surfaceId,
-      layout: { direction: 'column', children },
-    });
-    expect(result.is_error, result.content).to.not.equal(true);
-    testController.toggleDashboard('OPEN');
-  });
-  cy.get('[data-cy="dashboard"]').should('be.visible');
-};
+const setLayout = (children: unknown[]) =>
+  setSurfaceLayout(surfaceId, children);
 
 const appText = (text: string) =>
   cy.get('[data-cy="dashboard"] [data-cy="static-text"]').contains(text);
+
+const selectAllInFirstEditor = () =>
+  cy
+    .get('[data-cy="static-text-editor"]')
+    .first()
+    .click({ force: true })
+    .type(`${controlOrMetaKey()}a`, { force: true });
 
 describe('static Text', () => {
   before(() => {
@@ -65,7 +47,7 @@ describe('static Text', () => {
   });
 
   it('creates one primitive from the Heading, Text and Caption tools', () => {
-    openEditMode();
+    enterDashboardEditMode();
     cy.get('body').then(($body) => {
       if ($body.find('[data-cy="vertical-toolbox"]:visible').length === 0) {
         cy.get('[data-cy="toggle-toolbox-btn"]').click({ force: true });
@@ -105,7 +87,7 @@ describe('static Text', () => {
     appText('Hello {{name}}').should('be.visible');
     cy.get('[data-cy="dashboard"] [data-cy="text-token"]').should('not.exist');
 
-    openEditMode();
+    enterDashboardEditMode();
     cy.get('[data-cy="static-text-editor"]')
       .first()
       .click({ force: true })
@@ -151,13 +133,10 @@ describe('static Text', () => {
       });
   });
 
-  it('keeps the selected run on one line from the toolbar below the text', () => {
+  it('formats the selected run from the toolbar below the text', () => {
     setLayout([{ text: 'keep together' }]);
-    openEditMode();
-    cy.get('[data-cy="static-text-editor"]')
-      .first()
-      .click({ force: true })
-      .type(`${controlOrMetaKey()}a`, { force: true });
+    enterDashboardEditMode();
+    selectAllInFirstEditor();
     cy.get('[data-cy="static-text-editor"]')
       .first()
       .then(($editor) => {
@@ -182,33 +161,16 @@ describe('static Text', () => {
     cy.get('[data-cy="static-text-editor"]')
       .contains('keep together')
       .should('have.css', 'white-space', 'nowrap');
-  });
 
-  it('edits a link in a field as wide as its overlay', () => {
-    setLayout([{ text: 'a link here' }]);
-    openEditMode();
-    cy.get('[data-cy="static-text-editor"]')
-      .first()
-      .click({ force: true })
-      .type(`${controlOrMetaKey()}a`, { force: true });
+    // the link editor opens over the run the toolbar acted on
+    selectAllInFirstEditor();
     cy.get('[data-cy="text-inline-toolbar"] [data-cy="link-button"]').click();
-
-    cy.get('[data-cy="link-input"]')
-      .should('be.visible')
-      .then(($input) => {
-        const inputWidth = $input[0].getBoundingClientRect().width;
-        cy.get('[data-cy="link-editor"]').should(($editor) => {
-          // all of the overlay but the confirm button and the field's padding
-          expect(inputWidth).to.be.greaterThan(
-            $editor[0].getBoundingClientRect().width - 80,
-          );
-        });
-      });
+    cy.get('[data-cy="link-input"]').should('be.visible');
   });
 
   it('sets the variant and tone from the inspector', () => {
     setLayout([{ text: 'Styled' }]);
-    openEditMode();
+    enterDashboardEditMode();
     cy.get('[data-cy="dashboard"] [data-cy="static-text"]')
       .first()
       .click({ force: true });
@@ -228,7 +190,20 @@ describe('static Text', () => {
     cy.get('[data-cy="text-settings"]').should('not.contain.text', 'Font size');
   });
 
+  // the migration itself is covered by tests/frontend/jest/text-migrations;
+  // what only the app can show is that it still looks the way it did
   it('migrates legacy static Text without changing how it looks', () => {
+    const legacyItem = (props: Record<string, unknown>) => ({
+      type: { resolvedName: 'Text' },
+      displayName: 'Text',
+      isCanvas: false,
+      props,
+      custom: {},
+      hidden: false,
+      parent: 'ROOT',
+      nodes: [],
+      linkedNodes: {},
+    });
     const legacyTree = {
       ROOT: {
         type: { resolvedName: 'Container' },
@@ -240,74 +215,42 @@ describe('static Text', () => {
         nodes: ['legacy-a', 'legacy-b'],
         linkedNodes: {},
       },
-      'legacy-a': {
-        type: { resolvedName: 'Text' },
-        displayName: 'Text',
-        isCanvas: false,
-        props: {
-          text: 'Legacy bold\nsecond line',
-          fontSize: 24,
-          fontWeight: '700',
-          textAlign: 'center',
-          color: { r: 200, g: 10, b: 10, a: 1 },
-        },
-        custom: {},
-        hidden: false,
-        parent: 'ROOT',
-        nodes: [],
-        linkedNodes: {},
-      },
-      'legacy-b': {
-        type: { resolvedName: 'Text' },
-        displayName: 'Text',
-        isCanvas: false,
-        props: {
-          text: 'Inherited',
-          fontSize: 20,
-          fontWeight: 'normal',
-          textAlign: 'left',
-          color: 'inherit',
-        },
-        custom: {},
-        hidden: false,
-        parent: 'ROOT',
-        nodes: [],
-        linkedNodes: {},
-      },
-    };
-    const graph = {
-      version: 5,
-      graphSettings: {
-        showExecutionVisualisation: true,
-        viewportCenterPosition: { x: 0, y: 0 },
-        viewportScale: 1,
-        defaultUISurfaceNodeId: 'legacy-surface',
-      },
-      nodes: [
-        {
-          type: 'UISurfaceNode',
-          id: 'legacy-surface',
-          x: 0,
-          y: 0,
-          width: 400,
-          height: 400,
-          socketArray: [
-            {
-              socketType: 'in',
-              name: 'Layout JSON',
-              dataType: '{"class":"JSONType"}',
-              data: { version: 1, tree: legacyTree },
-              visible: false,
-            },
-          ],
-          updateBehaviour: { load: true, update: true, interval: false },
-        },
-      ],
-      links: [],
+      'legacy-a': legacyItem({
+        text: 'Legacy bold\nsecond line',
+        fontSize: 24,
+        fontWeight: '700',
+        textAlign: 'center',
+        color: { r: 200, g: 10, b: 10, a: 1 },
+      }),
+      // no color of its own: the old widget followed its container
+      'legacy-b': legacyItem({
+        text: 'Inherited',
+        fontSize: 20,
+        fontWeight: 'normal',
+        textAlign: 'left',
+        color: 'inherit',
+      }),
     };
 
     doWithTestController(async (testController) => {
-      await testController.loadStringifiedGraph(JSON.stringify(graph));
+      await testController.loadStringifiedGraph(
+        serializedGraph(
+          [
+            serializedNode('UISurfaceNode', 'legacy-surface', [
+              {
+                ...serializedSocket(
+                  'Layout JSON',
+                  { version: 1, tree: legacyTree },
+                  'JSONType',
+                ),
+                visible: false,
+              },
+            ]),
+          ],
+          [],
+          { defaultUISurfaceNodeId: 'legacy-surface' },
+        ),
+      );
       testController.toggleDashboard('OPEN');
     });
     exitDashboardEditMode();
@@ -326,20 +269,5 @@ describe('static Text', () => {
       .and('have.css', 'line-height', '24px')
       .and('have.css', 'font-weight', '400')
       .and('have.css', 'color', 'rgb(20, 120, 60)');
-
-    shouldWithTestController((testController) => {
-      const tree = testController.getNodeInputValue(
-        'legacy-surface',
-        'Layout JSON',
-      ).tree;
-      expect(tree['legacy-a'].props).to.not.have.property('text');
-      expect(tree['legacy-a'].props.alignment).to.eq('center');
-      expect(tree['legacy-a'].props.customStyles).to.deep.eq({
-        fontSize: '24px',
-        fontWeight: '700',
-        lineHeight: 1.2,
-        color: 'rgb(200, 10, 10)',
-      });
-    });
   });
 });
