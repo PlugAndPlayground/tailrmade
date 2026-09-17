@@ -303,6 +303,7 @@ export const NODE_SOURCE = {
   NEWCONNECTED: 'NewConnected',
   SERIALIZED: 'Serialized',
   NEW_DASHBOARD: 'NewDashboard',
+  PASTED: 'Pasted',
 } as const;
 
 export enum STATUS_SEVERITY {
