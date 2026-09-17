@@ -1561,13 +1561,7 @@ export default class PPGraph {
 
     console.time('graph_configure');
     PPStorage.getInstance().updateLocalURL(storedGraph);
-    this.id = storedGraph.id;
-    this.location = storedGraph.location;
-    this.name = storedGraph.name;
-    this.access = storedGraph.access;
-    this.owner = storedGraph.owner;
-    this.date = storedGraph.date;
-    this.isRemote = storedGraph.isRemote;
+    this.setBaselineMetadata(storedGraph);
     this.selection.deselectAllNodesAndResetSelection();
 
     if (Object.keys(this.nodes).length > 0) {
