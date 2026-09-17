@@ -24,7 +24,6 @@ export const themeToCssVariables = (theme: Theme): Record<string, string> => {
     '--tm-info': palette.info.main,
     '--tm-success': palette.success.main,
     '--tm-radius': `${shape.borderRadius}px`,
-    // createTheme always fills this in; the type is optional for ThemeOptions
     '--tm-font-family': typography.fontFamily as string,
   };
 };

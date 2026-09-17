@@ -133,9 +133,8 @@ the Data input's value is already the template's root context.
 Use HTML/IFrame only for custom markup, embeds, or behavior not covered by
 widgets and UI surfaces.
 
-"Background color" defaults to white, so use dark text. To inherit the surface
-background, set its alpha to 0 and choose text that contrasts with the surface.
-When the surface color is unknown, keep an explicit contrasting background.`;
+Call macros with {{macro "name" arg1 arg2}} in the template, or with
+macro("name", arg1, arg2) in JavaScript.`;
   }
 
   public shouldRenderWhenOffScreen(): boolean {
@@ -236,12 +235,21 @@ export class HtmlRenderer extends HtmlNodeBase {
   }
 
   public getDescription(): string {
-    return (
-      'Renders HTML code. Write your own HTML markup with Tailwind CSS styling.' +
-      ' To follow the app theme, use the theme colors (bg-primary, text-primary-foreground, bg-background, bg-paper, text-foreground, text-muted-foreground, border-divider, text-error/warning/info/success), rounded-theme and font-theme; opacity modifiers like bg-primary/10 give tints, and dark: follows the theme mode.' +
-      handlebarDescription +
-      ' To compose modular layouts enable Template Passthrough to create templates, then combine them to a JSON object and feed it into the Templates input of another HTML node.'
-    );
+    return 'Renders your own HTML, styled with Tailwind CSS in the app theme colors.';
+  }
+
+  public getAIDocs(): string {
+    return `${super.getAIDocs()}
+
+Style with Tailwind using theme colors, not fixed ones (the background is
+transparent by default):
+- bg-background, bg-paper, text-foreground, text-muted-foreground, border-divider
+- bg-primary/secondary + text-primary/secondary-foreground
+- error, warning, info, success
+- rounded-theme, font-theme; tints like bg-primary/10; dark: follows the theme
+
+To compose, enable "Template Passthrough" and feed the templates as a JSON
+object into another HTML Renderer's "Templates" input.`;
   }
 
   public getTags(): string[] {
@@ -667,9 +675,6 @@ const HtmlComponent = (props): React.ReactElement => {
   // instead of inheriting the app theme (which can be light-on-light). Any
   // explicit color the markup sets - Tailwind text-* classes, inline styles -
   // still wins, since this only lands on the wrapper. When the background is
-  // (near-)transparent the surface shows through, so use the text color of
-  // the theme the node renders under rather than guess from the node's own
-  // (invisible) background color.
   const backgroundTRgba = Object.assign(
     new TRgba(),
     props[SOCKETNAME_BACKGROUNDCOLOR],
@@ -722,6 +727,14 @@ export class IFrameRenderer extends HtmlNodeBase {
 
   public getDescription(): string {
     return 'Renders an iframe with HTML content.' + handlebarDescription;
+  }
+
+  public getAIDocs(): string {
+    return `${super.getAIDocs()}
+
+"Background color" defaults to white, so use dark text. To inherit the surface
+background, set its alpha to 0 and choose text that contrasts with the surface.
+When the surface color is unknown, keep an explicit contrasting background.`;
   }
 
   public getTags(): string[] {
