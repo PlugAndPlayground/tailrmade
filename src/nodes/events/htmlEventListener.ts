@@ -33,7 +33,16 @@ export class HTMLEventListener extends PPNode {
   }
 
   public getDescription(): string {
-    return 'A named event listener that HTML nodes can target. Reference this node by its name in HTML with data-tm-event-{eventType}=\'{"listener": "nodeName", "data": {...}}\'';
+    return 'A named event listener that HTML nodes can target.';
+  }
+
+  public getDocs(): string {
+    return `Reference this node by its name from an HTML node, using a
+data-tm-event-{eventType} attribute:
+
+    data-tm-event-click='{"listener": "nodeName", "data": {...}}'
+
+"data" is passed through to this node's output when the event fires.`;
   }
 
   public getTags(): string[] {

@@ -4,16 +4,18 @@ import {
   Box,
   Button,
   Checkbox,
+  Collapse,
   FormControlLabel,
-  FormGroup,
   IconButton,
   Stack,
   ToggleButton,
   ToggleButtonGroup,
 } from '@mui/material';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import * as styles from '../utils/style.module.css';
 import { getLoadNodeExampleURL } from '../utils/utils';
+import { renderUserFacingDocs } from '../utils/nodeDocs';
 import PPGraph from '../classes/GraphClass';
 import PPNode from '../classes/NodeClass';
 import Socket from '../classes/SocketClass';
@@ -286,6 +288,56 @@ const CommonSocketsArrayComponent: React.FC<CommonSocketsArrayProps> = ({
   );
 };
 
+// The node's full docs, collapsed by default so the one-line description stays
+// the thing you read first - the same progressive disclosure the AI agent gets,
+// where the catalogue carries descriptions and describe_node fetches the rest.
+function NodeDocs({ docs }: { docs: string }) {
+  const [expanded, setExpanded] = useState(false);
+  const html = React.useMemo(() => renderUserFacingDocs(docs), [docs]);
+
+  if (!html) {
+    return null;
+  }
+
+  return (
+    <Box sx={{ mt: 1 }}>
+      <Box
+        onClick={() => setExpanded((wasExpanded) => !wasExpanded)}
+        sx={{
+          display: 'flex',
+          alignItems: 'center',
+          cursor: 'pointer',
+          color: 'text.secondary',
+          fontSize: '12px',
+          userSelect: 'none',
+        }}
+      >
+        <ExpandMoreIcon
+          sx={{
+            fontSize: '16px',
+            transform: expanded ? 'none' : 'rotate(-90deg)',
+            transition: 'transform 150ms',
+          }}
+        />
+        How it works
+      </Box>
+      <Collapse in={expanded} unmountOnExit>
+        <Box
+          sx={{
+            lineHeight: '150%',
+            '& p': { my: 1 },
+            '& ul, & ol': { my: 1, pl: 2.5 },
+            '& h2, & h3': { fontSize: '13px', mt: 1.5, mb: 0.5 },
+            '& code': { fontSize: '12px', opacity: 0.85 },
+            '& a': { color: '#E154BB', textDecoration: 'none' },
+          }}
+          dangerouslySetInnerHTML={{ __html: html }}
+        />
+      </Collapse>
+    </Box>
+  );
+}
+
 type NodeInfoContentProps = {
   selectedNode: PPNode;
 };
@@ -343,14 +395,7 @@ function NodeInfoContent(props: NodeInfoContentProps) {
           }}
         >
           {props.selectedNode.getDescription()}
-          <Box
-            sx={{
-              lineHeight: '150%',
-            }}
-            dangerouslySetInnerHTML={{
-              __html: props.selectedNode.getAdditionalDescription(),
-            }}
-          />
+          <NodeDocs docs={props.selectedNode.getDocs()} />
         </Box>
         <Box
           sx={{
