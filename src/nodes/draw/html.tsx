@@ -235,7 +235,11 @@ export class HtmlRenderer extends HtmlNodeBase {
   }
 
   public getDescription(): string {
-    return 'Renders your own HTML, styled with Tailwind CSS in the app theme colors.';
+    return (
+      'Renders HTML code. Write your own HTML markup with Tailwind CSS styling.' +
+      handlebarDescription +
+      ' To compose modular layouts enable Template Passthrough to create templates, then combine them to a JSON object and feed it into the Templates input of another HTML node.'
+    );
   }
 
   public getAIDocs(): string {
@@ -246,10 +250,7 @@ transparent by default):
 - bg-background, bg-paper, text-foreground, text-muted-foreground, border-divider
 - bg-primary/secondary + text-primary/secondary-foreground
 - error, warning, info, success
-- rounded-theme, font-theme; tints like bg-primary/10; dark: follows the theme
-
-To compose, enable "Template Passthrough" and feed the templates as a JSON
-object into another HTML Renderer's "Templates" input.`;
+- rounded-theme, font-theme; tints like bg-primary/10; dark: follows the theme`;
   }
 
   public getTags(): string[] {
