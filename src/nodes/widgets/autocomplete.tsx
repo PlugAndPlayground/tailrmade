@@ -9,7 +9,6 @@ import {
 import Socket from '../../classes/SocketClass';
 import {
   defaultOptions,
-  fallbackValueName,
   getMuiSize,
   colorName,
   getColorSocket,
@@ -19,7 +18,6 @@ import {
   getWidgetControlProps,
   labelName,
   optionsName,
-  outName,
   selectedOptionName,
   sizeName,
   useWidgetSize,
@@ -155,7 +153,11 @@ abstract class WidgetAutocompleteBase extends WidgetSelectableBase {
     if (node.isSingle()) {
       return (
         <WidgetPaper node={node} inDashboard={props.inDashboard}>
-          <FormControl variant={inputVariant} sx={{ width: '100%', ...sizeSx }}>
+          <FormControl
+            variant={inputVariant}
+            margin="none"
+            sx={{ width: '100%', ...sizeSx }}
+          >
             <Autocomplete
               {...getWidgetControlProps(isDisabled)}
               autoHighlight
@@ -180,6 +182,7 @@ abstract class WidgetAutocompleteBase extends WidgetSelectableBase {
               renderInput={(params) => (
                 <TextField
                   {...params}
+                  margin="none"
                   color={color}
                   variant={inputVariant}
                   label={props[labelName]}
@@ -200,7 +203,11 @@ abstract class WidgetAutocompleteBase extends WidgetSelectableBase {
 
     return (
       <WidgetPaper node={node} inDashboard={props.inDashboard}>
-        <FormControl variant={inputVariant} sx={{ width: '100%', ...sizeSx }}>
+        <FormControl
+          variant={inputVariant}
+          margin="none"
+          sx={{ width: '100%', ...sizeSx }}
+        >
           <Autocomplete
             {...getWidgetControlProps(isDisabled)}
             multiple
@@ -232,6 +239,7 @@ abstract class WidgetAutocompleteBase extends WidgetSelectableBase {
             renderInput={(params) => (
               <TextField
                 {...params}
+                margin="none"
                 color={color}
                 variant={inputVariant}
                 label={props[labelName]}

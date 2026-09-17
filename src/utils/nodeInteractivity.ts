@@ -1,11 +1,15 @@
 // Shared interaction rules for hybrid/widget nodes
-// - Canvas widgets stay live unless they are part of a multi-selection
+// - Canvas widgets stay live unless they are part of a multi-selection, or the
+//   window is a phone - there the canvas is explore-only and a widget on it is
+//   inert (see getCanvasGrabThroughSx)
 // - Canvas non-widget hybrids require explicit interaction mode before content becomes live
 // - A singly selected non-widget hybrid can enter interaction mode on enter, a confirming second click or double-click
 // - Interaction-enabled hybrids must drop back out when they stop being the sole selection
 // - Dashboard interaction is gated OUTSIDE the widget content, by DashboardContentGate -
 //   pointer events via an overlay, keyboard and focus via `inert`. Widget content never
 //   learns why it was blocked; `disabled` below is only ever the widget's OWN read-only state.
+
+import { isCanvasExploreOnly } from './stackLayout';
 
 export type CanvasNodeInteractivityState = {
   isWidget: boolean;
@@ -76,15 +80,44 @@ export function shouldAutoFocusWidgetContent(
 }
 
 export const WIDGET_CONTROL_ATTRIBUTE = 'data-widget-control';
+
+// A control whose drag is its whole point - the slider. Everything else marked
+// as a control wants a tap, so on the canvas a travelling finger is handed to
+// the canvas as a pan instead (see startCanvasTouchPan).
+export const WIDGET_DRAG_CONTROL_ATTRIBUTE = 'data-widget-drag-control';
+
 const NOT_DISABLED = ':not(.Mui-disabled):not([disabled])';
 export function getWidgetControlProps(disabled = false) {
   return disabled ? {} : { [WIDGET_CONTROL_ATTRIBUTE]: true as const };
 }
 
-export function getCanvasGrabThroughSx() {
+export function getWidgetDragControlProps(disabled = false) {
+  return disabled
+    ? {}
+    : {
+        [WIDGET_CONTROL_ATTRIBUTE]: true as const,
+        [WIDGET_DRAG_CONTROL_ATTRIBUTE]: true as const,
+      };
+}
+
+/**
+ * Hands pointer events back to a canvas widget's controls - the only part of it
+ * that takes any, the rest being `pointer-events: none` so a press drags the
+ * node underneath. Except on a phone, where it hands back nothing and the whole
+ * widget stays inert, so panning across one works like panning across anything
+ * else (see isCanvasExploreOnly).
+ */
+export function getCanvasGrabThroughSx(exploreOnly = isCanvasExploreOnly()) {
+  if (exploreOnly) {
+    return {};
+  }
   return {
     [`& [${WIDGET_CONTROL_ATTRIBUTE}]${NOT_DISABLED}`]: {
       pointerEvents: 'auto',
+      touchAction: 'none',
+      WebkitTouchCallout: 'none',
+      WebkitUserSelect: 'none',
+      userSelect: 'none',
     },
   };
 }

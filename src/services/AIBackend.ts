@@ -3,7 +3,11 @@ import PPGraph from '../classes/GraphClass';
 import InterfaceController, { ListenEvent } from '../InterfaceController';
 import { truncateStringForAIContext } from './contextTruncation';
 import { TailrmadeMCPServer } from './TailrmadeMCPServer';
-import { getAIAgentProvider, type AIProvider } from './aiModels';
+import {
+  getAIAgentProvider,
+  getAIModelDefinition,
+  type AIProvider,
+} from './aiModels';
 import { CLOUD_MODE, EXECUTION_LOCATION_LOCAL } from './shared-types';
 import { getCachedUserPreferences } from '../components/useUserPreferences';
 import { BackendGateway } from './BackendGateway';
@@ -30,6 +34,7 @@ import {
   readAIJSON,
   readClaudeStream,
 } from './AIRequest';
+import { stripAIToolMarkers } from './aiToolMarkers';
 
 const LOCAL_COMPANION_AI_BASE_URL = 'http://localhost:6655/ai';
 
@@ -207,6 +212,13 @@ export class AIBackend {
     return image.replace(/^data:image\/[^;]+;base64,/, '');
   }
 
+  private getModelFacingContent(entry: AIConversationMessage): string {
+    if (entry.sender !== AIConversationSender.AI) {
+      return entry.content;
+    }
+    return stripAIToolMarkers(entry.content) || '(no written reply)';
+  }
+
   private buildProviderMessages(
     conversation: AIConversationMessage[],
     message: string,
@@ -215,7 +227,7 @@ export class AIBackend {
     return [
       ...conversation.map((entry) => ({
         role: entry.sender,
-        content: [{ type: 'text', text: entry.content }],
+        content: [{ type: 'text', text: this.getModelFacingContent(entry) }],
       })),
       {
         role: 'user',
@@ -633,7 +645,7 @@ export class AIBackend {
 
           if (result.is_error || !isInspectionTool) {
             assistantMessage += result.is_error
-              ? `\n*${toolName} failed: ${result.content}*`
+              ? `\n*${toolName} failed: ${String(result.content ?? '').replace(/\*/g, '')}*`
               : `\n*Used ${toolName}.*`;
             applyAssistantText(assistantMessage);
           }
@@ -1043,9 +1055,11 @@ export class AIBackend {
       return {
         success: true,
         status: 200,
-        data: images?.length
-          ? responseData
-          : { content: [{ type: 'text', text: turn.text }] },
+        data:
+          images?.length ||
+          getAIModelDefinition(provider, model)?.generatesImages
+            ? responseData
+            : { content: [{ type: 'text', text: turn.text }] },
       };
     } catch (error) {
       return this.buildFailedAIResponse(error);

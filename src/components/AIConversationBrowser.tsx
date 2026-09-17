@@ -25,7 +25,7 @@ import {
   AI_AGENT_PROVIDERS,
   getDefaultAIModel,
   getAIAgentProvider,
-  getAIModelsForProvider,
+  getAIAgentModelsForProvider,
   type AIAgentProvider,
 } from '../services/aiModels';
 import {
@@ -95,7 +95,7 @@ const AIConversationBrowser = () => {
   const [performActions, setPerformActions] = useState(true);
   const [showSettings, setShowSettings] = useState(false);
   const activeModelLabel =
-    getAIModelsForProvider(selectedProvider).find(
+    getAIAgentModelsForProvider(selectedProvider).find(
       (model) => model.value === selectedModel,
     )?.label ?? selectedModel;
 
@@ -278,7 +278,7 @@ const AIConversationBrowser = () => {
                 onChange={(event) => setSelectedModel(event.target.value)}
                 sx={selectSx}
               >
-                {getAIModelsForProvider(selectedProvider).map((model) => (
+                {getAIAgentModelsForProvider(selectedProvider).map((model) => (
                   <MenuItem key={model.value} value={model.value}>
                     {model.label}
                   </MenuItem>

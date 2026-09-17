@@ -22,6 +22,7 @@ import PPNode from './NodeClass';
 import PPLink from './LinkClass';
 import { Tooltipable } from '../components/Tooltip';
 import InterfaceController, { ListenEvent } from '../InterfaceController';
+import { isCanvasExploreOnly } from '../utils/stackLayout';
 import {
   COLOR_DARK,
   COLOR_WHITE_TEXT,
@@ -714,6 +715,9 @@ export default class Socket
   }
 
   onSocketPointerDown(event: PIXI.FederatedPointerEvent): void {
+    if (isCanvasExploreOnly()) {
+      return;
+    }
     clearDocumentSelection();
     InterfaceController.spamToast(
       `${event.shiftKey ? 'socket_shift_clicked' : 'socket_clicked'} ${this.getNode().id}:${this.name}`,

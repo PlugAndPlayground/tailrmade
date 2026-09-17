@@ -680,7 +680,16 @@ export class WidgetSwitch extends WidgetHybridBase {
 
     return (
       <WidgetPaper node={node} inDashboard={props.inDashboard}>
-        <FormControl component="fieldset" sx={{ margin: 'auto' }}>
+        <FormControl
+          component="fieldset"
+          sx={{
+            margin: 'auto',
+            minHeight: props.inDashboard
+              ? `${tokens.controlHeight}px`
+              : undefined,
+            justifyContent: 'center',
+          }}
+        >
           <Stack
             direction="row"
             alignItems="center"

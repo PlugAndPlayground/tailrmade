@@ -22,6 +22,7 @@ import { StringType } from '../datatypes/stringType';
 import { BooleanType } from '../datatypes/booleanType';
 import { NumberType } from '../datatypes/numberType';
 import { EnumType, EnumStructure } from '../datatypes/enumType';
+import { AbstractType } from '../datatypes/abstractType';
 import { BackPropagation } from '../../interfaces';
 import { SOCKET_TYPE } from '../../utils/constants';
 import {
@@ -32,6 +33,15 @@ import {
 } from '../../classes/Action';
 import { WidgetContentProps } from '../../utils/interfaces';
 import { useResolvedInputVariant } from '../../utils/theme';
+import { NumberInput } from '../../components/NumberInput';
+import {
+  WidgetNumberBase,
+  decimalsName,
+  getDecimals,
+  getDecimalsSocket,
+  maxValueName,
+  minValueName,
+} from './number-base';
 
 // Socket names
 const placeholderName = 'Placeholder';
@@ -48,6 +58,13 @@ const textFieldDefaultLabel = 'Text Field';
 
 // Options
 const typeOptions: EnumStructure = [{ text: 'text' }, { text: 'password' }];
+
+const getFieldEndSockets = (outType: AbstractType): Socket[] => [
+  new Socket(SOCKET_TYPE.IN, requiredName, new BooleanType(), false, false),
+  getColorSocket(),
+  getSizeSocket(),
+  new Socket(SOCKET_TYPE.OUT, outName, outType),
+];
 
 export class WidgetTextField extends WidgetHybridBase {
   public getName(): string {
@@ -108,10 +125,7 @@ export class WidgetTextField extends WidgetHybridBase {
         0,
         false,
       ),
-      new Socket(SOCKET_TYPE.IN, requiredName, new BooleanType(), false, false),
-      getColorSocket(),
-      getSizeSocket(),
-      new Socket(SOCKET_TYPE.OUT, outName, new StringType()),
+      ...getFieldEndSockets(new StringType()),
     ];
   }
 
@@ -203,9 +217,10 @@ export class WidgetTextField extends WidgetHybridBase {
     return (
       <WidgetPaper node={node} inDashboard={props.inDashboard}>
         <Box sx={{ width: '100%' }}>
-          <FormControl fullWidth>
+          <FormControl fullWidth margin="none">
             <TextField
               {...getWidgetControlProps(props.disabled)}
+              margin="none"
               value={internalValue}
               label={props[labelName]}
               placeholder={placeholder}
@@ -240,6 +255,131 @@ export class WidgetTextField extends WidgetHybridBase {
             />
           </FormControl>
         </Box>
+      </WidgetPaper>
+    );
+  }
+}
+
+const limitRangeName = 'Limit Range';
+const stepName = 'Step';
+const steppersName = 'Show Steppers';
+
+const numberFieldDefaultValue = 0;
+const numberFieldDefaultLabel = 'Number Field';
+
+export class WidgetNumberField extends WidgetNumberBase {
+  public getName(): string {
+    return 'Number Field';
+  }
+
+  public getDescription(): string {
+    return 'Adds a number input field';
+  }
+
+  public getTags(): string[] {
+    return ['Number'].concat(super.getTags());
+  }
+
+  protected getDefaultIO(): Socket[] {
+    return [
+      new Socket(
+        SOCKET_TYPE.IN,
+        initialValueName,
+        new NumberType(),
+        numberFieldDefaultValue,
+        false,
+      ),
+      new Socket(
+        SOCKET_TYPE.IN,
+        limitRangeName,
+        new BooleanType(),
+        false,
+        false,
+      ),
+      Socket.getOptionalVisibilitySocket(
+        SOCKET_TYPE.IN,
+        minValueName,
+        new NumberType(),
+        0,
+        () => this.getInputData(limitRangeName),
+      ),
+      Socket.getOptionalVisibilitySocket(
+        SOCKET_TYPE.IN,
+        maxValueName,
+        new NumberType(),
+        100,
+        () => this.getInputData(limitRangeName),
+      ),
+      getDecimalsSocket(),
+      getLabelSocket(numberFieldDefaultLabel),
+      new Socket(SOCKET_TYPE.IN, placeholderName, new StringType(), '', false),
+      new Socket(SOCKET_TYPE.IN, helperTextName, new StringType(), '', false),
+      new Socket(SOCKET_TYPE.IN, stepName, new NumberType(), 1, false),
+      new Socket(SOCKET_TYPE.IN, steppersName, new BooleanType(), true, false),
+      ...getFieldEndSockets(new NumberType()),
+    ];
+  }
+
+  public getDefaultNodeWidth(): number {
+    return 220;
+  }
+
+  public getDefaultNodeHeight(): number {
+    return 120;
+  }
+
+  public getMinNodeHeight(): number {
+    return 80;
+  }
+
+  protected async onExecute(
+    inputObject: any,
+    outputObject: any,
+  ): Promise<void> {
+    await super.onExecute(inputObject, outputObject);
+    this.setOutputData(
+      outName,
+      this.getOutputValue(inputObject, inputObject[limitRangeName]),
+    );
+  }
+
+  getWidgetContent(props: WidgetContentProps): React.ReactElement {
+    const node = props.node as WidgetNumberField;
+    const size = useWidgetSize(props[sizeName]);
+    const tokens = useSizeTokens(size);
+    const sizeSx = useSizeSx(size);
+    const inputVariant = useResolvedInputVariant();
+    const limitRange = props[limitRangeName];
+    const decimals = getDecimals(props[decimalsName]);
+
+    return (
+      <WidgetPaper node={node} inDashboard={props.inDashboard}>
+        <NumberInput
+          {...getWidgetControlProps(props.disabled)}
+          label={props[labelName]}
+          value={props[initialValueName]}
+          onChange={(value) => void node.handleValueChange(value)}
+          min={limitRange ? props[minValueName] : undefined}
+          max={limitRange ? props[maxValueName] : undefined}
+          step={Math.max(props[stepName], 10 ** -decimals)}
+          decimals={decimals}
+          required={props[requiredName]}
+          disabled={props.disabled}
+          readOnly={props.inDashboard && props.disabled}
+          size={getMuiSize(size)}
+          variant={inputVariant}
+          color={props[colorName]}
+          placeholder={props[placeholderName]}
+          helperText={props[helperTextName]}
+          hideSteppers={!props[steppersName]}
+          sx={{
+            pointerEvents: props.disabled ? 'none' : undefined,
+            ...sizeSx,
+            '& .MuiInputAdornment-root .MuiSvgIcon-root': {
+              fontSize: `${Math.round(tokens.iconSize * 0.75)}px`,
+            },
+          }}
+        />
       </WidgetPaper>
     );
   }

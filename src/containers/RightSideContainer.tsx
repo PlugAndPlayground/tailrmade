@@ -113,35 +113,48 @@ const RightSideContainerInner: React.FC<RightSideContainerProps> = ({
         id="inspector-container-right"
         spacing={0}
         sx={{
-          height: '100vh',
+          // fills whatever the panel gives it rather than naming the window's
+          // height, which it is only entitled to as a full-height column
+          height: '100%',
+          minHeight: 0,
         }}
       >
         <Tabs
           value={rightDrawerView}
           onChange={handleTabChange}
           variant="fullWidth"
-          sx={{ borderBottom: 1, borderColor: 'divider' }}
+          sx={{
+            flexShrink: 0,
+            borderBottom: 1,
+            borderColor: 'divider',
+          }}
         >
           <Tab
+            iconPosition="top"
             icon={<PolylineIcon fontSize="small" />}
             label="Graph (3)"
             value={RightDrawerView.GRAPH}
             data-cy="graph-inspector-tab"
           />
           <Tab
+            iconPosition="top"
             icon={<DashboardIcon fontSize="small" />}
             label="User interface (4)"
             value={RightDrawerView.INTERFACE}
             data-cy="interface-settings-tab"
           />
           <Tab
+            iconPosition="top"
             icon={<SquareIcon fontSize="small" />}
             label="App (5)"
             value={RightDrawerView.APP}
             data-cy="app-info-tab"
           />
         </Tabs>
-        <Box sx={{ flex: 1, overflow: 'auto', p: 2 }}>
+        <Box
+          data-cy="inspector-content"
+          sx={{ flex: 1, minHeight: 0, overflow: 'auto', p: 2 }}
+        >
           {rightDrawerView === RightDrawerView.INTERFACE ? (
             interfaceInspectorComponent
           ) : rightDrawerView === RightDrawerView.GRAPH ? (

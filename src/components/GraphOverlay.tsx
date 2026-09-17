@@ -15,6 +15,14 @@ import { canonicalTreeString } from '../utils/surfaceTree';
 import { nextDrawerVisibility } from '../utils/drawerVisibility';
 import InterfaceController, { ListenEvent } from '../InterfaceController';
 import ShellLayout from './ShellLayout';
+import {
+  useIsStackLayout,
+  useMaxOpenPanels,
+  useStackView,
+  CAPPED_PANELS,
+  nextPanelOrder,
+  panelsToClose,
+} from '../utils/layoutModel';
 import { DrawerSide, IOverlay, isSurfaceNode } from '../utils/interfaces';
 import {
   DASHBOARD_DEFAULT,
@@ -65,6 +73,11 @@ const GraphOverlay: React.FunctionComponent<GraphOverlayProps> = (props) => {
   });
   const [isEditMode, setIsEditMode] = useState(false);
   const appView = overlayState[DrawerSide.DASHBOARD].fullscreen;
+  const stackLayout = useIsStackLayout();
+  const stackView = useStackView();
+  const maxOpenPanels = useMaxOpenPanels();
+  // oldest first - see nextPanelOrder
+  const panelOrderRef = useRef<DrawerSide[]>([]);
   const preAppViewStateRef = useRef<{
     overlay: IOverlay;
     isEditMode: boolean;
@@ -112,11 +125,14 @@ const GraphOverlay: React.FunctionComponent<GraphOverlayProps> = (props) => {
       rightSide: overlayState.rightSide,
     });
 
-    if (
-      (appView ||
-        (overlayState.dashboard.maximized && overlayState.dashboard.visible)) &&
-      PPGraph.currentGraph.app.ticker.started
-    ) {
+    // a pixi ticker running behind an opaque panel is pure battery on the one
+    // device where that is felt
+    const canvasIsHidden = stackLayout
+      ? stackView !== 'graph'
+      : appView ||
+        (overlayState.dashboard.maximized && overlayState.dashboard.visible);
+
+    if (canvasIsHidden && PPGraph.currentGraph.app.ticker.started) {
       PPGraph.currentGraph.app.ticker.stop();
       console.log('stopped main app ticker');
     } else if (!PPGraph.currentGraph.app.ticker.started) {
@@ -127,7 +143,28 @@ const GraphOverlay: React.FunctionComponent<GraphOverlayProps> = (props) => {
       });
       console.log('started main app ticker');
     }
-  }, [overlayState, appView]);
+  }, [overlayState, appView, stackLayout, stackView]);
+
+  useEffect(() => {
+    if (stackLayout) {
+      return;
+    }
+    const openNow = CAPPED_PANELS.filter((side) => overlayState[side].visible);
+    const order = nextPanelOrder(panelOrderRef.current, openNow);
+    const closing = panelsToClose(order, maxOpenPanels);
+    panelOrderRef.current = order.filter((side) => !closing.includes(side));
+
+    if (closing.length > 0) {
+      updateOverlayState(
+        Object.fromEntries(
+          closing.map((side) => [
+            side,
+            { ...overlayState[side], visible: false },
+          ]),
+        ),
+      );
+    }
+  }, [overlayState, maxOpenPanels, stackLayout, updateOverlayState]);
 
   const toggleDrawer = useCallback(
     (
