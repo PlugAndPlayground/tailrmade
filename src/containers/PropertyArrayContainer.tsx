@@ -326,7 +326,15 @@ function NodeDocs({ docs }: { docs: string }) {
           sx={{
             lineHeight: '150%',
             '& p': { my: 1 },
-            '& ul, & ol': { my: 1, pl: 2.5 },
+            '& ul, & ol': {
+              my: 1,
+              pl: 3,
+              listStylePosition: 'outside',
+            },
+            '& ul': { listStyleType: 'disc' },
+            '& ol': { listStyleType: 'decimal' },
+            '& li': { mb: 0.25 },
+            '& li::marker': { color: 'text.secondary' },
             '& h2, & h3': { fontSize: '13px', mt: 1.5, mb: 0.5 },
             '& code': { fontSize: '12px', opacity: 0.85 },
             '& a': { color: '#E154BB', textDecoration: 'none' },
