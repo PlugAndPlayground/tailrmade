@@ -51,6 +51,7 @@ import {
 import { NodeExecutionWarning, PNPStatus, PNPSuccess } from './ErrorClass';
 import { PNPHitArea } from './selection/PNPHitArea';
 import { getOverflowForSize } from '../utils/layoutableHelpers';
+import { serializeSocketData } from '../utils/serializeSocketData';
 
 export default class Socket
   extends PIXI.Container
@@ -578,10 +579,10 @@ export default class Socket
     let data = undefined;
     if (this.isInput()) {
       if (!this.hasLink()) {
-        data = structuredClone(this.dataType.prepareDataForSaving(this.data));
+        data = serializeSocketData(this);
       }
     } else if (this.isOutput() && includeDataForOutputSockets) {
-      data = structuredClone(this.dataType.prepareDataForSaving(this.data));
+      data = serializeSocketData(this);
     }
     return {
       socketType: this.socketType,
