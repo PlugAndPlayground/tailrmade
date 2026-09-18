@@ -31,6 +31,7 @@ import {
   WidgetProps,
 } from '../../utils/interfaces';
 import { TRgba } from '../../utils/color';
+import { AGENT_DOCS_HEADING } from '../../utils/nodeDocs';
 import {
   NODE_SOURCE,
   NODE_TYPE_COLOR,
@@ -152,44 +153,36 @@ export class UISurfaceNode extends HybridNode2 implements Layoutable {
     return 'Build a page or reusable UI container from connected widgets.';
   }
 
-  public getAIDocs(): string {
+  public getDocs(): string {
     return `A top-level surface is a page; a surface nested in another is a
 reusable container or component.
 
 Connect any "ReactUI" output (widgets, charts, or other surfaces) to place it
 on the surface. This creates an element socket and two control sockets:
 "<name> visible" (boolean) and "<name> layout" (layout object). Self-embedding
-loops are rejected.
+loops are rejected. Disconnecting a widget takes it back off, so moving one to
+another page is a disconnect plus a connect.
 
-disconnect_sockets takes a widget back off (pass the surface as to_node and the
-widget as from_node). Moving a widget to another page is a disconnect plus a
-connect.
+Arrange the surface in the dashboard editor. If "Layout JSON" is linked, the
+graph owns the layout and it can no longer be arranged by hand.
 
-Use inspect_surface and set_surface_layout to arrange it. If "Layout JSON" is
-linked, the graph owns the layout and set_surface_layout is locked.
-
-## set_surface_layout spec
-Each call replaces the layout; omitted props reset. Inspect first and include
-everything to keep. Omitted connected widgets are appended with a warning.
-- Container: {direction:'row'|'column', children:[...], gap?, padding?,
-  background?, width?, height?, align?, justify?, mobileBehavior?}. The root
-  must be a container and is ALWAYS a vertical stack (direction fixed to
-  'column'); nest a row container for side-by-side items. mobileBehavior sets
-  what a 'row' does on a narrow dashboard (< 600px): 'column' (the default)
-  stacks its children, 'wrap' lets them wrap, 'row' keeps them side by side.
-- Static text: {text:'...', fontSize?, fontWeight?, textAlign?, color?}.
-- Graph widget: {widget:'<node_id>'} - a node with a ReactUI output;
-  unconnected widgets are connected automatically.
-- Colors are {r,g,b,a} (0-255, a 0-1). Keep the default dark theme when
-  possible. If overriding it, set contrasting root background and text colors.
-- Spacing: the root defaults to zero desktop padding, so content touches the
-  surface edges. On a scrollable content page (root height 'auto') give the
-  root padding ~16-24 and gap ~8-16; on a fullscreen dashboard (root height
+## Layout
+- A container holds children in a row or column, with its own gap, padding,
+  background, width, height, align and justify. The root is ALWAYS a vertical
+  stack; nest a row container for side-by-side items.
+- A row's mobile behaviour decides what it does on a narrow dashboard
+  (< 600px): stack its children (the default), let them wrap, or keep them
+  side by side.
+- The root defaults to zero desktop padding, so content touches the surface
+  edges. On a scrollable content page (root height 'auto') give the root
+  padding ~16-24 and gap ~8-16; on a fullscreen dashboard (root height
   '100dvh') keep padding minimal.
+- Keep the default dark theme when possible. If overriding it, set contrasting
+  root background and text colors.
 
 ## Navigation and multi-view apps
 Switch surfaces with "Navigate to UI surface", which resolves a surface by its
-NODE name or route slug. The first surface is the default; change it with set_default_surface.
+NODE name or route slug. The first surface is the default.
 
 Two patterns:
 1. Separate pages: several top-level surfaces share one navigation widget
@@ -199,7 +192,27 @@ into one main surface that holds the navigation, with a shared non-empty
 "Radio Group" so navigating shows one child and hides the rest. Children
 default to visible; set each non-default child's hidden
 "<child name> visible" companion socket on the main surface to false -
-otherwise all pages render at once.`;
+otherwise all pages render at once.
+
+${AGENT_DOCS_HEADING}
+disconnect_sockets takes a widget back off (pass the surface as to_node and the
+widget as from_node).
+
+Use inspect_surface and set_surface_layout to arrange it; set_surface_layout is
+locked while "Layout JSON" is linked. Change the default surface with
+set_default_surface.
+
+### set_surface_layout spec
+Each call replaces the layout; omitted props reset. Inspect first and include
+everything to keep. Omitted connected widgets are appended with a warning.
+- Container: {direction:'row'|'column', children:[...], gap?, padding?,
+  background?, width?, height?, align?, justify?, mobileBehavior?}. The root
+  must be a container with direction fixed to 'column'. mobileBehavior is
+  'column' | 'wrap' | 'row'.
+- Static text: {text:'...', fontSize?, fontWeight?, textAlign?, color?}.
+- Graph widget: {widget:'<node_id>'} - a node with a ReactUI output;
+  unconnected widgets are connected automatically.
+- Colors are {r,g,b,a} (0-255, a 0-1).`;
   }
 
   public getTags(): string[] {

@@ -15,6 +15,7 @@ import {
   TRIGGER_TYPE_OPTIONS,
 } from '../../utils/constants';
 import { TRgba } from '../../utils/color';
+import { composeDocs } from '../../utils/nodeDocs';
 import {
   dashboardLayoutInputName,
   modalOpenSocketName,
@@ -105,17 +106,18 @@ export class UIModalNode extends UISurfaceNode {
     return 'Build a modal dialog from connected widgets.';
   }
 
-  public getAIDocs(): string {
-    return `${super.getAIDocs()}
-
-## Opening and closing the dialog
+  public getDocs(): string {
+    return composeDocs(
+      super.getDocs(),
+      `## Opening and closing the dialog
 These sockets are separate from the layout:
 - Wire an output to "Open Dialog". Placing a button in the modal only adds it
   to the content; it does not open the dialog.
 - "Close Dialog" closes it. "Open" (boolean input) is an alternative: true opens,
   false closes; "Is Open" (boolean output) reflects the state.
 - "Title" sets the header; "Dismiss on Backdrop"/"Dismiss on Escape" toggle
-  closing on outside-click or Esc.`;
+  closing on outside-click or Esc.`,
+    );
   }
 
   public isModalDialog(): boolean {

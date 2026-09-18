@@ -11,11 +11,7 @@ import {
   SOCKET_TYPE,
   TRIGGER_TYPE_OPTIONS,
 } from '../../utils/constants';
-import {
-  imageDataURLToPngBlob,
-  isImageDataURL,
-  wrapDownloadLink,
-} from '../../utils/utils';
+import { imageDataURLToPngBlob, isImageDataURL } from '../../utils/utils';
 import { TRgba } from '../../utils/color';
 import { ensureVisible } from '../../pixi/utils-pixi';
 import { AbstractType } from '../datatypes/abstractType';
@@ -465,11 +461,10 @@ export class Hash extends PPNode {
     return 'Create a wide range of cryptographic hashes (SHA, BLAKE, bcrypt, HMAC and more)';
   }
 
-  public getAdditionalDescription(): string {
-    return `<p>This node uses the ${wrapDownloadLink(
-      'https://github.com/Daninet/hash-wasm',
-      'hash-wasm',
-    )} library. Check out its documentation for more details.</p>`;
+  public getDocs(): string {
+    return `This node uses the
+[hash-wasm](https://github.com/Daninet/hash-wasm) library.
+Check out its documentation for more details.`;
   }
 
   public getTags(): string[] {

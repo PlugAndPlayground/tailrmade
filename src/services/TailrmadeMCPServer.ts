@@ -306,7 +306,7 @@ export class TailrmadeMCPServer {
       {
         name: 'describe_node',
         description:
-          "Get one node type's description, AI usage docs, and socket types and defaults.",
+          "Get one node type's description, full docs, and socket types and defaults.",
         input_schema: {
           type: 'object',
           properties: {
@@ -927,7 +927,7 @@ export class TailrmadeMCPServer {
         type: key,
         name: node.getName(),
         description: node.getDescription(),
-        ai_docs: node.getAIDocs(),
+        docs: node.getDocs(),
         tags: node.getTags(),
         update_behaviour: this.updateBehaviourToSerializable(node),
         sockets: node.getAllSockets().map((socket) => ({

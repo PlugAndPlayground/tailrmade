@@ -12,11 +12,7 @@ import { EnumStructure, EnumType } from '../datatypes/enumType';
 import { TriggerType } from '../datatypes/triggerType';
 import { DynamicImport } from '../../utils/dynamicImport';
 import { TNodeSource } from '../../utils/interfaces';
-import {
-  getCanvasWidgetPointerEvents,
-  getWidgetPointerEvents,
-} from '../../utils/nodeInteractivity';
-import { wrapDownloadLink } from '../../utils/utils';
+import { getCanvasWidgetPointerEvents } from '../../utils/nodeInteractivity';
 import {
   NODE_TYPE_COLOR,
   SOCKET_TYPE,
@@ -68,11 +64,9 @@ export class Slideshow extends HybridNode2 {
     return 'Create powerpoint presentations using markup';
   }
 
-  public getAdditionalDescription(): string {
-    return `<p>This node uses the ${wrapDownloadLink(
-      'https://revealjs.com/',
-      'reveal.js',
-    )} library. Check out its documentation for more details.</p>`;
+  public getDocs(): string {
+    return `This node uses the [reveal.js](https://revealjs.com/) library.
+Check out its documentation for more details.`;
   }
 
   public getTags(): string[] {

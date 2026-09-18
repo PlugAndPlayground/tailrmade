@@ -68,10 +68,6 @@ export class AINode extends HTTPNode {
     return 'Sends data and images to a selected AI provider and model.';
   }
 
-  public getAdditionalDescription(): string {
-    return '';
-  }
-
   public getUpdateBehaviour(): UpdateBehaviourClass {
     return new UpdateBehaviourClass(false, false, false, 1000, this);
   }

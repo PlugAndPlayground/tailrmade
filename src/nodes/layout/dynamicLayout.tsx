@@ -23,7 +23,6 @@ import {
   isSurfaceNode,
 } from '../../utils/interfaces';
 import {
-  DEFAULT_UPDATE_FREQUENCY,
   SOCKETNAME_BACKGROUNDCOLOR,
   SOCKET_TYPE,
   TRIGGER_TYPE_OPTIONS,
@@ -34,6 +33,7 @@ import { DashboardContentGate } from '../../components/dashboard/DashboardConten
 import { ArrayType } from '../datatypes/arrayType';
 import { LayoutableNodeBase } from './dynamicLayoutBase';
 import { ColorSetting } from '../../utils/themeColors';
+import { AGENT_DOCS_HEADING } from '../../utils/nodeDocs';
 
 type VisibilityMode = 'visible' | 'hidden';
 type CollapseMode = 'collapse' | 'expand' | 'none';
@@ -462,23 +462,28 @@ export class NavigateToPage extends PPNode {
     return 'Shows a UI surface by their node name or route when the target changes or its Execute trigger fires.';
   }
 
-  public getAIDocs(): string {
+  public getDocs(): string {
     return `Navigates when "Surface" changes, so a tabs or dropdown widget can
 drive it directly. Nothing happens on graph load - the default surface wins.
 
 ## The target must name a real surface
-1. set_node_name each surface to a short unique name ("Home", "Settings").
+1. Give each surface a short unique node name ("Home", "Settings").
 2. Feed this node exactly those strings.
 
 ## Wiring
 - Tabs/dropdown for several destinations: set its options to the exact surface
   names and connect its "Out" to "Surface".
-- One button per destination: set_socket_value "Surface" to the fixed target
-  and connect the button's "Out" to "Execute".
+- One button per destination: set "Surface" to the fixed target and connect the
+  button's "Out" to "Execute".
 
 ## What navigating does
 - A top-level surface becomes the displayed page.
-- An embedded page in a nav shell is shown and every surface sharing the same "Radio Group" is hidden`;
+- An embedded page in a nav shell is shown and every surface sharing the same
+  "Radio Group" is hidden.
+
+${AGENT_DOCS_HEADING}
+Rename surfaces with set_node_name and pin a fixed destination with
+set_socket_value on "Surface".`;
   }
 
   public getVersion(): number {

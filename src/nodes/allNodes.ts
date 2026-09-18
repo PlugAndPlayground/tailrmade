@@ -203,8 +203,7 @@ const getDetailsForNode = (node: PPNode, key: string): any => {
     key: key,
     name: node.getName(),
     description: node.getDescription(),
-    description2: node.getAdditionalDescription(),
-    hasAIDocs: node.getAIDocs() !== '',
+    hasDocs: node.getDocs() !== '',
     tags: node.getTags().join(),
     hasExample: node.hasExample(),
     updateBehaviour: updateBehaviour.join(),
@@ -256,34 +255,21 @@ export const getAINodesInDetail = (): Promise<any[]> => {
 };
 
 const MAX_COMPACT_DESCRIPTION_LENGTH = 140;
-const MAX_COMPACT_DESCRIPTION2_LENGTH = 60;
 
 // Single-line, compact rendering of one node's description for the catalogue.
-// Strips newlines and folds in description2 only when it is short and adds
-// signal beyond description itself, then truncates to a fixed budget so the
-// catalogue - and therefore the cached system prompt prefix - stays stable.
+// Strips newlines and truncates to a fixed budget so the catalogue - and
+// therefore the cached system prompt prefix - stays stable. The detail lives
+// in getDocs(), which the AI fetches per node through describe_node.
 const getCompactDescriptionForNode = (nodeDetail: any): string => {
   const description = String(nodeDetail.description ?? '')
     .replace(/\s*\n\s*/g, ' ')
     .trim();
-  const description2 = String(nodeDetail.description2 ?? '')
-    .replace(/\s*\n\s*/g, ' ')
-    .trim();
 
-  let combined = description;
-  if (
-    description2 &&
-    description2 !== description &&
-    description2.length <= MAX_COMPACT_DESCRIPTION2_LENGTH
-  ) {
-    combined = combined ? `${combined} ${description2}` : description2;
+  if (description.length > MAX_COMPACT_DESCRIPTION_LENGTH) {
+    return `${description.slice(0, MAX_COMPACT_DESCRIPTION_LENGTH - 1).trimEnd()}…`;
   }
 
-  if (combined.length > MAX_COMPACT_DESCRIPTION_LENGTH) {
-    combined = `${combined.slice(0, MAX_COMPACT_DESCRIPTION_LENGTH - 1).trimEnd()}…`;
-  }
-
-  return combined;
+  return description;
 };
 
 // Renders a compact, deterministic catalogue of every AI-visible node type
@@ -299,7 +285,7 @@ export const getAINodesCompactList = (): Promise<string> => {
       nodeDetails
         .map((nodeDetail) => {
           const description = getCompactDescriptionForNode(nodeDetail);
-          const docsMarker = nodeDetail.hasAIDocs ? ' [docs]' : '';
+          const docsMarker = nodeDetail.hasDocs ? ' [docs]' : '';
           return `- ${nodeDetail.key} (${nodeDetail.name}): ${description}${docsMarker}`;
         })
         .join('\n'),
