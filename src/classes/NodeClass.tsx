@@ -1643,8 +1643,7 @@ ${Math.round(bounds.minX)}, ${Math.round(
       // not bypassed globally.
       const isEmptyAnyInput =
         socket.isInput() &&
-        socket.data == null &&
-        socket.dataType.acceptsAnyData();
+        socket.data == null;
       if (
         isEmptyAnyInput ||
         IsCompatible(
