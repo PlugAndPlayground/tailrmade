@@ -10,6 +10,10 @@ declare module '*.json' {
 
 declare module 'plotly.js-dist';
 
+declare module '*.css';
+
+declare module 'handlebars/dist/handlebars';
+
 declare module '@mui/material/styles' {
   interface Theme {
     status: {

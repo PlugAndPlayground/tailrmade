@@ -205,6 +205,7 @@ export const CodeEditor: React.FunctionComponent<CodeEditorProps> = ({
             }}
             onChange={handleOnChange}
             editorDidMount={editorDidMount}
+            editorWillUnmount={(editor) => editor.getModel()?.dispose()}
           />
         </Suspense>
         {!inDashboard && (

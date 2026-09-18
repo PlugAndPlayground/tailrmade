@@ -207,6 +207,82 @@ export const exitDashboardEditMode = () => {
   ).should('not.exist');
 };
 
+// opens the dashboard and puts it in edit mode, wherever it started
+export const enterDashboardEditMode = () => {
+  logCypressStep('enterDashboardEditMode', 'CloseIcon visible', 'EDIT MODE');
+  doWithTestController((testController) => {
+    testController.toggleDashboard(VISIBILITY_ACTION.OPEN);
+  });
+  cy.get('[data-cy="dashboard"]').should('be.visible');
+  cy.get('body').then(($body) => {
+    if (
+      $body.find('[data-cy="toggle-edit-mode-btn"] svg[data-testid="EditIcon"]')
+        .length > 0
+    ) {
+      cy.get('[data-cy="toggle-edit-mode-btn"]').first().click({ force: true });
+    }
+  });
+  cy.get(
+    '[data-cy="toggle-edit-mode-btn"] svg[data-testid="CloseIcon"]',
+  ).should('exist');
+};
+
+// lays out a UI surface through the AI tool, adding the surface if needed
+export const setSurfaceLayout = (surfaceId: string, children: unknown[]) => {
+  doWithTestController(async (testController) => {
+    if (!testController.getNodes().some((node) => node.id === surfaceId)) {
+      await testController.addNode('UISurfaceNode', surfaceId, 500, 0);
+    }
+    const result = await testController.callAITool('set_surface_layout', {
+      node_id: surfaceId,
+      layout: { direction: 'column', children },
+    });
+    expect(result.is_error, result.content).to.not.equal(true);
+    testController.toggleDashboard(VISIBILITY_ACTION.OPEN);
+  });
+  cy.get('[data-cy="dashboard"]').should('be.visible');
+};
+
+// a socket as the serialized graph format stores it, for handwritten fixtures
+export const serializedSocket = (
+  name: string,
+  data: unknown,
+  cls = 'StringType',
+  socketType = 'in',
+) => ({ socketType, name, dataType: `{"class":"${cls}"}`, data });
+
+export const serializedNode = (
+  type: string,
+  id: string,
+  socketArray: unknown[],
+  position: { x: number; y: number } = { x: 0, y: 0 },
+) => ({
+  type,
+  id,
+  ...position,
+  width: 160,
+  height: 60,
+  updateBehaviour: { load: true, update: true, interval: false },
+  socketArray,
+});
+
+export const serializedGraph = (
+  nodes: unknown[],
+  links: unknown[] = [],
+  graphSettings: Record<string, unknown> = {},
+) =>
+  JSON.stringify({
+    version: 5,
+    graphSettings: {
+      showExecutionVisualisation: true,
+      viewportCenterPosition: { x: 0, y: 0 },
+      viewportScale: 1,
+      ...graphSettings,
+    },
+    nodes,
+    links,
+  });
+
 export const openGraphsList = () => {
   doWithTestController((testController) => {
     testController.toggleLeftSideDrawer(VISIBILITY_ACTION.OPEN);
