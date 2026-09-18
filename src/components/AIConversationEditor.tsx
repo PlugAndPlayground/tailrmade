@@ -22,6 +22,7 @@ import {
   Lock as LockIcon,
   ManageSearch as ManageSearchIcon,
   PlayArrow as SendIcon,
+  Refresh as RetryIcon,
   SmartToy as AssistantIcon,
   Terminal as TerminalIcon,
 } from '@mui/icons-material';
@@ -351,10 +352,14 @@ const MessageBubble = ({
   message,
   isStreaming,
   onCopy,
+  onRetry,
+  retryDisabled,
 }: {
   message: AIConversationMessage;
   isStreaming: boolean;
   onCopy: (text: string) => void;
+  onRetry?: () => void;
+  retryDisabled?: boolean;
 }) => {
   const isUser = message.sender === AIConversationSender.USER;
   const parts = detectAndFormatCode(message.content);
@@ -459,6 +464,22 @@ const MessageBubble = ({
               </Tooltip>
             )}
           </Box>
+          {onRetry && (
+            <Tooltip title="Retry request">
+              <span>
+                <IconButton
+                  aria-label="Retry request"
+                  data-cy="AI Message Retry"
+                  onClick={onRetry}
+                  disabled={retryDisabled}
+                  size="small"
+                  sx={{ color: 'inherit' }}
+                >
+                  <RetryIcon fontSize="small" />
+                </IconButton>
+              </span>
+            </Tooltip>
+          )}
           {!isUser && message.content && (
             <Tooltip title="Copy response">
               <IconButton
@@ -623,7 +644,9 @@ const AIConversationEditor = ({
     aiLocation === EXECUTION_LOCATION_LOCAL ||
       (CLOUD_MODE && BackendGateway.getInstance().getIsLoggedIn()),
   );
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(
+    AIBackend.getInstance().isConversationRunning(conversationID),
+  );
   // images the agent gets to look at, attached to the next message
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [captureMenuAnchor, setCaptureMenuAnchor] =
@@ -654,13 +677,16 @@ const AIConversationEditor = ({
 
   useEffect(() => {
     setMessages(AIBackend.getInstance().getConversation(conversationID));
-    setIsLoading(false);
+    setIsLoading(AIBackend.getInstance().isConversationRunning(conversationID));
   }, [conversationID]);
 
   useEffect(() => {
     const id = InterfaceController.addListener(
       ListenEvent.newAIMessageArrived,
       () => {
+        setIsLoading(
+          AIBackend.getInstance().isConversationRunning(conversationID),
+        );
         setMessages([
           ...AIBackend.getInstance().getConversation(conversationID),
         ]);
@@ -803,12 +829,31 @@ const AIConversationEditor = ({
     }
   };
 
+  const handleRetry = async () => {
+    if (disabled || isLoading) return;
+    setIsLoading(true);
+    try {
+      await AIBackend.getInstance().retryConversation(
+        conversationID,
+        selectedModel,
+        { performActions },
+      );
+    } catch (error) {
+      console.error('Failed to retry message: ', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const handleCancel = () => {
     AIBackend.getInstance().cancelCurrentRequest(conversationID);
     setIsLoading(false);
   };
 
-  const disabled = !enableUI || !editable;
+  const disabled =
+    !enableUI ||
+    !editable ||
+    (!isLoading && AIBackend.getInstance().isAnyConversationRunning());
 
   return (
     <Box
@@ -864,6 +909,13 @@ const AIConversationEditor = ({
                 message={message}
                 isStreaming={isLoading && index === messages.length - 1}
                 onCopy={copyToClipboard}
+                onRetry={
+                  index === messages.length - 1 &&
+                  AIBackend.getInstance().canRetryConversation(conversationID)
+                    ? () => void handleRetry()
+                    : undefined
+                }
+                retryDisabled={disabled || isLoading}
               />
             ))}
           </Stack>
