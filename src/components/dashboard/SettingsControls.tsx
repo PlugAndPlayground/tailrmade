@@ -696,9 +696,7 @@ export const PaddingSection: React.FC<SettingsSectionProps> = ({
     </Typography>
     <Stack
       direction="row"
-      alignItems="center"
-      justifyContent="space-between"
-      sx={{ px: 0.5 }}
+      sx={{ px: 0.5, alignItems: 'center', justifyContent: 'space-between' }}
     >
       <PaddingControl
         setProp={setProp}
@@ -767,9 +765,7 @@ export const AlignmentSection: React.FC<AlignmentSectionProps> = ({
       </Typography>
       <Stack
         direction="row"
-        alignItems="center"
-        justifyContent="space-between"
-        sx={{ px: 0.5 }}
+        sx={{ px: 0.5, alignItems: 'center', justifyContent: 'space-between' }}
       >
         <AlignmentControl
           value={

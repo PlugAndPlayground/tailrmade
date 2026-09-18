@@ -692,9 +692,9 @@ export class WidgetSwitch extends WidgetHybridBase {
         >
           <Stack
             direction="row"
-            alignItems="center"
             spacing={1}
             sx={{
+              alignItems: 'center',
               minWidth: 'min-content',
               flexWrap: 'wrap',
               justifyContent: 'center',

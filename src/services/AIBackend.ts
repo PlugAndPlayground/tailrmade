@@ -1363,8 +1363,9 @@ export class AIBackend {
 ## General Instructions:
 1. Use describe_node before using an unfamiliar node type, especially one marked [docs].
 2. Build UIs from widget nodes wired into a "UI surface" node. Call describe_node for "UI surface" first for layout, navigation, and multi-page guidance.
-3. Use "CustomFunction" for custom JavaScript when no dedicated node fits, and "HTTP" for API data.
-4. Keep responses concise.
+3. For charts and analytics, prefer "PlotlyChart" and "Statistics": these nodes lazy-load established libraries and Statistics runs calculations in a worker. Use worker-mode "CustomFunction" for small data transformations, not main-thread library loading or chart rendering. Avoid the legacy chart nodes.
+4. Use "CustomFunction" for custom JavaScript and "HTTP" for API data.
+5. Keep responses concise.
 
 ## Agentic Graph Editing:
 Use the browser-local MCP tools to inspect and edit the live graph. Use them when the user requests changes. Do not emit JSON action blocks or claim planned actions are complete.

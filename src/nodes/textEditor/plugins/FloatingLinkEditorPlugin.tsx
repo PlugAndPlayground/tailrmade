@@ -247,9 +247,7 @@ function FloatingLinkEditor({
             variant="filled"
             hiddenLabel
             size="small"
-            inputProps={{
-              'data-cy': 'link-input',
-            }}
+            slotProps={{ htmlInput: { 'data-cy': 'link-input' } }}
             sx={{
               flexGrow: 1,
             }}

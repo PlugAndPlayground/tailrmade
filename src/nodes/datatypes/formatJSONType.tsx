@@ -95,9 +95,7 @@ export const FormatJSONWidget: React.FunctionComponent<DataTypeProps> = (
             );
           }}
           disabled={!enabled}
-          inputProps={{
-            type: 'string',
-          }}
+          slotProps={{ htmlInput: { type: 'text' } }}
           value={alias}
         />
       </FormGroup>

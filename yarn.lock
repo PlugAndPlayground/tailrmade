@@ -16257,6 +16257,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"simple-statistics@npm:7.12.0":
+  version: 7.12.0
+  resolution: "simple-statistics@npm:7.12.0"
+  checksum: 10/5f1a29c95215a97ce620c06ee82c8422ec86d607029c379ebb75846a65ea4d9153cee3214b18f12f2c57d4b0282196bba03e92af7c11442ae690d8b6ceec01dd
+  languageName: node
+  linkType: hard
+
 "slash@npm:^3.0.0":
   version: 3.0.0
   resolution: "slash@npm:3.0.0"
@@ -16836,6 +16843,7 @@ __metadata:
     react-lazylog: "npm:^4.5.3"
     react-monaco-editor: "npm:^0.59.0"
     react-responsive-carousel: "npm:^3.2.23"
+    simple-statistics: "npm:7.12.0"
     terser-webpack-plugin: "npm:^5.6.1"
     thread-loader: "npm:^4.0.4"
     ts-node: "npm:^10.9.2"

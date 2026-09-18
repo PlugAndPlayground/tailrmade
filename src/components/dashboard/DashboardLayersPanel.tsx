@@ -424,7 +424,6 @@ const LayerItem: React.FC<LayerNodeProps> = ({ id, depth }) => {
         ref={rowRef}
         title={tooltipText}
         direction="row"
-        alignItems="center"
         draggable={isEditMode && id !== RootName}
         onClick={handleSelect}
         onMouseEnter={handleMouseEnter}
@@ -435,6 +434,7 @@ const LayerItem: React.FC<LayerNodeProps> = ({ id, depth }) => {
         onDragLeave={isEditMode ? handleDragLeave : undefined}
         onDrop={isEditMode ? handleDrop : undefined}
         sx={(theme) => ({
+          alignItems: 'center',
           pl: `${depth * 16 + 4}px`,
           pr: 0.5,
           py: 0.25,

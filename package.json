@@ -98,6 +98,7 @@
     "react-lazylog": "^4.5.3",
     "react-monaco-editor": "^0.59.0",
     "react-responsive-carousel": "^3.2.23",
+    "simple-statistics": "7.12.0",
     "use-interval": "^1.4.0",
     "util": "^0.12.5",
     "uuid": "^14.0.2",

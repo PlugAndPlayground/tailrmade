@@ -368,9 +368,11 @@ const AIConversationBrowser = () => {
                 <Switch
                   checked={performActions}
                   onChange={(event) => setPerformActions(event.target.checked)}
-                  inputProps={{
-                    'aria-label': 'Perform actions',
-                    'data-cy': 'AI Perform Actions Toggle',
+                  slotProps={{
+                    input: {
+                      'aria-label': 'Perform actions',
+                      'data-cy': 'AI Perform Actions Toggle',
+                    },
                   }}
                 />
               }
@@ -387,9 +389,11 @@ const AIConversationBrowser = () => {
                     onChange={(event) =>
                       savePreferences({ aiAutoCapture: event.target.checked })
                     }
-                    inputProps={{
-                      'aria-label': 'Let the AI see the app',
-                      'data-cy': 'AI Auto Capture Toggle',
+                    slotProps={{
+                      input: {
+                        'aria-label': 'Let the AI see the app',
+                        'data-cy': 'AI Auto Capture Toggle',
+                      },
                     }}
                   />
                 }

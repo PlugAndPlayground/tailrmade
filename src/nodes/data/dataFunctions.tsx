@@ -229,6 +229,11 @@ they do not exist until the code defines them.
 
 The function's return value becomes the node's output.
 
+Execution defaults to a Web Worker, where document and window are unavailable.
+Set "Main Thread" to true before executing code that uses the DOM or an imported
+library containing functions (functions and DOM elements cannot be sent to workers).
+Await asynchronous library operations so failures are reported by this node.
+
 It cannot be placed on a UI surface directly. To display a DOM element
 (canvas, SVG, or div), connect its output to an Element Renderer; see that
 node's docs for the pattern.`;

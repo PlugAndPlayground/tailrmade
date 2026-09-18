@@ -25,6 +25,8 @@ const getNodeCategories = () => ({
   codeEditor: require('./editor/codeEditor'),
   database: require('./utility/database'),
   dataFunctions: require('./data/dataFunctions'),
+  statistics: require('./data/statistics'),
+  plotlyChart: require('./draw/graph/plotlyChart'),
   draw: require('./draw/draw'),
   drawCombine: require('./draw/drawCombine'),
   drawInteractivity: require('./draw/drawInteractivity'),
@@ -91,10 +93,8 @@ const getAINodeCategories = () => {
     array: categories.array,
     constants: categories.constants,
     stateNodes: categories.stateNodes,
-    lineCharts: categories.lineCharts,
-    pieCharts: categories.pieCharts,
-    barCharts: categories.barCharts,
-    scatterCharts: categories.scatterCharts,
+    statistics: categories.statistics,
+    plotlyChart: categories.plotlyChart,
   };
 };
 
