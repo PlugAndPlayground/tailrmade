@@ -286,11 +286,11 @@ export const SPEC_PROPERTIES_BY_KIND: Record<
   ],
 };
 
-const TEXT_ENUMS = {
+const TEXT_ENUMS: Record<string, readonly unknown[]> = {
   variant: TEXT_VARIANTS,
   tone: TEXT_TONES,
   alignment: TEXT_ALIGNMENTS,
-} as const;
+};
 
 // the craft props a text spec's fields stand for; invalid values are skipped
 // with a warning rather than stored
@@ -302,15 +302,15 @@ function textSpecProps(
   if (typeof spec.text === 'string') {
     props.content = spec.text;
   }
-  (Object.keys(TEXT_ENUMS) as (keyof typeof TEXT_ENUMS)[]).forEach((key) => {
+  Object.entries(TEXT_ENUMS).forEach(([key, allowed]) => {
     if (spec[key] === undefined) {
       return;
     }
-    if ((TEXT_ENUMS[key] as readonly unknown[]).includes(spec[key])) {
+    if (allowed.includes(spec[key])) {
       props[key] = spec[key];
     } else {
       warnings.push(
-        `text: "${key}" must be one of ${TEXT_ENUMS[key].join(', ')}, so ${JSON.stringify(spec[key])} was ignored.`,
+        `text: "${key}" must be one of ${allowed.join(', ')}, so ${JSON.stringify(spec[key])} was ignored.`,
       );
     }
   });

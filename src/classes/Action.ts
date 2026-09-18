@@ -597,6 +597,9 @@ export class ACTIONS {
           linkedSocket,
         );
         if (!input || !output) {
+          console.warn(
+            `Added node "${addedNode.getName()}" but found no compatible socket pair to connect to ${linkedSocket.name}`,
+          );
           return;
         }
         const connectActions = PPGraph.currentGraph.actions_Connect(

@@ -377,13 +377,10 @@ export default class PPNode extends PIXI.Container implements IWarningHandler {
     // add static inputs and outputs
     this.getAllInitialSockets().forEach((IO) => {
       // add in default data if supplied
-      const defaults = customArgs?.defaultArguments;
-      if (
-        defaults &&
-        Object.prototype.hasOwnProperty.call(defaults, IO.name) &&
-        defaults[IO.name] !== undefined
-      ) {
-        IO.data = defaults[IO.name];
+      const newDefault = customArgs?.defaultArguments?.[IO.name];
+      // presence, not truthiness - '', 0 and false are valid defaults
+      if (newDefault !== undefined) {
+        IO.data = newDefault;
       }
       this.addSocket(IO);
     });
@@ -1647,7 +1644,7 @@ ${Math.round(bounds.minX)}, ${Math.round(
       const isEmptyAnyInput =
         socket.isInput() &&
         socket.data == null &&
-        socket.dataType instanceof AnyType;
+        socket.dataType.acceptsAnyData();
       if (
         isEmptyAnyInput ||
         IsCompatible(

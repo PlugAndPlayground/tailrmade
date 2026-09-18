@@ -30,6 +30,10 @@ export class AnyType extends AbstractType {
     return true;
   }
 
+  acceptsAnyData(): boolean {
+    return true;
+  }
+
   recommendedInputNodeWidgets(): string[] {
     return [
       'codeeditor',

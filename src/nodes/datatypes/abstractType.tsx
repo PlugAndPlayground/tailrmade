@@ -255,6 +255,12 @@ export class AbstractType {
     return false;
   }
 
+  // an Any socket declares no type to check against, so an empty one can take
+  // whatever the upstream node prefers
+  acceptsAnyData(): boolean {
+    return false;
+  }
+
   /**
    * Returns whether data should be stringified when copied to clipboard.
    * Override this to return false for text-based types where raw text should be copied.
