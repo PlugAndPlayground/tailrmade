@@ -472,7 +472,11 @@ export class AIBackend {
     this.requestAbortControllers[conversationID]?.abort();
     delete this.requestAbortControllers[conversationID];
     const myConvo = this.getConversation(conversationID);
-    if (myConvo.length > 0) {
+    const lastMessage = myConvo[myConvo.length - 1];
+    if (
+      lastMessage?.sender === AIConversationSender.AI &&
+      !lastMessage.content.trim()
+    ) {
       myConvo.pop();
     }
     InterfaceController.notifyListeners(
@@ -561,13 +565,19 @@ export class AIBackend {
     InterfaceController.showSpinner(agentSpinnerLabel);
     TailrmadeMCPServer.getInstance().beginAgentTurn();
     const aiLog = startAILogRun();
+    const abortController = new AbortController();
 
     try {
       this.awaitingResponseHash = hri.random();
       const sendingHash = this.awaitingResponseHash;
-      const abortController = new AbortController();
       this.requestAbortControllers[conversationID]?.abort();
       this.requestAbortControllers[conversationID] = abortController;
+
+      const checkCancelled = () => {
+        if (abortController.signal.aborted) {
+          throw new AIRequestError('AI request was cancelled', 499);
+        }
+      };
 
       let assistantMessage = '';
       let inputTokens = 0;
@@ -591,6 +601,7 @@ export class AIBackend {
         tokenUsage?: AIConversationTokenUsage,
         date?: Date,
       ) => {
+        checkCancelled();
         this.applyAssistantText(
           conversationID,
           assistantMessageIndex,
@@ -650,6 +661,7 @@ export class AIBackend {
       });
 
       for (let turn = 0; turn < maxAgentTurns; turn++) {
+        checkCancelled();
         const provider = getAIAgentProvider(model);
         const prepared = prepareAIProviderTurn({
           provider,
@@ -735,6 +747,7 @@ export class AIBackend {
               'inspect_warnings_and_errors',
               {},
             );
+            checkCancelled();
             checkedWarningsAndErrors = true;
 
             pendingMessage =
@@ -752,6 +765,7 @@ export class AIBackend {
         let turnMutatedUI = false;
         let autoCaptureStructure: string | undefined;
         for (const toolUse of toolUses) {
+          checkCancelled();
           toolCallCount++;
           const toolName = String(toolUse.name || 'unknown_tool');
           if (MUTATION_TOOL_NAMES.has(toolName)) {
@@ -798,6 +812,7 @@ export class AIBackend {
             toolName,
             toolUse.arguments || {},
           );
+          checkCancelled();
           aiLog.log({
             type: 'tool_result',
             turn,
@@ -840,6 +855,7 @@ export class AIBackend {
             'inspect_ui',
             { source: 'dashboard' },
           );
+          checkCancelled();
           if (captured.images?.length) {
             autoCaptureCount++;
             turnImages.push(...captured.images);
@@ -930,6 +946,11 @@ export class AIBackend {
       };
     } catch (error) {
       delete this.requestAbortControllers[conversationID];
+      if (abortController.signal.aborted) {
+        return this.buildFailedAIResponse(
+          new AIRequestError('AI request was cancelled', 499),
+        );
+      }
       aiLog.log({ type: 'run_error', error: this.getErrorMessage(error) });
       if (!(error instanceof AIRequestError && error.status === 499)) {
         this.applyLastAIMessageError(
