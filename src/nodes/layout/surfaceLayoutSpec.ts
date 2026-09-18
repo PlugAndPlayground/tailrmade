@@ -286,7 +286,7 @@ export const SPEC_PROPERTIES_BY_KIND: Record<
   ],
 };
 
-const TEXT_ENUMS: Record<string, readonly unknown[]> = {
+const TEXT_ENUMS: Record<string, readonly string[]> = {
   variant: TEXT_VARIANTS,
   tone: TEXT_TONES,
   alignment: TEXT_ALIGNMENTS,
@@ -303,14 +303,15 @@ function textSpecProps(
     props.content = spec.text;
   }
   Object.entries(TEXT_ENUMS).forEach(([key, allowed]) => {
-    if (spec[key] === undefined) {
+    const value = spec[key];
+    if (value === undefined) {
       return;
     }
-    if (allowed.includes(spec[key])) {
-      props[key] = spec[key];
+    if (typeof value === 'string' && allowed.includes(value)) {
+      props[key] = value;
     } else {
       warnings.push(
-        `text: "${key}" must be one of ${allowed.join(', ')}, so ${JSON.stringify(spec[key])} was ignored.`,
+        `text: "${key}" must be one of ${allowed.join(', ')}, so ${JSON.stringify(value)} was ignored.`,
       );
     }
   });
