@@ -36,11 +36,6 @@ export const TagChip: React.FC<TagChipProps> = ({
         {
           fontSize: '10px',
           cursor: onClick ? 'pointer' : 'default',
-          // on the chip itself this shrinks the centred content box and
-          // lifts the delete icon off centre
-          '& .MuiChip-label': {
-            paddingBottom: '2px',
-          },
         },
         !!color && {
           bgcolor: color,

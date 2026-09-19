@@ -21,6 +21,7 @@ import {
   getDrawerBackground,
   MAIN_COLOR,
   ONCLICK_DOUBLECLICK,
+  STATUS_SEVERITY,
 } from './../utils/constants';
 import { TRgba } from './../utils/color';
 import { StatusDetail } from '../components/StatusDetail';
@@ -51,10 +52,14 @@ export const buildFilterText = (tags: string[], text: string): string =>
   tags.map((tag) => `${buildTagFilter(tag)} `).join('') + text;
 
 const ROW_SEVERITY_TINT = 0.08;
+const ROW_LINE_HEIGHT = 24;
+const TAG_MAX_SHARE = '65%';
 const ROW_BACKGROUND = TRgba.fromString(MAIN_COLOR).darken(0.6);
+const STATUS_REFRESH_THROTTLE_MS = 200;
 // severity is carried so the status tags can be ordered without this file
 // having to know their names
-type StatusTag = { label: string; color?: string; severity?: number };
+type StatusTag = { label: string; color: string; severity: STATUS_SEVERITY };
+type FilterTag = { label: string; color?: string };
 
 const getStatusTags = (node: PPNode): StatusTag[] =>
   node.getWarningsAndErrors().reduce<StatusTag[]>((tags, status) => {
@@ -74,7 +79,7 @@ const getAllTagLabels = (node: PPNode): string[] =>
     .map((tag) => tag.label)
     .concat(node.getTags());
 
-const getAvailableTags = (nodes: PPNode[]): StatusTag[] => {
+const getAvailableTags = (nodes: PPNode[]): FilterTag[] => {
   const statusTags = new Map<string, StatusTag>();
   const nodeTags = new Set<string>();
   nodes.forEach((node) => {
@@ -86,12 +91,9 @@ const getAvailableTags = (nodes: PPNode[]): StatusTag[] => {
     node.getTags().forEach((tag) => nodeTags.add(tag));
   });
   const severityTags = [...statusTags.values()].sort(
-    (a, b) => (b.severity ?? 0) - (a.severity ?? 0),
+    (a, b) => b.severity - a.severity,
   );
-  return [
-    ...severityTags,
-    ...[...nodeTags].sort().map((label) => ({ label, color: undefined })),
-  ];
+  return [...severityTags, ...[...nodeTags].sort().map((label) => ({ label }))];
 };
 
 const EmptyNodeState: React.FC<{ filter: ParsedFilter }> = ({ filter }) => {
@@ -205,14 +207,14 @@ ${(node as any)
             <Box
               sx={{
                 display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
+                alignItems: 'flex-start',
               }}
             >
               <Box
                 sx={{
-                  flexGrow: 1,
+                  flex: '1 1 auto',
                   minWidth: 0,
+                  lineHeight: `${ROW_LINE_HEIGHT}px`,
                   overflow: 'hidden',
                   textOverflow: 'ellipsis',
                   whiteSpace: 'nowrap',
@@ -220,10 +222,19 @@ ${(node as any)
               >
                 {node.name}
               </Box>
-              <Box
-                sx={{ display: 'flex', alignItems: 'center', flexShrink: 0 }}
-              >
-                <Box sx={{ display: 'flex', gap: '2px' }}>
+              {node.getTags().length > 0 && (
+                <Box
+                  sx={{
+                    display: 'flex',
+                    flexWrap: 'wrap',
+                    justifyContent: 'flex-end',
+                    columnGap: '2px',
+                    rowGap: '3px',
+                    maxWidth: TAG_MAX_SHARE,
+                    minWidth: 0,
+                    ml: '8px',
+                  }}
+                >
                   {node.getTags().map((part, index) => (
                     <TagChip
                       key={`${part}-${index}`}
@@ -235,26 +246,30 @@ ${(node as any)
                     />
                   ))}
                 </Box>
+              )}
+              {statuses.length > 0 && (
                 <Box
                   sx={{
                     display: 'flex',
-                    gap: '2px',
-                    ml: statusTags.length && node.getTags().length ? '10px' : 0,
+                    alignItems: 'center',
+                    flexShrink: 0,
+                    minHeight: `${ROW_LINE_HEIGHT}px`,
+                    ml: '8px',
                   }}
                 >
-                  {statusTags.map((tag) => (
-                    <TagChip
-                      key={tag.label}
-                      label={tag.label}
-                      color={tag.color}
-                      selected={isSelected(tag.label)}
-                      onClick={props.onTagClick}
-                      title={tagTitle(tag.label, isSelected(tag.label))}
-                      data-cy={`node-tag-${tag.label}`}
-                    />
-                  ))}
-                </Box>
-                {statuses.length > 0 && (
+                  <Box sx={{ display: 'flex', gap: '2px' }}>
+                    {statusTags.map((tag) => (
+                      <TagChip
+                        key={tag.label}
+                        label={tag.label}
+                        color={tag.color}
+                        selected={isSelected(tag.label)}
+                        onClick={props.onTagClick}
+                        title={tagTitle(tag.label, isSelected(tag.label))}
+                        data-cy={`node-tag-${tag.label}`}
+                      />
+                    ))}
+                  </Box>
                   <IconButton
                     data-cy="expand-node-status"
                     aria-label={
@@ -277,8 +292,8 @@ ${(node as any)
                   >
                     <ExpandMoreIcon fontSize="inherit" />
                   </IconButton>
-                )}
-              </Box>
+                </Box>
+              )}
             </Box>
             <Box
               sx={{
@@ -425,7 +440,7 @@ export const NodeArrayContainer: React.FunctionComponent<
     }
   }, []);
 
-  const customFilter = (item: PPNode, parsed: ParsedFilter) => {
+  const customFilter = (item: PPNode, parsed: ParsedFilter): boolean => {
     if (parsed.tags.length) {
       const labels = getAllTagLabels(item);
       const matchesTags = parsed.tags.every((tag) =>
@@ -452,7 +467,7 @@ export const NodeArrayContainer: React.FunctionComponent<
     );
   };
 
-  const customSort = (a: PPNode, b: PPNode) => {
+  const customSort = (a: PPNode, b: PPNode): number => {
     const order =
       (b.status.node.getSeverity() - a.status.node.getSeverity()) * 1000 +
         (b.getSocketStatus().getSeverity() -
@@ -463,51 +478,46 @@ export const NodeArrayContainer: React.FunctionComponent<
     return order;
   };
 
-  const filteredNodes = useMemo(() => {
-    return nodesInGraph
-      .filter((node) => customFilter(node, filter))
-      .sort(customSort);
-  }, [nodesInGraph, filter, statusVersion]);
+  const filteredNodes = useMemo(
+    () =>
+      nodesInGraph
+        .filter((node) => customFilter(node, filter))
+        .sort(customSort),
+    [nodesInGraph, filter, statusVersion],
+  );
 
   const availableTags = useMemo(
     () => getAvailableTags(nodesInGraph),
     [nodesInGraph, statusVersion],
   );
 
-  const tagColors = useMemo(
-    () =>
-      Object.fromEntries(availableTags.map((tag) => [tag.label, tag.color])),
-    [availableTags],
+  const tagColors = Object.fromEntries(
+    availableTags.map((tag) => [tag.label, tag.color]),
   );
 
-  const tagOptions = useMemo(
-    () => [
-      ...availableTags.map((tag) => tag.label),
-      ...filter.tags.filter(
-        (tag) =>
-          !availableTags.some((available) => sameTag(available.label, tag)),
-      ),
-    ],
-    [availableTags, filter.tags],
-  );
+  const tagOptions = [
+    ...availableTags.map((tag) => tag.label),
+    ...filter.tags.filter(
+      (tag) =>
+        !availableTags.some((available) => sameTag(available.label, tag)),
+    ),
+  ];
 
-  const matchingTagOptions = useMemo(() => {
-    const text = filter.text.trim().toLowerCase();
-    if (!text) {
-      return [];
-    }
-    return tagOptions.filter(
-      (label) =>
-        label.toLowerCase().startsWith(text) &&
-        !filter.tags.some((selected) => sameTag(selected, label)),
-    );
-  }, [tagOptions, filter]);
+  const filterTextLower = filter.text.trim().toLowerCase();
+  const matchingTagOptions = filterTextLower
+    ? tagOptions.filter(
+        (label) =>
+          label.toLowerCase().startsWith(filterTextLower) &&
+          !filter.tags.some((selected) => sameTag(selected, label)),
+      )
+    : [];
 
   useEffect(() => {
-    const bumpVersion = throttle(() => setStatusVersion((v) => v + 1), 200, {
-      leading: true,
-      trailing: true,
-    });
+    const bumpVersion = throttle(
+      () => setStatusVersion((v) => v + 1),
+      STATUS_REFRESH_THROTTLE_MS,
+      { leading: true, trailing: true },
+    );
 
     const ids = [
       InterfaceController.addListener(ListenEvent.GraphChanged, () => {
