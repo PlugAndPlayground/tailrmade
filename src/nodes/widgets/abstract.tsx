@@ -5,12 +5,16 @@ import Socket from '../../classes/SocketClass';
 import { NODE_TYPE_COLOR, SOCKET_TYPE } from '../../utils/constants';
 import { TRgba } from '../../utils/color';
 import { WidgetProps } from '../../utils/interfaces';
+import { BackPropagation } from '../../interfaces';
 import { EnumStructure, EnumType } from '../datatypes/enumType';
 import { StringType } from '../datatypes/stringType';
 import { Density, useResolvedDensity, useThemeTokens } from '../../utils/theme';
 import { getCanvasGrabThroughSx } from '../../utils/nodeInteractivity';
 
-export { getWidgetControlProps } from '../../utils/nodeInteractivity';
+export {
+  getWidgetControlProps,
+  getWidgetDragControlProps,
+} from '../../utils/nodeInteractivity';
 
 export const defaultProps: WidgetProps = {
   background: { r: 9, g: 13, b: 26, a: 0 },
@@ -335,6 +339,42 @@ export abstract class WidgetHybridBase extends HybridNode2 {
    */
   public isWidget(): boolean {
     return true;
+  }
+}
+
+export abstract class WidgetSelectionBase extends WidgetHybridBase {
+  protected abstract getOptionsSocketName(): string;
+  protected abstract getSelectedIndexSocketName(): string;
+
+  protected getBackPropagationTargets(): BackPropagation {
+    return {
+      SocketToGetValue: this.getInputSocketByName(
+        this.getSelectedIndexSocketName(),
+      ),
+      SocketToGetOptions: this.getInputSocketByName(
+        this.getOptionsSocketName(),
+      ),
+      SocketToTakeName: this.getInputSocketByName(labelName),
+    };
+  }
+
+  protected async onExecute(
+    inputObject: any,
+    outputObject: any,
+  ): Promise<void> {
+    await super.onExecute(inputObject, outputObject);
+
+    const options = inputObject[this.getOptionsSocketName()];
+    const selectedIndex = Math.max(
+      0,
+      Math.min(
+        options.length - 1,
+        inputObject[this.getSelectedIndexSocketName()],
+      ),
+    );
+
+    this.setOutputData(outName, options[selectedIndex]);
+    this.setOutputData(outIndexName, selectedIndex);
   }
 }
 

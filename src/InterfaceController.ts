@@ -48,7 +48,7 @@ export enum ListenEvent {
   ViewportMoveEnded, // data = Boolean
   GlobalPointerMove, // data = event: PIXI.FederatedPointerEvent
   GlobalPointerUp, // data = event: PIXI.FederatedPointerEvent
-  GraphChanged, // data = {id,name}
+  GraphChanged, // data = IGraphSearch
   DashboardLoaded,
   AddToDashboard, // data = Layoutable
   RemoveFromDashboard, // data = string (itemId)
@@ -614,7 +614,7 @@ class ConsoleController {
   static executeCommand(command: string): void {
     switch (command.toLowerCase()) {
       case 'clear': {
-        void PPGraph.currentGraph.clear();
+        void PPGraph.currentGraph.perform_action_ClearGraph();
         break;
       }
       case 'resetbgcolor': {

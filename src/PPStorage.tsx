@@ -19,7 +19,7 @@ import { hri } from 'human-readable-ids';
 import { Button } from '@mui/material';
 import React from 'react';
 import { IGraphSearch, SerializedGraph, AccessType } from './utils/interfaces';
-import pako from 'pako';
+import * as pako from 'pako';
 import { ActionHandler } from './classes/Action';
 import { CLOUD_MODE } from './services/shared-types';
 import { DASHBOARD_DEFAULT } from './utils/constants';
@@ -31,6 +31,7 @@ import { BackendGateway } from './services/BackendGateway';
 
 export const DEFAULT_LOCATION = 'Default';
 export const DEFAULT_ACCESS = 'private';
+export const GET_STARTED_GRAPH_OWNER = 'publicUser';
 
 export const autoSaveSuffix = ' - Autosave';
 
@@ -84,7 +85,7 @@ function compressString(str) {
   const chunkSize = 5000;
   for (let i = 0; i < compressed.length; i += chunkSize) {
     const chunk = compressed.subarray(i, i + chunkSize);
-    binaryString += String.fromCharCode.apply(null, chunk);
+    binaryString += String.fromCharCode(...chunk);
   }
   // Use URL-safe Base64
   return btoa(binaryString)
@@ -153,15 +154,14 @@ export default class PPStorage {
   }
 
   async createEmptyGraph(): Promise<string> {
-    await PPGraph.currentGraph.clear();
-
-    // Reset dashboard state
     const currentOverlayState = InterfaceController.getOverlayState();
     InterfaceController.updateOverlayState({
       ...currentOverlayState,
       dashboard: DASHBOARD_DEFAULT,
     });
     InterfaceController.toggleDashboardInEditMode(VISIBILITY_ACTION.CLOSE);
+
+    await PPGraph.currentGraph.clear();
 
     const graphId = hri.random();
 
@@ -172,7 +172,7 @@ export default class PPStorage {
 
     InterfaceController.notifyListeners(
       ListenEvent.GraphChanged,
-      PPGraph.currentGraph,
+      this.currentGraphToIGraphSearch(),
     );
     InterfaceController.showSnackBar('Created new empty app');
 
@@ -425,10 +425,10 @@ export default class PPStorage {
       };
       await PPGraph.currentGraph.configure(migratedFileData);
 
-      InterfaceController.notifyListeners(ListenEvent.GraphChanged, {
-        id: fileData.id,
-        name: fileData.name,
-      });
+      InterfaceController.notifyListeners(
+        ListenEvent.GraphChanged,
+        this.currentGraphToIGraphSearch(),
+      );
       ActionHandler.setUnsavedChange(false); // reset unsaved changes after loading a graph
 
       // Log app open event for analytics
@@ -488,13 +488,17 @@ export default class PPStorage {
       return;
     }
     try {
-      await this.loadGraphFromData(
-        await BackendGateway.getInstance().getPublicGraph(
-          'publicUser',
-          'Default',
-          constants.GET_STARTED_GRAPH,
-        ),
+      const data = await BackendGateway.getInstance().getPublicGraph(
+        GET_STARTED_GRAPH_OWNER,
+        DEFAULT_LOCATION,
+        constants.GET_STARTED_GRAPH,
       );
+      data.name = constants.GET_STARTED_GRAPH;
+      data.location = DEFAULT_LOCATION;
+      data.owner = GET_STARTED_GRAPH_OWNER;
+      data.access = 'public';
+      data.isRemote = true;
+      await this.loadGraphFromData(data);
     } catch (error) {
       // the get-started graph may be unreachable
       console.log(error.stack || error);
@@ -582,6 +586,7 @@ export default class PPStorage {
 
       void BackendGateway.getInstance().refreshGraphsMetadata();
       InterfaceController.notifyListeners(ListenEvent.GraphChanged, {
+        ...this.currentGraphToIGraphSearch(),
         id: graphId,
         name: newName,
       });
@@ -713,7 +718,7 @@ export default class PPStorage {
         PPStorage.getInstance().dateOfLastGraphLoaded = savedDate;
         InterfaceController.notifyListeners(
           ListenEvent.GraphChanged,
-          PPGraph.currentGraph,
+          this.currentGraphToIGraphSearch(),
         );
       }
       void BackendGateway.getInstance().refreshGraphsMetadata();
@@ -768,6 +773,21 @@ export default class PPStorage {
     });
 
     return graphs;
+  }
+
+  // the payload of ListenEvent.GraphChanged, so listeners get the full metadata
+  // and not just the id and name
+  currentGraphToIGraphSearch(): IGraphSearch {
+    const graph = PPGraph.currentGraph;
+    return {
+      id: graph.id,
+      name: graph.name,
+      location: graph.location || DEFAULT_LOCATION,
+      owner: graph.owner || 'unknown',
+      date: graph.date,
+      access: graph.access || DEFAULT_ACCESS,
+      isRemote: graph.isRemote || false,
+    };
   }
 
   storedGraphToIGraphSearch(graph: StoredGraph): IGraphSearch {

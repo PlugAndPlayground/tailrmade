@@ -17,6 +17,7 @@ import {
   VISIBILITY_ACTION,
 } from '../utils/constants_shared';
 import { UNSET_VALUE } from './constants';
+import { asCssDimension } from './cssDimensions';
 
 export const SOCKET_NAME_DASHBOARD_CONTENT = 'ReactUI';
 export const widthName = 'Width';
@@ -49,6 +50,9 @@ export function addDashboardContentOutput(
 }
 
 export const getDimensionValue = (value: string, isChild: boolean = false) => {
+  if (typeof value !== 'string') {
+    return asCssDimension(value);
+  }
   if (isChild && value.endsWith('%')) {
     return '100%';
   }
@@ -67,10 +71,13 @@ export const getNewDirection = (
 
 // Basic layout styles for all components (widgets that are not containers)
 export const getBasicLayoutStyles = (
-  width: string,
-  height: string,
+  rawWidth: string,
+  rawHeight: string,
   parentDirection: 'row' | 'column',
 ): React.CSSProperties => {
+  const width = asCssDimension(rawWidth);
+  const height = asCssDimension(rawHeight);
+
   const style: React.CSSProperties = {
     display: 'flex',
     overflow: getOverflowForSize(width, height),
@@ -141,7 +148,7 @@ export const getContainerLayoutStyle = (
   // Get the basic layout styles first and pass along the parent direction
   const style = getBasicLayoutStyles(width, height, parentDirection);
 
-  if (parentDirection === 'column' && height === '100%') {
+  if (parentDirection === 'column' && asCssDimension(height) === '100%') {
     // the basis is already 'auto' (getBasicLayoutStyles); containers
     // additionally drop their minHeight floor (default '80px') so equal
     // shrinking is not cut short by it

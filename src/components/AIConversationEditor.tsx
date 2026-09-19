@@ -41,6 +41,8 @@ import {
   capture,
 } from '../services/CaptureService';
 import { downscaleImageForAI } from '../utils/imageDownscale';
+import { AIInspectSource, setAIPanelOpen } from '../services/AIVisionService';
+import { createToolMarkerRegex } from '../services/aiToolMarkers';
 
 const panelBorder = '1px solid rgba(255,255,255,0.16)';
 const panelSurface = 'rgba(255,255,255,0.08)';
@@ -68,9 +70,6 @@ interface ActionPart {
 
 type ContentPart = CodePart | TextPart | ActionPart;
 
-const toolActionRegex =
-  /\*(?:Using\s+([A-Za-z0-9_.:-]+)\.\.\.|Used\s+([A-Za-z0-9_.:-]+)\.|([A-Za-z0-9_.:-]+)\s+failed:\s+([\s\S]*?)|Checking graph warnings and errors before finishing\.\.\.|Completed\s+(\d+)\s+MCP tool call\(s\)\.)\*|Stopped after reaching the MCP turn limit \((\d+)\) for this request\./g;
-
 const pushTextPart = (parts: ContentPart[], content: string) => {
   const normalized = content.replace(/\n{3,}/g, '\n\n');
   if (normalized.trim()) {
@@ -81,7 +80,9 @@ const pushTextPart = (parts: ContentPart[], content: string) => {
   }
 };
 
-const parseActionPart = (match: RegExpExecArray): ActionPart | undefined => {
+const parseActionPart = (
+  match: RegExpExecArray,
+): ActionPart | string | undefined => {
   if (match[1]) {
     return undefined;
   }
@@ -110,11 +111,15 @@ const parseActionPart = (match: RegExpExecArray): ActionPart | undefined => {
   }
 
   if (match[6]) {
+    return match[0];
+  }
+
+  if (match[7]) {
     return {
       type: 'action',
       status: 'limit',
       label: 'Stopped at turn limit',
-      detail: `${match[6]} turns`,
+      detail: `${match[7]} turns`,
     };
   }
 
@@ -127,17 +132,19 @@ const parseActionPart = (match: RegExpExecArray): ActionPart | undefined => {
 
 const splitActionsFromText = (content: string): ContentPart[] => {
   const parts: ContentPart[] = [];
+  const toolActionRegex = createToolMarkerRegex();
   let lastIndex = 0;
   let match;
 
-  toolActionRegex.lastIndex = 0;
   while ((match = toolActionRegex.exec(content)) !== null) {
     if (match.index > lastIndex) {
       pushTextPart(parts, content.slice(lastIndex, match.index));
     }
 
     const actionPart = parseActionPart(match);
-    if (actionPart) {
+    if (typeof actionPart === 'string') {
+      pushTextPart(parts, actionPart);
+    } else if (actionPart) {
       parts.push(actionPart);
     }
     lastIndex = match.index + match[0].length;
@@ -472,7 +479,15 @@ const MessageBubble = ({
 interface Attachment {
   label: string;
   dataURL: string;
+  /** the layout/graph json the image is a picture of, when there is one */
+  structure?: string;
 }
+
+const INSPECT_SOURCE_FOR: Partial<Record<CaptureSource, AIInspectSource>> = {
+  'User interface': 'dashboard',
+  Graph: 'graph',
+  'Node selection': 'selection',
+};
 
 /** The row of thumbnails for the images queued onto the next message. */
 const AttachmentStrip = ({
@@ -542,12 +557,6 @@ const AttachmentStrip = ({
   </Stack>
 );
 
-/**
- * Where an attachment can come from: every CaptureService source except
- * ReactUI, which has no meaning here since it needs a node output to render,
- * plus the file picker. Pasting needs no entry of its own, so it is only
- * advertised.
- */
 const CaptureMenu = ({
   anchorEl,
   onClose,
@@ -669,11 +678,32 @@ const AIConversationEditor = ({
     });
   }, [messages]);
 
+  // Auto-capture is gated on the panel being mounted, so the agent can only
+  // look at the app while the user is looking at the agent.
+  useEffect(() => {
+    setAIPanelOpen(true);
+    return () => setAIPanelOpen(false);
+  }, []);
+
   // the same CaptureService the Screenshot node uses. Runs from the click, so
   // the Screen source has the user gesture its permission prompt needs.
   const handleCapture = async (source: CaptureSource) => {
     setCaptureMenuAnchor(null);
+    const inspectSource = INSPECT_SOURCE_FOR[source];
     try {
+      if (inspectSource) {
+        const inspected =
+          await AIBackend.getInstance().captureUIForAI(inspectSource);
+        setAttachments((current) => [
+          ...current,
+          {
+            label: source,
+            dataURL: inspected.dataURL,
+            structure: inspected.structure,
+          },
+        ]);
+        return;
+      }
       const result = await capture(source);
       const dataURL = await downscaleImageForAI(result.dataURL);
       setAttachments((current) => [...current, { label: source, dataURL }]);
@@ -731,6 +761,15 @@ const AIConversationEditor = ({
 
     const prompt = inputValue.trim();
     const images = attachments.map((attachment) => attachment.dataURL);
+    const structured = attachments.filter((attachment) => attachment.structure);
+    const attachmentContext = structured.length
+      ? '\n\nStructure behind the attached images:\n' +
+        structured
+          .map(
+            (attachment) => `"${attachment.label}":\n${attachment.structure}`,
+          )
+          .join('\n\n')
+      : undefined;
     setInputValue('');
     setAttachments([]);
     setIsLoading(true);
@@ -742,6 +781,7 @@ const AIConversationEditor = ({
         selectedModel,
         {
           performActions,
+          attachmentContext,
         },
         true,
         16384,

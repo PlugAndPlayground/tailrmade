@@ -2,11 +2,12 @@ import PPGraph from './GraphClass';
 import PPNode from './NodeClass';
 import Socket from './SocketClass';
 import _ from 'lodash';
-import { isSurfaceNode, TSocketType } from '../utils/interfaces';
+import { DisplacedLink, isSurfaceNode, TSocketType } from '../utils/interfaces';
 import InterfaceController, { ListenEvent } from '../InterfaceController';
 import { hri } from 'human-readable-ids';
 import * as PIXI from 'pixi.js';
-import { NODE_SOURCE } from '../utils/constants';
+import { NODE_SOURCE, SOCKET_TYPE } from '../utils/constants';
+import { deSerializeType } from '../nodes/datatypes/typehelper';
 import { getSocketsForConnection } from '../utils/utils';
 import {
   executeMacroPrefix,
@@ -17,12 +18,13 @@ import PPStorage from '../PPStorage';
 const macroNameName = 'Macro';
 
 export class SerializableAction {
-  action: (any) => Promise<void>;
-  undoAction: (any) => Promise<void>;
+  // returns whatever its undo will need, or nothing - see executeAction
+  action: (args: any) => Promise<any>;
+  undoAction: (args: any) => Promise<unknown>;
   name: string;
   constructor(
-    inAction: (any) => Promise<void>,
-    inUndoAction: (any) => Promise<void>,
+    inAction: (args: any) => Promise<any>,
+    inUndoAction: (args: any) => Promise<unknown>,
     inName: string,
   ) {
     this.action = inAction;
@@ -92,6 +94,7 @@ export class SerializableActionHandler {
     this.actions[ACTIONS.SET_COMMENT] = ACTIONS.setComment();
     this.actions[ACTIONS.SET_UPDATE_BEHAVIOUR] = ACTIONS.setUpdateBehaviour();
     this.actions[ACTIONS.SET_UI_SURFACE_LAYOUT] = ACTIONS.setUISurfaceLayout();
+    this.actions[ACTIONS.ADD_INPUT_SOCKET] = ACTIONS.addInputSocket();
   }
 
   static getInstance(): SerializableActionHandler {
@@ -99,6 +102,11 @@ export class SerializableActionHandler {
       SerializableActionHandler.instance = new SerializableActionHandler();
     }
     return SerializableActionHandler.instance;
+  }
+
+  /** Registers a feature-owned action without making Action.ts import it. */
+  registerAction(id: string, action: SerializableAction): void {
+    this.actions[id] = action;
   }
 
   async performSerializableAction(
@@ -171,25 +179,23 @@ export class ActionHandler {
 
   static getHistorySnapshot(): ActionHistorySnapshot {
     const entries = this.undoList
-      .map(
-        (action, index): ActionHistoryEntry => ({
-          id: action.ID,
-          index,
-          name: action.serializableAction.name,
-          source: action.source,
-          applied: true,
-        }),
-      )
+      .map((action, index): ActionHistoryEntry => ({
+        id: action.ID,
+        index,
+        name: action.serializableAction.name,
+        source: action.source,
+        applied: true,
+      }))
       .concat(
-        [...this.redoList].reverse().map(
-          (action, redoIndex): ActionHistoryEntry => ({
+        [...this.redoList]
+          .reverse()
+          .map((action, redoIndex): ActionHistoryEntry => ({
             id: action.ID,
             index: this.undoList.length + redoIndex,
             name: action.serializableAction.name,
             source: action.source,
             applied: false,
-          }),
-        ),
+          })),
       );
 
     return {
@@ -208,11 +214,19 @@ export class ActionHandler {
     );
   }
 
+  private static async executeAction(action: BakedAction): Promise<void> {
+    const captured = await action.serializableAction.action(action.args);
+    // the action reports what its undo will need
+    if (captured !== undefined) {
+      action.undoArgs = captured;
+    }
+  }
+
   // ONLY use this if its a UI only action, otherwise have to use PNPAction for action to be possible to synchronize over network
   static async performRawAction(action: BakedAction, doAction = true) {
     this.redoList = [];
     if (doAction) {
-      await action.serializableAction.action(action.args);
+      await this.executeAction(action);
     }
 
     // consecutive actions sharing a checksum within the merge window are
@@ -259,7 +273,7 @@ export class ActionHandler {
     if (lastUndo) {
       const message = 'Redo: ' + lastUndo.serializableAction.name;
       InterfaceController.showSpinner(message);
-      await lastUndo.serializableAction.action(lastUndo.args);
+      await this.executeAction(lastUndo);
       this.undoList.push(lastUndo);
       InterfaceController.hideSpinner(message);
       this.notifyHistoryChanged();
@@ -365,6 +379,12 @@ export class ConnectSocketsActionArgs {
     this.targetSocketName = targetSocketName;
   }
 }
+
+type ConnectSocketsUndoArgs = {
+  targetNodeID: string;
+  targetSocketName: string;
+  displacedLink?: DisplacedLink;
+};
 export class SetCommentActionArgs {
   nodeID: string;
   comment: string;
@@ -407,6 +427,18 @@ export class SetUISurfaceLayoutActionArgs {
   }
 }
 
+export class AddInputSocketActionArgs {
+  nodeID: string;
+  socketName: string;
+  serializedType: string; // serializeType() output
+
+  constructor(nodeID: string, socketName: string, serializedType: string) {
+    this.nodeID = nodeID;
+    this.socketName = socketName;
+    this.serializedType = serializedType;
+  }
+}
+
 export class ResizeNodeActionArgs {
   nodeID: string;
   width: number;
@@ -429,6 +461,33 @@ export class ACTIONS {
   static SET_COMMENT = 'SetCommentAction';
   static SET_UPDATE_BEHAVIOUR = 'SetUpdateBehaviourAction';
   static SET_UI_SURFACE_LAYOUT = 'SetUISurfaceLayoutAction';
+  static ADD_INPUT_SOCKET = 'AddInputSocketAction';
+
+  static addInputSocket(): SerializableAction {
+    const action = (args: AddInputSocketActionArgs): Promise<void> => {
+      const node = SerializableActionHandler.getSafeNode(args.nodeID);
+      node.addDynamicSocket(
+        new Socket(
+          SOCKET_TYPE.IN,
+          args.socketName,
+          deSerializeType(args.serializedType),
+          // no value until something is bound, rather than the type's default
+          null,
+        ),
+      );
+      node.resizeAndDraw();
+      node.socketChangedFromWidget();
+      return Promise.resolve();
+    };
+    const undoAction = (args: AddInputSocketActionArgs): Promise<void> => {
+      const node = SerializableActionHandler.getSafeNode(args.nodeID);
+      node.removeSocket(node.getInputSocketByName(args.socketName));
+      node.resizeAndDraw();
+      node.socketChangedFromWidget();
+      return Promise.resolve();
+    };
+    return { action, undoAction, name: 'Add input' };
+  }
 
   private static async setNodeValue(args: SetSocketValueActionArgs) {
     const nodeID = args.nodeID;
@@ -537,6 +596,12 @@ export class ACTIONS {
           addedNode,
           linkedSocket,
         );
+        if (!input || !output) {
+          console.warn(
+            `Added node "${addedNode.getName()}" but found no compatible socket pair to connect to ${linkedSocket.name}`,
+          );
+          return;
+        }
         const connectActions = PPGraph.currentGraph.actions_Connect(
           output.name,
           output.getNode().id,
@@ -573,22 +638,34 @@ export class ACTIONS {
   }
 
   static connectSockets(): SerializableAction {
-    const action = async (args: ConnectSocketsActionArgs) => {
-      await PPGraph.currentGraph.linkConnect(
+    const action = async (
+      args: ConnectSocketsActionArgs,
+    ): Promise<ConnectSocketsUndoArgs> => {
+      const displacedLink = await PPGraph.currentGraph.linkConnect(
         args.sourceNodeID,
         args.sourceSocketName,
         args.targetNodeID,
         args.targetSocketName,
         true,
       );
+      return {
+        targetNodeID: args.targetNodeID,
+        targetSocketName: args.targetSocketName,
+        displacedLink,
+      };
     };
-    const undoAction = (args: ConnectSocketsActionArgs): Promise<void> => {
+    const undoAction = async (args: ConnectSocketsUndoArgs) => {
       PPGraph.currentGraph.linkDisconnect(
         args.targetNodeID,
         args.targetSocketName,
         true,
       );
-      return Promise.resolve();
+      // rewiring an occupied input silently dropped the link that was there
+      await PPGraph.currentGraph.restoreInputLink(
+        args.displacedLink,
+        args.targetNodeID,
+        args.targetSocketName,
+      );
     };
     return {
       action,

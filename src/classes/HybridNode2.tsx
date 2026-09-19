@@ -36,7 +36,9 @@ import {
   getCanvasWidgetPointerEvents,
   shouldCanvasContainerBeInteractive,
   shouldNodeStayInteractionEnabled,
+  WIDGET_DRAG_CONTROL_ATTRIBUTE,
 } from '../utils/nodeInteractivity';
+import { TouchPanHandoff } from '../utils/touchGestures';
 import { DeferredReactTypeInterface } from '../nodes/datatypes/deferredHtmlType';
 import { uniqueId } from 'lodash';
 const backgroundColor = TRgba.fromString(COLOR_WHITE);
@@ -120,6 +122,77 @@ function blockDisabledCanvasInteraction(
   }
 }
 
+/**
+ * Lets a finger reach the canvas through a widget's controls, which are the
+ * only part of a canvas widget that takes pointer events and are therefore
+ * dead spots you cannot pan from - on a tablet, much of what is on screen.
+ *
+ * The control keeps the gesture until the finger travels; the canvas takes it
+ * after that.
+ */
+function startCanvasTouchPan(
+  event: React.PointerEvent,
+  node: HybridNode2,
+): void {
+  if (event.pointerType !== 'touch' || !event.isPrimary) {
+    return;
+  }
+  if (!node.isWidget()) {
+    return;
+  }
+  if ((event.target as Element).closest(`[${WIDGET_DRAG_CONTROL_ATTRIBUTE}]`)) {
+    return;
+  }
+
+  const { viewport } = PPGraph.currentGraph;
+  const { pointerId } = event;
+  const handoff = new TouchPanHandoff();
+  handoff.start(event.clientX, event.clientY);
+
+  // The control fires on the click that follows the release, so once the canvas
+  // has taken the gesture that click has to be swallowed.
+  const disarmSwallow = (): void => {
+    window.removeEventListener('click', swallowClick, true);
+    window.removeEventListener('pointerdown', disarmSwallow, true);
+  };
+  const swallowClick = (clickEvent: MouseEvent): void => {
+    clickEvent.preventDefault();
+    clickEvent.stopPropagation();
+    disarmSwallow();
+  };
+
+  const onMove = (moveEvent: PointerEvent): void => {
+    if (moveEvent.pointerId !== pointerId) {
+      return;
+    }
+    const delta = handoff.move(moveEvent.clientX, moveEvent.clientY);
+    if (!delta) {
+      return;
+    }
+    viewport.x += delta.dx;
+    viewport.y += delta.dy;
+    viewport.emit('moved', { viewport, type: 'drag' });
+  };
+
+  const onEnd = (endEvent: PointerEvent): void => {
+    if (endEvent.pointerId !== pointerId) {
+      return;
+    }
+    window.removeEventListener('pointermove', onMove);
+    window.removeEventListener('pointerup', onEnd, true);
+    window.removeEventListener('pointercancel', onEnd, true);
+    if (handoff.hasPanned) {
+      window.addEventListener('click', swallowClick, { capture: true });
+      window.addEventListener('pointerdown', disarmSwallow, true);
+    }
+    handoff.end();
+  };
+
+  window.addEventListener('pointermove', onMove);
+  window.addEventListener('pointerup', onEnd, true);
+  window.addEventListener('pointercancel', onEnd, true);
+}
+
 function CanvasHybridNodeContent<T extends HybridNode2>(
   props: CanvasHybridNodeContentProps<T>,
 ): React.ReactElement {
@@ -133,6 +206,7 @@ function CanvasHybridNodeContent<T extends HybridNode2>(
         }}
         onPointerDownCapture={(event) => {
           blockDisabledCanvasInteraction(props.node, event);
+          startCanvasTouchPan(event, props.node);
         }}
         onClickCapture={(event) => {
           blockDisabledCanvasInteraction(props.node, event);
@@ -756,11 +830,12 @@ const DynamicWidgetContainerHybridNodeInner: React.FunctionComponent<
         maxWidth: props.maxWidth,
         maxHeight: props.maxHeight,
         overflow: getOverflowForSize(props.width, props.height),
-        pointerEvents: showDashboard && !props.disabled ? UNSET_VALUE : 'none',
+        pointerEvents: showDashboard ? UNSET_VALUE : 'none',
       }}
     >
       <DashboardContentGate
         disabled={props.disabled}
+        blockInteraction={props.blockInteraction}
         isSurfacePreview={props.isSurfacePreview}
       >
         <HybridNodeErrorBoundary node={props.property}>
@@ -775,6 +850,7 @@ const DynamicWidgetContainerHybridNodeInner: React.FunctionComponent<
             node={props.property}
             isInteractionEnabled={props.property.isInteractionEnabled()}
             inDashboard={true}
+            isEditMode={props.isEditMode}
             isSurfacePreview={props.isSurfacePreview}
             dataCyId={`${props.property.id}-dashboard${props.isSurfacePreview ? '-preview' : ''}`}
             disabled={props.disabled}

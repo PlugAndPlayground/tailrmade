@@ -217,6 +217,43 @@ export const zoomToFitNodes = (
   emitMoved();
 };
 
+// Custom zoom for mobile layout so the user gets an easy overview
+const STACK_MIN_ZOOM = 0.15;
+const STACK_MAX_ZOOM = 1;
+const STACK_FIT_PADDING = 0.2;
+
+export const frameGraphForStackLayout = (): void => {
+  const currentGraph = PPGraph.currentGraph;
+  const bounds = currentGraph.nodeContainer.getLocalBounds().rectangle;
+  // an empty graph has nothing to frame - leave the saved view alone
+  if (!bounds.width || !bounds.height) {
+    return;
+  }
+
+  const savedCenter = currentGraph.viewport.center.clone();
+
+  // fit() only sets the scale here; the centre is decided below
+  currentGraph.viewport.fit(false, bounds.width, bounds.height);
+  const fitScale = currentGraph.viewportScaleX * (1 - STACK_FIT_PADDING);
+  const scale = Math.min(STACK_MAX_ZOOM, Math.max(STACK_MIN_ZOOM, fitScale));
+  currentGraph.viewport.setZoom(scale, true);
+
+  // deliberately not calculateOverlayOffsets: it compensates for docked panels,
+  // and the stack layout has none - but the restored overlay state can still
+  // say a drawer is open, which would shove the framing sideways
+  if (fitScale >= STACK_MIN_ZOOM) {
+    currentGraph.viewport.moveCenter(
+      bounds.x + bounds.width / 2,
+      bounds.y + bounds.height / 2,
+    );
+  } else {
+    currentGraph.viewport.moveCenter(savedCenter);
+  }
+
+  currentGraph.selection.drawRectanglesFromSelection();
+  emitMoved();
+};
+
 export function smoothMoveViewport(
   point: PIXI.Point,
   scale: number | undefined,

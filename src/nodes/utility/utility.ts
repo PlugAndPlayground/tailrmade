@@ -287,21 +287,31 @@ export class ThrottleDebounce extends PPNode {
       new Socket(SOCKET_TYPE.OUT, 'Out', new AnyType()),
     ];
   }
+
+  public shouldPropagateExecutionThrough(socket: Socket): boolean {
+    return !PPGraph.currentGraph.graphConfiguredAndReady;
+  }
+
   public updateDebounceFunction(): void {
     const passThrough = (input: unknown) => {
       this.setOutputData('Out', input);
       void this.executeChildren();
     };
 
+    const maxWait = this.getInputData('Max Wait');
+    const options: Record<string, unknown> = {
+      leading: this.getInputData('Leading'),
+      trailing: this.getInputData('Trailing'),
+    };
+    if (maxWait > 0) {
+      options.maxWait = maxWait;
+    }
+
     this.passThroughDebounced?.cancel();
     this.passThroughDebounced = debounce(
       passThrough,
       this.getInputData('Wait'),
-      {
-        maxWait: this.getInputData('Max Wait'),
-        leading: this.getInputData('Leading'),
-        trailing: this.getInputData('Trailing'),
-      },
+      options,
     );
   }
 

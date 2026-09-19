@@ -1,4 +1,13 @@
 import { resolveCustomStylesForPreviewWidth } from '../../../src/components/dashboard/viewState';
+import { rootProps } from '../../../src/utils/surfaceTree';
+
+describe('root custom style defaults', () => {
+  it('never tier a width the inspector cannot show', () => {
+    Object.values(rootProps.customStyles).forEach((block) => {
+      expect(block).not.toHaveProperty('width');
+    });
+  });
+});
 
 describe('resolveCustomStylesForPreviewWidth', () => {
   const customStyles = {
@@ -45,6 +54,18 @@ describe('resolveCustomStylesForPreviewWidth', () => {
     expect(resolved.padding).toBeUndefined();
     expect(resolved.width).toBeUndefined();
     expect(resolved.color).toBe('red');
+  });
+
+  it('lets a matching block beat a base property that follows it', () => {
+    // key-sorted, as saved trees are: `@media` sorts before `padding`
+    const resolved = resolveCustomStylesForPreviewWidth(
+      {
+        '@media (max-width: 600px)': { padding: '8px' },
+        padding: '24px',
+      },
+      390,
+    );
+    expect(resolved.padding).toBe('8px');
   });
 
   it('leaves unrecognized media conditions to the browser', () => {

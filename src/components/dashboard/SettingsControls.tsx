@@ -921,11 +921,9 @@ export const UI_PRESETS: Record<
     customStyles: {
       '@media (min-width: 601px) and (max-width: 900px)': {
         padding: '0px 16px',
-        width: '90%',
       },
       '@media (max-width: 600px)': {
         padding: '0px 8px',
-        width: '100%',
       },
     },
     background: PRESET_DARK_BACKGROUND,

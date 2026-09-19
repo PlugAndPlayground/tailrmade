@@ -10,6 +10,7 @@ import {
 } from '@mui/material';
 import {
   WidgetHybridBase,
+  WidgetSelectionBase,
   WidgetPaper,
   colorOptions,
   getLabelSocket,
@@ -270,7 +271,7 @@ const selectedButtonIndex = 'Selected Button';
 const isToggleGroupName = 'Toggle Mode';
 const orientationName = 'Vertical';
 
-export class WidgetButtonGroup extends WidgetHybridBase {
+export class WidgetButtonGroup extends WidgetSelectionBase {
   public getName(): string {
     return 'Button Group';
   }
@@ -341,29 +342,12 @@ export class WidgetButtonGroup extends WidgetHybridBase {
     return outName;
   }
 
-  protected getBackPropagationTargets(): BackPropagation {
-    return {
-      SocketToGetValue: this.getInputSocketByName(selectedButtonIndex),
-      SocketToGetOptions: this.getInputSocketByName(buttonGroupOptionsName),
-      SocketToTakeName: this.getInputSocketByName(labelName),
-    };
+  protected getOptionsSocketName(): string {
+    return buttonGroupOptionsName;
   }
 
-  protected async onExecute(
-    inputObject: any,
-    outputObject: any,
-  ): Promise<void> {
-    await super.onExecute(inputObject, outputObject);
-
-    const options = inputObject[buttonGroupOptionsName];
-    const selectedIndex = Math.max(
-      0,
-      Math.min(options.length - 1, inputObject[selectedButtonIndex]),
-    );
-
-    const selectedValue = options[selectedIndex];
-    this.setOutputData(outName, selectedValue);
-    this.setOutputData(outIndexName, selectedIndex);
+  protected getSelectedIndexSocketName(): string {
+    return selectedButtonIndex;
   }
 
   handleButtonClick = async (index) => {
@@ -696,7 +680,16 @@ export class WidgetSwitch extends WidgetHybridBase {
 
     return (
       <WidgetPaper node={node} inDashboard={props.inDashboard}>
-        <FormControl component="fieldset" sx={{ margin: 'auto' }}>
+        <FormControl
+          component="fieldset"
+          sx={{
+            margin: 'auto',
+            minHeight: props.inDashboard
+              ? `${tokens.controlHeight}px`
+              : undefined,
+            justifyContent: 'center',
+          }}
+        >
           <Stack
             direction="row"
             alignItems="center"

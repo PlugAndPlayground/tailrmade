@@ -255,11 +255,9 @@ const NumberControl: React.FC<{
 );
 
 /**
- * App-wide theme settings. Lives in the right drawer's App tab rather than in
- * the dashboard's own chrome: the theme is a property of the app, not of the
- * surface being edited, and it has to stay reachable OUTSIDE edit mode - many
- * widgets render in their disabled state while editing, so that is the one
- * mode in which you cannot judge how a theme looks.
+ * App-wide theme settings. Lives in the right drawer's App tab:
+ * the theme is a property of the app, not of the surface being edited,
+ * so it stays reachable in every mode.
  */
 export const ThemeSettings: React.FC = () => {
   const resolved = useResolvedAppTheme();

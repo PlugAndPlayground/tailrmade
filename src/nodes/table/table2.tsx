@@ -1099,7 +1099,8 @@ export class Table2 extends HybridNode2 {
     };
 
     const readOnly =
-      node.getInputSocketByName(tableDataInputName).hasLink() || props.disabled;
+      node.getInputSocketByName(tableDataInputName).hasLink() ||
+      (props.disabled ?? false);
 
     interface ColumnRenameState {
       isRenameModalOpen: boolean;

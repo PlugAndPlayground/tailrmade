@@ -1,6 +1,9 @@
+import * as fs from 'fs';
+import * as path from 'path';
 import {
   getCanvasNodePointerEvents,
   getCanvasWidgetPointerEvents,
+  shouldAutoFocusWidgetContent,
   shouldEnterHybridEditModeOnCanvasClick,
   shouldCanvasContainerBeInteractive,
   shouldNodeStayInteractionEnabled,
@@ -156,5 +159,37 @@ describe('node interactivity rules', () => {
         node: { isWidget: () => false },
       }),
     ).toBe('none');
+  });
+});
+
+// The dashboard blocks interaction from OUTSIDE the widget, in
+// DashboardContentGate, so that edit mode can stop a widget from doing things
+// without it having to look disabled. That only holds as long as the flag
+// stays in the gate: the moment a widget reads it, the widget is back to
+// styling itself around someone else's mode.
+describe('interaction blocking stays out of the widgets', () => {
+  const SRC = path.join(__dirname, '../../../src');
+
+  const sourceFiles = (dir: string): string[] =>
+    fs.readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
+      const full = path.join(dir, entry.name);
+      if (entry.isDirectory()) return sourceFiles(full);
+      return /\.tsx?$/.test(entry.name) ? [full] : [];
+    });
+
+  it.each(
+    sourceFiles(SRC)
+      .filter((file) =>
+        fs.readFileSync(file, 'utf8').includes('blockInteraction'),
+      )
+      .map((file) => path.relative(SRC, file)),
+  )('%s only hands blockInteraction to the gate', (relative) => {
+    const source = fs.readFileSync(path.join(SRC, relative), 'utf8');
+    const readsOutsideGate = source
+      .split(/<DashboardContentGate[\s\S]*?>/)
+      .join('')
+      .includes('props.blockInteraction');
+
+    expect(readsOutsideGate).toBe(false);
   });
 });

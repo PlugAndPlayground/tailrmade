@@ -9,8 +9,7 @@ import { TRgba } from './color';
 export const INHERIT_COLOR = 'inherit';
 
 export type ColorSetting =
-  | Record<'r' | 'g' | 'b' | 'a', number>
-  | typeof INHERIT_COLOR;
+  Record<'r' | 'g' | 'b' | 'a', number> | typeof INHERIT_COLOR;
 
 export const isInheritColor = (value: unknown): boolean =>
   value === INHERIT_COLOR;

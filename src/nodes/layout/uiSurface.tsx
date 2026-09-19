@@ -99,9 +99,10 @@ export const UISurfaceWidget: React.FunctionComponent<
   // surface embedded inside another surface — never the top-level surface that
   // is live in the DashboardEditor (that uses the craft Editor frame).
   // - Canvas preview (inDashboard false): always read-only.
-  // - Embedded in another surface: read-only while that surface is being
-  //   edited (props.disabled is true in edit mode) so you dive in to edit it,
-  //   but interactive in view/app mode so the UI can be used.
+  // - Embedded in another surface: interactive in view/app mode so the UI can
+  //   be used. While the surrounding surface is being EDITED nothing here has
+  //   to change - the DashboardContentGate above this widget already makes the
+  //   whole subtree inert, so the click that dives in reaches craftjs instead.
   const interactive = Boolean(props.inDashboard) && !props.disabled;
   const rendered = (
     <SurfaceCanvasPreviewContext.Provider value={isCanvasPreview}>
@@ -160,6 +161,10 @@ on the surface. This creates an element socket and two control sockets:
 "<name> visible" (boolean) and "<name> layout" (layout object). Self-embedding
 loops are rejected.
 
+disconnect_sockets takes a widget back off (pass the surface as to_node and the
+widget as from_node). Moving a widget to another page is a disconnect plus a
+connect.
+
 Use inspect_surface and set_surface_layout to arrange it. If "Layout JSON" is
 linked, the graph owns the layout and set_surface_layout is locked.
 
@@ -172,7 +177,16 @@ everything to keep. Omitted connected widgets are appended with a warning.
   'column'); nest a row container for side-by-side items. mobileBehavior sets
   what a 'row' does on a narrow dashboard (< 600px): 'column' (the default)
   stacks its children, 'wrap' lets them wrap, 'row' keeps them side by side.
-- Static text: {text:'...', fontSize?, fontWeight?, textAlign?, color?}.
+- Static text: {text:'...', variant?, tone?, alignment?}. text is
+  Markdown: # headings, - lists, > quotes, code blocks, **bold**, *italic*,
+  \`code\`, [link](https://…), and [words]{.primary .nowrap} for a run's tone
+  or no-wrap; each line is a paragraph. variant: 'display'|'h1'|'h2'|'body'|'caption'|'label'|'stat';
+  tone: 'default'|'muted'|'primary'|'secondary'|'success'|'warning'|'error'
+  (theme colors);
+  alignment: 'left'|'center'|'right'|'justify'. The variant sets size, weight
+  and line height and the tone a theme color, so text follows the app theme.
+  Static text shows {{…}} literally - to show a value from the graph, use a
+  Text node widget.
 - Graph widget: {widget:'<node_id>'} - a node with a ReactUI output;
   unconnected widgets are connected automatically.
 - Colors are {r,g,b,a} (0-255, a 0-1). Keep the default dark theme when
@@ -183,12 +197,12 @@ everything to keep. Omitted connected widgets are appended with a warning.
   '100dvh') keep padding minimal.
 
 ## Navigation and multi-view apps
-Switch surfaces with "Navigate to surface". Use short surface names. The first
-surface is the default; change it with set_default_surface.
+Switch surfaces with "Navigate to UI surface", which resolves a surface by its
+NODE name or route slug. The first surface is the default; change it with set_default_surface.
 
 Two patterns:
 1. Separate pages: several top-level surfaces share one navigation widget
-wired to "Navigate to surface". This is the simplest pattern.
+whose options are those surface NODE names, wired into "Navigate to UI surface".
 2. Nav shell with embedded pages: connect each child surface's ReactUI output
 into one main surface that holds the navigation, with a shared non-empty
 "Radio Group" so navigating shows one child and hides the rest. Children

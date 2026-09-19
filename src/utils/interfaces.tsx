@@ -12,6 +12,7 @@ import {
 } from './constants';
 import type { UISurfaceNode } from '../nodes/layout/uiSurface';
 import type { ThemeDocument } from './theme/document';
+import type { ColorSetting } from './themeColors';
 export { TRgba } from './color';
 export type { TColorHsva } from './color';
 
@@ -138,6 +139,8 @@ export type DashboardIconProps = {
 
 export type WidgetProps = {
   background: Record<'r' | 'g' | 'b' | 'a', number>;
+  // text color; without it a widget gets the container default
+  color?: ColorSetting;
   width: string;
   height: string;
   minWidth: string;
@@ -146,7 +149,12 @@ export type WidgetProps = {
 
 export interface DashboardWidgetProps {
   index: number;
+  // the widget's own read-only state, set by the user on the widget
   disabled: boolean;
+  // interaction is suppressed by whatever renders the widget (edit mode,
+  // previews). Consumed by DashboardContentGate only - it never reaches the
+  // widget content, which stays unaware of anything but its own `disabled`
+  blockInteraction?: boolean;
   width: string;
   height: string;
   minWidth: string;
@@ -204,6 +212,9 @@ export interface Layoutable {
   getDashboardIcon(props: DashboardIconProps): React.ReactNode;
   getDashboardWrapper(props: DashboardWidgetProps): React.ReactNode;
   getWidgetContent(props: WidgetContentProps): React.ReactNode;
+  // widget-specific controls for the dashboard inspector
+  getDashboardSettings?(): React.ReactNode;
+  isEditableInSurfaceEditMode?(): boolean;
   getRelatedNode(): PPNode;
   isContainer(): boolean;
   isModalDialog?(): boolean;
@@ -248,6 +259,13 @@ export type SerializedLink = {
   sourceSocketName: string;
   targetNodeId: string;
   targetSocketName: string;
+};
+
+// the link an input socket held before a connect displaced it, kept so undo
+// can put it back
+export type DisplacedLink = {
+  sourceNodeID: string;
+  sourceSocketName: string;
 };
 
 export type TSocketId = `SOCKET_${string}`;

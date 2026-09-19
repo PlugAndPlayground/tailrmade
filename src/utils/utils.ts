@@ -25,6 +25,7 @@ import {
   SOCKET_TYPE,
   SOCKET_WIDTH,
   URL_PARAMETER_NAME,
+  NODE_SOURCE,
 } from './constants';
 import { GraphDatabase, StoredGraph } from './indexedDB';
 import {
@@ -575,6 +576,26 @@ export const clearDocumentSelection = (): void => {
   }
 };
 
+// A tap that opens something under the finger is hit by its own ghost mousedown
+// a moment later: the browser hit-tests the compatibility mouse events against
+// the DOM as it stands then, so they land on what the tap just opened and move
+// focus off it - and the node search closes on blur. Only the focus change does
+// damage, so preventing the default is enough. Disarmed on the next pointerdown
+// rather than on a timer, the way the widget pan handoff swallows its own ghost
+// click: the ghost always arrives before the next press.
+export function swallowGhostMouseDown(): void {
+  const disarm = (): void => {
+    window.removeEventListener('mousedown', swallow, true);
+    window.removeEventListener('pointerdown', disarm, true);
+  };
+  const swallow = (event: MouseEvent): void => {
+    event.preventDefault();
+    disarm();
+  };
+  window.addEventListener('mousedown', swallow, true);
+  window.addEventListener('pointerdown', disarm, true);
+}
+
 export const calculateAspectRatioFit = (
   oldWidth: number,
   oldHeight: number,
@@ -1052,13 +1073,17 @@ export const pasteClipboard = async (e: ClipboardEvent): Promise<void> => {
           const base64 = await convertBlobToBase64(file);
 
           // Create an Image node with the pasted image data
-          const added = await PPGraph.currentGraph.addNewNode('Image', {
-            defaultArguments: {
-              Image: base64,
+          const added = await PPGraph.currentGraph.addNewNode(
+            'Image',
+            {
+              defaultArguments: {
+                Image: base64,
+              },
+              nodePosX: currPos.x,
+              nodePosY: currPos.y,
             },
-            nodePosX: currPos.x,
-            nodePosY: currPos.y,
-          });
+            NODE_SOURCE.PASTED,
+          );
           currPos.y += added.nodeHeight + 100;
           return; // Exit the entire function after handling the image
         }
@@ -1088,38 +1113,54 @@ export const pasteClipboard = async (e: ClipboardEvent): Promise<void> => {
       }
       try {
         const data = clipboardBlobs[mimeType];
+        // detect CSV on the plain text only; spreadsheets also put HTML on the clipboard
+        const plainText = clipboardBlobs['text/plain'];
         e.preventDefault();
         if (PPGraph.currentGraph.selection.selectedNodes.length < 1) {
           if (isUrl(data)) {
-            await PPGraph.currentGraph.addNewNode('EmbedWebsite', {
-              defaultArguments: {
-                [htmlInputSocketName]: `<iframe src="${data}" style="width: 100%; height: 100%;"></iframe>`,
+            await PPGraph.currentGraph.addNewNode(
+              'EmbedWebsite',
+              {
+                defaultArguments: {
+                  [htmlInputSocketName]: `<iframe src="${data}" style="width: 100%; height: 100%;"></iframe>`,
+                },
+                nodePosX: currPos.x,
+                nodePosY: currPos.y,
               },
-              nodePosX: currPos.x,
-              nodePosY: currPos.y,
-            });
-          } else if (isCSV(data)) {
+              NODE_SOURCE.PASTED,
+            );
+          } else if (isCSV(plainText)) {
             // TODO switch to new method that is faster
-            const jsonArray = Table2.convertArrayBufferToTableInput(data);
-            await PPGraph.currentGraph.addNewNode('Table2', {
-              defaultArguments: {
-                [tableDataInputName]: jsonArray,
+            // one array per sheet; CSV text always yields a single sheet
+            const [rows] =
+              await Table2.convertArrayBufferToTableInput(plainText);
+            await PPGraph.currentGraph.addNewNode(
+              'Table2',
+              {
+                defaultArguments: {
+                  [tableDataInputName]: rows,
+                },
+                nodePosX: currPos.x,
+                nodePosY: currPos.y,
               },
-              nodePosX: currPos.x,
-              nodePosY: currPos.y,
-            });
+              NODE_SOURCE.PASTED,
+            );
           } else {
             const serializedState = await createMarkdownFromText(
               mimeType === 'text/html' ? { html: data } : { plain: data },
             );
-            await PPGraph.currentGraph.addNewNode('TextEditor2', {
-              defaultArguments: {
-                [textEditorMarkdownName]: serializedState,
-                [textEditorAutoHeightName]: false,
+            await PPGraph.currentGraph.addNewNode(
+              'TextEditor2',
+              {
+                defaultArguments: {
+                  [textEditorMarkdownName]: serializedState,
+                  [textEditorAutoHeightName]: false,
+                },
+                nodePosX: currPos.x,
+                nodePosY: currPos.y,
               },
-              nodePosX: currPos.x,
-              nodePosY: currPos.y,
-            });
+              NODE_SOURCE.PASTED,
+            );
           }
         }
         return true;

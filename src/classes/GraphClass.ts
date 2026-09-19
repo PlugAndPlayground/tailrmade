@@ -17,13 +17,22 @@ import {
   TNodeSource,
   AccessType,
   isSurfaceNode,
+  DisplacedLink,
 } from '../utils/interfaces';
 import {
   calculateDistance,
   clearDocumentSelection,
   perform_action_connectNodeToSocket,
-  isPhone,
+  swallowGhostMouseDown,
 } from '../utils/utils';
+import {
+  isDoubleActivation,
+  shouldDrawSelectionMarquee,
+  TouchGesture,
+} from '../utils/touchGestures';
+import { isCanvasExploreOnly, isStackLayout } from '../utils/stackLayout';
+import { BackendGateway } from '../services/BackendGateway';
+import { CLOUD_MODE } from '../services/shared-types';
 import { getLoadSeedNodes } from '../utils/updateBehaviour';
 import {
   EMPTY_THEME_DOCUMENT,
@@ -35,7 +44,7 @@ import {
   getThemeDocument,
   setThemeDocument,
 } from '../utils/theme/store';
-import { getNodesBounds } from '../pixi/utils-pixi';
+import { frameGraphForStackLayout, getNodesBounds } from '../pixi/utils-pixi';
 import PPNode from './NodeClass';
 import PPSocket from './SocketClass';
 import PPLink from './LinkClass';
@@ -48,8 +57,8 @@ import { DynamicImport } from '../utils/dynamicImport';
 import {
   DASHBOARD_DEFAULT,
   MAX_LATEST_NODES_IN_SEARCH,
-  ONCLICK_DOUBLECLICK,
 } from '../utils/constants';
+import { VISIBILITY_ACTION } from '../utils/constants_shared';
 import HybridNode2 from './HybridNode2';
 import {
   ActionHandler,
@@ -66,6 +75,28 @@ import PPStorage, { DEFAULT_ACCESS, DEFAULT_LOCATION } from '../PPStorage';
 // withtout this the compilation order breaks
 const DUMMY_IMPORT = getNodesBounds;
 const EMPTY_DEFAULT_MACRO_NAME = 'EmptyDefaultMacro';
+
+const EMPTY_CANVAS_TEXT = `<span style="color:#0c1122;">Add data and logic</span>
+  Double click canvas or drag files in
+  Then connect the nodes
+
+  <span style="color:#0c1122;">Create user interface</span>
+  Press 2 to open the panel
+  Then add widgets/nodes
+
+  Right click for more options`;
+
+// the canvas cannot be edited by hand in the stack layout, so point to AI,
+// which is only offered once signed in
+const EMPTY_CANVAS_TEXT_EXPLORE_ONLY = `<span style="color:#0c1122;">This app is empty</span>
+  Open AI to build it`;
+const EMPTY_CANVAS_TEXT_SIGNED_OUT = `<span style="color:#0c1122;">This app is empty</span>
+  Sign in to build it with AI`;
+
+type LongPressTarget = {
+  global: PIXI.Point;
+  target: PIXI.Container;
+};
 
 export default class PPGraph {
   static currentGraph: PPGraph;
@@ -85,6 +116,9 @@ export default class PPGraph {
   pointerEvent: PIXI.FederatedPointerEvent | undefined = undefined; // lets try to get rid of this undefined
   dragSourcePoint: PIXI.Point | undefined;
   dragLastPoint: PIXI.Point;
+
+  // the finger's stand-in for a right click and for a deliberate click
+  private touchGesture: TouchGesture<LongPressTarget>;
 
   // For separate logic update loop
   private logicAnimationFrameId: number | null = null;
@@ -192,7 +226,10 @@ export default class PPGraph {
       'rightclick',
       this.onPointerRightClicked.bind(this),
     );
-    this.viewport.addEventListener('click', this.onPointerClick.bind(this));
+    this.viewport.addEventListener(
+      'pointertap',
+      this.onPointerClick.bind(this),
+    );
 
     this.viewport.addEventListener('moved', () => {
       this.socketFocus.refresh();
@@ -202,6 +239,25 @@ export default class PPGraph {
       this.onViewportMove(event),
     );
 
+    // Touch has no second button, so a long press opens a context menu
+    this.touchGesture = new TouchGesture<LongPressTarget>(
+      ({ global, target }) => this.openLongPressContextMenu(global, target),
+    );
+    this.viewport.addEventListener(
+      'pointerdown',
+      (event: PIXI.FederatedPointerEvent) =>
+        this.touchGesture.start(event, {
+          global: event.global.clone(),
+          target: event.target as PIXI.Container,
+        }),
+      { capture: true },
+    );
+    window.addEventListener('pointermove', (event: PointerEvent) =>
+      this.touchGesture.move(event.clientX, event.clientY),
+    );
+    window.addEventListener('pointerup', () => this.touchGesture.settle());
+    window.addEventListener('pointercancel', () => this.touchGesture.end());
+
     // NEVER CLEARED !
     InterfaceController.addListener(
       ListenEvent.GlobalPointerMove,
@@ -210,6 +266,7 @@ export default class PPGraph {
 
     // when authentication changes some nodes need executing
     InterfaceController.addListener(ListenEvent.UserIsLoggedIn, async () => {
+      this.updateEmptyCanvasVisibility();
       await this.notifyUserDataChanged(true);
     });
 
@@ -267,15 +324,37 @@ export default class PPGraph {
     }
   }
 
+  private openLongPressContextMenu(
+    global: PIXI.Point,
+    target: PIXI.Container,
+  ): void {
+    if (isCanvasExploreOnly()) {
+      return;
+    }
+    this.stopConnecting();
+    this.selection.stopDragAction(undefined);
+    InterfaceController.onRightClick(
+      { global } as PIXI.FederatedPointerEvent,
+      target,
+    );
+  }
+
   onPointerClick(event: PIXI.FederatedPointerEvent): void {
     console.log('onPointerClick', event.detail);
 
-    // check if double clicked
-    if (event.detail === ONCLICK_DOUBLECLICK) {
+    // pointertap, unlike click, also fires for the right button
+    if (event.button === 2) {
+      return;
+    }
+
+    if (!isCanvasExploreOnly() && isDoubleActivation(event)) {
       event.stopPropagation();
       const target = event.target;
       if (target instanceof Viewport) {
         this.overrideNodeCursorPosition = this.viewport.toWorld(event.global);
+        if (event.pointerType === 'touch') {
+          swallowGhostMouseDown();
+        }
         InterfaceController.openNodeSearch(new PIXI.Point(event.x, event.y));
       }
     }
@@ -295,7 +374,7 @@ export default class PPGraph {
       open: false,
     });
 
-    if (event.button === 0 && !isPhone()) {
+    if (shouldDrawSelectionMarquee(event) && !isCanvasExploreOnly()) {
       if (!this.socketFocus.hovered) {
         this.selection.drawSelectionStart(event, event.shiftKey);
       }
@@ -341,6 +420,14 @@ export default class PPGraph {
     }
 
     this.selection.drawSelectionFinish(event);
+
+    if (
+      this.touchGesture.end() === 'tap' &&
+      event.target instanceof Viewport &&
+      !this.selectedSocket
+    ) {
+      this.selection.deselectAllNodesAndResetSelection();
+    }
 
     document.body.style.cursor = 'default';
     this.viewport.plugins.resume('drag');
@@ -469,9 +556,9 @@ export default class PPGraph {
     }
     // we allow re-connection of outputs if ctrl is pressed
     if (event.ctrlKey && socket.isOutput() && socket.hasLink()) {
-      const target = socket.links[0].getTarget();
-      // detach and allow to connect to new
-      await this.linkDisconnect(target.getNode().id, target.name, true);
+      const link = socket.links[0];
+      const target = link.getTarget();
+      await this.perform_action_Disconnect(link);
       this.lastSelectedSocketWasOutput = false;
       this.selectedSocket = target;
       document.body.style.cursor = 'grabbing';
@@ -780,13 +867,15 @@ export default class PPGraph {
     return newNode;
   };
 
+  // returns the link that had to be dropped to free the input socket
   async linkConnect(
     sourceNodeID: string,
     outputSocketName: string,
     targetNodeID: string,
     inputSocketName: string,
     notify = false,
-  ) {
+  ): Promise<DisplacedLink | undefined> {
+    const displaced = this.getInputLinkSource(targetNodeID, inputSocketName);
     const sourceSocket =
       this.nodes[sourceNodeID].getOutputSocketByName(outputSocketName);
     const targetNode = this.nodes[targetNodeID];
@@ -796,6 +885,7 @@ export default class PPGraph {
       sourceSocket,
     );
     await this.connect(sourceSocket, targetSocket, notify);
+    return displaced;
   }
 
   // dynamically created sockets are removed on unplug, so the named socket
@@ -818,17 +908,52 @@ export default class PPGraph {
     inputSocketName: string,
     notify: boolean,
   ) {
-    const socket = this.nodes[targetNodeID].getInputOrTriggerSocketByName(
+    const socket = this.nodes[targetNodeID]?.getInputOrTriggerSocketByName(
       inputSocketName,
       false,
     );
-    if (socket !== undefined) {
-      const link = socket.links[0];
-      const sourceNodeID = link.getSource().getNode().id;
-      const source = link.getSource();
-      const target = link.getTarget();
-      link.delete();
+    // the socket can legitimately be empty already - undoing a connect that
+    // replaced nothing, or a link that went away with its node
+    socket?.links[0]?.delete();
+  }
+
+  getInputLinkSource(
+    targetNodeID: string,
+    inputSocketName: string,
+  ): DisplacedLink | undefined {
+    const socket = this.nodes[targetNodeID]?.getInputOrTriggerSocketByName(
+      inputSocketName,
+      false,
+    );
+    const source = socket?.links[0]?.getSource();
+    if (source === undefined) {
+      return undefined;
     }
+    return {
+      sourceNodeID: source.getNode().id,
+      sourceSocketName: source.name,
+    };
+  }
+
+  async restoreInputLink(
+    displaced: DisplacedLink | undefined,
+    targetNodeID: string,
+    inputSocketName: string,
+  ): Promise<void> {
+    if (
+      displaced === undefined ||
+      this.nodes[displaced.sourceNodeID] === undefined ||
+      this.nodes[targetNodeID] === undefined
+    ) {
+      return;
+    }
+    await this.linkConnect(
+      displaced.sourceNodeID,
+      displaced.sourceSocketName,
+      targetNodeID,
+      inputSocketName,
+      true,
+    );
   }
 
   // gets connect and unconnect actions for specified hypothetic link, based on node ID and socket name in order to be generic actions not reference-based, this is fired specifically when user is connecting things
@@ -837,7 +962,7 @@ export default class PPGraph {
     sourceNodeID: string,
     targetSocketName: string,
     targetNodeID: string,
-  ): [() => Promise<void>, () => Promise<void>] {
+  ): [() => Promise<DisplacedLink | undefined>, () => Promise<void>] {
     // depending on the types, we might want to create a conversion node inbetween
 
     const sendingSocket =
@@ -851,7 +976,7 @@ export default class PPGraph {
     const conversionNodeID = uuid();
 
     // TODO SERIALIZED ACTION
-    const action = async () => {
+    const action = async (): Promise<DisplacedLink | undefined> => {
       if (compatibility.conversionNode !== undefined) {
         // spawn a conversion node inbetween, connect both nodes to that one
         const x =
@@ -878,7 +1003,7 @@ export default class PPGraph {
           ).name,
           true,
         );
-        await this.linkConnect(
+        return this.linkConnect(
           conversionNodeID,
           conversionNode.outputSocketArray[0].name,
           targetNodeID,
@@ -886,7 +1011,7 @@ export default class PPGraph {
           true,
         );
       } else {
-        await this.linkConnect(
+        return this.linkConnect(
           sourceNodeID,
           sourceSocketName,
           targetNodeID,
@@ -935,18 +1060,25 @@ export default class PPGraph {
     const targetSocketName = input.name;
     const targetSocketID = input.getNode().id;
 
-    const actions = this.actions_Connect(
+    const [connectAction, disconnectAction] = this.actions_Connect(
       sourceSocketName,
       sourceSocketID,
       targetSocketName,
       targetSocketID,
     );
 
+    // connectAction hands back the link it displaced, which becomes the undo
+    // args - recaptured on every redo, so it is never a stale snapshot
+    const undoAction = async (displaced: DisplacedLink | undefined) => {
+      await disconnectAction();
+      await this.restoreInputLink(displaced, targetSocketID, targetSocketName);
+    };
+
     await ActionHandler.performRawAction(
       new BakedAction(
         new SerializableAction(
-          actions[0],
-          actions[1],
+          connectAction,
+          undoAction,
           'Connect nodes ' +
             output.getNode().name +
             ' and ' +
@@ -1186,8 +1318,10 @@ export default class PPGraph {
     this.viewport.alpha = fadeIn ? 1 : 0.01; // avoid going to absolute zero because it can confuse some node rendering behaviour
   }
 
+  // teardown done before another app is loaded and not undoable
   async clear(): Promise<void> {
     this.graphConfiguredAndReady = false;
+    InterfaceController.toggleDashboardInEditMode(VISIBILITY_ACTION.CLOSE);
     this.socketFocus.forgetAll();
     clearRuntimeThemeLayer();
     setThemeDocument(EMPTY_THEME_DOCUMENT);
@@ -1196,9 +1330,10 @@ export default class PPGraph {
       await this.fadeGraph(false);
     }
 
-    // remove all nodes from container
-    this.selection.selectAllNodes();
-    await this.perform_action_DeleteSelectedNodes();
+    this.selection.deselectAllNodesAndResetSelection();
+    this.stopConnecting();
+    Object.values(this.nodes).forEach((node) => this.removeNode(node));
+    ActionHandler.clear();
 
     InterfaceController.notifyListeners(ListenEvent.GraphConfigured, {
       id: this.id,
@@ -1444,13 +1579,7 @@ export default class PPGraph {
 
     console.time('graph_configure');
     PPStorage.getInstance().updateLocalURL(storedGraph);
-    this.id = storedGraph.id;
-    this.location = storedGraph.location;
-    this.name = storedGraph.name;
-    this.access = storedGraph.access;
-    this.owner = storedGraph.owner;
-    this.date = storedGraph.date;
-    this.isRemote = storedGraph.isRemote;
+    this.setBaselineMetadata(storedGraph);
     this.selection.deselectAllNodesAndResetSelection();
 
     if (Object.keys(this.nodes).length > 0) {
@@ -1548,6 +1677,10 @@ export default class PPGraph {
 
     this.graphConfiguredAndReady = true;
 
+    if (isStackLayout()) {
+      frameGraphForStackLayout();
+    }
+
     this.updateEmptyCanvasVisibility();
 
     console.timeEnd('graph_configure');
@@ -1622,6 +1755,11 @@ export default class PPGraph {
       ),
       false,
     );
+    // a wire being dragged out of this node has nowhere to land once the node
+    // is gone - abandon the drag instead of holding on to a destroyed socket
+    if (this.selectedSocket?.getNode() === node) {
+      this.stopConnecting();
+    }
     const removedSurfaceId = isSurfaceNode(node) ? node.id : undefined;
     delete this.nodes[node.id];
     node.destroy();
@@ -1634,6 +1772,12 @@ export default class PPGraph {
     }
 
     this.updateEmptyCanvasVisibility();
+  }
+
+  // The user facing "Clear" - an edit to the app that is open
+  async perform_action_ClearGraph(): Promise<void> {
+    this.selection.selectAllNodes();
+    await this.perform_action_DeleteSelectedNodes();
   }
 
   async perform_action_DeleteSelectedNodes(): Promise<void> {
@@ -1656,14 +1800,15 @@ export default class PPGraph {
     };
     const undoAction = async () => {
       const addedNodes: PPNode[] = [];
-      await Promise.all(
-        nodesSerialized.map(async (node: SerializedNode) => {
-          const addedNode = await PPGraph.currentGraph.addSerializedNode(node, {
+      // sequential, so the restored selection order does not depend on how
+      // deep each node type's async setup happens to be
+      for (const node of nodesSerialized) {
+        addedNodes.push(
+          await PPGraph.currentGraph.addSerializedNode(node, {
             overrideId: node.id,
-          });
-          addedNodes.push(addedNode);
-        }),
-      );
+          }),
+        );
+      }
 
       linksSerialized.forEach((link) => {
         const sourceSocket = this.nodes[
@@ -1756,17 +1901,6 @@ export default class PPGraph {
 
   initEmptyCanvasIndicator(): void {
     this.emptyCanvasText = new PIXI.HTMLText({
-      text: isPhone()
-        ? 'To add nodes open the 3 dot menu<br>Then press Find node'
-        : `<span style="color:#0c1122;">Add data and logic</span>
-  Double click canvas or drag files in
-  Then connect the nodes
-
-  <span style="color:#0c1122;">Create user interface</span>
-  Press 2 to open the panel
-  Then add widgets/nodes
-
-  Right click for more options`,
       style: {
         fontFamily: 'Arial',
         fontSize: 20,
@@ -1791,6 +1925,18 @@ export default class PPGraph {
 
     // Center in screen
     if (this.emptyCanvasText.visible) {
+      // chosen here rather than once at init, as resizing can cross into the
+      // stack layout and signing in can happen after the graph loads
+      if (!isCanvasExploreOnly()) {
+        this.emptyCanvasText.text = EMPTY_CANVAS_TEXT;
+      } else if (
+        CLOUD_MODE &&
+        BackendGateway.getInstance().getCurrentUser() === null
+      ) {
+        this.emptyCanvasText.text = EMPTY_CANVAS_TEXT_SIGNED_OUT;
+      } else {
+        this.emptyCanvasText.text = EMPTY_CANVAS_TEXT_EXPLORE_ONLY;
+      }
       const centerX = window.innerWidth / 2;
       const centerY = window.innerHeight / 2;
       this.emptyCanvasText.position.set(centerX, centerY);

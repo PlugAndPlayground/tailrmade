@@ -29,7 +29,7 @@ import InterfaceController from '../../InterfaceController';
 import { useHoverEvents, useParentDirection } from './hooks';
 import { DynamicWidgetName } from '../../utils/constants_shared';
 import { dynamicWidgetDefaultProps } from '../../utils/surfaceTree';
-import { ColorSetting } from '../../utils/themeColors';
+import { ColorSetting, colorSettingToCss } from '../../utils/themeColors';
 
 export type DynamicWidgetBaseProps = {
   background: Record<'r' | 'g' | 'b' | 'a', number>;
@@ -63,6 +63,7 @@ export interface DynamicWidgetProps extends DynamicWidgetBaseProps {
 export interface DynamicWidgetViewProps extends Partial<DynamicWidgetProps> {
   domId?: string;
   isEditMode?: boolean;
+  blockInteraction?: boolean;
   parentDirection?: FlexDirection;
   innerRef?: (ref: HTMLElement | null) => void;
   // extra props forwarded to getDashboardWrapper (e.g. visitedSurfaceIds)
@@ -80,6 +81,7 @@ export const DynamicWidgetView = (viewProps: DynamicWidgetViewProps) => {
   const {
     domId,
     isEditMode = false,
+    blockInteraction = false,
     parentDirection,
     innerRef,
     wrapperExtraProps,
@@ -155,7 +157,8 @@ export const DynamicWidgetView = (viewProps: DynamicWidgetViewProps) => {
       {layoutableElement.getDashboardWrapper({
         index,
         isEditMode,
-        disabled: isEditMode ? true : disabled,
+        disabled: disabled ?? false,
+        blockInteraction,
         height: style.height as string,
         width: style.width as string,
         minWidth,
@@ -193,7 +196,8 @@ export const DynamicWidgetView = (viewProps: DynamicWidgetViewProps) => {
         // r/g/b/a channels whenever the stored object's key order isn't
         // exactly r,g,b,a
         background: Object.assign(new TRgba(), background).toString(),
-        color: Object.assign(new TRgba(), color).toString(),
+        // may be the 'inherit' keyword, which TRgba cannot hold
+        color: colorSettingToCss(color),
         padding: `${padding[0]}px ${padding[1]}px ${padding[2]}px ${padding[3]}px`,
         ...style,
       }}
@@ -268,6 +272,9 @@ export const DynamicWidget = (props: Partial<DynamicWidgetProps>) => {
       {...props}
       domId={id}
       isEditMode={isEditMode}
+      blockInteraction={
+        isEditMode && !layoutableElement?.isEditableInSurfaceEditMode?.()
+      }
       parentDirection={parentDirection}
       innerRef={(ref) => ref && connect(drag(ref))}
       onDoubleClick={handleDive}
@@ -404,6 +411,7 @@ const DynamicWidgetSettings = () => {
       />
 
       <ColorSection setProp={setProp} props={props} />
+      {props.id && getLayoutableElement(props.id)?.getDashboardSettings?.()}
     </Stack>
   );
 };

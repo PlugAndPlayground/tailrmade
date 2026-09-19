@@ -24,7 +24,11 @@ import {
   Typography,
 } from '@mui/material';
 import PPGraph from '../classes/GraphClass';
-import PPStorage, { autoSaveSuffix } from '../PPStorage';
+import PPStorage, {
+  autoSaveSuffix,
+  DEFAULT_ACCESS,
+  DEFAULT_LOCATION,
+} from '../PPStorage';
 import { AccessType, IGraphSearch } from '../utils/interfaces';
 import LockIcon from '@mui/icons-material/Lock';
 import PublicIcon from '@mui/icons-material/Public';
@@ -110,17 +114,30 @@ export const DeleteConfirmationDialog = React.memo(
 
 DeleteConfirmationDialog.displayName = 'DeleteConfirmationDialog';
 
-export const EditDialog = (props) => {
-  const [name, setName] = useState<string>(props.graphName);
-  const [accessLevel, setAccessLevel] = useState<AccessType>(props.graphAccess);
-  const [location, setLocation] = useState<string>(props.graphLocation);
+interface EditDialogProps {
+  graphToBeModified: IGraphSearch;
+}
+
+export const EditDialog = ({ graphToBeModified }: EditDialogProps) => {
+  const {
+    name: graphName,
+    access: graphAccess,
+    location: graphLocation,
+  } = graphToBeModified;
+  const [name, setName] = useState<string>(graphName);
+  const [accessLevel, setAccessLevel] = useState<AccessType>(
+    graphAccess ?? DEFAULT_ACCESS,
+  );
+  const [location, setLocation] = useState<string>(
+    graphLocation ?? DEFAULT_LOCATION,
+  );
   const showOrganizationOption = false; // Placeholder for organization option
 
   useEffect(() => {
-    setAccessLevel(props.graphAccess);
-    setLocation(props.graphLocation);
-    setName(props.graphName);
-  }, [props.name, props.graphAccess, props.graphLocation]);
+    setAccessLevel(graphAccess ?? DEFAULT_ACCESS);
+    setLocation(graphLocation ?? DEFAULT_LOCATION);
+    setName(graphName);
+  }, [graphName, graphAccess, graphLocation]);
 
   const handleAccessChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     setAccessLevel(event.target.value as AccessType);
@@ -183,7 +200,7 @@ export const EditDialog = (props) => {
             variant="standard"
             value={location}
             onChange={handleLocationChange}
-            placeholder={props.graphLocation}
+            placeholder={graphLocation}
             sx={{ mt: 2 }}
             onKeyDown={(e) => {
               if (e.key === 'Enter') {

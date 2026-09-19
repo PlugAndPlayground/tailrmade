@@ -31,6 +31,8 @@ import { getTMBuildLabel } from './buildInfo';
 
 import { BackendGateway } from './services/BackendGateway';
 import GraphContextMenu from './components/contextmenus/GraphContextMenu';
+import { AuthDialogHost } from './components/AuthDialog';
+import { isCanvasExploreOnly } from './utils/stackLayout';
 import NodeContextMenu from './components/contextmenus/NodeContextMenu';
 import SocketContextMenu from './components/contextmenus/SocketContextMenu';
 import SpinnerContainer from './containers/SpinnerContainer';
@@ -169,7 +171,7 @@ const App = (): JSX.Element => {
   InterfaceController.hideSnackBar = closeSnackbar;
 
   useEffect(() => {
-    // data has id and name
+    // data is an IGraphSearch
     const ids: any[] = [];
     ids.push(
       InterfaceController.addListener(ListenEvent.GraphChanged, (data: any) => {
@@ -183,6 +185,9 @@ const App = (): JSX.Element => {
       event: PIXI.FederatedPointerEvent,
       target: PIXI.Container,
     ) => {
+      if (isCanvasExploreOnly()) {
+        return;
+      }
       setIsGraphContextMenuOpen(false);
       setIsNodeContextMenuOpen(false);
       setIsSocketContextMenuOpen(false);
@@ -202,6 +207,9 @@ const App = (): JSX.Element => {
           break;
         case target instanceof PPNode:
           console.log('app right click, node');
+          if (!target.selected) {
+            PPGraph.currentGraph.selection.selectNodes([target], false);
+          }
           setContextMenuPosition([contextMenuPosX, contextMenuPosY(220)]);
           setIsNodeContextMenuOpen(true);
           break;
@@ -312,15 +320,9 @@ const App = (): JSX.Element => {
             <DeleteConfirmationDialog graphToBeModified={graphToBeModified} />
           )}
 
-          {showEdit && (
-            <EditDialog
-              graphId={graphToBeModified.id}
-              graphName={graphToBeModified.name}
-              graphAccess={graphToBeModified.access}
-              graphLocation={graphToBeModified.location}
-            />
-          )}
+          {showEdit && <EditDialog graphToBeModified={graphToBeModified} />}
           <SpinnerContainer />
+          <AuthDialogHost />
 
           {isGraphContextMenuOpen && (
             <GraphContextMenu

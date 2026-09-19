@@ -508,6 +508,7 @@ const DynamicWidgetContainerDrawNode: React.FunctionComponent<
     >
       <DashboardContentGate
         disabled={props.disabled}
+        blockInteraction={props.blockInteraction}
         isSurfacePreview={props.isSurfacePreview}
       >
         <DynamicWidgetPixiBody

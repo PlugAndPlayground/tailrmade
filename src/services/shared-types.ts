@@ -1,4 +1,5 @@
 // Browser-safe contracts shared with the backend API.
+import { DEFAULT_MODEL } from './aiModels';
 
 export const CLOUD_MODE = process.env.CLOUD_MODE !== 'false';
 export const EXECUTION_LOCATION_CLOUD = 'cloud' as const;
@@ -6,8 +7,7 @@ export const EXECUTION_LOCATION_LOCAL = 'local' as const;
 export const LOCAL_USER_ID = 'local';
 
 export type ExecutionLocation =
-  | typeof EXECUTION_LOCATION_CLOUD
-  | typeof EXECUTION_LOCATION_LOCAL;
+  typeof EXECUTION_LOCATION_CLOUD | typeof EXECUTION_LOCATION_LOCAL;
 
 export type AccountTier = 'limited' | 'free' | 'premium' | 'business' | 'admin';
 
@@ -67,6 +67,8 @@ export interface UserPreferences {
   graphSortMode: GraphSortMode;
   graphSortDirection: boolean;
   aiAgentModel: string;
+  /** let the AI assistant look at the app it is building (see AIVisionService) */
+  aiAutoCapture: boolean;
 }
 
 export interface TokenUsage {
@@ -99,7 +101,8 @@ export function getDefaultPreferences(uid: string): UserPreferences {
       : EXECUTION_LOCATION_LOCAL,
     graphSortMode: 'date',
     graphSortDirection: true,
-    aiAgentModel: 'claude-sonnet-4-6',
+    aiAgentModel: DEFAULT_MODEL,
+    aiAutoCapture: true,
   };
 }
 

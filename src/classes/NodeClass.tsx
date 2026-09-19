@@ -27,7 +27,6 @@ import {
   NODE_SOURCE,
   NODE_TEXTSTYLE,
   NODE_WIDTH,
-  ONCLICK_DOUBLECLICK,
   SOCKET_HEIGHT,
   SOCKET_TYPE,
   SOCKET_WIDTH,
@@ -41,7 +40,9 @@ import {
   ERROR_BOUNDARY_SCREEN_OFFSET,
   ERROR_BOUNDARY_SCREEN_WIDTH,
 } from '../utils/constants';
+import { isDoubleActivation } from '../utils/touchGestures';
 import UpdateBehaviourClass from './UpdateBehaviourClass';
+import { isCanvasExploreOnly } from '../utils/stackLayout';
 import NodeHeaderClass from './NodeHeaderClass';
 import PPGraph from './GraphClass';
 import Socket from './SocketClass';
@@ -382,7 +383,8 @@ export default class PPNode extends PIXI.Container implements IWarningHandler {
     this.getAllInitialSockets().forEach((IO) => {
       // add in default data if supplied
       const newDefault = customArgs?.defaultArguments?.[IO.name];
-      if (newDefault) {
+      // presence, not truthiness - '', 0 and false are valid defaults
+      if (newDefault !== undefined) {
         IO.data = newDefault;
       }
       this.addSocket(IO);
@@ -1491,7 +1493,7 @@ ${Math.round(bounds.minX)}, ${Math.round(
     this.addEventListener('pointerup', this.onPointerUp.bind(this));
     this.addEventListener('pointerover', this.onPointerOver.bind(this));
     this.addEventListener('pointerout', this.onPointerOut.bind(this));
-    this.addEventListener('click', this.onPointerClick.bind(this));
+    this.addEventListener('pointertap', this.onPointerClick.bind(this));
     this.addEventListener('removed', this.onRemoved.bind(this));
 
     this.onViewportPointerUpHandler = this.onViewportPointerUp.bind(this);
@@ -1504,6 +1506,9 @@ ${Math.round(bounds.minX)}, ${Math.round(
 
   async onPointerDown(event: PIXI.FederatedPointerEvent): Promise<void> {
     console.log('Node: onPointerDown');
+    if (isCanvasExploreOnly()) {
+      return;
+    }
     clearDocumentSelection();
     InterfaceController.spamToast(
       `${event.shiftKey ? 'node_shift_clicked' : 'node_clicked'} ${this.id}`,
@@ -1514,23 +1519,25 @@ ${Math.round(bounds.minX)}, ${Math.round(
 
     if (eventTarget == this) {
       const selection = PPGraph.currentGraph.selection;
-      if (event.shiftKey) {
-        selection.beginPendingClick(this, event, {
-          clearExistingSelection: false,
-          isShiftClick: true,
-          wasOnlySelectedAtPointerDown: false,
-        });
-        await selection.beginNodePointerInteraction(event);
-      } else if (PPGraph.currentGraph.socketFocus.hovered != undefined) {
-        // this clause is a bit hacky, it happened for me under some edge cases where i would drag the selected node (macro in my case) instead of dragging socket connection
-        PPGraph.currentGraph.socketFocus.hovered.onSocketPointerDown(event);
-      } else {
-        selection.beginPendingClick(this, event, {
-          clearExistingSelection: !this.selected,
-          isShiftClick: false,
-          wasOnlySelectedAtPointerDown: selection.isOnlySelectedNode(this),
-        });
-        await selection.beginNodePointerInteraction(event);
+      if (event.button != 2) {
+        if (event.shiftKey) {
+          selection.beginPendingClick(this, event, {
+            clearExistingSelection: false,
+            isShiftClick: true,
+            wasOnlySelectedAtPointerDown: false,
+          });
+          await selection.beginNodePointerInteraction(event);
+        } else if (PPGraph.currentGraph.socketFocus.hovered != undefined) {
+          // this clause is a bit hacky, it happened for me under some edge cases where i would drag the selected node (macro in my case) instead of dragging socket connection
+          PPGraph.currentGraph.socketFocus.hovered.onSocketPointerDown(event);
+        } else {
+          selection.beginPendingClick(this, event, {
+            clearExistingSelection: !this.selected,
+            isShiftClick: false,
+            wasOnlySelectedAtPointerDown: selection.isOnlySelectedNode(this),
+          });
+          await selection.beginNodePointerInteraction(event);
+        }
       }
 
       // Keep dashboard widget selection in sync while editing
@@ -1606,8 +1613,15 @@ ${Math.round(bounds.minX)}, ${Math.round(
         );
       });
 
-      // make sure the best match is not incompatible
+      // A newly-created Any input intentionally has no value yet. It can ask
+      // an upstream node for its preferred output, but other empty sockets
+      // still use the normal compatibility rules so their declared types are
+      // not bypassed globally.
+      const isEmptyAnyInput =
+        socket.isInput() &&
+        socket.data == null;
       if (
+        isEmptyAnyInput ||
         IsCompatible(
           sortedMatchQuality[0].dataType.getCompatability(
             socket.data,
@@ -1789,8 +1803,12 @@ ${Math.round(bounds.minX)}, ${Math.round(
   }
 
   onPointerClick(event: PIXI.FederatedPointerEvent): void {
-    // check if double clicked
-    if (event.detail === ONCLICK_DOUBLECLICK) {
+    // pointertap, unlike click, also fires for the right button
+    if (event.button === 2) {
+      return;
+    }
+
+    if (isDoubleActivation(event)) {
       //event.stopPropagation();
       this.listenId.push(
         InterfaceController.addListener(

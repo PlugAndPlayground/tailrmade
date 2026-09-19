@@ -2,7 +2,7 @@ import React from 'react';
 import { Box, Typography } from '@mui/material';
 import { ContainerView, containerDefaultProps } from './Container';
 import { DynamicWidgetView } from './DynamicWidget';
-import { TextView, textDefaultProps } from './Text';
+import { TextView } from '../../text/TextView';
 import {
   containerName,
   DynamicWidgetName,
@@ -107,7 +107,8 @@ const DashboardContainerPreview: React.FC<{
     >
       {layoutableElement.getDashboardWrapper({
         index: item.props.index ?? 0,
-        disabled: true,
+        disabled: item.props.disabled ?? false,
+        blockInteraction: true,
         isEditMode: false,
         isSurfacePreview: true,
         components: children,
@@ -197,7 +198,7 @@ export const SurfaceRenderer: React.FC<SurfaceRendererProps> = ({
             key={itemId}
             {...(dynamicWidgetDefaultProps as any)}
             {...item.props}
-            disabled={!interactive || item.props.disabled}
+            blockInteraction={!interactive}
             domId={domIdFor(itemId)}
             isEditMode={false}
             isSurfacePreview
@@ -212,14 +213,7 @@ export const SurfaceRenderer: React.FC<SurfaceRendererProps> = ({
           </DashboardContainerPreview>
         );
       case 'Text':
-        return (
-          <TextView
-            key={itemId}
-            {...textDefaultProps}
-            {...item.props}
-            editable={false}
-          />
-        );
+        return <TextView key={itemId} {...item.props} id={domIdFor(itemId)} />;
       case 'Box':
         return (
           <Box key={itemId} {...item.props}>
@@ -258,6 +252,8 @@ export const SurfaceRenderer: React.FC<SurfaceRendererProps> = ({
           width: '100%',
           height: '100%',
           overflow: 'auto',
+          // the text color everything inside inherits, as on the app's ground
+          color: 'text.primary',
           pointerEvents: interactive ? 'auto' : 'none',
         }}
       >

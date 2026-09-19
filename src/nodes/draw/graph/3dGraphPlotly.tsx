@@ -283,19 +283,19 @@ export class DRAW_3D_GRAPH_PLOTLY extends HybridNode2 {
     // Calculate uniform axis range if enabled
     let axisConfig: any = {
       xaxis: {
-        title: xAxis,
+        title: { text: xAxis },
         showgrid: showGrid,
         color: xAxisColorHex,
         gridcolor: xAxisColorHex,
       },
       yaxis: {
-        title: yAxis,
+        title: { text: yAxis },
         showgrid: showGrid,
         color: yAxisColorHex,
         gridcolor: yAxisColorHex,
       },
       zaxis: {
-        title: zAxis,
+        title: { text: zAxis },
         showgrid: showGrid,
         color: zAxisColorHex,
         gridcolor: zAxisColorHex,
@@ -331,21 +331,21 @@ export class DRAW_3D_GRAPH_PLOTLY extends HybridNode2 {
 
       axisConfig = {
         xaxis: {
-          title: xAxis,
+          title: { text: xAxis },
           showgrid: showGrid,
           range: [xCenter - halfRange, xCenter + halfRange],
           color: xAxisColorHex,
           gridcolor: xAxisColorHex,
         },
         yaxis: {
-          title: yAxis,
+          title: { text: yAxis },
           showgrid: showGrid,
           range: [yCenter - halfRange, yCenter + halfRange],
           color: yAxisColorHex,
           gridcolor: yAxisColorHex,
         },
         zaxis: {
-          title: zAxis,
+          title: { text: zAxis },
           showgrid: showGrid,
           range: [zCenter - halfRange, zCenter + halfRange],
           color: zAxisColorHex,
@@ -355,7 +355,7 @@ export class DRAW_3D_GRAPH_PLOTLY extends HybridNode2 {
     }
 
     const layout = {
-      title: title,
+      title: { text: title },
       width: this.nodeWidth - 20,
       height: this.nodeHeight - 20,
       scene: {
