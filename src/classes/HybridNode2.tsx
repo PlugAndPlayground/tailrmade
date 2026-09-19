@@ -22,7 +22,6 @@ import {
 import {
   COLOR_WHITE,
   NODE_MARGIN,
-  NODE_CORNERRADIUS,
   NODE_SOURCE,
   MAIN_COLOR,
   UNSET_VALUE,
@@ -248,7 +247,7 @@ export default abstract class HybridNode2 extends PPNode implements Layoutable {
 
   protected drawStatuses(): void {
     super.drawStatuses();
-    this._StatusesRef.y = this.nodeHeight - this._StatusesRef.y;
+    this._StatusesRef.y = this.nodeHeight + 4 - this.getStatusesStartY();
   }
 
   public getRoundedCorners(): boolean {
@@ -732,7 +731,7 @@ export default abstract class HybridNode2 extends PPNode implements Layoutable {
   }
 
   public drawBackground(): void {
-    const borderRadius = this.getRoundedCorners() ? NODE_CORNERRADIUS : 0;
+    const borderRadius = this.getCornerRadius();
     this._BackgroundGraphicsRef.clear();
     this._BackgroundGraphicsRef.roundRect(
       NODE_MARGIN,
