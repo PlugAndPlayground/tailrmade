@@ -64,6 +64,28 @@
         }
       }
     </style>
+    <!-- Theme colors for authored HTML. The --tm-* variables are set per HTML
+    node from the theme it renders under; -->
+    <style type="text/tailwindcss">
+      @theme inline {
+        --color-primary: var(--tm-primary);
+        --color-primary-foreground: var(--tm-primary-foreground);
+        --color-secondary: var(--tm-secondary);
+        --color-secondary-foreground: var(--tm-secondary-foreground);
+        --color-background: var(--tm-background);
+        --color-paper: var(--tm-paper);
+        --color-foreground: var(--tm-foreground);
+        --color-muted-foreground: var(--tm-muted-foreground);
+        --color-divider: var(--tm-divider);
+        --color-error: var(--tm-error);
+        --color-warning: var(--tm-warning);
+        --color-info: var(--tm-info);
+        --color-success: var(--tm-success);
+        --radius-theme: var(--tm-radius);
+        --font-theme: var(--tm-font-family);
+      }
+      @custom-variant dark (&:where([data-tm-mode='dark'], [data-tm-mode='dark'] *));
+    </style>
   </head>
   <body>
     <div id="initial-loader">
