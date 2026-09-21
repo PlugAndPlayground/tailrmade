@@ -1,4 +1,6 @@
 import React from 'react';
+import { appExecutionAllowed } from '../../services/appExecution';
+import { NodeRisk, NetworkRisk } from '../../classes/NodeRisk';
 import * as PIXI from 'pixi.js';
 import DOMPurify from 'dompurify';
 import { TRgba } from '../../utils/color';
@@ -7,7 +9,13 @@ import type { FitMode } from 'object-fit-math/dist/types';
 import PPGraph from '../../classes/GraphClass';
 import { isImageDataURL, saveBase64AsImage } from '../../utils/utils';
 import {
-  DashboardIconProps, TNodeSource, WidgetProps, Layoutable, DashboardWidgetProps, WidgetContentProps } from '../../utils/interfaces';
+  DashboardIconProps,
+  TNodeSource,
+  WidgetProps,
+  Layoutable,
+  DashboardWidgetProps,
+  WidgetContentProps,
+} from '../../utils/interfaces';
 import {
   DEFAULT_IMAGE,
   NODE_TYPE_COLOR,
@@ -77,6 +85,17 @@ const defaultProps: WidgetProps = {
 };
 
 export class Image extends PPNode implements Layoutable {
+  public getRisks(): NodeRisk[] {
+    const source = this.getInputData(imageInputName);
+    return this.isRiskInputConnected(imageInputName) ||
+      (typeof source === 'string' && /^https?:/i.test(source))
+      ? [
+          new NetworkRisk(
+            this.isRiskInputConnected(imageInputName) ? undefined : source,
+          ),
+        ]
+      : [];
+  }
   sprite: PIXI.Sprite;
   texture: PIXI.Texture;
   maskRef: PIXI.Graphics;
@@ -166,6 +185,12 @@ export class Image extends PPNode implements Layoutable {
     this.maskRef = new PIXI.Graphics();
     this._ForegroundRef.addChild(this.maskRef);
     this.sprite.mask = this.maskRef;
+
+    if (!appExecutionAllowed.get()) {
+      this.maskRef.rect(0, 0, this.nodeWidth, this.nodeHeight).fill(0xffffff);
+      this.maskRef.x = NODE_MARGIN;
+      return;
+    }
 
     const texture = await this.loadTexture(this.getInputData('Image'));
     this.texture = new PIXI.Texture(texture);

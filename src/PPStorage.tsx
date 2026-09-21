@@ -423,7 +423,9 @@ export default class PPStorage {
         ...fileData,
         graphData: migrateGraphDataOnLoad(fileData.graphData),
       };
-      await PPGraph.currentGraph.configure(migratedFileData);
+      if (!(await PPGraph.currentGraph.configure(migratedFileData))) {
+        return undefined;
+      }
 
       InterfaceController.notifyListeners(
         ListenEvent.GraphChanged,
@@ -448,6 +450,8 @@ export default class PPStorage {
         variant: 'error',
       });
       return undefined;
+    } finally {
+      document.body.style.cursor = 'default';
     }
   }
 

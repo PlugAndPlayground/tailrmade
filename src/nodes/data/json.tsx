@@ -22,6 +22,7 @@ import { ArrayType } from '../datatypes/arrayType';
 import { JSONArrayType } from '../datatypes/jsonArrayType';
 import { CodeType } from '../datatypes/codeType';
 import { PNPWorker } from './worker/PNPWorker';
+import { NodeRisk, WorkerCodeRisk } from '../../classes/NodeRisk';
 
 const JSONName = 'JSON';
 const JSONParamName = 'Path';
@@ -697,6 +698,9 @@ export class Extend extends DynamicInputNode {
 }
 
 export class ExtendMap extends PPNode {
+  public getRisks(): NodeRisk[] {
+    return [new WorkerCodeRisk()];
+  }
   public getName(): string {
     return 'Extend Object (Map)';
   }

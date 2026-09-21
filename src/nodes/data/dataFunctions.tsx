@@ -20,6 +20,11 @@ import { BooleanType } from '../datatypes/booleanType';
 import PPGraph from '../../classes/GraphClass';
 import { NodeConfigurationWarning, PNPSuccess } from '../../classes/ErrorClass';
 import { PNPWorker } from './worker/PNPWorker';
+import {
+  NodeRisk,
+  UnrestrictedCodeRisk,
+  WorkerCodeRisk,
+} from '../../classes/NodeRisk';
 import { BackPropagation } from '../../interfaces';
 
 export const arrayName = 'Array';
@@ -210,6 +215,12 @@ const MACRO_CALL_REGEX = /\bmacro\s*\(/;
 
 // customfunction does any number of inputs but only one output for simplicity
 export class CustomFunction extends PPNode {
+  public getRisks(): NodeRisk[] {
+    return this.isRiskInputConnected(allowFullAccessName) ||
+      this.getInputData(allowFullAccessName)
+      ? [new UnrestrictedCodeRisk()]
+      : [new WorkerCodeRisk()];
+  }
   modifiedBanner: PIXI.Graphics;
   previousUserInput = '';
   functionWithVariablesFromInputObject = '';
@@ -459,7 +470,7 @@ Parameter names become sockets and a link does not follow a renamed parameter â€
           }
         }
 
-        throw new Error(errorMessage);
+        throw new Error(errorMessage, { cause: err });
       }
     } else {
       const finalized =

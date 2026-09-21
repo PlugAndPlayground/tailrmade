@@ -1,4 +1,5 @@
 import Socket from '../../classes/SocketClass';
+import { NodeRisk, AIUsageRisk } from '../../classes/NodeRisk';
 import UpdateBehaviourClass from '../../classes/UpdateBehaviourClass';
 import { NODE_TYPE_COLOR, SOCKET_TYPE } from '../../utils/constants';
 import { TRgba } from '../../utils/color';
@@ -32,6 +33,9 @@ export const AIConversationName = 'Conversation';
 export const responseName = 'Response';
 
 export class AINode extends HTTPNode {
+  public getRisks(): NodeRisk[] {
+    return [new AIUsageRisk()];
+  }
   protected getDefaultProvider(): AIProvider {
     return 'claude';
   }

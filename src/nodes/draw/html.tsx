@@ -7,6 +7,11 @@ import React, {
   useLayoutEffect,
 } from 'react';
 import Handlebars from 'handlebars/dist/handlebars';
+import {
+  NodeRisk,
+  NetworkRisk,
+  UnrestrictedCodeRisk,
+} from '../../classes/NodeRisk';
 import { TRgba } from '../../utils/color';
 import { ErrorBoundary } from 'react-error-boundary';
 import Frame from 'react-frame-component';
@@ -116,6 +121,16 @@ const parsedHtmlOutputName = 'Parsed Html';
  * Base class for HTML-rendering nodes with shared Handlebars functionality.
  */
 abstract class HtmlNodeBase extends HybridNode2 {
+  public getRisks(): NodeRisk[] {
+    const risks: NodeRisk[] = [new NetworkRisk()];
+    if (
+      this.isRiskInputConnected(SANITIZE_NAME) ||
+      !this.getInputData(SANITIZE_NAME)
+    ) {
+      risks.unshift(new UnrestrictedCodeRisk());
+    }
+    return risks;
+  }
   protected lastTemplateError: Error | null = null;
 
   public getAIDocs(): string {

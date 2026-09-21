@@ -71,6 +71,9 @@ import {
 } from './Action';
 import { StoredGraph } from '../utils/indexedDB';
 import PPStorage, { DEFAULT_ACCESS, DEFAULT_LOCATION } from '../PPStorage';
+import { collectAppRisks } from './NodeRisk';
+import { reviewAppRisks } from '../components/AppRiskDialog';
+import { appExecutionAllowed } from '../services/appExecution';
 
 // withtout this the compilation order breaks
 const DUMMY_IMPORT = getNodesBounds;
@@ -1555,7 +1558,34 @@ export default class PPGraph {
     );
   }
 
+  private isConfiguring = false;
+
   async configure(storedGraph: StoredGraph): Promise<boolean> {
+    if (this.isConfiguring) return false;
+    this.isConfiguring = true;
+    appExecutionAllowed.set(false);
+    FlowLogic.pendingExecution.clear();
+    let configured = false;
+    try {
+      configured = await this.configureGraph(storedGraph);
+      return configured;
+    } finally {
+      try {
+        if (!configured) {
+          appExecutionAllowed.set(false);
+          await this.clear();
+        }
+      } finally {
+        InterfaceController.hideSpinner('Configuring graph');
+        appExecutionAllowed.set(
+          configured || Object.keys(this.nodes).length === 0,
+        );
+        this.isConfiguring = false;
+      }
+    }
+  }
+
+  private async configureGraph(storedGraph: StoredGraph): Promise<boolean> {
     const CONFIGURE_GRAPH_SPINNER_MESSAGE = 'Configuring graph';
     InterfaceController.showSpinner(CONFIGURE_GRAPH_SPINNER_MESSAGE);
 
@@ -1646,6 +1676,12 @@ export default class PPGraph {
         await nodeInGraph.migrate(interpretedVersion);
       }
     }
+
+    const risks = collectAppRisks(Object.values(this.nodes));
+    InterfaceController.hideSpinner();
+    document.body.style.cursor = 'default';
+    if (!(await reviewAppRisks(storedGraph.name, risks))) return false;
+    appExecutionAllowed.set(true);
 
     // execute all seed nodes to make sure there are values everywhere
     await this.executeAllSeedNodes(Object.values(this.nodes));
@@ -1825,6 +1861,7 @@ export default class PPGraph {
   }
 
   async invokeMacro(name: string, args: any[]): Promise<any> {
+    if (!appExecutionAllowed.get()) return undefined;
     // in case the macro hasnt selected a macro yet return empty object
     if (name == EMPTY_DEFAULT_MACRO_NAME) {
       return {};

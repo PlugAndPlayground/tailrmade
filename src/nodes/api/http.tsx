@@ -13,6 +13,13 @@ import { JSONType } from '../datatypes/jsonType';
 import { StringType } from '../datatypes/stringType';
 import UpdateBehaviourClass from '../../classes/UpdateBehaviourClass';
 import { CompanionBackend } from '../../services/CompanionBackend';
+import {
+  NodeRisk,
+  NetworkRisk,
+  CompanionRisk,
+  ApiKeyRisk,
+  findApiKeyReferences,
+} from '../../classes/NodeRisk';
 
 export const urlInputName = 'URL';
 const bodyInputName = 'Body';
@@ -38,6 +45,34 @@ export interface CompanionResponse {
 }
 
 export class HTTPNode extends PPNode {
+  public getRisks(): NodeRisk[] {
+    const risks: NodeRisk[] = [
+      new NetworkRisk(
+        this.isRiskInputConnected(urlInputName)
+          ? undefined
+          : this.getInputData(urlInputName),
+      ),
+    ];
+    if (
+      this.isRiskInputConnected(sendThroughCompanionName) ||
+      this.getInputSocketByName(sendThroughCompanionName)?.data
+    ) {
+      risks.push(new CompanionRisk());
+      for (const key of findApiKeyReferences(
+        this.inputSocketArray.map((socket) => socket.data),
+      )) {
+        risks.push(new ApiKeyRisk(key));
+      }
+      if (
+        [urlInputName, headersInputName, bodyInputName].some((name) =>
+          this.isRiskInputConnected(name),
+        )
+      ) {
+        risks.push(new ApiKeyRisk('Keys may be determined at runtime'));
+      }
+    }
+    return risks;
+  }
   public getName(): string {
     return 'HTTP';
   }

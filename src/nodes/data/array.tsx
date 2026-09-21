@@ -10,6 +10,7 @@ import { CustomArgs } from '../../utils/interfaces';
 import { NODE_TYPE_COLOR } from '../../utils/constants';
 import { getPropertyNames } from '../../utils/utils';
 import { PNPWorker } from './worker/PNPWorker';
+import { NodeRisk, WorkerCodeRisk } from '../../classes/NodeRisk';
 import UpdateBehaviourClass from '../../classes/UpdateBehaviourClass';
 import {
   DynamicInputNode,
@@ -48,6 +49,9 @@ const JSONArrayName = 'JSON Array';
 const JSONArrayNamePropertySuffix = ' - Property Name';
 
 export class ArrayMethod extends PPNode {
+  public getRisks(): NodeRisk[] {
+    return [new WorkerCodeRisk()];
+  }
   onOptionChange?: (value: string) => void;
   getColor(): TRgba {
     return TRgba.fromString(NODE_TYPE_COLOR.TRANSFORM);
@@ -284,6 +288,9 @@ function arrayNodeIO() {
 }
 
 class ArrayFunctionCodeBasic extends PPNode {
+  public getRisks(): NodeRisk[] {
+    return [new WorkerCodeRisk()];
+  }
   protected getDefaultIO(): Socket[] {
     return [
       new Socket(
@@ -881,6 +888,9 @@ export class Min extends SmallNode {
 }
 
 export class Reduce extends PPNode {
+  public getRisks(): NodeRisk[] {
+    return [new WorkerCodeRisk()];
+  }
   public getName(): string {
     return 'Reduce Array';
   }

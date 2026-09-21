@@ -4,6 +4,11 @@ import { Box, BoxProps } from '@mui/material';
 import { ErrorBoundary } from 'react-error-boundary';
 import ErrorFallback from '../../components/ErrorFallback';
 import PPNode from '../../classes/NodeClass';
+import {
+  NodeRisk,
+  UnrestrictedCodeRisk,
+  NetworkRisk,
+} from '../../classes/NodeRisk';
 import PPSocket from '../../classes/SocketClass';
 import UpdateBehaviourClass from '../../classes/UpdateBehaviourClass';
 import InterfaceController, { ListenEvent } from '../../InterfaceController';
@@ -49,6 +54,9 @@ const prevSocketName = 'Previous';
 const nextSocketName = 'Next';
 
 export class Slideshow extends HybridNode2 {
+  public getRisks(): NodeRisk[] {
+    return [new UnrestrictedCodeRisk(), new NetworkRisk()];
+  }
   eventTarget: EventTarget;
   revealModule;
 
