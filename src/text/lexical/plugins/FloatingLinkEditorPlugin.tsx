@@ -212,6 +212,7 @@ function FloatingLinkEditor({
   return (
     <Box
       ref={editorRef}
+      data-cy="link-editor"
       sx={{
         bgcolor: 'background.paper',
         display: 'flex',
@@ -231,11 +232,11 @@ function FloatingLinkEditor({
     >
       {!isLink ? null : isLinkEditMode ? (
         <Box
-          display="flex"
-          alignItems="center"
-          gap={1}
-          width="100%"
           sx={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 1,
+            width: '100%',
             height: '48px',
           }}
         >
@@ -247,6 +248,7 @@ function FloatingLinkEditor({
             variant="filled"
             hiddenLabel
             size="small"
+            fullWidth
             slotProps={{ htmlInput: { 'data-cy': 'link-input' } }}
             sx={{
               flexGrow: 1,
@@ -263,11 +265,11 @@ function FloatingLinkEditor({
         </Box>
       ) : (
         <Box
-          display="flex"
-          alignItems="center"
-          gap={1}
-          width="100%"
           sx={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 1,
+            width: '100%',
             height: '48px',
           }}
         >

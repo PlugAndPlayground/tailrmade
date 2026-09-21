@@ -1,10 +1,8 @@
-import './styles.css';
+import type { EditorThemeClasses } from 'lexical';
 
-const exampleTheme = {
-  namespace: 'MyEditor',
+export const textEditorTheme = {
   ltr: 'ltr',
   rtl: 'rtl',
-  placeholder: 'editor-placeholder',
   paragraph: 'editor-paragraph',
   quote: 'editor-quote',
   heading: {
@@ -68,6 +66,4 @@ const exampleTheme = {
     url: 'editor-tokenOperator',
     variable: 'editor-tokenVariable',
   },
-};
-
-export default exampleTheme;
+} satisfies EditorThemeClasses;

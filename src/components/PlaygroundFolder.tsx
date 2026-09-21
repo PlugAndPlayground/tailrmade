@@ -104,24 +104,28 @@ export const PlaygroundFolder: React.FC<IPlaygroundFolderProps> = ({
                 {label}
               </Typography>
             }
-            secondary={
-              <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                {otherLocations.length} folder
-                {otherLocations.length === 1 ? '' : 's'}
-              </Typography>
-            }
-            sx={{ my: 0, '& .MuiListItemText-secondary': { lineHeight: 1.05 } }}
+            sx={{ my: 0 }}
           />
-          <Typography
+          <Box
             sx={{
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'flex-end',
               px: 2,
-              pt: 0.5,
-              pb: 0.25,
               opacity: '0.5',
             }}
           >
-            {`${totalGraphCount} app${totalGraphCount === 1 ? '' : 's'}`}
-          </Typography>
+            <Typography variant="body2" sx={{ lineHeight: 1.25 }}>
+              {`${totalGraphCount} app${totalGraphCount === 1 ? '' : 's'}`}
+            </Typography>
+            {otherLocations.length > 0 && (
+              <Typography variant="caption" sx={{ lineHeight: 1.25 }}>
+                {`${otherLocations.length} folder${
+                  otherLocations.length === 1 ? '' : 's'
+                }`}
+              </Typography>
+            )}
+          </Box>
         </ListItemButton>
       </Box>
       <Collapse in={open} timeout="auto" unmountOnExit>

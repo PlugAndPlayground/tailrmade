@@ -20,17 +20,16 @@ import {
   SerializedCraftItem,
   SerializedCraftTree,
 } from '../../utils/surfaceTree';
-
-// must match Text.craft.props (textDefaultProps in
-// src/components/dashboard/Text.tsx) - kept as a plain data literal here
-// rather than importing that module, which pulls in React/MUI
-const textDefaultPropsForSpec = {
-  fontSize: 20,
-  textAlign: 'left',
-  fontWeight: 'normal',
-  color: INHERIT_COLOR,
-  text: 'Hi',
-};
+import {
+  normalizeTextProps,
+  TEXT_ALIGNMENTS,
+  TEXT_TONES,
+  TEXT_VARIANTS,
+  TextAlignment,
+  textDefaultProps,
+  TextTone,
+  TextVariant,
+} from '../../text/model';
 
 // must match Container.craft.props (getDefaultWidgetLayoutValue() in
 // widgetLayoutType.tsx) - kept as a plain data literal here rather than
@@ -133,11 +132,11 @@ export interface ContainerSpecItem extends SpecItemIdentity {
 }
 
 export interface TextSpecItem extends SpecItemIdentity {
+  // Markdown - the item's content prop as it is
   text: string;
-  fontSize?: number;
-  fontWeight?: string;
-  textAlign?: string;
-  color?: SurfaceLayoutColor;
+  variant?: TextVariant;
+  tone?: TextTone;
+  alignment?: TextAlignment;
   props?: Record<string, unknown>;
 }
 
@@ -251,11 +250,6 @@ const SPEC_PROPERTY_TO_CRAFT_PROP: Record<string, string> = {
   align: 'alignItems',
   justify: 'justifyContent',
   mobileBehavior: 'mobileBehavior',
-  text: 'text',
-  fontSize: 'fontSize',
-  fontWeight: 'fontWeight',
-  textAlign: 'textAlign',
-  color: 'color',
   showLabel: 'showLabel',
   collapsible: 'collapsible',
   collapsedByDefault: 'collapsedByDefault',
@@ -279,7 +273,7 @@ export const SPEC_PROPERTIES_BY_KIND: Record<
     'justify',
     'mobileBehavior',
   ],
-  text: ['text', 'fontSize', 'fontWeight', 'textAlign', 'color'],
+  text: ['text', 'variant', 'tone', 'alignment'],
   widget: [
     'width',
     'height',
@@ -291,6 +285,38 @@ export const SPEC_PROPERTIES_BY_KIND: Record<
     'collapsedByDefault',
   ],
 };
+
+const TEXT_ENUMS: Record<string, readonly string[]> = {
+  variant: TEXT_VARIANTS,
+  tone: TEXT_TONES,
+  alignment: TEXT_ALIGNMENTS,
+};
+
+// the craft props a text spec's fields stand for; invalid values are skipped
+// with a warning rather than stored
+function textSpecProps(
+  spec: Record<string, unknown>,
+  warnings: string[],
+): Record<string, unknown> {
+  const props: Record<string, unknown> = {};
+  if (typeof spec.text === 'string') {
+    props.content = spec.text;
+  }
+  Object.entries(TEXT_ENUMS).forEach(([key, allowed]) => {
+    const value = spec[key];
+    if (value === undefined) {
+      return;
+    }
+    if (typeof value === 'string' && allowed.includes(value)) {
+      props[key] = value;
+    } else {
+      warnings.push(
+        `text: "${key}" must be one of ${allowed.join(', ')}, so ${JSON.stringify(value)} was ignored.`,
+      );
+    }
+  });
+  return props;
+}
 
 export interface ApplySpecPropertiesResult {
   props: Record<string, unknown>;
@@ -317,6 +343,14 @@ export function applySpecProperties(
       warnings.push(
         `"${name}" is not a property of a ${kind}. Valid properties: ${allowed.join(', ')}.`,
       );
+      continue;
+    }
+    if (kind === 'text') {
+      const textProps = textSpecProps({ [name]: value }, warnings);
+      if (Object.keys(textProps).length > 0) {
+        Object.assign(patched, textProps);
+        applied.push(name);
+      }
       continue;
     }
     if (name === 'padding') {
@@ -516,24 +550,19 @@ export function compileSurfaceSpec(
   }
 
   function buildTextItem(item: TextSpecItem, parent: string): string {
-    const id = resolveItemId(
-      item,
-      `text ${JSON.stringify(item.text.slice(0, 24))}`,
-    );
-    const overrides = {
-      text: item.text,
-      ...pickDefined(item, ['fontSize', 'fontWeight', 'textAlign', 'color']),
-    };
+    const specProps = textSpecProps({ ...item }, warnings);
+    const label = `text ${JSON.stringify(item.text.slice(0, 24))}`;
+    const id = resolveItemId(item, label);
 
     const props = normalizeDimensionProps(
       {
-        ...textDefaultPropsForSpec,
-        ...overrides,
+        ...textDefaultProps,
+        ...specProps,
         ...(item.props ?? {}),
       },
-      `text ${JSON.stringify(item.text.slice(0, 24))}`,
+      label,
       warnings,
-      textDefaultPropsForSpec,
+      textDefaultProps,
     );
 
     tree[id] = {
@@ -750,35 +779,24 @@ export function decompileSurfaceTree(
   }
 
   function decompileText(id: string): TextSpecItem {
-    const item = tree[id];
-    const props = item.props ?? {};
-    const diffed = diffProps(props, textDefaultPropsForSpec, [
-      'fontSize',
-      'fontWeight',
-      'textAlign',
-      'color',
-    ]);
+    const props = tree[id].props ?? {};
+    const textProps = normalizeTextProps(props);
 
-    const result: TextSpecItem = {
-      id,
-      text: (props.text as string) ?? '',
-    };
-    if (diffed.fontSize !== undefined)
-      result.fontSize = diffed.fontSize as number;
-    if (diffed.fontWeight !== undefined) {
-      result.fontWeight = diffed.fontWeight as string;
+    const result: TextSpecItem = { id, text: textProps.content };
+    if (textProps.variant !== textDefaultProps.variant) {
+      result.variant = textProps.variant;
     }
-    if (diffed.textAlign !== undefined) {
-      result.textAlign = diffed.textAlign as string;
+    if (textProps.tone !== textDefaultProps.tone) {
+      result.tone = textProps.tone;
     }
-    if (diffed.color !== undefined)
-      result.color = diffed.color as SurfaceLayoutColor;
-    const extras = collectExtraProps(props, textDefaultPropsForSpec, [
-      'text',
-      'fontSize',
-      'fontWeight',
-      'textAlign',
-      'color',
+    if (textProps.alignment !== textDefaultProps.alignment) {
+      result.alignment = textProps.alignment;
+    }
+    const extras = collectExtraProps(props, textDefaultProps, [
+      'content',
+      'variant',
+      'tone',
+      'alignment',
     ]);
     if (extras) result.props = extras;
     return result;
