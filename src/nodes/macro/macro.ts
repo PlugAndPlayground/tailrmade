@@ -461,6 +461,7 @@ export class Macro extends PPNode {
       return (
         leftBlock.contains(x, y) ||
         rightBlock.contains(x, y) ||
+        this.statusBadges.containsPoint(x, y) ||
         this.isPointNearVisibleSocket(x, y)
       );
     });
