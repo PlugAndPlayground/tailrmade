@@ -1,4 +1,5 @@
 import PPGraph from '../../../classes/GraphClass';
+import { runWorkerJob } from './workerJob';
 import {
   ComputeMessage,
   ComputeResult,
@@ -35,6 +36,7 @@ export class PNPWorker {
   private static async handleMacroCall(
     message: MacroCallRequestMessage,
     worker: Worker,
+    isActive: () => boolean,
   ): Promise<void> {
     try {
       const result = await PPGraph.currentGraph.invokeMacro(
@@ -42,12 +44,14 @@ export class PNPWorker {
         message.macroArgs,
       );
 
+      if (!isActive()) return;
       worker.postMessage({
         type: 'macro-response',
         success: true,
         result,
       } satisfies MacroCallResponseMessage);
     } catch (error) {
+      if (!isActive()) return;
       worker.postMessage({
         type: 'macro-response',
         success: false,
@@ -56,43 +60,24 @@ export class PNPWorker {
     }
   }
 
-  public work(
+  public async work(
     message: ComputeMessage,
     timeout: number = 30000,
   ): Promise<ComputeResult> {
-    return new Promise((resolve, reject) => {
-      const worker = PNPWorker.getWorker();
-
-      const cleanup = () => {
-        clearTimeout(timer);
-        //worker.terminate();
-        PNPWorker.depositWorker(worker);
-      };
-
-      const timer = setTimeout(() => {
-        cleanup();
-        reject(new Error('Compute operation timed out'));
-      }, timeout);
-
-      worker.onmessage = async (e: MessageEvent<any>) => {
-        const payload = e.data;
-
+    const worker = PNPWorker.getWorker();
+    return runWorkerJob(
+      worker,
+      message,
+      timeout,
+      async (payload, isActive) => {
         if (PNPWorker.isMacroCallMessage(payload)) {
-          await PNPWorker.handleMacroCall(payload, worker);
-          return;
+          await PNPWorker.handleMacroCall(payload, worker, isActive);
+          return true;
         }
-
-        cleanup();
-        resolve(payload as ComputeResult);
-      };
-
-      worker.onerror = (err) => {
-        cleanup();
-        reject(err);
-      };
-
-      worker.postMessage(message);
-    });
+        return false;
+      },
+      (reusableWorker) => PNPWorker.depositWorker(reusableWorker),
+    );
   }
 
   public async workChunkedArray(
