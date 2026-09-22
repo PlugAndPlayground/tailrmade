@@ -37,7 +37,6 @@ import {
   SANITIZE_NAME,
   SOCKETNAME_BACKGROUNDCOLOR,
   SOCKET_TYPE,
-  STATUS_SEVERITY,
 } from '../../utils/constants';
 import HybridNode2, { defaultHybridProps } from '../../classes/HybridNode2';
 import { NodeExecutionError, PNPSuccess } from '../../classes/ErrorClass';
@@ -164,7 +163,7 @@ macro("name", arg1, arg2) in JavaScript.`;
   protected updateStatusFromTemplateError(): void {
     if (this.lastTemplateError) {
       this.setStatus(new NodeExecutionError(this.lastTemplateError.message));
-    } else if (this.status.node.getSeverity() >= STATUS_SEVERITY.WARNING) {
+    } else if (this.status.node.isProblem()) {
       this.setStatus(new PNPSuccess());
     }
   }
