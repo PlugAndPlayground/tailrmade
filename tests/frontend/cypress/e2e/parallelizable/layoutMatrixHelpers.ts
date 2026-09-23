@@ -220,16 +220,8 @@ export function buildParentContainerItem(
     direction: kase.parentDirection,
     gap: TESTED_GAP,
     children: [
-      buildSiblingSpecItem(
-        kase.siblingA,
-        axis,
-        siblingNodeId(kase.siblingA, 'A', ids),
-      ),
-      buildSiblingSpecItem(
-        kase.siblingB,
-        axis,
-        siblingNodeId(kase.siblingB, 'B', ids),
-      ),
+      buildSiblingSpecItem(kase.siblingA, axis, siblingNodeId(kase.siblingA, 'A', ids)),
+      buildSiblingSpecItem(kase.siblingB, axis, siblingNodeId(kase.siblingB, 'B', ids)),
     ],
   };
   if (options.narrowFlip) {

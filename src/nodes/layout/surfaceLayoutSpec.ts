@@ -15,7 +15,11 @@ import { normalizeDimensionProps } from '../../utils/cssDimensions';
 import { INHERIT_COLOR, TRANSPARENT_COLOR } from '../../utils/themeColors';
 import {
   CONTAINER_EMPHASES,
+  CONTAINER_TONES,
   ContainerEmphasis,
+  ContainerTone,
+  DEFAULT_CONTAINER_TONE,
+  isContainerTone,
   DEFAULT_CONTAINER_EMPHASIS,
   isContainerEmphasis,
 } from '../../utils/theme/emphasis';
@@ -83,6 +87,7 @@ const containerDefaultPropsForSpec = {
   color: INHERIT_COLOR,
   mobileBehavior: 'column',
   emphasis: DEFAULT_CONTAINER_EMPHASIS,
+  tone: DEFAULT_CONTAINER_TONE,
   customStyles: {},
 };
 
@@ -114,6 +119,7 @@ export interface ContainerSpecItem extends SpecItemIdentity {
   // how much the container stands out: 'subtle' tints it with the theme's
   // text color, 'strong' makes it a card. Follows light/dark on its own.
   emphasis?: ContainerEmphasis;
+  tone?: ContainerTone;
   // advanced passthrough merged last into the compiled item's props - rarely
   // needed, only for props not otherwise exposed by this spec
   props?: Record<string, unknown>;
@@ -238,6 +244,8 @@ const SPEC_PROPERTY_TO_CRAFT_PROP: Record<string, string> = {
   align: 'alignItems',
   justify: 'justifyContent',
   mobileBehavior: 'mobileBehavior',
+  emphasis: 'emphasis',
+  tone: 'tone',
   showLabel: 'showLabel',
   collapsible: 'collapsible',
   collapsedByDefault: 'collapsedByDefault',
@@ -260,6 +268,8 @@ export const SPEC_PROPERTIES_BY_KIND: Record<
     'align',
     'justify',
     'mobileBehavior',
+    'emphasis',
+    'tone',
   ],
   text: ['text', 'variant', 'tone', 'alignment'],
   widget: [
@@ -272,6 +282,11 @@ export const SPEC_PROPERTIES_BY_KIND: Record<
     'collapsible',
     'collapsedByDefault',
   ],
+};
+
+const CONTAINER_ENUMS: Record<string, readonly string[]> = {
+  emphasis: CONTAINER_EMPHASES,
+  tone: CONTAINER_TONES,
 };
 
 const TEXT_ENUMS: Record<string, readonly string[]> = {
@@ -339,6 +354,12 @@ export function applySpecProperties(
         Object.assign(patched, textProps);
         applied.push(name);
       }
+      continue;
+    }
+    const allowedValues =
+      kind === 'container' ? CONTAINER_ENUMS[name] : undefined;
+    if (allowedValues && !allowedValues.includes(value as string)) {
+      warnings.push(`"${name}" must be ${allowedValues.join(' | ')}.`);
       continue;
     }
     if (name === 'padding') {
@@ -501,6 +522,15 @@ export function compileSurfaceSpec(
       } else {
         warnings.push(
           `container "${id}": "emphasis" must be ${CONTAINER_EMPHASES.join(' | ')}, so ${JSON.stringify(item.emphasis)} was ignored.`,
+        );
+      }
+    }
+    if (item.tone !== undefined) {
+      if (isContainerTone(item.tone)) {
+        overrides.tone = item.tone;
+      } else {
+        warnings.push(
+          `container "${id}": "tone" must be ${CONTAINER_TONES.join(' | ')}, so ${JSON.stringify(item.tone)} was ignored.`,
         );
       }
     }
@@ -735,6 +765,7 @@ export function decompileSurfaceTree(
       'justifyContent',
       'mobileBehavior',
       'emphasis',
+      'tone',
     ]);
 
     const result: ContainerSpecItem = {
@@ -764,6 +795,9 @@ export function decompileSurfaceTree(
     if (diffed.emphasis !== undefined) {
       result.emphasis = diffed.emphasis as ContainerEmphasis;
     }
+    if (diffed.tone !== undefined) {
+      result.tone = diffed.tone as ContainerTone;
+    }
     const extras = collectExtraProps(props, defaults, [
       'flexDirection', // handled as `direction`
       'gap',
@@ -775,6 +809,7 @@ export function decompileSurfaceTree(
       'justifyContent',
       'mobileBehavior',
       'emphasis',
+      'tone',
     ]);
     if (extras) result.props = extras;
     return result;

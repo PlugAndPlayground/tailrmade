@@ -14,51 +14,42 @@ import type { SerializedCraftTree } from '../../../src/utils/surfaceTree';
 import { normalizeTextProps } from '../../../src/text/model';
 
 describe('surfaceLayoutSpec', () => {
-  describe('container emphasis', () => {
-    const compileRow = (emphasis: unknown) =>
+  describe('container emphasis and tone', () => {
+    const compileRow = (extra: Record<string, unknown>) =>
       compileSurfaceSpec(
         {
           direction: 'column',
-          children: [
-            {
-              direction: 'row',
-              emphasis: emphasis as ContainerSpecItem['emphasis'],
-              children: [],
-            },
-          ],
+          children: [{ direction: 'row', children: [], ...extra }],
         },
         new Set(),
       );
-    const containerOf = (tree: SerializedCraftTree) =>
-      Object.entries(tree).find(
-        ([id, item]) =>
-          id !== RootName && item.type.resolvedName === containerName,
-      )![1];
 
-    it('round-trips through inspect -> set', () => {
-      const { tree, warnings } = compileRow('strong');
+    it('round-trips through inspect -> set as first-class fields', () => {
+      const { tree, warnings } = compileRow({
+        emphasis: 'strong',
+        tone: 'primary',
+      });
       expect(warnings).toEqual([]);
-      expect(containerOf(tree).props.emphasis).toBe('strong');
       const row = decompileSurfaceTree(tree).root
         .children[0] as ContainerSpecItem;
-      expect(row.emphasis).toBe('strong');
-      // a first-class field, not an extra prop
-      expect(row.props?.emphasis).toBeUndefined();
-    });
-
-    it('leaves the default out of the decompiled spec', () => {
-      const row = decompileSurfaceTree(compileRow(undefined).tree).root
-        .children[0] as ContainerSpecItem;
-      expect(row.emphasis).toBeUndefined();
+      expect(row).toMatchObject({ emphasis: 'strong', tone: 'primary' });
+      expect(row.props).toBeUndefined();
     });
 
     it('names a value it does not know rather than storing it', () => {
-      const { tree, warnings } = compileRow('loud');
-      expect(containerOf(tree).props.emphasis).toBe('none');
-      expect(warnings).toHaveLength(1);
-      expect(warnings[0]).toContain(
-        '"emphasis" must be none | subtle | strong',
+      const { warnings } = compileRow({ emphasis: 'loud', tone: 'pink' });
+      expect(warnings).toEqual([
+        expect.stringContaining('"emphasis" must be none | subtle | strong'),
+        expect.stringContaining('"tone" must be neutral | primary | secondary'),
+      ]);
+      const { warnings: patchWarnings } = applySpecProperties(
+        {},
+        { tone: 'pink' },
+        'container',
       );
+      expect(patchWarnings).toEqual([
+        '"tone" must be neutral | primary | secondary.',
+      ]);
     });
   });
 

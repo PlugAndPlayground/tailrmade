@@ -314,7 +314,6 @@ const getStaticTools = () => [
         is={Container}
         padding={[8, 8, 8, 8]}
         background={TRANSPARENT_COLOR}
-        emphasis="subtle"
         gap={8}
         flexDirection="column"
       />
@@ -331,7 +330,6 @@ const getStaticTools = () => [
         is={Container}
         padding={[8, 8, 8, 8]}
         background={TRANSPARENT_COLOR}
-        emphasis="subtle"
         gap={8}
         flexDirection="row"
       />

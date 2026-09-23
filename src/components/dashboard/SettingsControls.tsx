@@ -857,34 +857,55 @@ export const EmphasisSection: React.FC<SettingsSectionProps> = ({
   setProp,
   props,
 }) => (
-  <AlignmentControl
-    value={props.emphasis ?? 'none'}
-    onChange={(value) => setProp((p: any) => (p.emphasis = value))}
-    label="Emphasis"
-    options={[
-      <ToggleButton size="small" value="none" key="none">
-        None
-      </ToggleButton>,
-      <Tooltip
-        key="subtle"
-        title="A faint tint of the theme's text color - darker on a light app, lighter on a dark one"
-        disableInteractive
-      >
-        <ToggleButton size="small" value="subtle">
-          Subtle
-        </ToggleButton>
-      </Tooltip>,
-      <Tooltip
-        key="strong"
-        title="A card: the theme's paper color, a divider border and a soft shadow"
-        disableInteractive
-      >
-        <ToggleButton size="small" value="strong">
-          Strong
-        </ToggleButton>
-      </Tooltip>,
-    ]}
-  />
+  <>
+    <AlignmentControl
+      value={props.emphasis ?? 'none'}
+      onChange={(value) => setProp((p: any) => (p.emphasis = value))}
+      label="Emphasis"
+      options={[
+        <ToggleButton size="small" value="none" key="none">
+          None
+        </ToggleButton>,
+        <Tooltip
+          key="subtle"
+          title="A faint tint of the theme's text color - darker on a light app, lighter on a dark one"
+          disableInteractive
+        >
+          <ToggleButton size="small" value="subtle">
+            Subtle
+          </ToggleButton>
+        </Tooltip>,
+        <Tooltip
+          key="strong"
+          title="A card: the theme's paper color, a divider border and a soft shadow"
+          disableInteractive
+        >
+          <ToggleButton size="small" value="strong">
+            Strong
+          </ToggleButton>
+        </Tooltip>,
+      ]}
+    />
+    {/* a tone colors the emphasis, so it does nothing without one */}
+    {(props.emphasis ?? 'none') !== 'none' && (
+      <AlignmentControl
+        value={props.tone ?? 'neutral'}
+        onChange={(value) => setProp((p: any) => (p.tone = value))}
+        label="Tone"
+        options={[
+          <ToggleButton size="small" value="neutral" key="neutral">
+            Neutral
+          </ToggleButton>,
+          <ToggleButton size="small" value="primary" key="primary">
+            Primary
+          </ToggleButton>,
+          <ToggleButton size="small" value="secondary" key="secondary">
+            Secondary
+          </ToggleButton>,
+        ]}
+      />
+    )}
+  </>
 );
 
 export const CustomCSSSection: React.FC<SettingsSectionProps> = ({

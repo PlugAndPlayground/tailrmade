@@ -39,7 +39,9 @@ import {
 import {
   ContainerEmphasis,
   containerEmphasisSx,
+  ContainerTone,
   DEFAULT_CONTAINER_EMPHASIS,
+  DEFAULT_CONTAINER_TONE,
 } from '../../utils/theme/emphasis';
 
 const ROOT_PRESET_MAX_WIDTH: Record<string, false | string> = {
@@ -64,6 +66,7 @@ type ContainerWidgetProps = {
   maxHeight: string;
   mobileBehavior: MobileBehavior;
   emphasis: ContainerEmphasis;
+  tone: ContainerTone;
   customStyles: Record<string, any>;
 };
 
@@ -76,6 +79,7 @@ const defaultProps: ContainerWidgetProps = {
   ...getDefaultWidgetLayoutValue(),
   minHeight: UNSET_VALUE,
   emphasis: DEFAULT_CONTAINER_EMPHASIS,
+  tone: DEFAULT_CONTAINER_TONE,
 };
 // craft fills missing serialized props from Container.craft.props; the
 // SurfaceRenderer needs the same defaults when rendering without craft
@@ -131,6 +135,7 @@ export const ContainerView = (viewProps: ContainerViewProps) => {
     maxHeight,
     mobileBehavior,
     emphasis,
+    tone,
     customStyles = {},
   } = viewProps;
 
@@ -167,6 +172,7 @@ export const ContainerView = (viewProps: ContainerViewProps) => {
   const colorCss = colorSettingToCss(color);
   const emphasisSx = containerEmphasisSx(
     emphasis,
+    tone,
     !isTransparentColor(background),
   );
 
@@ -321,6 +327,7 @@ const ContainerSettings = () => {
       background={props.background}
       mobileBehavior={props.mobileBehavior}
       emphasis={props.emphasis}
+      tone={props.tone}
       minWidth={props.minWidth}
       minHeight={props.minHeight}
       maxWidth={props.maxWidth}
@@ -408,6 +415,7 @@ interface ChildContainerSettingsProps {
   background: Record<'r' | 'g' | 'b' | 'a', number>;
   mobileBehavior: MobileBehavior;
   emphasis: ContainerEmphasis;
+  tone: ContainerTone;
   minWidth: string;
   minHeight: string;
   maxWidth: string;

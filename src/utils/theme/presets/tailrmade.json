@@ -1,13 +1,13 @@
 {
   "id": "tailrmade",
   "name": "Tailrmade",
-  "description": "Tailrmade's own raspberry, on the indigo it has always shipped with.",
+  "description": "Tailrmade's own raspberry and teal, on the navy it has always shipped with.",
   "roles": {
     "dark": {
       "primary": "#EC6A90",
-      "secondary": "#8598E0",
+      "secondary": "#4FD1C5",
       "background.default": "#090D1A",
-      "background.paper": "#1E2A56",
+      "background.paper": "#20263F",
       "text.primary": "#FFFFFF",
       "text.secondary": "rgba(255, 255, 255, 0.7)",
       "divider": "rgba(255, 255, 255, 0.12)",
@@ -18,7 +18,7 @@
     },
     "light": {
       "primary": "#B8325A",
-      "secondary": "#3C54AB",
+      "secondary": "#0F766E",
       "background.default": "#F5F6FA",
       "background.paper": "#FFFFFF",
       "text.primary": "rgba(0, 0, 0, 0.87)",

@@ -1,5 +1,8 @@
 import { doWithTestController, openNewGraph } from '../helpers';
-import { MIN_HUG_SIZE, widgetSelector } from './layoutMatrixHelpers';
+import {
+  MIN_HUG_SIZE,
+  widgetSelector,
+} from './layoutMatrixHelpers';
 
 // Targeted layout suites complementing the generated layoutMatrix.*.cy.ts:
 // behaviors that need hand-picked constellations rather than a cartesian
@@ -233,26 +236,26 @@ describe('UI surface targeted layout suites', () => {
       cy.document({ timeout: 5000 }).should((doc) => {
         const m = measureRow(doc, [{ id: b1 }, { id: b2 }]);
         const [a, b] = m.rects;
-        expect(b.top, '100% children stack on separate lines').to.be.at.least(
-          a.bottom - 1,
-        );
+        expect(
+          b.top,
+          '100% children stack on separate lines',
+        ).to.be.at.least(a.bottom - 1);
         expect(a.width, 'first child spans the line').to.be.at.least(
           m.parent.clientWidth - 3,
         );
         expect(b.width, 'second child spans the line').to.be.at.least(
           m.parent.clientWidth - 3,
         );
-        expect(m.parent.scrollWidth, 'no horizontal overflow').to.be.at.most(
-          m.parent.clientWidth + 1,
-        );
+        expect(
+          m.parent.scrollWidth,
+          'no horizontal overflow',
+        ).to.be.at.most(m.parent.clientWidth + 1);
       });
     });
 
     it('fixed-width children flow and wrap onto multiple lines', () => {
       applyLayout(
-        wrapRow(
-          [b1, b2, b3, b4].map((id) => widgetItem(id, { width: '300px' })),
-        ),
+        wrapRow([b1, b2, b3, b4].map((id) => widgetItem(id, { width: '300px' }))),
       );
       cy.document({ timeout: 5000 }).should((doc) => {
         const m = measureRow(
@@ -268,14 +271,12 @@ describe('UI surface targeted layout suites', () => {
         // ~840px dashboard fits two 300px children per line -> 2 lines
         const lineTops = m.rects
           .map((r) => Math.round(r.top))
-          .filter(
-            (top, i, tops) =>
-              tops.findIndex((t) => Math.abs(t - top) <= 2) === i,
-          );
+          .filter((top, i, tops) => tops.findIndex((t) => Math.abs(t - top) <= 2) === i);
         expect(lineTops.length, 'children wrapped onto 2 lines').to.equal(2);
-        expect(m.parent.scrollWidth, 'no horizontal overflow').to.be.at.most(
-          m.parent.clientWidth + 1,
-        );
+        expect(
+          m.parent.scrollWidth,
+          'no horizontal overflow',
+        ).to.be.at.most(m.parent.clientWidth + 1);
       });
     });
 
@@ -297,9 +298,10 @@ describe('UI surface targeted layout suites', () => {
           Math.abs(a.top - b.top),
           'children share one line (no column flip)',
         ).to.be.at.most(2);
-        expect(m.parent.scrollWidth, 'no horizontal overflow').to.be.at.most(
-          m.parent.clientWidth + 1,
-        );
+        expect(
+          m.parent.scrollWidth,
+          'no horizontal overflow',
+        ).to.be.at.most(m.parent.clientWidth + 1);
       });
     });
   });
@@ -316,8 +318,8 @@ describe('UI surface targeted layout suites', () => {
         align,
         children: [
           widgetItem(b1, { width: 'auto' }),
-          // an explicit floor: containers hug their content by default, and
-          // the align cases below need a real height difference to act on
+          // containers hug their content by default; the align cases below
+          // need a real height difference to act on
           containerItem(b2, { width: 'auto', props: { minHeight: '80px' } }),
         ],
       },
@@ -427,10 +429,10 @@ describe('UI surface targeted layout suites', () => {
         expect(b.height, 'second child not collapsed').to.be.at.least(
           MIN_HUG_SIZE,
         );
-        expect(m.parent.clientHeight, 'parent hugs the children').to.be.closeTo(
-          a.height + b.height + GAP,
-          3,
-        );
+        expect(
+          m.parent.clientHeight,
+          'parent hugs the children',
+        ).to.be.closeTo(a.height + b.height + GAP, 3);
       });
     });
 
@@ -452,11 +454,13 @@ describe('UI surface targeted layout suites', () => {
         expect(b.width, 'second child not collapsed').to.be.at.least(
           MIN_HUG_SIZE,
         );
-        const overlap = Math.min(a.right, b.right) - Math.max(a.left, b.left);
+        const overlap =
+          Math.min(a.right, b.right) - Math.max(a.left, b.left);
         expect(overlap, 'children do not overlap').to.be.at.most(1);
-        expect(m.parent.scrollWidth, 'no horizontal overflow').to.be.at.most(
-          m.parent.clientWidth + 1,
-        );
+        expect(
+          m.parent.scrollWidth,
+          'no horizontal overflow',
+        ).to.be.at.most(m.parent.clientWidth + 1);
       });
     });
   });
@@ -484,7 +488,8 @@ describe('UI surface targeted layout suites', () => {
         const [a, b] = m.rects;
         expect(a.width, 'first floor holds').to.be.at.least(498);
         expect(b.width, 'second floor holds').to.be.at.least(498);
-        const overlap = Math.min(a.right, b.right) - Math.max(a.left, b.left);
+        const overlap =
+          Math.min(a.right, b.right) - Math.max(a.left, b.left);
         expect(overlap, 'children do not overlap').to.be.at.most(1);
         // the opposite of the matrix invariant, and EXPECTED here: the two
         // floors cannot fit the ~840px dashboard, so the parent overflows
@@ -547,9 +552,10 @@ describe('UI surface targeted layout suites', () => {
           a.width + b.width + c.width + 2 * GAP,
           'three fills + gaps consume the row',
         ).to.be.closeTo(m.parent.clientWidth, 3);
-        expect(m.parent.scrollWidth, 'no horizontal overflow').to.be.at.most(
-          m.parent.clientWidth + 1,
-        );
+        expect(
+          m.parent.scrollWidth,
+          'no horizontal overflow',
+        ).to.be.at.most(m.parent.clientWidth + 1);
       });
     });
 
@@ -674,10 +680,10 @@ describe('UI surface targeted layout suites', () => {
         const rootRect = root.getBoundingClientRect();
         const dashRect = $dash[0].getBoundingClientRect();
         // default MUI 'sm' breakpoint = 600px (no theme override in this app)
-        expect(
-          rootRect.width,
-          "ROOT capped at the 'sm' breakpoint",
-        ).to.be.closeTo(600, 3);
+        expect(rootRect.width, "ROOT capped at the 'sm' breakpoint").to.be.closeTo(
+          600,
+          3,
+        );
         expect(
           $dash[0].clientWidth,
           'panel is wider than the cap (so the cap is meaningful here)',
@@ -686,10 +692,7 @@ describe('UI surface targeted layout suites', () => {
         // (content right excludes the vertical scrollbar via clientWidth)
         const leftGap = rootRect.left - dashRect.left;
         const rightGap = dashRect.left + $dash[0].clientWidth - rootRect.right;
-        expect(leftGap, 'ROOT horizontally centered').to.be.closeTo(
-          rightGap,
-          4,
-        );
+        expect(leftGap, 'ROOT horizontally centered').to.be.closeTo(rightGap, 4);
         expect(leftGap, 'ROOT inset from the panel edge').to.be.greaterThan(20);
       });
     });

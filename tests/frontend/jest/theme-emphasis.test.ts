@@ -6,15 +6,19 @@ const themeIn = (mode: 'light' | 'dark') =>
     shadows: ['none', 'low', 'the low shadow'],
     palette: {
       mode,
-      divider: 'rgba(0, 0, 0, 0.12)',
-      text: {
-        primary: mode === 'light' ? 'rgba(0, 0, 0, 0.87)' : '#FFFFFF',
-      },
+      divider: '#dddddd',
+      primary: { main: '#b8325a' },
+      secondary: { main: '#3c54ab' },
+      background: { paper: '#ffffff' },
+      text: { primary: mode === 'light' ? '#000000' : '#ffffff' },
     },
   }) as any;
 
 // resolves the theme callbacks the way MUI's sx would
-const resolve = (sx: Record<string, unknown>, mode: 'light' | 'dark') =>
+const resolve = (
+  sx: Record<string, unknown>,
+  mode: 'light' | 'dark' = 'light',
+) =>
   Object.fromEntries(
     Object.entries(sx).map(([key, value]) => [
       key,
@@ -23,40 +27,43 @@ const resolve = (sx: Record<string, unknown>, mode: 'light' | 'dark') =>
   );
 
 describe('container emphasis', () => {
-  it('paints nothing for none, or for a value it does not know', () => {
-    expect(containerEmphasisSx('none', false)).toEqual({});
-    expect(containerEmphasisSx(undefined, false)).toEqual({});
-    expect(containerEmphasisSx('loud', false)).toEqual({});
+  it('paints nothing without an emphasis, whatever the tone', () => {
+    expect(containerEmphasisSx('none', 'primary', false)).toEqual({});
   });
 
-  // the whole point: one stored level, a tint that flips with the mode
+  // one stored level, a tint that flips with the mode
   it('tints subtle with the text color of whichever mode is on', () => {
-    const light = resolve(containerEmphasisSx('subtle', false), 'light');
-    const dark = resolve(containerEmphasisSx('subtle', false), 'dark');
-    expect(light.backgroundColor).toBe(
-      'color-mix(in srgb, rgba(0, 0, 0, 0.87) 4%, transparent)',
+    const sx = containerEmphasisSx('subtle', 'neutral', false);
+    expect(resolve(sx, 'light').backgroundColor).toBe(
+      'color-mix(in srgb, #000000 4%, transparent)',
     );
-    expect(dark.backgroundColor).toBe(
-      'color-mix(in srgb, #FFFFFF 6%, transparent)',
+    expect(resolve(sx, 'dark').backgroundColor).toBe(
+      'color-mix(in srgb, #ffffff 6%, transparent)',
     );
-    expect(light.borderRadius).toBe('6px');
-    expect(light.border).toBeUndefined();
   });
 
-  it('makes strong a card from the theme roles', () => {
-    const sx = resolve(containerEmphasisSx('strong', false), 'dark');
-    expect(sx.backgroundColor).toBe('background.paper');
-    expect(sx.border).toBe('1px solid rgba(0, 0, 0, 0.12)');
-    expect(sx.boxShadow).toBe('the low shadow');
-    expect(sx.borderRadius).toBe('6px');
+  it('makes strong a card from paper and divider, or tinted in a tone', () => {
+    const neutral = resolve(containerEmphasisSx('strong', 'neutral', false));
+    expect(neutral).toMatchObject({
+      backgroundColor: '#ffffff',
+      border: '1px solid #dddddd',
+      boxShadow: 'the low shadow',
+      borderRadius: '6px',
+    });
+    const primary = resolve(containerEmphasisSx('strong', 'primary', false));
+    expect(primary.backgroundColor).toBe(
+      'color-mix(in srgb, #b8325a 16%, transparent)',
+    );
+    expect(primary.border).toBe(
+      '1px solid color-mix(in srgb, #b8325a 50%, transparent)',
+    );
   });
 
-  it('keeps a background the creator picked', () => {
-    expect(containerEmphasisSx('subtle', true).backgroundColor).toBeUndefined();
-    const strong = resolve(containerEmphasisSx('strong', true), 'light');
-    expect(strong.backgroundColor).toBeUndefined();
-    // the card still reads as a card
-    expect(strong.border).toBeDefined();
-    expect(strong.boxShadow).toBeDefined();
+  it('keeps a background the creator picked, and still draws the card', () => {
+    const sx = resolve(containerEmphasisSx('strong', 'secondary', true));
+    expect(sx.backgroundColor).toBeUndefined();
+    expect(sx.border).toBe(
+      '1px solid color-mix(in srgb, #3c54ab 50%, transparent)',
+    );
   });
 });

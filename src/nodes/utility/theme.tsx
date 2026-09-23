@@ -105,7 +105,7 @@ nodes in a graph, the last one to execute wins.`;
   }
 
   public getTags(): string[] {
-    return ['App', 'Theme'].concat(super.getTags());
+    return ['App'].concat(super.getTags());
   }
 
   public getColor(): TRgba {
@@ -130,14 +130,6 @@ nodes in a graph, the last one to execute wins.`;
       new Socket(SOCKET_TYPE.OUT, THEME_OUTPUT, new JSONType()),
       new Socket(SOCKET_TYPE.OUT, WARNINGS_OUTPUT, new ArrayType()),
     ];
-  }
-
-  public getDefaultNodeWidth(): number {
-    return 260;
-  }
-
-  public getDefaultNodeHeight(): number {
-    return 320;
   }
 
   protected async onExecute(input, output): Promise<void> {

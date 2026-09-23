@@ -106,6 +106,7 @@ export const rootProps = {
   gap: 8,
   mobileBehavior: 'row',
   emphasis: 'none',
+  tone: 'neutral',
   customStyles: {
     '@media (min-width: 601px) and (max-width: 900px)': {
       padding: '0px 16px',

@@ -171,8 +171,9 @@ graph owns the layout and it can no longer be arranged by hand.
   background, width, height, align and justify. The root is ALWAYS a vertical
   stack; nest a row container for side-by-side items.
 - A container's emphasis makes it stand out: 'subtle' is a faint tint,
-  'strong' a card with a border and shadow. Both follow light/dark and the
-  preset, so prefer them over a background color to group or highlight.
+  'strong' a card with a border and shadow. Its tone picks the theme color:
+  neutral, primary or secondary. Both follow light/dark and the preset, so
+  prefer them over a background color to group or highlight.
 - A row's mobile behaviour decides what it does on a narrow dashboard
   (< 600px): stack its children (the default), let them wrap, or keep them
   side by side.
@@ -217,9 +218,9 @@ Each call replaces the layout; omitted props reset. Inspect first and include
 everything to keep. Omitted connected widgets are appended with a warning.
 - Container: {direction:'row'|'column', children:[...], gap?, padding?,
   background?, width?, height?, align?, justify?, mobileBehavior?,
-  emphasis?}. The root must be a container with direction fixed to 'column'.
-  mobileBehavior is 'column' | 'wrap' | 'row'. emphasis is
-  'none' | 'subtle' | 'strong'.
+  emphasis?, tone?}. The root must be a container with direction fixed to
+  'column'. mobileBehavior is 'column' | 'wrap' | 'row'. emphasis is
+  'none' | 'subtle' | 'strong'. tone is 'neutral' | 'primary' | 'secondary'.
 - Static text: {text:'...', variant?, tone?, alignment?}. text is
   Markdown: # headings, - lists, > quotes, code blocks, **bold**, *italic*,
   \`code\`, [link](https://…), and [words]{.primary .nowrap} for a run's tone

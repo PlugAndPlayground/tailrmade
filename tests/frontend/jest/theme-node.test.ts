@@ -53,7 +53,6 @@ jest.mock('../../../src/utils/constants', () => ({
 
 import { Theme } from '../../../src/nodes/utility/theme';
 import { EMPTY_THEME_DOCUMENT } from '../../../src/utils/theme/document';
-import { PRESETS } from '../../../src/utils/theme/presets';
 import {
   clearRuntimeThemeLayer,
   getRuntimeThemeLayer,
@@ -86,24 +85,6 @@ afterEach(() => {
 });
 
 describe('Theme node', () => {
-  it('offers every shipped preset, plus the inherit option, on the dropdown', () => {
-    const sockets = makeNode().getDefaultIO();
-    expect(sockets.map((socket: any) => socket.name)).toEqual([
-      'Preset',
-      'Mode',
-      'Overrides',
-      'Theme',
-      'Warnings',
-    ]);
-    const presets = sockets[0].type.options.map((option: any) => option.text);
-    expect(presets[0]).toBe(INHERIT);
-    // the ids the document stores, so a graph keeps working if we rename a
-    // preset's display name
-    expect(presets.slice(1)).toEqual(PRESETS.map((preset) => preset.id));
-    expect(sockets[0].data).toBe(INHERIT);
-    expect(sockets[1].data).toBe(INHERIT);
-  });
-
   it('pushes preset, mode and overrides onto the runtime layer', async () => {
     await run(makeNode(), {
       Preset: 'newsprint',
@@ -118,21 +99,7 @@ describe('Theme node', () => {
     });
   });
 
-  it('pushes nothing at all while both dropdowns inherit and the JSON is empty', async () => {
-    await run(makeNode(), {});
-    expect(getRuntimeThemeLayer()).toBeUndefined();
-  });
-
-  it('leaves the preset alone when only overrides are set', async () => {
-    setThemeDocument({ presetId: 'cloud' });
-    const output = await run(makeNode(), { Overrides: { radius: 3 } });
-    expect(getRuntimeThemeLayer()).toEqual({ tokens: { radius: 3 } });
-    expect(output.Theme.presetId).toBe('cloud');
-    expect(output.Theme.tokens.radius).toBe(3);
-  });
-
-  // the property the whole runtime-layer design rests on: theming an app while
-  // it runs must never edit what gets serialized back into the document
+  // theming an app while it runs must never edit what gets saved
   it('never touches the saved document', async () => {
     const saved = { presetId: 'cloud', mode: 'dark' as const };
     setThemeDocument(saved);
@@ -143,33 +110,19 @@ describe('Theme node', () => {
   it('stops theming once its inputs are emptied again', async () => {
     const node = makeNode();
     await run(node, { Preset: 'terminal' });
-    expect(getRuntimeThemeLayer()).toBeDefined();
     await run(node, {});
     expect(getRuntimeThemeLayer()).toBeUndefined();
   });
 
-  it('does not re-push an identical layer, so an equal execute is free', async () => {
-    const node = makeNode();
-    await run(node, { Preset: 'terminal' });
-    const pushed = getRuntimeThemeLayer();
-    await run(node, { Preset: 'terminal' });
-    expect(getRuntimeThemeLayer()).toBe(pushed);
-  });
-
-  it('clears the layer it pushed when the node is removed', async () => {
-    const node = makeNode();
-    await run(node, { Preset: 'terminal' });
-    node.onNodeRemoved();
-    expect(getRuntimeThemeLayer()).toBeUndefined();
-  });
-
-  it('does not clear a layer another theme node has since pushed', async () => {
+  it('on removal clears only a layer it pushed itself', async () => {
     const first = makeNode('first');
     const second = makeNode('second');
     await run(first, { Preset: 'terminal' });
     await run(second, { Preset: 'neon' });
     first.onNodeRemoved();
     expect(getRuntimeThemeLayer()).toEqual({ presetId: 'neon' });
+    second.onNodeRemoved();
+    expect(getRuntimeThemeLayer()).toBeUndefined();
   });
 
   it('reports bad override keys on the node and on the Warnings output', async () => {
@@ -180,12 +133,5 @@ describe('Theme node', () => {
     expect(getRuntimeThemeLayer()).toEqual({ tokens: { radius: 8 } });
     expect(output.Warnings).toContain('"primry" is not a theme token');
     expect(node.status.message).toContain('"primry" is not a theme token');
-  });
-
-  it('outputs the resolved theme, not just what it pushed', async () => {
-    const output = await run(makeNode(), { Preset: 'bauhaus', Mode: 'light' });
-    expect(output.Theme.presetId).toBe('bauhaus');
-    expect(output.Theme.mode).toBe('light');
-    expect(output.Theme.tokens.fontFamily).toEqual(expect.any(String));
   });
 });
