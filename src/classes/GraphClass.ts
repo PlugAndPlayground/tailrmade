@@ -5,6 +5,7 @@ import { v4 as uuid } from 'uuid';
 
 import { NODE_SOURCE, NODE_WIDTH, SOCKET_TYPE } from '../utils/constants';
 import { GRAPH_DATA_VERSION } from '../utils/graphMigrations';
+import { serializeSocketData } from '../utils/serializeSocketData';
 import SocketFocus from './SocketFocus';
 import {
   CustomArgs,
@@ -1540,16 +1541,7 @@ export default class PPGraph {
         return;
       }
 
-      let deepCopy;
-      try {
-        deepCopy = structuredClone(
-          socket.dataType.prepareDataForSaving(socket.data),
-        );
-      } catch (error) {
-        console.error('Error during deep copy:', error);
-      }
-
-      foundSocket.data = deepCopy;
+      foundSocket.data = serializeSocketData(socket);
     });
 
     // get serialized links

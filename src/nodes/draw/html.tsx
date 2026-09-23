@@ -1079,9 +1079,17 @@ export class ElementRenderer extends HybridNode2 {
   }
 
   public getAIDocs(): string {
-    return `Have a Custom function return a DOM element (e.g. \`return canvas\`),
+    return `Set a Custom function's "Main Thread" input to true before using DOM APIs.
+Have it return a DOM element (e.g. \`return canvas\`),
 connect "OutData" to this node's "DOM Element", then place this node's
 "ReactUI" output on the surface.
+
+The returned element is mounted only after the function finishes. A selector
+lookup cannot find it during that function; pass the element itself to libraries.
+Libraries that require a connected container or mount/unmount cleanup are better
+hosted in IFrameRenderer with a versioned CDN script and a container in its HTML.
+Await chart rendering and disable animations when producing a static result;
+do not remove a container while its chart is still rendering.
 
 The "DOM Element" input must be a real HTMLElement/SVGElement — anything else
 is ignored with a console warning.`;
