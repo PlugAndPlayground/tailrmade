@@ -1,0 +1,534 @@
+import {
+  clearGraph,
+  closeBothDrawers,
+  doWithTestController,
+  dragFromAtoB,
+  enterDashboardEditMode,
+  exitDashboardEditMode,
+  openNewGraph,
+  serializedGraph,
+  serializedNode,
+  serializedSocket,
+  setSurfaceLayout,
+  shouldWithTestController,
+} from '../helpers';
+
+const surfaceId = 'text-node-surface';
+
+const canvasEditor = (nodeId: string) => cy.get(`[data-cy="${nodeId}-canvas"]`);
+
+// a native click: Cypress's simulated click closes the menu before the
+// option is pressed, which real pointer input does not
+const clickPickerOption = (label: string) =>
+  cy.get('[data-cy="text-token-picker-option"]').contains(label).realClick();
+
+const pickerOption = (label: string) =>
+  cy
+    .get('[data-cy="text-token-picker-option"]')
+    .contains(label)
+    .closest('[data-cy="text-token-picker-option"]');
+
+const inputNames = (testController, nodeId: string) =>
+  testController.getInputSockets(nodeId).map((socket) => socket.name);
+
+const addTextNode = (nodeId: string) => {
+  doWithTestController(async (testController) => {
+    await testController.addNode('Text', nodeId, -300, -150);
+    // a user edits a node they selected; canvas editing ends on the next
+    // redraw (e.g. a new socket) for a node that is not the only selection
+    testController.selectNodesById([nodeId]);
+  });
+  // focus without a click: a click would leave canvas editing again. Auto
+  // focus is covered by testText, which runs after the app has been used -
+  // before any real interaction the browser does not hand focus over
+  canvasEditor(nodeId).should('have.attr', 'contenteditable', 'true').focus();
+};
+
+const setContent = (nodeId: string, content: unknown) => {
+  doWithTestController(async (testController) => {
+    testController.setNodeInputValue(nodeId, 'Content', content);
+    await testController.executeNodeByID(nodeId);
+  });
+};
+
+const placeOnSurface = (children: unknown[], surface = surfaceId) => {
+  setSurfaceLayout(surface, children);
+};
+
+const surfaceTree = (testController, surface = surfaceId) =>
+  testController.getNodeInputValue(surface, 'Layout JSON').tree;
+
+// node types are stored lowercased
+const textNodes = (testController) =>
+  testController.getNodes().filter((node) => node.type === 'text');
+
+describe('dynamic Text node', () => {
+  before(() => {
+    openNewGraph();
+  });
+
+  beforeEach(() => {
+    clearGraph();
+    closeBothDrawers();
+  });
+
+  it('creates inputs from the token picker through the undo stack', () => {
+    addTextNode('dyn-text');
+    canvasEditor('dyn-text').type('{selectall}{backspace}Temp: @', {
+      force: true,
+    });
+    // the menu opens on `@` alone, before a name is typed
+    cy.get('[data-cy="text-token-picker"]').should(
+      'contain.text',
+      'Type a name to add an input',
+    );
+
+    // names the node cannot take are offered but refused
+    canvasEditor('dyn-text').type('this', { force: true });
+    pickerOption('＋ new input "this"')
+      .should('have.class', 'Mui-disabled')
+      .and('contain.text', 'reserved');
+    canvasEditor('dyn-text').type('{esc}{selectall}{backspace}@Content', {
+      force: true,
+    });
+    pickerOption('＋ new input "Content"')
+      .should('have.class', 'Mui-disabled')
+      .and('contain.text', 'already exists');
+
+    canvasEditor('dyn-text').type('{esc}{selectall}{backspace}Temp: @temp', {
+      force: true,
+    });
+    clickPickerOption('＋ new input "temp"');
+
+    shouldWithTestController((testController) => {
+      expect(inputNames(testController, 'dyn-text')).to.include('temp');
+      expect(testController.getInputSocketType('dyn-text', 'temp')).to.eq(
+        'Any',
+      );
+    });
+    canvasEditor('dyn-text')
+      .find('[data-cy="text-token"][data-token-source="{{temp}}"]')
+      .should('have.attr', 'data-token-state', 'unresolved');
+
+    doWithTestController(async (testController) => {
+      const { entries } = testController.getActionHistory();
+      const addInput = entries.findIndex((entry) => entry.name === 'Add input');
+      expect(addInput, 'socket creation is an undo entry').to.be.gte(0);
+      // undo everything from the socket creation on, then redo it all
+      const steps = entries.length - addInput;
+      for (let i = 0; i < steps; i++) await testController.undo();
+      expect(inputNames(testController, 'dyn-text')).to.not.include('temp');
+      for (let i = 0; i < steps; i++) await testController.redo();
+      expect(inputNames(testController, 'dyn-text')).to.include('temp');
+    });
+  });
+
+  it('completes input names with Tab, cycling through the matches', () => {
+    addTextNode('tab-text');
+    doWithTestController((testController) => {
+      testController.createTokenInput('tab-text', 'temp');
+      testController.createTokenInput('tab-text', 'temperature');
+    });
+    // inputs are added through the undo stack, so they exist a step later
+    doWithTestController(async (testController) => {
+      testController.setNodeInputValue('tab-text', 'temp', { max: 30 });
+      await testController.executeNodeByID('tab-text');
+    });
+    canvasEditor('tab-text').type('{selectall}{backspace}@te', {
+      force: true,
+    });
+    cy.get('[data-cy="text-token-picker"]').should('be.visible');
+    cy.realPress('Tab');
+    canvasEditor('tab-text').should('have.text', '@temp');
+    cy.realPress('Tab');
+    canvasEditor('tab-text').should('have.text', '@temperature');
+    cy.realPress(['Shift', 'Tab']);
+    canvasEditor('tab-text').should('have.text', '@temp');
+
+    // then on into the value's fields
+    canvasEditor('tab-text').type('.', { force: true });
+    cy.realPress('Tab');
+    canvasEditor('tab-text').should('have.text', '@temp.max');
+  });
+
+  it('keeps the @ menu still while a name is typed', () => {
+    addTextNode('menu-text');
+    canvasEditor('menu-text').type('{selectall}{backspace}Hello @', {
+      force: true,
+    });
+    // the menu hangs off the @, so typing a name must not move it, however
+    // far the caret travels
+    const menuPosition = () =>
+      cy.get('[data-cy="text-token-picker"]').then(($menu) => {
+        const { top, left } = $menu[0].getBoundingClientRect();
+        return `${Math.round(top)},${Math.round(left)}`;
+      });
+
+    menuPosition().then((before) => {
+      canvasEditor('menu-text').type('newname', { force: true, delay: 120 });
+      menuPosition().should('eq', before);
+    });
+  });
+
+  it('connects a node added from an input that holds no value yet', () => {
+    doWithTestController(async (testController) => {
+      await testController.addNode('Text', 'drag-text', -100, -100);
+    });
+    doWithTestController((testController) => {
+      testController.createTokenInput('drag-text', 'temp');
+    });
+    cy.wait(500);
+    doWithTestController((testController) => {
+      expect(testController.getNodeInputValue('drag-text', 'temp')).to.eq(null);
+      const [x, y] = testController.getSocketCenterByNodeIDAndSocketName(
+        'drag-text',
+        'temp',
+      );
+      // released over empty canvas, which opens node search for the wire
+      dragFromAtoB(x, y, x - 150, y + 150);
+    });
+    cy.get('input#node-search:visible').type('Constant', { force: true });
+    cy.wait(400);
+    cy.get('input#node-search:visible').type('{enter}', { force: true });
+
+    shouldWithTestController((testController) => {
+      expect(
+        testController.getSocketLinks('drag-text', 'temp'),
+        'the added node is linked into the input',
+      ).to.have.length(1);
+    });
+  });
+
+  it('resolves object input paths', () => {
+    addTextNode('object-text');
+    canvasEditor('object-text').type('{selectall}{backspace}@d', {
+      force: true,
+    });
+    clickPickerOption('＋ new input "d"');
+    shouldWithTestController((testController) => {
+      expect(testController.getInputSocketType('object-text', 'd')).to.eq(
+        'Any',
+      );
+    });
+    doWithTestController(async (testController) => {
+      testController.setNodeInputValue('object-text', 'd', { temp: 21.5 });
+      await testController.executeNodeByID('object-text');
+    });
+    canvasEditor('object-text')
+      .focus()
+      .type('{moveToEnd} @d.', { force: true });
+    // the fields d holds are offered as soon as the dot is typed
+    pickerOption('d.temp').should('contain.text', '21.5');
+    clickPickerOption('d.temp');
+
+    canvasEditor('object-text')
+      .find('[data-token-source="{{d.temp}}"]')
+      .should('have.attr', 'data-token-state', 'resolved')
+      .and('have.text', '21.5');
+    shouldWithTestController((testController) => {
+      expect(
+        testController.getNodeOutputValue('object-text', 'Output'),
+      ).to.contain('21.5');
+    });
+  });
+
+  it('shows the text on the app theme card, styled through its sockets', () => {
+    addTextNode('styled-text');
+    // the canvas shows the text on the app theme's ground, not the editor's
+    canvasEditor('styled-text')
+      .closest('[data-cy="text-canvas-card"]')
+      .should(($card) => {
+        const { backgroundColor, color } = getComputedStyle($card[0]);
+        expect(backgroundColor).to.not.eq('rgba(0, 0, 0, 0)');
+        expect(color).to.not.eq(backgroundColor);
+      })
+      // the toolbar floats above the node instead of inside it
+      .then(($card) => {
+        cy.get('[data-cy="text-inline-toolbar"]').should(($toolbar) => {
+          expect($toolbar[0].getBoundingClientRect().bottom).to.be.lte(
+            $card[0].getBoundingClientRect().top,
+          );
+        });
+      });
+
+    // the node inspector is its plain socket list
+    doWithTestController((testController) => {
+      testController.toggleRightSideDrawer('OPEN');
+    });
+    cy.get('[data-cy="Variant-type-selector-button"]').should('exist');
+    cy.get('[data-cy="text-settings"]').should('not.exist');
+
+    doWithTestController(async (testController) => {
+      testController.setNodeInputValue('styled-text', 'Variant', 'h2');
+      await testController.executeNodeByID('styled-text');
+    });
+    canvasEditor('styled-text').should('have.css', 'font-size', '24px');
+  });
+
+  it('takes the text color its widget names', () => {
+    addTextNode('colored-text');
+    placeOnSurface([
+      {
+        widget: 'colored-text',
+        props: { color: { r: 200, g: 10, b: 10, a: 1 } },
+      },
+    ]);
+    exitDashboardEditMode();
+    cy.get('[data-cy="widget of NODE_colored-text"]')
+      .contains('Text')
+      .should('have.css', 'color', 'rgb(200, 10, 10)');
+  });
+
+  it('marks invalid tokens while editing and hides them at runtime', () => {
+    addTextNode('invalid-text');
+    setContent('invalid-text', 'Now: {{missing}} / {{other.field}}');
+    canvasEditor('invalid-text')
+      .find('[data-token-state="unresolved"]')
+      .should('have.length', 2);
+    shouldWithTestController((testController) => {
+      expect(testController.getNodeOutputValue('invalid-text', 'Output')).to.eq(
+        'Now:  / ',
+      );
+    });
+
+    placeOnSurface([{ widget: 'invalid-text' }]);
+    exitDashboardEditMode();
+    cy.get('[data-cy="widget of NODE_invalid-text"]')
+      .should('contain.text', 'Now:  / ')
+      .and('not.contain.text', '{{')
+      .find('[data-cy="text-token"]')
+      .should('not.exist');
+
+    enterDashboardEditMode();
+    cy.get('[data-cy="widget of NODE_invalid-text"]')
+      .find('[data-token-state="unresolved"]')
+      .should('have.length', 2);
+    // editing in place on the surface brings the toolbar, outside the widget
+    cy.get(
+      '[data-cy="widget of NODE_invalid-text"] [contenteditable="true"]',
+    ).click({ force: true });
+    cy.get('[data-cy="text-inline-toolbar"]').should('be.visible');
+  });
+
+  it('converts static to dynamic and back as single undo steps', () => {
+    placeOnSurface([
+      {
+        id: 'greeting',
+        text: 'Hello ',
+        variant: 'h2',
+        tone: 'primary',
+        props: {
+          width: '320px',
+          padding: [3, 4, 5, 6],
+          background: { r: 10, g: 20, b: 30, a: 0.5 },
+          color: { r: 200, g: 210, b: 220, a: 1 },
+        },
+      },
+    ]);
+    enterDashboardEditMode();
+    cy.get('[data-cy="dashboard"] [data-cy="static-text"]')
+      .first()
+      .click({ force: true });
+    doWithTestController((testController) => {
+      testController.toggleRightSideDrawer('OPEN');
+    });
+    cy.get('[data-cy="convert-to-dynamic-text"]').click({ force: true });
+
+    let nodeId: string;
+    shouldWithTestController((testController) => {
+      const [node] = textNodes(testController);
+      expect(node, 'a Text node was created').to.exist;
+      nodeId = node.id;
+      const item = surfaceTree(testController).greeting;
+      expect(item.type.resolvedName).to.eq('DynamicWidget');
+      expect(item.props.id).to.eq(`NODE_${nodeId}`);
+      expect(item.props.width).to.eq('320px');
+      expect(item.props.padding).to.deep.eq([3, 4, 5, 6]);
+      expect(item.props.background).to.deep.eq({
+        r: 10,
+        g: 20,
+        b: 30,
+        a: 0.5,
+      });
+      expect(testController.getNodeInputValue(nodeId, 'Variant')).to.eq('h2');
+      expect(testController.getNodeInputValue(nodeId, 'Tone')).to.eq('primary');
+    });
+
+    doWithTestController(async (testController) => {
+      await testController.undo();
+      expect(textNodes(testController)).to.have.length(0);
+      expect(surfaceTree(testController).greeting.type.resolvedName).to.eq(
+        'Text',
+      );
+      await testController.redo();
+      expect(textNodes(testController).map((node) => node.id)).to.deep.eq([
+        nodeId,
+      ]);
+      expect(surfaceTree(testController).greeting.props.id).to.eq(
+        `NODE_${nodeId}`,
+      );
+
+      testController.createTokenInput(nodeId, 'name');
+    });
+    doWithTestController(async (testController) => {
+      testController.setNodeInputValue(nodeId, 'name', 'Ada');
+      testController.setNodeInputValue(nodeId, 'Content', '**Hello {{name}}**');
+      await testController.executeNodeByID(nodeId);
+      testController.selectDashboardItemByElementId(`NODE_${nodeId}`);
+    });
+
+    cy.get('[data-cy="convert-to-static-text"]')
+      .should('not.be.disabled')
+      .click({ force: true });
+
+    shouldWithTestController((testController) => {
+      expect(textNodes(testController)).to.have.length(0);
+      const item = surfaceTree(testController).greeting;
+      expect(item.type.resolvedName).to.eq('Text');
+      expect(item.props.tone).to.eq('primary');
+      expect(item.props.content).to.eq('**Hello Ada**');
+      expect(item.props.width).to.eq('320px');
+      expect(item.props.padding).to.deep.eq([3, 4, 5, 6]);
+    });
+
+    doWithTestController(async (testController) => {
+      await testController.undo();
+      expect(textNodes(testController)).to.have.length(1);
+      expect(surfaceTree(testController).greeting.props.id).to.eq(
+        `NODE_${nodeId}`,
+      );
+      expect(testController.getSocketLinks(nodeId, 'ReactUI')).to.have.length(
+        1,
+      );
+      await testController.redo();
+      expect(textNodes(testController)).to.have.length(0);
+      expect(surfaceTree(testController).greeting.type.resolvedName).to.eq(
+        'Text',
+      );
+    });
+  });
+
+  it('keeps empty content when converting static text to a node', () => {
+    placeOnSurface([{ id: 'empty-text', text: '' }]);
+    enterDashboardEditMode();
+    cy.get('[data-cy="dashboard"] [data-cy="static-text"]')
+      .first()
+      .click({ force: true });
+    doWithTestController((testController) => {
+      testController.toggleRightSideDrawer('OPEN');
+    });
+    cy.get('[data-cy="convert-to-dynamic-text"]').click({ force: true });
+
+    shouldWithTestController((testController) => {
+      const [node] = textNodes(testController);
+      expect(testController.getNodeInputValue(node.id, 'Content')).to.eq('');
+    });
+  });
+
+  it('only offers static conversion for a single, unshared placement', () => {
+    addTextNode('shared-text');
+    placeOnSurface([{ widget: 'shared-text' }]);
+    doWithTestController(async (testController) => {
+      await testController.addNode('Label', 'consumer', 0, 300);
+      await testController.connectNodesByID(
+        'shared-text',
+        'consumer',
+        'Output',
+        'Input',
+      );
+    });
+    enterDashboardEditMode();
+    doWithTestController((testController) => {
+      testController.selectDashboardItemByElementId('NODE_shared-text');
+      testController.toggleRightSideDrawer('OPEN');
+    });
+    cy.get('[data-cy="convert-to-static-text"]').should('be.disabled');
+    cy.get('[data-cy="text-conversion-guard"]').should(
+      'contain.text',
+      'Other nodes use this text node',
+    );
+
+    doWithTestController(async (testController) => {
+      await testController.disconnectLink('consumer', 'Input');
+    });
+    placeOnSurface([{ widget: 'shared-text' }], 'second-surface');
+    doWithTestController((testController) => {
+      testController.selectDashboardItemByElementId('NODE_shared-text');
+    });
+    cy.get('[data-cy="text-conversion-guard"]').should(
+      'contain.text',
+      'more than one UI surface',
+    );
+  });
+
+  // the migration itself is covered by tests/frontend/jest/text-migrations;
+  // what only the app can show is that the migrated graph still runs
+  it('migrates legacy Text nodes and keeps their links', () => {
+    const legacyText = (id: string, input: string, y: number) =>
+      serializedNode(
+        'Text',
+        id,
+        [
+          serializedSocket('Output', undefined, 'StringType', 'out'),
+          serializedSocket('Input', input),
+          serializedSocket('Font size', 40, 'NumberType'),
+          serializedSocket('Font weight', 'Bold', 'EnumType'),
+          serializedSocket(
+            'Text color',
+            { r: 10, g: 200, b: 30, a: 1 },
+            'ColorType',
+          ),
+        ],
+        { x: 0, y },
+      );
+    const fromConstant = (targetSocketName: string) => ({
+      sourceNodeId: 'legacy-constant',
+      sourceSocketName: 'Out',
+      targetNodeId: 'legacy-linked',
+      targetSocketName,
+    });
+
+    doWithTestController(async (testController) => {
+      await testController.loadStringifiedGraph(
+        serializedGraph(
+          [
+            legacyText('legacy-plain', 'kept text', 0),
+            legacyText('legacy-linked', 'stale', 200),
+            serializedNode(
+              'Constant',
+              'legacy-constant',
+              [serializedSocket('In', 42, 'NumberType')],
+              { x: -300, y: 200 },
+            ),
+          ],
+          // the style link is dropped, the input link survives as {{Input}}
+          [fromConstant('Input'), fromConstant('Font size')],
+        ),
+      );
+      await testController.waitForPendingExecution();
+    });
+
+    shouldWithTestController((testController) => {
+      expect(testController.getNodeOutputValue('legacy-plain', 'Output')).to.eq(
+        'kept text',
+      );
+      expect(
+        testController.getNodeOutputValue('legacy-linked', 'Output'),
+      ).to.eq('42');
+      expect(
+        testController.getInputLinkSourceNodeID('legacy-linked', 'Input'),
+      ).to.eq('legacy-constant');
+      expect(
+        testController.getNodeInputValue('legacy-linked', 'Custom styles'),
+      ).to.deep.eq({
+        fontSize: '40px',
+        fontWeight: '700',
+        lineHeight: 1.15,
+        color: 'rgb(10, 200, 30)',
+      });
+      expect(inputNames(testController, 'legacy-plain')).to.not.include(
+        'Input',
+      );
+    });
+  });
+});

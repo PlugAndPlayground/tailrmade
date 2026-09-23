@@ -1,6 +1,7 @@
 import PPNode from '../../classes/NodeClass';
 import Socket from '../../classes/SocketClass';
 import {
+  NodeExecutionError,
   NodeExecutionWarning,
   PNPCustomStatus,
 } from '../../classes/ErrorClass';
@@ -11,7 +12,10 @@ import { EnumStructure, EnumType } from '../datatypes/enumType';
 import { JSONType } from '../datatypes/jsonType';
 import { StringType } from '../datatypes/stringType';
 import UpdateBehaviourClass from '../../classes/UpdateBehaviourClass';
-import { CompanionBackend } from '../../services/CompanionBackend';
+import {
+  CompanionBackend,
+  CompanionRequestError,
+} from '../../services/CompanionBackend';
 
 export const urlInputName = 'URL';
 const bodyInputName = 'Body';
@@ -162,6 +166,12 @@ Sending through the companion app needs
         return await awaitedRes.json();
       }
     } catch (error) {
+      if (usingCompanion) {
+        if (error instanceof CompanionRequestError) {
+          throw new NodeExecutionError(error.message);
+        }
+        throw error;
+      }
       console.trace(error);
       // something went terribly wrong with the request
       this.pushStatusCode(400);
@@ -181,20 +191,16 @@ If it is a CORS issue, select the HTTP node and in the Info tab on the right dow
     URL,
     method: 'Get' | 'Post',
   ): Promise<CompanionResponse> {
-    try {
-      const companionSpecific = {
-        finalHeaders: headers,
-        finalBody: method == 'Post' ? JSON.stringify(body) : '{}',
-        finalURL: URL,
-        finalMethod: method,
-      };
-      const companionRes =
-        await CompanionBackend.getInstance().sendMessage(companionSpecific);
+    const companionSpecific = {
+      finalHeaders: headers,
+      finalBody: method == 'Post' ? JSON.stringify(body) : '{}',
+      finalURL: URL,
+      finalMethod: method,
+    };
+    const companionRes =
+      await CompanionBackend.getInstance().sendMessage(companionSpecific);
 
-      return companionRes;
-    } catch (error) {
-      return { status: 404, response: error };
-    }
+    return companionRes;
   }
 
   getColor(): TRgba {

@@ -6,7 +6,7 @@ import PPNode from './classes/NodeClass';
 import InterfaceController from './InterfaceController';
 import Socket from './classes/SocketClass';
 import { getAllNodeTypes } from './nodes/allNodes';
-import { NODE_MARGIN, STATUS_SEVERITY } from './utils/constants';
+import { NODE_MARGIN } from './utils/constants';
 import PPStorage from './PPStorage';
 import {
   ACTIONS,
@@ -16,6 +16,10 @@ import {
 } from './classes/Action';
 import type { ActionSource } from './classes/Action';
 import NodeHeaderClass from './classes/NodeHeaderClass';
+import {
+  COMMENT_BADGE_NAME,
+  STATUS_BADGE_NAME,
+} from './classes/NodeStatusBadges';
 import FlowLogic from './classes/FlowLogic';
 import { BackendGateway } from './services/BackendGateway';
 import { DASHBOARD_DEFAULT, LeftDrawerView } from './utils/constants';
@@ -26,6 +30,7 @@ import {
   TailrmadeMCPServer,
 } from './services/TailrmadeMCPServer';
 import { AIBackend } from './services/AIBackend';
+import { createTokenInput } from './text/nodeInputs';
 
 export default class TestController {
   identify(): string {
@@ -230,6 +235,10 @@ export default class TestController {
   getVisibleInputSockets(id: string) {
     return this.getInputSockets(id).filter((socket) => socket.visible);
   }
+  // what the token picker's "new input" option does
+  createTokenInput(nodeID: string, name: string) {
+    createTokenInput(this.getNodeByID(nodeID), name);
+  }
   getInputSocketByIDandName(id: string, socketName: string): Socket {
     return this.getNodeByID(id).getInputSocketByName(socketName);
   }
@@ -271,6 +280,23 @@ export default class TestController {
 
     const pos = header.screenPointButtonCenter(buttonName);
     if (!pos) return null;
+    return [pos.x, pos.y];
+  }
+
+  getStatusBadgeCenter(
+    nodeID: string,
+    kind: 'status' | 'comment',
+  ): [number, number] | null {
+    const node = this.getNodeByID(nodeID);
+    if (!node) return null;
+
+    const badge = findChildByName(
+      node,
+      kind === 'status' ? STATUS_BADGE_NAME : COMMENT_BADGE_NAME,
+    );
+    if (!badge) return null;
+
+    const pos = badge.getGlobalPosition();
     return [pos.x, pos.y];
   }
 
@@ -348,10 +374,7 @@ export default class TestController {
 
   doesNodeHaveError(nodeID: string): boolean {
     const node = this.getNodeByID(nodeID);
-    return (
-      node.status.node.getSeverity() >= STATUS_SEVERITY.ERROR ||
-      node.status.socket.getSeverity() >= STATUS_SEVERITY.ERROR
-    );
+    return node.getWarningsAndErrors().some((status) => status.isError());
   }
 
   getNodeCustomStatuses(nodeID: string) {

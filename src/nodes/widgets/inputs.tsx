@@ -231,10 +231,11 @@ export class WidgetTextField extends WidgetHybridBase {
               type={type}
               multiline={multiline}
               rows={multiline ? rows : undefined}
-              inputProps={{
-                maxLength: maxLength > 0 ? maxLength : undefined,
-                sx: { fontSize },
-                readOnly: !isInteractive,
+              slotProps={{
+                htmlInput: {
+                  maxLength: maxLength > 0 ? maxLength : undefined,
+                },
+                input: { sx: { fontSize }, readOnly: !isInteractive },
               }}
               required={required}
               disabled={props.disabled}

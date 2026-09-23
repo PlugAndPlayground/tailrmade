@@ -24,6 +24,7 @@ import WebAssetIcon from '@mui/icons-material/WebAsset';
 import WidgetsIcon from '@mui/icons-material/Widgets';
 import ViewColumnIcon from '@mui/icons-material/ViewColumn';
 import ArticleIcon from '@mui/icons-material/Article';
+import TextFieldsIcon from '@mui/icons-material/TextFields';
 import PolylineIcon from '@mui/icons-material/Polyline';
 import PPGraph from '../../classes/GraphClass';
 import InterfaceController from '../../InterfaceController';
@@ -36,6 +37,7 @@ import {
 import { RightDrawerView } from '../../utils/constants';
 import { DashboardContainerName } from './DashboardContainer';
 import { getLayoutableElement } from '../../utils/utils';
+import { STATIC_TEXT_ITEM_TYPE } from '../../text/migrations';
 import {
   getDisplayedSurfaceElement,
   handleNodeSelection,
@@ -98,6 +100,9 @@ const getNodeIcon = (
 
   if (displayName === DashboardContainerName || displayName === containerName) {
     return <ViewColumnIcon sx={{ fontSize: 16 }} />;
+  }
+  if (displayName === STATIC_TEXT_ITEM_TYPE) {
+    return <TextFieldsIcon sx={{ fontSize: 16 }} />;
   }
   if (isCanvas) {
     return <ArticleIcon sx={{ fontSize: 16 }} />;
@@ -424,7 +429,6 @@ const LayerItem: React.FC<LayerNodeProps> = ({ id, depth }) => {
         ref={rowRef}
         title={tooltipText}
         direction="row"
-        alignItems="center"
         draggable={isEditMode && id !== RootName}
         onClick={handleSelect}
         onMouseEnter={handleMouseEnter}
@@ -435,6 +439,7 @@ const LayerItem: React.FC<LayerNodeProps> = ({ id, depth }) => {
         onDragLeave={isEditMode ? handleDragLeave : undefined}
         onDrop={isEditMode ? handleDrop : undefined}
         sx={(theme) => ({
+          alignItems: 'center',
           pl: `${depth * 16 + 4}px`,
           pr: 0.5,
           py: 0.25,

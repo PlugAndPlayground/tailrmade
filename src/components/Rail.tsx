@@ -172,7 +172,7 @@ export const Rail: React.FunctionComponent<RailProps> = React.memo((props) => {
           pointerEvents: 'auto',
         }}
       >
-        <Stack spacing={0.5} alignItems="left">
+        <Stack spacing={0.5} sx={{ alignItems: 'flex-start' }}>
           {/* the logo is the way into and back out of app view */}
           <Tooltip
             title="Open app view (T)"

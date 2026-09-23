@@ -334,6 +334,15 @@ export class LoadNPM extends PPNode {
     return 'Lazy loads an NPM package';
   }
 
+  public getDocs(): string {
+    return `Set "Package Name" to a versioned package such as "apexcharts@3.49.0".
+Execute this node to load it, then connect "NpmPackage" to a CustomFunction input.
+The output is an ES module namespace, not the default export: for ApexCharts use
+the input's .default as the constructor. Other packages may use named exports.
+Set the receiving CustomFunction's "Main Thread" to true before execution.
+Check that the expected export exists before constructing a chart.`;
+  }
+
   public getTags(): string[] {
     return ['Input'].concat(super.getTags());
   }

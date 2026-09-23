@@ -16,13 +16,7 @@ import { GraphInputXYZType } from '../../datatypes/graphInputType';
 import { inputDataName } from './scatterGraph';
 import { ThreeDVectorType } from '../../datatypes/threeDVectorType';
 import { EnumType } from '../../datatypes/enumType';
-
-const loadPlotly = async () => {
-  const plotlyModule = await import(
-    /* webpackChunkName: "plotly" */ 'plotly.js-dist'
-  );
-  return plotlyModule.default ?? plotlyModule;
-};
+import { loadPlotly } from './loadPlotly';
 
 const titleName = 'Title';
 const showGridName = 'Show Grid';

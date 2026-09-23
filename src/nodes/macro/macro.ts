@@ -3,7 +3,6 @@ import PPNode from '../../classes/NodeClass';
 import Socket from '../../classes/SocketClass';
 import { TRgba } from '../../utils/color';
 import {
-  NODE_CORNERRADIUS,
   NODE_MARGIN,
   NODE_TYPE_COLOR,
   SOCKET_TYPE,
@@ -450,7 +449,7 @@ export class Macro extends PPNode {
       block.y,
       block.width,
       block.height,
-      this.getRoundedCorners() ? NODE_CORNERRADIUS : 0,
+      this.getCornerRadius(),
     );
   }
 
@@ -462,6 +461,7 @@ export class Macro extends PPNode {
       return (
         leftBlock.contains(x, y) ||
         rightBlock.contains(x, y) ||
+        this.statusBadges.containsPoint(x, y) ||
         this.isPointNearVisibleSocket(x, y)
       );
     });

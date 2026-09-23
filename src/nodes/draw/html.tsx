@@ -13,7 +13,7 @@ import { ErrorBoundary } from 'react-error-boundary';
 import Frame from 'react-frame-component';
 import DOMPurify from 'dompurify';
 import DashboardIcon from '@mui/icons-material/Dashboard';
-import { Box, Typography } from '@mui/material';
+import { Box, Typography, useTheme } from '@mui/material';
 import ErrorFallback from '../../components/ErrorFallback';
 import Socket from '../../classes/SocketClass';
 import PPGraph from '../../classes/GraphClass';
@@ -38,7 +38,6 @@ import {
   SANITIZE_NAME,
   SOCKETNAME_BACKGROUNDCOLOR,
   SOCKET_TYPE,
-  STATUS_SEVERITY,
 } from '../../utils/constants';
 import HybridNode2, { defaultHybridProps } from '../../classes/HybridNode2';
 import { NodeExecutionError, PNPSuccess } from '../../classes/ErrorClass';
@@ -47,6 +46,7 @@ import InterfaceController, { ListenEvent } from '../../InterfaceController';
 import { SurfaceCanvasPreviewContext } from '../../components/dashboard/SurfaceRenderer';
 import { DeferredReactTypeInterface } from '../datatypes/deferredHtmlType';
 import { AnyType } from '../datatypes/anyType';
+import { themeToCssVariables } from '../../utils/theme';
 
 // Register common Handlebars helpers
 Handlebars.registerHelper('eq', (a, b) => a === b);
@@ -133,12 +133,7 @@ is the ROOT context ("this"):
   from JavaScript
 
 Do NOT use the socket name in the template, e.g. do not write {{data}} —
-the Data input's value is already the template's root context.
-
-## Background
-"Background color" defaults to white, so use dark text. To inherit the surface
-background, set its alpha to 0 and choose text that contrasts with the surface.
-When the surface color is unknown, keep an explicit contrasting background.`;
+the Data input's value is already the template's root context.`;
   }
 
   public shouldRenderWhenOffScreen(): boolean {
@@ -168,7 +163,7 @@ When the surface color is unknown, keep an explicit contrasting background.`;
   protected updateStatusFromTemplateError(): void {
     if (this.lastTemplateError) {
       this.setStatus(new NodeExecutionError(this.lastTemplateError.message));
-    } else if (this.status.node.getSeverity() >= STATUS_SEVERITY.WARNING) {
+    } else if (this.status.node.isProblem()) {
       this.setStatus(new PNPSuccess());
     }
   }
@@ -245,7 +240,15 @@ export class HtmlRenderer extends HtmlNodeBase {
   public getDocs(): string {
     return composeDocs(
       super.getDocs(),
-      `## Composing modular layouts
+      `## Styling
+Style with Tailwind using theme colors, not fixed ones (the background is
+transparent by default):
+- bg-background, bg-paper, text-foreground, text-muted-foreground, border-divider
+- bg-primary/secondary + text-primary/secondary-foreground
+- error, warning, info, success
+- rounded-theme, font-theme; tints like bg-primary/10; dark: follows the theme
+
+## Composing modular layouts
 Enable "Template Passthrough" to turn this node's markup into a template,
 combine several of them into a JSON object, and feed that into the "Templates"
 input of another HTML node.`,
@@ -277,9 +280,9 @@ input of another HTML node.`,
   }
 
   getDefaultHTMLCode(): string {
-    return `<div class="p-4 text-black">
+    return `<div class="p-4 bg-paper text-foreground rounded-theme">
   <p class="mb-2">Write your own HTML content.<br />Use JSON or Array data on the "Data" socket and use Handlebars: <code>&#123;&#123;property&#125;&#125;</code></p>
-  <a href="https://en.wikipedia.org/wiki/Special:Random" target="_blank" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded inline-block">Button {{label}}</a>
+  <a href="https://en.wikipedia.org/wiki/Special:Random" target="_blank" class="bg-primary hover:bg-primary/80 text-primary-foreground font-bold py-2 px-4 rounded-theme inline-block">Button {{label}}</a>
 </div>`;
   }
 
@@ -316,7 +319,8 @@ input of another HTML node.`,
         SOCKET_TYPE.IN,
         SOCKETNAME_BACKGROUNDCOLOR,
         new ColorType(),
-        backgroundColor,
+        // the markup paints its own themed background
+        TRgba.white().setAlpha(0),
         false,
       ),
       new Socket(
@@ -674,9 +678,6 @@ const HtmlComponent = (props): React.ReactElement => {
   // instead of inheriting the app theme (which can be light-on-light). Any
   // explicit color the markup sets - Tailwind text-* classes, inline styles -
   // still wins, since this only lands on the wrapper. When the background is
-  // (near-)transparent the surface shows through, so leave the color to
-  // inherit the theme that matches that surface rather than guess from the
-  // node's own (invisible) background color.
   const backgroundTRgba = Object.assign(
     new TRgba(),
     props[SOCKETNAME_BACKGROUNDCOLOR],
@@ -685,16 +686,19 @@ const HtmlComponent = (props): React.ReactElement => {
     backgroundTRgba.a >= 0.5
       ? backgroundTRgba.getContrastTextColor().toString()
       : undefined;
+  const theme = useTheme();
 
   return (
     <ErrorBoundary FallbackComponent={ErrorFallback}>
       <div
         id={nodeComponentId}
+        data-tm-mode={theme.palette.mode}
         style={{
+          ...themeToCssVariables(theme),
           width: width,
           height: props.inDashboard ? height : '100%',
           background: props[SOCKETNAME_BACKGROUNDCOLOR].toString(),
-          color: defaultTextColor,
+          color: defaultTextColor ?? 'var(--tm-foreground)',
         }}
       >
         <div
@@ -726,6 +730,16 @@ export class IFrameRenderer extends HtmlNodeBase {
 
   public getDescription(): string {
     return 'Render HTML content inside an isolated iframe.';
+  }
+
+  public getDocs(): string {
+    return composeDocs(
+      super.getDocs(),
+      `## Background
+"Background color" defaults to white, so use dark text. To inherit the surface
+background, set its alpha to 0 and choose text that contrasts with the surface.
+When the surface color is unknown, keep an explicit contrasting background.`,
+    );
   }
 
   public getTags(): string[] {
@@ -1070,9 +1084,17 @@ export class ElementRenderer extends HybridNode2 {
   }
 
   public getDocs(): string {
-    return `Have a Custom function return a DOM element (e.g. \`return canvas\`),
+    return `Set a Custom function's "Main Thread" input to true before using DOM APIs.
+Have it return a DOM element (e.g. \`return canvas\`),
 connect "OutData" to this node's "DOM Element", then place this node's
 "ReactUI" output on the surface.
+
+The returned element is mounted only after the function finishes. A selector
+lookup cannot find it during that function; pass the element itself to libraries.
+Libraries that require a connected container or mount/unmount cleanup are better
+hosted in IFrameRenderer with a versioned CDN script and a container in its HTML.
+Await chart rendering and disable animations when producing a static result;
+do not remove a container while its chart is still rendering.
 
 The "DOM Element" input must be a real HTMLElement/SVGElement — anything else
 is ignored with a console warning.`;

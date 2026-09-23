@@ -177,6 +177,9 @@ graph owns the layout and it can no longer be arranged by hand.
   edges. On a scrollable content page (root height 'auto') give the root
   padding ~16-24 and gap ~8-16; on a fullscreen dashboard (root height
   '100dvh') keep padding minimal.
+- Static text is Markdown. Its variant sets size, weight and line height and
+  its tone a theme color, so text follows the app theme. It shows {{…}}
+  literally - to show a value from the graph, use a Text node widget.
 - Keep the default dark theme when possible. If overriding it, set contrasting
   root background and text colors.
 
@@ -209,7 +212,12 @@ everything to keep. Omitted connected widgets are appended with a warning.
   background?, width?, height?, align?, justify?, mobileBehavior?}. The root
   must be a container with direction fixed to 'column'. mobileBehavior is
   'column' | 'wrap' | 'row'.
-- Static text: {text:'...', fontSize?, fontWeight?, textAlign?, color?}.
+- Static text: {text:'...', variant?, tone?, alignment?}. text is
+  Markdown: # headings, - lists, > quotes, code blocks, **bold**, *italic*,
+  \`code\`, [link](https://…), and [words]{.primary .nowrap} for a run's tone
+  or no-wrap; each line is a paragraph. variant: 'display'|'h1'|'h2'|'body'|'caption'|'label'|'stat';
+  tone: 'default'|'muted'|'primary'|'secondary'|'success'|'warning'|'error';
+  alignment: 'left'|'center'|'right'|'justify'.
 - Graph widget: {widget:'<node_id>'} - a node with a ReactUI output;
   unconnected widgets are connected automatically.
 - Colors are {r,g,b,a} (0-255, a 0-1).`;

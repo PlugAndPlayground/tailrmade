@@ -1,6 +1,7 @@
 import InterfaceController from '../InterfaceController';
 import { getCachedUserPreferences } from '../components/userPreferencesStore';
 import { CaptureSource, capture } from './CaptureService';
+import { waitForFrames } from '../utils/waitForFrames';
 import {
   AI_IMAGE_MAX_EDGE,
   downscaleImageForAI,
@@ -56,14 +57,12 @@ export const isDashboardOnScreen = (): boolean => {
 export const canAutoCapture = (): boolean =>
   panelIsOpen && isAutoCaptureEnabled() && isDashboardOnScreen();
 
-export const waitForRenderToSettle = (): Promise<void> =>
-  new Promise((resolve) => {
-    requestAnimationFrame(() =>
-      requestAnimationFrame(() =>
-        window.setTimeout(resolve, AI_CAPTURE_SETTLE_MS),
-      ),
-    );
+export const waitForRenderToSettle = async (): Promise<void> => {
+  await waitForFrames();
+  await new Promise<void>((resolve) => {
+    window.setTimeout(resolve, AI_CAPTURE_SETTLE_MS);
   });
+};
 
 export const encodedByteLength = (dataURL: string): number =>
   dataURL.length - (dataURL.indexOf(',') + 1);
