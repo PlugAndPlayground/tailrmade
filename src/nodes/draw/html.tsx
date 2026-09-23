@@ -8,6 +8,7 @@ import React, {
 } from 'react';
 import Handlebars from 'handlebars/dist/handlebars';
 import { TRgba } from '../../utils/color';
+import { composeDocs } from '../../utils/nodeDocs';
 import { ErrorBoundary } from 'react-error-boundary';
 import Frame from 'react-frame-component';
 import DOMPurify from 'dompurify';
@@ -107,9 +108,6 @@ const dataInputSocketName = 'Data';
 const passthroughHandlebarsName = 'Template Passthrough';
 const partialsInputSocketName = 'Templates';
 
-const handlebarDescription =
-  ' Connect data to the Data input to inject values. Use Handlebars syntax: {{this}}, {{#each array}}...{{/each}}, {{#if (eq status "active")}}...{{/if}}. Use JSONPath syntax for nested properties, for example {{object.property}} or {{array[0].field}}. Call macros with {{macro "name" arg1 arg2}} or in JavaScript: macro("name", arg1, arg2)';
-
 const parsedHtmlOutputName = 'Parsed Html';
 
 /**
@@ -118,22 +116,24 @@ const parsedHtmlOutputName = 'Parsed Html';
 abstract class HtmlNodeBase extends HybridNode2 {
   protected lastTemplateError: Error | null = null;
 
-  public getAIDocs(): string {
-    return `Has a "Data" input. Use Handlebars syntax in the HTML where the Data
-input is the ROOT context ("this"):
+  public getDocs(): string {
+    return `Use HTML/IFrame only for custom markup, embeds, or behavior not
+covered by widgets and UI surfaces.
+
+## Handlebars templating
+Connect data to the "Data" input to inject values. In the template that input
+is the ROOT context ("this"):
 - {{property}} for properties of the Data input
+- {{object.property}} or {{array[0].field}} for nested properties
 - {{json this}} to dump the entire Data input for debugging
 - {{#each this}}...{{/each}} to iterate when Data is an array
-- {{#if property}}...{{/if}} for conditionals
+- {{#if property}}...{{/if}} for conditionals, with comparisons like
+  {{#if (eq status "active")}}...{{/if}}
+- {{macro "name" arg1 arg2}} to call a macro, or macro("name", arg1, arg2)
+  from JavaScript
 
 Do NOT use the socket name in the template, e.g. do not write {{data}} —
-the Data input's value is already the template's root context.
-
-Use HTML/IFrame only for custom markup, embeds, or behavior not covered by
-widgets and UI surfaces.
-
-Call macros with {{macro "name" arg1 arg2}} in the template, or with
-macro("name", arg1, arg2) in JavaScript.`;
+the Data input's value is already the template's root context.`;
   }
 
   public shouldRenderWhenOffScreen(): boolean {
@@ -234,22 +234,25 @@ export class HtmlRenderer extends HtmlNodeBase {
   }
 
   public getDescription(): string {
-    return (
-      'Renders HTML code. Write your own HTML markup with Tailwind CSS styling.' +
-      handlebarDescription +
-      ' To compose modular layouts enable Template Passthrough to create templates, then combine them to a JSON object and feed it into the Templates input of another HTML node.'
-    );
+    return 'Render your own HTML markup, styled with Tailwind CSS.';
   }
 
-  public getAIDocs(): string {
-    return `${super.getAIDocs()}
-
+  public getDocs(): string {
+    return composeDocs(
+      super.getDocs(),
+      `## Styling
 Style with Tailwind using theme colors, not fixed ones (the background is
 transparent by default):
 - bg-background, bg-paper, text-foreground, text-muted-foreground, border-divider
 - bg-primary/secondary + text-primary/secondary-foreground
 - error, warning, info, success
-- rounded-theme, font-theme; tints like bg-primary/10; dark: follows the theme`;
+- rounded-theme, font-theme; tints like bg-primary/10; dark: follows the theme
+
+## Composing modular layouts
+Enable "Template Passthrough" to turn this node's markup into a template,
+combine several of them into a JSON object, and feed that into the "Templates"
+input of another HTML node.`,
+    );
   }
 
   public getTags(): string[] {
@@ -726,15 +729,17 @@ export class IFrameRenderer extends HtmlNodeBase {
   }
 
   public getDescription(): string {
-    return 'Renders an iframe with HTML content.' + handlebarDescription;
+    return 'Render HTML content inside an isolated iframe.';
   }
 
-  public getAIDocs(): string {
-    return `${super.getAIDocs()}
-
+  public getDocs(): string {
+    return composeDocs(
+      super.getDocs(),
+      `## Background
 "Background color" defaults to white, so use dark text. To inherit the surface
 background, set its alpha to 0 and choose text that contrasts with the surface.
-When the surface color is unknown, keep an explicit contrasting background.`;
+When the surface color is unknown, keep an explicit contrasting background.`,
+    );
   }
 
   public getTags(): string[] {
@@ -1078,7 +1083,7 @@ export class ElementRenderer extends HybridNode2 {
     return 'Display a DOM element created by a Custom function on a UI surface.';
   }
 
-  public getAIDocs(): string {
+  public getDocs(): string {
     return `Set a Custom function's "Main Thread" input to true before using DOM APIs.
 Have it return a DOM element (e.g. \`return canvas\`),
 connect "OutData" to this node's "DOM Element", then place this node's

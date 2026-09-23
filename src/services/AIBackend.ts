@@ -1377,7 +1377,7 @@ export class AIBackend {
   async getConversationStartInstructions(): Promise<string> {
     // This stable prompt is cached by providers that support prompt caching.
     // Keep workflow rules here, tool semantics in tool descriptions, and
-    // node-specific guidance in getAIDocs (fetched through describe_node).
+    // node-specific guidance in getDocs (fetched through describe_node).
     const nodeCatalogue = await getAINodesCompactList();
     const instructions = `You help users build tailrmade projects. tailrmade is a node-based app builder combining pre-made nodes with custom JavaScript and HTML. Answer questions or edit projects as requested.
 

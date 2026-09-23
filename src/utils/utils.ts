@@ -1244,12 +1244,6 @@ export function useIsSmallScreen(): boolean {
   return useMediaQuery(theme.breakpoints.down('sm'));
 }
 
-export const wrapDownloadLink = (URL: string, text = '') => {
-  return `<a style="color:#E154BB;text-decoration:none;" href="${URL}" target="_blank">${
-    text || URL
-  }</a>`;
-};
-
 /** True for the `data:image/...;base64,...` strings the Image sockets carry. */
 export const isImageDataURL = (value: unknown): value is string =>
   typeof value === 'string' && /^data:image\/[a-z0-9.+-]+;base64,/i.test(value);

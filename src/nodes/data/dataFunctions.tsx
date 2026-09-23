@@ -220,7 +220,7 @@ export class CustomFunction extends PPNode {
     return 'Run a custom JavaScript function. Function parameters become input sockets.';
   }
 
-  public getAIDocs(): string {
+  public getDocs(): string {
     return `The Code input defines a JavaScript function whose parameters become
 input sockets. Set Code before configuring or connecting those sockets because
 they do not exist until the code defines them.

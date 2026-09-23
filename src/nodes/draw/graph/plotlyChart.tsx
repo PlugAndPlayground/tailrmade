@@ -37,7 +37,7 @@ export class PlotlyChart extends HybridNode2 {
   public getDefaultNodeHeight(): number {
     return 400;
   }
-  public getAIDocs(): string {
+  public getDocs(): string {
     return `Preferred chart node. Connect "ReactUI" to a UI surface.
 "Traces" accepts an array of Plotly trace objects. Examples:
 Line: [{"type":"scatter","mode":"lines+markers","x":["Jan","Feb"],"y":[10,15]}]

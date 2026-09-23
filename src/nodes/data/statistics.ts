@@ -35,7 +35,7 @@ export class Statistics extends PPNode {
   public getTags(): string[] {
     return ['Data', 'Analytics'].concat(super.getTags());
   }
-  public getAIDocs(): string {
+  public getDocs(): string {
     return `Use this node for descriptive statistics instead of main-thread custom code.
 Connect a numeric array to "Values". "Sample" selects sample variance (n-1);
 otherwise population variance (n) is used. The library loads inside a worker.

@@ -2027,16 +2027,12 @@ ${Math.round(bounds.minX)}, ${Math.round(
     return '';
   }
 
-  // displayed in the info tab and can contain HTML
-  // not visible when searching nodes
-  public getAdditionalDescription(): string {
-    return '';
-  }
-
-  // Markdown documentation for the integrated AI agent (never shown to users).
-  // Fetched on demand via the describe_node MCP tool; keep getDescription()
-  // short and user-facing, and put agent-relevant usage detail here.
-  public getAIDocs(): string {
+  // The full documentation for this node, as markdown, written once for both
+  // audiences: shown in the inspector's info tab (collapsed behind "How it
+  // works") and fetched by the AI agent on demand via the describe_node MCP tool.
+  // Anything only the agent should see goes under a trailing AGENT_DOCS_HEADING
+  // section, which the inspector strips.
+  public getDocs(): string {
     return '';
   }
 

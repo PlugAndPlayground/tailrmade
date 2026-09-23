@@ -21,8 +21,23 @@ export class WebSocketNode extends PPNode {
     return 'Send and receive live data over one WebSocket connection. Each received message updates Content and runs downstream nodes.';
   }
 
-  public getAdditionalDescription(): string {
-    return 'Enter a ws:// or wss:// URL (use wss:// on HTTPS pages). The Send trigger sends the current Message; by default it fires when its input increases, or when clicked. Ordinary node execution does not send. Text and binary data are sent directly; other values are JSON encoded. Messages wait for the connection to open and are discarded on disconnect. Received JSON is parsed automatically; other text stays as text and binary messages use ArrayBuffer. Disable Enabled to disconnect. After a connection closes, execute the node again to reconnect. Content keeps the latest message until the URL changes or the node is disabled.';
+  public getDocs(): string {
+    return `Enter a ws:// or wss:// URL - use wss:// on HTTPS pages.
+
+## Sending
+The "Send" trigger sends the current "Message". By default it fires when its
+input increases, or when clicked; ordinary node execution does not send.
+Text and binary data are sent directly, other values are JSON encoded.
+Messages wait for the connection to open and are discarded on disconnect.
+
+## Receiving
+Received JSON is parsed automatically, other text stays as text, and binary
+messages arrive as an ArrayBuffer. "Content" keeps the latest message until
+the URL changes or the node is disabled.
+
+## Connection
+Disable "Enabled" to disconnect. After a connection closes, execute the node
+again to reconnect.`;
   }
 
   public getTags(): string[] {
