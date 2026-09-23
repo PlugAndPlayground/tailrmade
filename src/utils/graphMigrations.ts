@@ -19,7 +19,7 @@ import {
   surfaceRadioGroupSocketName,
   surfaceRouteSocketName,
 } from './constants_shared';
-import { INHERIT_COLOR } from './themeColors';
+import { INHERIT_COLOR, isTransparentColor } from './themeColors';
 // a standalone, import-free utility (safe under this module's isolation
 // discipline - see note below) that fixes up pre-v2 widthMode/heightMode
 // widget props; legacy layouts.default trees may still carry that format
@@ -36,7 +36,7 @@ import { migrateLegacyMentions } from '../text/tokens';
 import { migrateStaticTextItemsInTree } from '../text/migrations';
 import { migrateLegacyTextNodes } from '../text/nodeMigrations';
 
-export const GRAPH_DATA_VERSION = 6;
+export const GRAPH_DATA_VERSION = 7;
 const LEGACY_GRAPH_DATA_VERSION = 0.1;
 
 type GraphMigration = {
@@ -922,6 +922,73 @@ function migrateTextSystemV5ToV6(graphData: SerializedGraph): SerializedGraph {
   );
 }
 
+function migrateRootTextColorInTree(
+  tree: Record<string, any>,
+): Record<string, any> {
+  const item = tree[RootName];
+  const props = item?.props;
+  if (
+    typeof props !== 'object' ||
+    props === null ||
+    !isExactColor(props.color, LEGACY_CONTAINER_TEXT)
+  ) {
+    return tree;
+  }
+  return {
+    ...tree,
+    [RootName]: { ...item, props: { ...props, color: INHERIT_COLOR } },
+  };
+}
+
+const LEGACY_WIDGET_TEXT = { r: 255, g: 255, b: 255, a: 1 };
+const LEGACY_SOCKET_WIDGET_BACKGROUND = { r: 9, g: 13, b: 26, a: 1 };
+const LEGACY_CONTROL_MIN_HEIGHT = '36px';
+const UNSET_MIN_HEIGHT = 'unset';
+
+function migrateWidgetDefaultsInTree(
+  tree: Record<string, any>,
+): Record<string, any> {
+  const migrated: Record<string, any> = {};
+  Object.entries(tree).forEach(([key, item]) => {
+    const props = item?.props;
+    if (
+      item?.type?.resolvedName !== DynamicWidgetName ||
+      typeof props !== 'object' ||
+      props === null
+    ) {
+      migrated[key] = item;
+      return;
+    }
+    const nextProps: Record<string, any> = { ...props };
+    let changed = false;
+    if (isExactColor(props.background, LEGACY_SOCKET_WIDGET_BACKGROUND)) {
+      nextProps.background = { r: 0, g: 0, b: 0, a: 0 };
+      changed = true;
+    }
+    if (
+      isExactColor(nextProps.color, LEGACY_WIDGET_TEXT) &&
+      isTransparentColor(nextProps.background)
+    ) {
+      nextProps.color = INHERIT_COLOR;
+      changed = true;
+    }
+    if (props.minHeight === LEGACY_CONTROL_MIN_HEIGHT) {
+      nextProps.minHeight = UNSET_MIN_HEIGHT;
+      changed = true;
+    }
+    migrated[key] = changed ? { ...item, props: nextProps } : item;
+  });
+  return migrated;
+}
+
+function migrateSurfaceDefaultsV6ToV7(
+  graphData: SerializedGraph,
+): SerializedGraph {
+  return migrateSurfaceTrees(graphData, 7, (tree) =>
+    migrateWidgetDefaultsInTree(migrateRootTextColorInTree(tree)),
+  );
+}
+
 const GRAPH_MIGRATIONS: GraphMigration[] = [
   {
     fromVersion: LEGACY_GRAPH_DATA_VERSION,
@@ -947,6 +1014,11 @@ const GRAPH_MIGRATIONS: GraphMigration[] = [
     fromVersion: 5,
     toVersion: 6,
     migrate: migrateTextSystemV5ToV6,
+  },
+  {
+    fromVersion: 6,
+    toVersion: 7,
+    migrate: migrateSurfaceDefaultsV6ToV7,
   },
 ];
 

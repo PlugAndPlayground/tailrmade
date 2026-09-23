@@ -5,15 +5,20 @@
 //
 // Keep this module free of React and node-class imports (like surfaceTree.ts)
 // so it stays importable from a node/jest environment.
-import { TRgba } from '../../utils/color';
-import { MAIN_COLOR, UNSET_VALUE } from '../../utils/constants';
+import { UNSET_VALUE } from '../../utils/constants';
 import {
   containerName,
   DynamicWidgetName,
   RootName,
 } from '../../utils/constants_shared';
 import { normalizeDimensionProps } from '../../utils/cssDimensions';
-import { INHERIT_COLOR } from '../../utils/themeColors';
+import { INHERIT_COLOR, TRANSPARENT_COLOR } from '../../utils/themeColors';
+import {
+  CONTAINER_EMPHASES,
+  ContainerEmphasis,
+  DEFAULT_CONTAINER_EMPHASIS,
+  isContainerEmphasis,
+} from '../../utils/theme/emphasis';
 import {
   dynamicWidgetDefaultProps,
   rootProps,
@@ -34,21 +39,8 @@ import {
 // must match Container.craft.props (getDefaultWidgetLayoutValue() in
 // widgetLayoutType.tsx) - kept as a plain data literal here rather than
 // importing that module, which pulls in React (WidgetLayoutWidget).
-// Exception: mobileBehavior deliberately diverges, see the inline comment.
-function getDefaultContainerBackground(): Record<
-  'r' | 'g' | 'b' | 'a',
-  number
-> {
-  const tintedBackground = TRgba.fromString(MAIN_COLOR)
-    .darken(0.4)
-    .setAlpha(0.2);
-  return {
-    r: tintedBackground.r,
-    g: tintedBackground.g,
-    b: tintedBackground.b,
-    a: tintedBackground.a,
-  };
-}
+// Exceptions: mobileBehavior and background deliberately diverge, see the
+// inline comments.
 
 // mirrors surfaceSync.ts's getElementIdForNode/NODE_ELEMENT_PREFIX - not
 // imported from there directly because surfaceSync.ts's own imports (Socket/
@@ -83,21 +75,14 @@ const containerDefaultPropsForSpec = {
   height: 'auto',
   padding: [0, 0, 0, 0],
   minWidth: '80px',
-  minHeight: '80px',
+  minHeight: UNSET_VALUE,
   maxWidth: UNSET_VALUE,
   maxHeight: UNSET_VALUE,
   gap: 0,
-  background: getDefaultContainerBackground(),
+  background: TRANSPARENT_COLOR,
   color: INHERIT_COLOR,
-  // DELIBERATE divergence from the editor default ('row' in
-  // getDefaultWidgetLayoutValue): AI-built row containers stack vertically
-  // on narrow dashboards by default (mobile-first), which is almost always
-  // what a generated layout wants. Safe because compileSurfaceSpec writes
-  // every default explicitly into the compiled tree, and
-  // decompileSurfaceTree diffs against THIS object - an editor-built 'row'
-  // container decompiles to an explicit mobileBehavior:'row', so
-  // inspect -> set round-trips stay faithful.
   mobileBehavior: 'column',
+  emphasis: DEFAULT_CONTAINER_EMPHASIS,
   customStyles: {},
 };
 
@@ -126,6 +111,9 @@ export interface ContainerSpecItem extends SpecItemIdentity {
   // 'column' (default) stacks the children vertically, 'wrap' lets them
   // wrap, 'row' keeps them side by side. No effect on 'column' containers.
   mobileBehavior?: 'row' | 'column' | 'wrap';
+  // how much the container stands out: 'subtle' tints it with the theme's
+  // text color, 'strong' makes it a card. Follows light/dark on its own.
+  emphasis?: ContainerEmphasis;
   // advanced passthrough merged last into the compiled item's props - rarely
   // needed, only for props not otherwise exposed by this spec
   props?: Record<string, unknown>;
@@ -507,6 +495,15 @@ export function compileSurfaceSpec(
     if (item.mobileBehavior !== undefined) {
       overrides.mobileBehavior = item.mobileBehavior;
     }
+    if (item.emphasis !== undefined) {
+      if (isContainerEmphasis(item.emphasis)) {
+        overrides.emphasis = item.emphasis;
+      } else {
+        warnings.push(
+          `container "${id}": "emphasis" must be ${CONTAINER_EMPHASES.join(' | ')}, so ${JSON.stringify(item.emphasis)} was ignored.`,
+        );
+      }
+    }
 
     const props = normalizeDimensionProps(
       { ...defaults, ...overrides, ...(item.props ?? {}) },
@@ -737,6 +734,7 @@ export function decompileSurfaceTree(
       'alignItems',
       'justifyContent',
       'mobileBehavior',
+      'emphasis',
     ]);
 
     const result: ContainerSpecItem = {
@@ -763,6 +761,9 @@ export function decompileSurfaceTree(
       result.mobileBehavior = diffed.mobileBehavior as
         'row' | 'column' | 'wrap';
     }
+    if (diffed.emphasis !== undefined) {
+      result.emphasis = diffed.emphasis as ContainerEmphasis;
+    }
     const extras = collectExtraProps(props, defaults, [
       'flexDirection', // handled as `direction`
       'gap',
@@ -773,6 +774,7 @@ export function decompileSurfaceTree(
       'alignItems',
       'justifyContent',
       'mobileBehavior',
+      'emphasis',
     ]);
     if (extras) result.props = extras;
     return result;

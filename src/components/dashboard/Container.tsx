@@ -14,6 +14,7 @@ import {
   DimensionsSection,
   ColorSection,
   CustomCSSSection,
+  EmphasisSection,
   UIPresetSection,
 } from './SettingsControls';
 import {
@@ -30,7 +31,16 @@ import {
 import { resolveCustomStylesForPreviewWidth } from './viewState';
 import { getContainerDashboardIcon } from './dashboardIcons';
 import { RootName, containerName } from '../../utils/constants_shared';
-import { ColorSetting, colorSettingToCss } from '../../utils/themeColors';
+import {
+  ColorSetting,
+  colorSettingToCss,
+  isTransparentColor,
+} from '../../utils/themeColors';
+import {
+  ContainerEmphasis,
+  containerEmphasisSx,
+  DEFAULT_CONTAINER_EMPHASIS,
+} from '../../utils/theme/emphasis';
 
 const ROOT_PRESET_MAX_WIDTH: Record<string, false | string> = {
   fullscreen: false,
@@ -50,20 +60,23 @@ type ContainerWidgetProps = {
   minWidth: string;
   minHeight: string;
   maxWidth:
-    | 'xs'
-    | 'sm'
-    | 'md'
-    | 'lg'
-    | 'xl'
-    | false
-    | typeof UNSET_VALUE
-    | string;
+    'xs' | 'sm' | 'md' | 'lg' | 'xl' | false | typeof UNSET_VALUE | string;
   maxHeight: string;
   mobileBehavior: MobileBehavior;
+  emphasis: ContainerEmphasis;
   customStyles: Record<string, any>;
 };
 
-const defaultProps: ContainerWidgetProps = getDefaultWidgetLayoutValue();
+const EMPTY_CONTAINER_EDIT_MIN_HEIGHT = '80px';
+
+const hasOwnMinHeight = (minHeight: string | undefined): boolean =>
+  !!minHeight && minHeight !== UNSET_VALUE && minHeight !== 'auto';
+
+const defaultProps: ContainerWidgetProps = {
+  ...getDefaultWidgetLayoutValue(),
+  minHeight: UNSET_VALUE,
+  emphasis: DEFAULT_CONTAINER_EMPHASIS,
+};
 // craft fills missing serialized props from Container.craft.props; the
 // SurfaceRenderer needs the same defaults when rendering without craft
 export const containerDefaultProps = defaultProps;
@@ -117,6 +130,7 @@ export const ContainerView = (viewProps: ContainerViewProps) => {
     maxWidth,
     maxHeight,
     mobileBehavior,
+    emphasis,
     customStyles = {},
   } = viewProps;
 
@@ -140,11 +154,21 @@ export const ContainerView = (viewProps: ContainerViewProps) => {
   );
 
   const gapValue = isEditMode ? Math.max(editPadding, gap) : gap;
+  const isEmptyWhileEditing =
+    isEditMode && React.Children.count(children) === 0;
+  const effectiveMinHeight =
+    isEmptyWhileEditing && !hasOwnMinHeight(minHeight)
+      ? EMPTY_CONTAINER_EDIT_MIN_HEIGHT
+      : minHeight;
   const rootMaxWidth = getRootMaxWidth(maxWidth);
   // both slots can hold the 'inherit' keyword instead of an rgba object, so
   // a container can defer to the app theme rather than naming a color
   const backgroundCss = colorSettingToCss(background);
   const colorCss = colorSettingToCss(color);
+  const emphasisSx = containerEmphasisSx(
+    emphasis,
+    !isTransparentColor(background),
+  );
 
   // Apply minimum padding values when in edit mode
   const paddingValues = isEditMode
@@ -199,11 +223,12 @@ export const ContainerView = (viewProps: ContainerViewProps) => {
         alignItems,
         gap: `${gapValue}px`,
         background: backgroundCss,
+        ...emphasisSx,
         color: colorCss,
         padding: `${paddingValues[0]}px ${paddingValues[1]}px ${paddingValues[2]}px ${paddingValues[3]}px`,
         minWidth: minWidth || UNSET_VALUE,
         maxWidth: maxWidth || UNSET_VALUE,
-        minHeight: minHeight || UNSET_VALUE,
+        minHeight: effectiveMinHeight || UNSET_VALUE,
         maxHeight: maxHeight || UNSET_VALUE,
         flexGrow: shouldFillMainAxis ? 1 : 0,
         flexShrink: shouldFillMainAxis ? 1 : 0,
@@ -295,6 +320,7 @@ const ContainerSettings = () => {
       gap={props.gap}
       background={props.background}
       mobileBehavior={props.mobileBehavior}
+      emphasis={props.emphasis}
       minWidth={props.minWidth}
       minHeight={props.minHeight}
       maxWidth={props.maxWidth}
@@ -381,6 +407,7 @@ interface ChildContainerSettingsProps {
   gap: number;
   background: Record<'r' | 'g' | 'b' | 'a', number>;
   mobileBehavior: MobileBehavior;
+  emphasis: ContainerEmphasis;
   minWidth: string;
   minHeight: string;
   maxWidth: string;
@@ -404,6 +431,7 @@ const ChildContainerSettings: React.FC<ChildContainerSettingsProps> = ({
       />
       <DimensionsSection setProp={setProp} props={props} />
       <ColorSection setProp={setProp} props={props} />
+      <EmphasisSection setProp={setProp} props={props} />
       <CustomCSSSection setProp={setProp} props={props} />
     </Stack>
   );

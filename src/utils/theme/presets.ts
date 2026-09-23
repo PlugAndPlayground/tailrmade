@@ -4,7 +4,6 @@ import {
   ColorTokens,
   COLOR_ROLES,
   Density,
-  Elevation,
   InputVariant,
   ThemeMode,
   ThemeTokens,
@@ -35,7 +34,6 @@ export type ThemePreset = {
     radius: number;
     density: Density;
     spacingUnit: number;
-    elevation: Elevation;
   };
   variants: {
     button: ButtonVariant;
@@ -54,10 +52,6 @@ export const PRESETS: ThemePreset[] = [
   neon as ThemePreset,
 ];
 
-// The preset a document falls back to when its presetId is missing or unknown
-// (a document authored against a preset we later renamed, say). It reproduces
-// the look Tailrmade shipped before theming existed, so an untouched app is
-// unchanged by the theme layer.
 export const DEFAULT_PRESET_ID = 'tailrmade';
 
 const presetsById = new Map(PRESETS.map((preset) => [preset.id, preset]));
@@ -91,7 +85,6 @@ export const presetToTokens = (
     radius: preset.geometry.radius,
     density: preset.geometry.density,
     spacingUnit: preset.geometry.spacingUnit,
-    elevation: preset.geometry.elevation,
     buttonVariant: preset.variants.button,
     inputVariant: preset.variants.input,
   };

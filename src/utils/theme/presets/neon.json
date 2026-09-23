@@ -35,6 +35,13 @@
     "fontFamilyMono": "JetBrains Mono",
     "fontSizeScalar": 1
   },
-  "geometry": { "radius": 20, "density": "S", "spacingUnit": 8, "elevation": "raised" },
-  "variants": { "button": "contained", "input": "filled" }
+  "geometry": {
+    "radius": 20,
+    "density": "S",
+    "spacingUnit": 8
+  },
+  "variants": {
+    "button": "contained",
+    "input": "filled"
+  }
 }

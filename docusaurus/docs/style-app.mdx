@@ -72,17 +72,47 @@ only warns - low contrast is allowed if you want it.
   load at runtime; fully offline viewers fall back to the stack's fallback
   family.
 - **fontSizeScalar** - a multiplier on the whole type scale, not an absolute
-  size. Only text scales; control heights and icons do not.
+  size. Only text scales; control heights and icons do not. It multiplies the
+  fluid sizes below too, so the whole scale moves together.
 - **radius** - corner rounding.
 - **density (controls)** - the geometry of a _control_: height, inner padding,
   icon size. `XS` through `XL`.
 - **spacingUnit (layout)** - the geometry of _layout_: gaps, margins, surface
   padding. Independent of density on purpose - a compact form inside a generous
   card is a legitimate design.
-- **elevation** - `none`, `subtle` or `raised`. A character, not a shadow ramp.
 - **Default variants** - the shape every button (`contained` / `outlined` /
   `text`) and input (`outlined` / `filled` / `standard`) takes unless something
   overrides it.
+
+## Text that fits the screen it is on
+
+Text widgets pick a **variant** rather than a pixel size, and the big ones are
+**fluid**: they shrink on a narrow app and grow on a wide one.
+
+| Variant                          | Size                    |
+| -------------------------------- | ----------------------- |
+| `display`                        | 32px narrow → 48px wide |
+| `stat`                           | 28 → 40                 |
+| `h1`                             | 26 → 32                 |
+| `h2`                             | 20 → 24                 |
+| `h3`, `body`, `caption`, `label` | one size, always        |
+
+The ends are reached at a **360px** app and a **1024px** app; in between the
+size moves smoothly, and outside it holds.
+
+This measures the _app's_ width, not the browser window - so the device preview
+shrinks headings exactly as a real phone would, and an embedded surface in a
+narrow column gets narrow-column headings even on a big screen.
+
+Body, caption and label never move. Body text stays at 16px, which is the size
+below which iOS zooms in on a tapped field.
+
+:::tip
+Do not reach for a smaller variant to make a heading fit a phone - that is what
+fluid sizing is for. Pick the variant that matches the heading's _job_.
+:::
+
+Setting a font size by hand still wins over all of this.
 
 ## Overrides and resetting
 
@@ -96,6 +126,75 @@ listing every changed role, with:
 - **Reset all** to drop every override at once
 
 An overridden row is also marked individually, with its own reset button.
+
+## Change the theme while the app runs
+
+Everything above is set once, in the App tab, and saved with the app. To let
+the app itself change its look - a preset switcher your viewers can use, a dark
+mode button, a brand color that comes from a database - add a **Theme** node.
+
+The node has two dropdowns and one JSON socket:
+
+- **Preset** - one of the presets, or _Keep app setting_ to leave the saved
+  preset alone
+- **Mode** - `light`, `dark`, `system`, or _Keep app setting_
+- **Overrides** - single values layered on top of the preset
+
+Wire a dropdown widget into **Preset** and you have a working theme switcher.
+
+:::info
+The Theme node changes the theme **for the current session only**. It does not
+edit what is saved in the App tab, and a reload returns to the saved theme.
+That is deliberate: the app paints with its saved theme on the first frame, so
+nothing flashes unthemed while the graph is still starting up.
+:::
+
+### Overriding single values
+
+The **Overrides** socket takes a JSON object whose keys are token names. There
+is no wrapper object - write the token directly:
+
+```json
+{
+  "primary": "#ff0055",
+  "radius": 12,
+  "density": "S",
+  "byMode": {
+    "dark": { "background.paper": "#121212" },
+    "light": { "background.paper": "#ffffff" }
+  }
+}
+```
+
+Top-level keys apply in **both** modes. Colors under `byMode` apply in that
+mode only - you can also write `"light": { ... }` / `"dark": { ... }` at the
+top level, which means the same thing.
+
+:::tip
+Use `byMode` for anything that should keep reacting to the light/dark toggle. A
+color pinned at the top level is fixed in both modes, which makes the toggle a
+no-op for that role.
+:::
+
+The keys are the roles and values from the sections above:
+
+| Group      | Keys                                                                                                                                                 |
+| ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Colors     | `primary`, `secondary`, `background.default`, `background.paper`, `text.primary`, `text.secondary`, `divider`, `error`, `warning`, `info`, `success` |
+| Typography | `fontFamily`, `fontFamilyMono`, `fontSizeScalar`                                                                                                     |
+| Geometry   | `radius`, `density` (`XS`-`XL`), `spacingUnit`                                                                                                       |
+| Variants   | `buttonVariant` (`contained` / `outlined` / `text`), `inputVariant` (`outlined` / `filled` / `standard`)                                             |
+
+Anything the node does not recognise - a misspelled key, a value of the wrong
+type - is **not applied**. The node turns yellow and says which key it dropped
+and what it expected, and the same list comes out of the node's **Warnings**
+output together with any contrast warnings. The **Theme** output carries the
+fully resolved theme, so you can feed the values that are actually in force
+into the rest of the graph.
+
+Clearing the node's inputs again - both dropdowns back to _Keep app setting_
+and an empty JSON - hands the app back to its saved theme. So does deleting the
+node. With more than one Theme node in a graph, the last one to run wins.
 
 ## How widgets pick up the theme
 
@@ -120,6 +219,28 @@ Everything above is app-wide. Individual containers can go further.
 
 In addition to _Direction, Padding, Alignment, Width, Height, Background color,_
 you can apply custom CSS styling to widget containers.
+
+### Emphasis
+
+To make a container stand out - a group of related controls, a card for a
+result - set its **Emphasis** rather than a background color:
+
+- **None** - the container paints nothing of its own
+- **Subtle** - a faint tint of the theme's text color: slightly darker on a
+  light app, slightly lighter on a dark one
+- **Strong** - a card: the theme's paper color, a divider-colored border and a
+  soft shadow
+
+Both are built from the theme, so they keep working when the app switches
+between light and dark, or to another preset. A background color you pick
+yourself is only right in one mode. Corners follow the theme's radius.
+
+New containers from the toolbox start as **Subtle**.
+
+:::tip
+A container that has its own background color keeps it. Emphasis then only adds
+the corners, and for **Strong** the border and shadow.
+:::
 
 ### Custom CSS Properties
 
@@ -179,8 +300,9 @@ From weakest to strongest:
 
 1. **Preset** - the look you started from
 2. **Theme override** - a role you changed by hand in the App theme box
-3. **Container / widget setting** - a color or variant set on one element
-4. **Custom CSS** - the last word for that container
+3. **Theme node** - what the running app pushed, for this session only
+4. **Container / widget setting** - a color or variant set on one element
+5. **Custom CSS** - the last word for that container
 
-Anything left on **Theme** at step 3 falls through to the layers above it, which
+Anything left on **Theme** at step 4 falls through to the layers above it, which
 is what makes a preset switch reach the whole app.

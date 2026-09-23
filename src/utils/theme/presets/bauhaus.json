@@ -5,13 +5,13 @@
   "roles": {
     "light": {
       "primary": "#1B4CD8",
-      "secondary": "#D81B2E",
+      "secondary": "#CC192B",
       "background.default": "#F2EFE7",
       "background.paper": "#FFFFFF",
       "text.primary": "#12100D",
       "text.secondary": "rgba(18, 16, 13, 0.68)",
       "divider": "rgba(18, 16, 13, 0.24)",
-      "error": "#D81B2E",
+      "error": "#CC192B",
       "warning": "#B8860B",
       "info": "#1B4CD8",
       "success": "#1F7A3D"
@@ -35,6 +35,13 @@
     "fontFamilyMono": "Roboto Mono",
     "fontSizeScalar": 1
   },
-  "geometry": { "radius": 0, "density": "M", "spacingUnit": 12, "elevation": "none" },
-  "variants": { "button": "contained", "input": "filled" }
+  "geometry": {
+    "radius": 0,
+    "density": "M",
+    "spacingUnit": 12
+  },
+  "variants": {
+    "button": "contained",
+    "input": "filled"
+  }
 }

@@ -38,8 +38,7 @@
   "geometry": {
     "radius": 16,
     "density": "L",
-    "spacingUnit": 12,
-    "elevation": "raised"
+    "spacingUnit": 12
   },
   "variants": {
     "button": "contained",

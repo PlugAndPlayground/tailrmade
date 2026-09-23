@@ -9,6 +9,7 @@ import {
   TextField,
   ToggleButton,
   ToggleButtonGroup,
+  Tooltip,
   Typography,
 } from '@mui/material';
 import { TRgba } from '../../utils/color';
@@ -850,6 +851,40 @@ export const ColorSection: React.FC<SettingsSectionProps> = ({
       controlBackground={false}
     />
   </>
+);
+
+export const EmphasisSection: React.FC<SettingsSectionProps> = ({
+  setProp,
+  props,
+}) => (
+  <AlignmentControl
+    value={props.emphasis ?? 'none'}
+    onChange={(value) => setProp((p: any) => (p.emphasis = value))}
+    label="Emphasis"
+    options={[
+      <ToggleButton size="small" value="none" key="none">
+        None
+      </ToggleButton>,
+      <Tooltip
+        key="subtle"
+        title="A faint tint of the theme's text color - darker on a light app, lighter on a dark one"
+        disableInteractive
+      >
+        <ToggleButton size="small" value="subtle">
+          Subtle
+        </ToggleButton>
+      </Tooltip>,
+      <Tooltip
+        key="strong"
+        title="A card: the theme's paper color, a divider border and a soft shadow"
+        disableInteractive
+      >
+        <ToggleButton size="small" value="strong">
+          Strong
+        </ToggleButton>
+      </Tooltip>,
+    ]}
+  />
 );
 
 export const CustomCSSSection: React.FC<SettingsSectionProps> = ({

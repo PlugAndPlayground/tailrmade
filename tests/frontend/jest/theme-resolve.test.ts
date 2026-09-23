@@ -1,8 +1,11 @@
 import {
+  clearAllDocumentOverrides,
   clearDocumentOverride,
+  isEmptyThemeDocument,
   parseThemeDocument,
   serializeThemeDocument,
   setDocumentMode,
+  setDocumentModeOverride,
   setDocumentOverride,
   ThemeDocument,
   themeDocumentToLayer,
@@ -192,6 +195,40 @@ describe('contrast warnings', () => {
     expect(flagged[0].ratio).toBeLessThan(4.5);
   });
 
+  it('flags a brand color that only works as a fill', () => {
+    const resolved = resolveTheme(
+      [
+        {
+          source: 'saved',
+          mode: 'dark',
+          tokens: {
+            primary: '#3C54AB',
+            secondary: '#3C54AB',
+            'background.default': '#090D1A',
+            'background.paper': '#1E2A56',
+          },
+        },
+      ],
+      dark,
+    );
+    expect(
+      resolved.warnings.map((warning) => `${warning.role}/${warning.against}`),
+    ).toEqual(
+      expect.arrayContaining([
+        'primary/background.default',
+        'primary/background.paper',
+        'secondary/background.default',
+        'secondary/background.paper',
+      ]),
+    );
+    expect(
+      resolved.warnings.find(
+        (warning) =>
+          warning.role === 'primary' && warning.against === 'background.paper',
+      )!.ratio,
+    ).toBe(2);
+  });
+
   it('measures a translucent role against what it sits on', () => {
     // rgba text has no contrast of its own - measured raw it reports nonsense
     const resolved = resolveTheme(
@@ -312,6 +349,117 @@ describe('authored color values round-trip through the color picker', () => {
   });
 });
 
+describe('per-mode color overrides', () => {
+  const resolveIn = (document: ThemeDocument, mode: ThemeMode) =>
+    resolveTheme([{ ...themeDocumentToLayer(document), mode }], light);
+
+  it('applies in its own mode and leaves the other on the preset', () => {
+    const document = setDocumentModeOverride(
+      {},
+      'dark',
+      'background.paper',
+      '#123456',
+    );
+    expect(resolveIn(document, 'dark').tokens['background.paper']).toBe(
+      '#123456',
+    );
+    expect(resolveIn(document, 'light').tokens['background.paper']).toBe(
+      getPreset(undefined).roles.light['background.paper'],
+    );
+  });
+
+  it('keeps the two modes independent', () => {
+    let document = setDocumentModeOverride({}, 'dark', 'primary', '#111111');
+    document = setDocumentModeOverride(document, 'light', 'primary', '#eeeeee');
+    expect(resolveIn(document, 'dark').tokens.primary).toBe('#111111');
+    expect(resolveIn(document, 'light').tokens.primary).toBe('#eeeeee');
+  });
+
+  it('reports the role as overridden, so the panel can show it', () => {
+    const document = setDocumentModeOverride({}, 'dark', 'primary', '#111111');
+    expect(resolveIn(document, 'dark').provenance.primary).toBe('saved');
+    // ...and not in the mode it was never set in
+    expect(resolveIn(document, 'light').provenance.primary).toBeUndefined();
+  });
+
+  it('a per-mode value replaces a mode-agnostic one for the same role', () => {
+    const document = setDocumentModeOverride(
+      setDocumentOverride({}, 'primary', '#999999'),
+      'dark',
+      'primary',
+      '#111111',
+    );
+    expect(document.override?.primary).toBeUndefined();
+    expect(resolveIn(document, 'dark').tokens.primary).toBe('#111111');
+    expect(resolveIn(document, 'light').tokens.primary).toBe(
+      getPreset(undefined).roles.light.primary,
+    );
+  });
+
+  it('pinning across both modes drops the per-mode value', () => {
+    const document = setDocumentOverride(
+      setDocumentModeOverride({}, 'dark', 'primary', '#111111'),
+      'primary',
+      '#999999',
+    );
+    expect(document.overrideByMode).toBeUndefined();
+    expect(resolveIn(document, 'dark').tokens.primary).toBe('#999999');
+    expect(resolveIn(document, 'light').tokens.primary).toBe('#999999');
+  });
+
+  it('reset clears the role in both modes and both shapes', () => {
+    let document = setDocumentModeOverride({}, 'dark', 'primary', '#111111');
+    document = setDocumentModeOverride(document, 'light', 'primary', '#eeeeee');
+    document = clearDocumentOverride(document, 'primary');
+    expect(document.overrideByMode).toBeUndefined();
+    expect(isEmptyThemeDocument(document)).toBe(true);
+  });
+
+  it('reset leaves other roles in the same mode alone', () => {
+    let document = setDocumentModeOverride({}, 'dark', 'primary', '#111111');
+    document = setDocumentModeOverride(document, 'dark', 'divider', '#222222');
+    document = clearDocumentOverride(document, 'primary');
+    expect(document.overrideByMode?.dark).toEqual({ divider: '#222222' });
+  });
+
+  it('reset all drops per-mode overrides too', () => {
+    const document = clearAllDocumentOverrides(
+      setDocumentModeOverride({}, 'dark', 'primary', '#111111'),
+    );
+    expect(isEmptyThemeDocument(document)).toBe(true);
+  });
+
+  it('a document with only per-mode overrides still serializes', () => {
+    const document = setDocumentModeOverride({}, 'dark', 'primary', '#111111');
+    expect(isEmptyThemeDocument(document)).toBe(false);
+    expect(serializeThemeDocument(document)).toBe(document);
+  });
+
+  it('round-trips through the tolerant parser', () => {
+    const document = setDocumentModeOverride({}, 'dark', 'primary', '#111111');
+    expect(parseThemeDocument(JSON.parse(JSON.stringify(document)))).toEqual(
+      document,
+    );
+  });
+
+  it('drops shape tokens and unknown roles from the per-mode shape', () => {
+    // a shape token has no mode to vary by - storing it would do nothing
+    const parsed = parseThemeDocument({
+      overrideByMode: {
+        dark: { primary: '#111111', radius: 8, 'not.a.role': '#000000' },
+        sideways: { primary: '#222222' },
+      },
+    });
+    expect(parsed.overrideByMode).toEqual({ dark: { primary: '#111111' } });
+  });
+
+  it('ignores a per-mode entry that is not an object', () => {
+    expect(
+      parseThemeDocument({ overrideByMode: { dark: 'nope' } }).overrideByMode,
+    ).toBeUndefined();
+  });
+});
+
 describe('presets are actually distinct', () => {
   // a preset set that only varies its palette produces apps that all feel the
   // same. Guard the non-color axes too, so a new preset has to commit to a
@@ -321,7 +469,6 @@ describe('presets are actually distinct', () => {
       preset.geometry.radius,
       preset.geometry.density,
       preset.geometry.spacingUnit,
-      preset.geometry.elevation,
       preset.variants.button,
       preset.variants.input,
     ].join('|');

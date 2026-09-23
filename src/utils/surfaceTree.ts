@@ -70,8 +70,8 @@ export const dynamicWidgetDefaultProps = {
   alignItems: 'stretch',
   justifyContent: 'flex-start',
   padding: [0, 0, 0, 0],
-  background: { r: 0, g: 0, b: 0, a: 1 },
-  color: { r: 255, g: 255, b: 255, a: 1 },
+  background: TRANSPARENT_BACKGROUND,
+  color: INHERIT_COLOR,
   width: '100%',
   height: 'auto',
   minWidth: '48px',
@@ -105,6 +105,7 @@ export const rootProps = {
   maxHeight: UNSET_VALUE,
   gap: 8,
   mobileBehavior: 'row',
+  emphasis: 'none',
   customStyles: {
     '@media (min-width: 601px) and (max-width: 900px)': {
       padding: '0px 16px',

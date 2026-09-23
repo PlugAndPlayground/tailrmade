@@ -29,12 +29,12 @@ import {
   ColorRole,
   DENSITIES,
   Density,
-  Elevation,
   ThemeTokens,
 } from '../../utils/theme/tokens';
 import {
   chooseThemeMode,
   chooseThemePreset,
+  overrideThemeColorForModeDebounced,
   overrideThemeToken,
   overrideThemeTokenDebounced,
   resetAllThemeTokens,
@@ -254,6 +254,38 @@ const NumberControl: React.FC<{
   </RoleRow>
 );
 
+type ColorScope = 'mode' | 'both';
+
+const ColorScopeControl: React.FC<{
+  scope: ColorScope;
+  onChange: (scope: ColorScope) => void;
+}> = ({ scope, onChange }) => (
+  <FormWrapper>
+    <StyledFormLabel>applies to</StyledFormLabel>
+    <ToggleButtonGroup
+      data-cy="theme-color-scope"
+      size="small"
+      exclusive
+      value={scope}
+      onChange={(_event, next) => next && onChange(next as ColorScope)}
+      sx={{ '& .MuiToggleButton-root': { px: 1, py: 0.25, fontSize: 11 } }}
+    >
+      <Tooltip
+        title="Edits change only the mode you are looking at, so the other mode keeps following the preset"
+        disableInteractive
+      >
+        <ToggleButton value="mode">this mode</ToggleButton>
+      </Tooltip>
+      <Tooltip
+        title="Edits pin the color in light AND dark - the mode toggle stops changing it"
+        disableInteractive
+      >
+        <ToggleButton value="both">both modes</ToggleButton>
+      </Tooltip>
+    </ToggleButtonGroup>
+  </FormWrapper>
+);
+
 /**
  * App-wide theme settings. Lives in the right drawer's App tab:
  * the theme is a property of the app, not of the surface being edited,
@@ -264,6 +296,8 @@ export const ThemeSettings: React.FC = () => {
   // subscribed so the panel re-renders on every write, including ones that
   // resolve to the same tokens (clearing an override back to the preset value)
   useThemeDocument();
+
+  const [colorScope, setColorScope] = React.useState<ColorScope>('mode');
 
   const overrides = listOverrides(resolved);
   const overriddenKeys = new Set(overrides.map((entry) => entry.key));
@@ -403,6 +437,7 @@ export const ThemeSettings: React.FC = () => {
         </Section>
 
         <Section title="Colors">
+          <ColorScopeControl scope={colorScope} onChange={setColorScope} />
           {COLOR_ROLES.map((role) => (
             <RoleRow
               key={role}
@@ -411,14 +446,17 @@ export const ThemeSettings: React.FC = () => {
               onReset={() => resetThemeToken(role)}
             >
               <ColorPickerComponent
-                // remounted when the resolved value changes from outside (a
-                // preset switch, a reset) - the picker holds its own state and
-                // deliberately does not sync from props, see its comment
-                key={`${role}-${tokens[role]}`}
+                key={`${role}-${resolved.mode}-${tokens[role]}`}
                 defaultColor={TRgba.fromString(tokens[role])}
                 showAlphaSlider
                 onChange={(color) =>
-                  overrideThemeTokenDebounced(role, color.toString())
+                  colorScope === 'mode'
+                    ? overrideThemeColorForModeDebounced(
+                        resolved.mode,
+                        role,
+                        color.toString(),
+                      )
+                    : overrideThemeTokenDebounced(role, color.toString())
                 }
               />
             </RoleRow>
@@ -485,14 +523,6 @@ export const ThemeSettings: React.FC = () => {
             overridden={isOverridden('spacingUnit')}
             onChange={(value) => overrideThemeToken('spacingUnit', value)}
             onReset={() => resetThemeToken('spacingUnit')}
-          />
-          <SelectControl<Elevation>
-            label="elevation"
-            value={tokens.elevation}
-            options={['none', 'subtle', 'raised'] as const}
-            overridden={isOverridden('elevation')}
-            onChange={(value) => overrideThemeToken('elevation', value)}
-            onReset={() => resetThemeToken('elevation')}
           />
         </Section>
 

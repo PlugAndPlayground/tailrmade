@@ -21,6 +21,7 @@ import { getNewDirection } from '../../utils/layoutableHelpers';
 import { useIsDashboardNarrow } from './hooks';
 import { UNSET_VALUE } from '../../utils/constants';
 import { AppThemeProvider } from './AppThemeProvider';
+import { appSurfaceSx } from '../../utils/theme';
 
 // ids of UI surface nodes currently being rendered up the React tree; used
 // to break render cycles between mutually embedded surfaces
@@ -248,14 +249,15 @@ export const SurfaceRenderer: React.FC<SurfaceRendererProps> = ({
     <AppThemeProvider>
       <Box
         data-cy="surface-renderer"
-        sx={{
+        sx={(theme) => ({
+          ...appSurfaceSx(theme),
           width: '100%',
           height: '100%',
           overflow: 'auto',
           // the text color everything inside inherits, as on the app's ground
           color: 'text.primary',
           pointerEvents: interactive ? 'auto' : 'none',
-        }}
+        })}
       >
         {renderItem(rootId, undefined)}
       </Box>

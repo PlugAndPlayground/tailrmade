@@ -574,6 +574,8 @@ export class WidgetButtonGroup extends WidgetSelectionBase {
 const switchDefaultData = false;
 const switchDefaultName = 'Switch';
 
+const MUI_SWITCH_HEIGHT = 38;
+
 export class WidgetSwitch extends WidgetHybridBase {
   public getName(): string {
     return 'Switch';
@@ -707,12 +709,17 @@ export class WidgetSwitch extends WidgetHybridBase {
               checked={props[initialValueName]}
               color="primary"
               onChange={handleChange}
-              sx={{
-                transform: props.inDashboard
-                  ? `scale(${1.4 * tokens.scale})`
-                  : `scale(${(node.nodeHeight / 60) * tokens.scale})`,
-                pointerEvents: props.disabled ? 'none' : undefined,
-              }}
+              sx={
+                props.inDashboard
+                  ? {
+                      zoom: tokens.controlHeight / MUI_SWITCH_HEIGHT,
+                      pointerEvents: props.disabled ? 'none' : undefined,
+                    }
+                  : {
+                      transform: `scale(${(node.nodeHeight / 60) * tokens.scale})`,
+                      pointerEvents: props.disabled ? 'none' : undefined,
+                    }
+              }
             />
             <Typography
               sx={{

@@ -6,8 +6,12 @@ import {
   isTransparentColor,
   TRANSPARENT_COLOR,
 } from '../../../src/utils/themeColors';
-import { rootProps } from '../../../src/utils/surfaceTree';
 import {
+  dynamicWidgetDefaultProps,
+  rootProps,
+} from '../../../src/utils/surfaceTree';
+import {
+  DynamicWidgetName,
   surfaceJsonSocketName,
   RootName,
 } from '../../../src/utils/constants_shared';
@@ -51,6 +55,16 @@ describe('surface color defaults', () => {
     // the app theme's background.default is what should show through
     expect(rootProps.background).toEqual({ r: 0, g: 0, b: 0, a: 0 });
     expect(rootProps.color).toBe(INHERIT_COLOR);
+  });
+
+  it('leaves a new widget deferring to the theme, like the root', () => {
+    expect(dynamicWidgetDefaultProps.background).toEqual({
+      r: 0,
+      g: 0,
+      b: 0,
+      a: 0,
+    });
+    expect(dynamicWidgetDefaultProps.color).toBe(INHERIT_COLOR);
   });
 
   it('renders an inherited color as the CSS keyword, not as black', () => {
@@ -172,6 +186,102 @@ describe('v4 -> v5 surface color migration', () => {
   });
 });
 
+describe('v6 -> v7 root text color migration', () => {
+  // the gap v4 -> v5 left: a ROOT holding the CONTAINER legacy default
+  const graphAtV6 = (tree: unknown) =>
+    ({
+      version: 6,
+      graphSettings: {},
+      overlay: {},
+      links: [],
+      nodes: [
+        {
+          socketArray: [
+            { name: surfaceJsonSocketName, data: JSON.stringify(tree) },
+          ],
+        },
+      ],
+    }) as any;
+
+  it('frees a root left dark by the v4 -> v5 gap', () => {
+    const migrated = migrateGraphDataOnLoad(
+      graphAtV6(
+        treeWithColors(
+          { r: 0, g: 0, b: 0, a: 0 },
+          { r: 51, g: 51, b: 51, a: 1 },
+          INHERIT_COLOR,
+        ),
+      ),
+    );
+    expect(treeOf(migrated)[RootName].props.color).toBe(INHERIT_COLOR);
+  });
+
+  it('frees it through the whole chain from an older graph', () => {
+    const migrated = migrateGraphDataOnLoad(
+      graphWith(
+        treeWithColors(
+          { r: 9, g: 13, b: 26, a: 1 },
+          { r: 51, g: 51, b: 51, a: 1 },
+          INHERIT_COLOR,
+        ),
+      ),
+    );
+    const tree = treeOf(migrated);
+    expect(tree[RootName].props.background).toEqual({ r: 0, g: 0, b: 0, a: 0 });
+    expect(tree[RootName].props.color).toBe(INHERIT_COLOR);
+  });
+
+  it('accepts the string-channel form of the legacy value', () => {
+    const migrated = migrateGraphDataOnLoad(
+      graphAtV6(
+        treeWithColors(
+          { r: 0, g: 0, b: 0, a: 0 },
+          { r: '51', g: '51', b: '51', a: '1' },
+          INHERIT_COLOR,
+        ),
+      ),
+    );
+    expect(treeOf(migrated)[RootName].props.color).toBe(INHERIT_COLOR);
+  });
+
+  it('never touches a root color the creator picked', () => {
+    const chosen = { r: 51, g: 51, b: 52, a: 1 };
+    const migrated = migrateGraphDataOnLoad(
+      graphAtV6(
+        treeWithColors({ r: 0, g: 0, b: 0, a: 0 }, chosen, INHERIT_COLOR),
+      ),
+    );
+    expect(treeOf(migrated)[RootName].props.color).toEqual(chosen);
+  });
+
+  it('leaves a child container alone', () => {
+    const childColor = { r: 51, g: 51, b: 51, a: 1 };
+    const migrated = migrateGraphDataOnLoad(
+      graphAtV6(
+        treeWithColors(
+          { r: 0, g: 0, b: 0, a: 0 },
+          { r: 51, g: 51, b: 51, a: 1 },
+          childColor,
+        ),
+      ),
+    );
+    expect(treeOf(migrated).child.props.color).toEqual(childColor);
+  });
+
+  it('leaves a root that already defers exactly as it is', () => {
+    const migrated = migrateGraphDataOnLoad(
+      graphAtV6(
+        treeWithColors(
+          { r: 0, g: 0, b: 0, a: 0 },
+          INHERIT_COLOR,
+          INHERIT_COLOR,
+        ),
+      ),
+    );
+    expect(treeOf(migrated)[RootName].props.color).toBe(INHERIT_COLOR);
+  });
+});
+
 describe('deferring to the theme', () => {
   it('treats a transparent background as deferred', () => {
     expect(isTransparentColor({ r: 0, g: 0, b: 0, a: 0 })).toBe(true);
@@ -183,5 +293,131 @@ describe('deferring to the theme', () => {
     // `background: inherit` would copy whatever the parent painted instead
     expect(isInheritColor(TRANSPARENT_COLOR)).toBe(false);
     expect(isTransparentColor(INHERIT_COLOR)).toBe(false);
+  });
+});
+
+describe('v6 -> v7 widget text color migration', () => {
+  const WHITE = { r: 255, g: 255, b: 255, a: 1 };
+  const widgetAtV6 = (
+    props: Record<string, unknown>,
+    resolvedName: string = DynamicWidgetName,
+  ) =>
+    ({
+      version: 6,
+      graphSettings: {},
+      overlay: {},
+      links: [],
+      nodes: [
+        {
+          socketArray: [
+            {
+              name: surfaceJsonSocketName,
+              data: JSON.stringify({
+                [RootName]: {
+                  type: { resolvedName: 'Container' },
+                  props: {
+                    background: TRANSPARENT_COLOR,
+                    color: INHERIT_COLOR,
+                  },
+                  nodes: ['widget'],
+                },
+                widget: {
+                  type: { resolvedName },
+                  props,
+                  nodes: [],
+                },
+              }),
+            },
+          ],
+        },
+      ],
+    }) as any;
+  const widgetColorAfterMigration = (props: Record<string, unknown>) =>
+    treeOf(migrateGraphDataOnLoad(widgetAtV6(props))).widget.props.color;
+
+  it('frees the white default on a transparent widget', () => {
+    expect(
+      widgetColorAfterMigration({
+        background: TRANSPARENT_COLOR,
+        color: WHITE,
+      }),
+    ).toBe(INHERIT_COLOR);
+  });
+
+  it('frees a socket widget from the dark card and white text', () => {
+    const migrated = treeOf(
+      migrateGraphDataOnLoad(
+        widgetAtV6({ background: { r: 9, g: 13, b: 26, a: 1 }, color: WHITE }),
+      ),
+    ).widget.props;
+    expect(migrated.background).toEqual(TRANSPARENT_COLOR);
+    expect(migrated.color).toBe(INHERIT_COLOR);
+  });
+
+  it('keeps white on a painted background, where it is readable', () => {
+    // a background the creator picked
+    const background = { r: 20, g: 40, b: 80, a: 1 };
+    expect(widgetColorAfterMigration({ background, color: WHITE })).toEqual(
+      WHITE,
+    );
+  });
+
+  it('never touches a text color the creator picked', () => {
+    const chosen = { r: 255, g: 255, b: 254, a: 1 };
+    expect(
+      widgetColorAfterMigration({
+        background: TRANSPARENT_COLOR,
+        color: chosen,
+      }),
+    ).toEqual(chosen);
+  });
+
+  it('leaves containers alone', () => {
+    const migrated = migrateGraphDataOnLoad(
+      widgetAtV6({ background: TRANSPARENT_COLOR, color: WHITE }, 'Container'),
+    );
+    expect(treeOf(migrated).widget.props.color).toEqual(WHITE);
+  });
+});
+
+describe('v6 -> v7 control min-height migration', () => {
+  const widgetMinHeightAfterMigration = (minHeight: string) =>
+    treeOf(
+      migrateGraphDataOnLoad({
+        version: 6,
+        graphSettings: {},
+        overlay: {},
+        links: [],
+        nodes: [
+          {
+            socketArray: [
+              {
+                name: surfaceJsonSocketName,
+                data: JSON.stringify({
+                  [RootName]: {
+                    type: { resolvedName: 'Container' },
+                    props: {},
+                    nodes: ['widget'],
+                  },
+                  widget: {
+                    type: { resolvedName: DynamicWidgetName },
+                    props: { minHeight },
+                    nodes: [],
+                  },
+                }),
+              },
+            ],
+          },
+        ],
+      } as any),
+    ).widget.props.minHeight;
+
+  it('lets a control follow the density instead of the old 36px floor', () => {
+    expect(widgetMinHeightAfterMigration('36px')).toBe('unset');
+  });
+
+  it('keeps any other min-height', () => {
+    expect(widgetMinHeightAfterMigration('48px')).toBe('48px');
+    expect(widgetMinHeightAfterMigration('37px')).toBe('37px');
   });
 });

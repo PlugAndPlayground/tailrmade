@@ -170,6 +170,9 @@ graph owns the layout and it can no longer be arranged by hand.
 - A container holds children in a row or column, with its own gap, padding,
   background, width, height, align and justify. The root is ALWAYS a vertical
   stack; nest a row container for side-by-side items.
+- A container's emphasis makes it stand out: 'subtle' is a faint tint,
+  'strong' a card with a border and shadow. Both follow light/dark and the
+  preset, so prefer them over a background color to group or highlight.
 - A row's mobile behaviour decides what it does on a narrow dashboard
   (< 600px): stack its children (the default), let them wrap, or keep them
   side by side.
@@ -180,8 +183,12 @@ graph owns the layout and it can no longer be arranged by hand.
 - Static text is Markdown. Its variant sets size, weight and line height and
   its tone a theme color, so text follows the app theme. It shows {{…}}
   literally - to show a value from the graph, use a Text node widget.
-- Keep the default dark theme when possible. If overriding it, set contrasting
-  root background and text colors.
+- Heading variants are fluid: display, h1, h2 and stat shrink on a narrow app
+  and grow on a wide one, so pick the variant for the heading's job rather
+  than a smaller one to fit a phone. body, caption, label and h3 hold one size.
+- Leave colors on Theme so the surface follows the app's preset and
+  light/dark mode; use a container's emphasis to group or highlight. A picked
+  background or text color is fixed, so it only reads well in one mode.
 
 ## Navigation and multi-view apps
 Switch surfaces with "Navigate to UI surface", which resolves a surface by its
@@ -209,13 +216,14 @@ set_default_surface.
 Each call replaces the layout; omitted props reset. Inspect first and include
 everything to keep. Omitted connected widgets are appended with a warning.
 - Container: {direction:'row'|'column', children:[...], gap?, padding?,
-  background?, width?, height?, align?, justify?, mobileBehavior?}. The root
-  must be a container with direction fixed to 'column'. mobileBehavior is
-  'column' | 'wrap' | 'row'.
+  background?, width?, height?, align?, justify?, mobileBehavior?,
+  emphasis?}. The root must be a container with direction fixed to 'column'.
+  mobileBehavior is 'column' | 'wrap' | 'row'. emphasis is
+  'none' | 'subtle' | 'strong'.
 - Static text: {text:'...', variant?, tone?, alignment?}. text is
   Markdown: # headings, - lists, > quotes, code blocks, **bold**, *italic*,
   \`code\`, [link](https://…), and [words]{.primary .nowrap} for a run's tone
-  or no-wrap; each line is a paragraph. variant: 'display'|'h1'|'h2'|'body'|'caption'|'label'|'stat';
+  or no-wrap; each line is a paragraph. variant: 'display'|'h1'|'h2'|'h3'|'body'|'caption'|'label'|'stat';
   tone: 'default'|'muted'|'primary'|'secondary'|'success'|'warning'|'error';
   alignment: 'left'|'center'|'right'|'justify'.
 - Graph widget: {widget:'<node_id>'} - a node with a ReactUI output;

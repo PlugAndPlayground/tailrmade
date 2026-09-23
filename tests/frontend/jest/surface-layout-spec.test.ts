@@ -14,6 +14,54 @@ import type { SerializedCraftTree } from '../../../src/utils/surfaceTree';
 import { normalizeTextProps } from '../../../src/text/model';
 
 describe('surfaceLayoutSpec', () => {
+  describe('container emphasis', () => {
+    const compileRow = (emphasis: unknown) =>
+      compileSurfaceSpec(
+        {
+          direction: 'column',
+          children: [
+            {
+              direction: 'row',
+              emphasis: emphasis as ContainerSpecItem['emphasis'],
+              children: [],
+            },
+          ],
+        },
+        new Set(),
+      );
+    const containerOf = (tree: SerializedCraftTree) =>
+      Object.entries(tree).find(
+        ([id, item]) =>
+          id !== RootName && item.type.resolvedName === containerName,
+      )![1];
+
+    it('round-trips through inspect -> set', () => {
+      const { tree, warnings } = compileRow('strong');
+      expect(warnings).toEqual([]);
+      expect(containerOf(tree).props.emphasis).toBe('strong');
+      const row = decompileSurfaceTree(tree).root
+        .children[0] as ContainerSpecItem;
+      expect(row.emphasis).toBe('strong');
+      // a first-class field, not an extra prop
+      expect(row.props?.emphasis).toBeUndefined();
+    });
+
+    it('leaves the default out of the decompiled spec', () => {
+      const row = decompileSurfaceTree(compileRow(undefined).tree).root
+        .children[0] as ContainerSpecItem;
+      expect(row.emphasis).toBeUndefined();
+    });
+
+    it('names a value it does not know rather than storing it', () => {
+      const { tree, warnings } = compileRow('loud');
+      expect(containerOf(tree).props.emphasis).toBe('none');
+      expect(warnings).toHaveLength(1);
+      expect(warnings[0]).toContain(
+        '"emphasis" must be none | subtle | strong',
+      );
+    });
+  });
+
   describe('compileSurfaceSpec dimensions', () => {
     // a numeric height compiled straight into the tree and then crashed the
     // dashboard on render with `height.endsWith is not a function`
