@@ -484,7 +484,7 @@ Parameter names become sockets and a link does not follow a renamed parameter â€
 
         // Add line number information if available
         if (worked.lineNumber) {
-          errorMessage += ` (line: ${worked.lineNumber - 2}`; //why -2? Its offset for some reason
+          errorMessage += ` (line: ${worked.lineNumber}`;
           if (worked.columnNumber) {
             errorMessage += `, column: ${worked.columnNumber}`;
           }

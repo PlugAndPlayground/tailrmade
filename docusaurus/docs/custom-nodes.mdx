@@ -23,6 +23,28 @@ OR
 
 ## Writing a custom function
 
+Custom functions run in a QuickJS interpreter inside a browser worker by default.
+Custom code cannot make network requests, load external scripts, access browser
+databases or cache storage, or invoke `macro()`. Use the **Main Thread** option only
+for trusted code that needs those capabilities. Existing worker functions that
+use these APIs must be migrated to dedicated graph nodes or trusted main-thread
+execution.
+
+Workers and compiled functions are reused for repeated calls with unchanged code.
+The pool retains up to four idle workers. Each worker caches up to 32 functions
+in separate QuickJS contexts, sharing a 64 MiB guest-heap limit. Execution has a
+timeout and a stack limit; the browser worker can also be terminated if it hangs.
+These limits do not cap the browser's total memory usage. Inputs and results cross
+both a message channel and the interpreter boundary, so batching work helps.
+
+Inputs and results support primitives (including `undefined`, `NaN`, infinity,
+and bigint), arrays, and plain data objects. Cycles, more than 100 levels of
+nesting, functions, and complex objects such as `Date`, `Map`, typed arrays,
+and `Blob` are rejected rather than silently converted. Pass primitive data or
+use Main Thread mode for those values. Standard JavaScript and self-contained
+promises are supported; browser APIs such as `fetch`, `setTimeout`, and `console`
+are not exposed. A promise that cannot settle without external work is rejected.
+
 The code editor for custom nodes provides a JavaScript environment where you can:
 
 1. Select the node and open the inspector
@@ -69,7 +91,7 @@ function process(inputs) {
 
 Custom functions can run on the
 
-- **Worker Thread** (default): Runs in an isolated environment for security and performance. Cannot access browser APIs like `window` or DOM, but provides protection from infinite loops and **prevents malicious code execution**.
+- **Worker Thread** (default): Runs JavaScript inside QuickJS, without browser APIs or app macros. Compiled functions are cached, with limits on guest memory, execution time, and stack size.
 
 - **Main Thread**: Runs with full access to the browser environment. This allows using browser APIs and DOM manipulation, but requires caution as it can block the UI if code is inefficient.
 

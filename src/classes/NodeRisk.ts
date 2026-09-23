@@ -25,7 +25,7 @@ export class WorkerCodeRisk extends NodeRisk {
   readonly kind = 'worker-code';
   readonly title = 'Runs custom JavaScript in a worker';
   readonly description =
-    'Can make network requests, access browser databases, and invoke app macros.';
+    'Runs in QuickJS without network, browser storage, or app macro access. Receives the connected input data, with execution and guest-memory limits.';
 }
 
 export class ApiKeyRisk extends NodeRisk {

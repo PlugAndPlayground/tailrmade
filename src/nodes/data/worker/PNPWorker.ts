@@ -1,62 +1,23 @@
-import PPGraph from '../../../classes/GraphClass';
 import { runWorkerJob } from './workerJob';
-import {
-  ComputeMessage,
-  ComputeResult,
-  MacroCallRequestMessage,
-  MacroCallResponseMessage,
-} from './compute-worker';
+import type { ComputeMessage, ComputeResult } from './compute-worker';
+import { createComputeWorker } from './createComputeWorker';
 
 export class PNPWorker {
+  static readonly maxIdleWorkers = 4;
   static workerStack: Worker[] = [];
   static workersAllocated = 0;
-  private static isMacroCallMessage(
-    payload: any,
-  ): payload is MacroCallRequestMessage {
-    return payload && payload.type === 'macro-call';
+  private static getWorker(): Worker {
+    const idle = this.workerStack.pop();
+    if (idle) return idle;
+    const worker = createComputeWorker();
+    this.workersAllocated++;
+    return worker;
   }
 
-  private static getWorker(): Worker {
-    if (!this.workerStack.length) {
-      console.log(
-        'creating new worker, total current workers: ' +
-          ++this.workersAllocated,
-      );
-      const worker = new Worker(new URL('compute-worker.ts', import.meta.url));
-      this.workerStack.push(worker);
-    } else {
-      //console.log('re-using old worker');
-    }
-    return this.workerStack.pop()!;
-  }
   private static depositWorker(worker: Worker): void {
     this.workerStack.push(worker);
-  }
-
-  private static async handleMacroCall(
-    message: MacroCallRequestMessage,
-    worker: Worker,
-    isActive: () => boolean,
-  ): Promise<void> {
-    try {
-      const result = await PPGraph.currentGraph.invokeMacro(
-        message.macroName,
-        message.macroArgs,
-      );
-
-      if (!isActive()) return;
-      worker.postMessage({
-        type: 'macro-response',
-        success: true,
-        result,
-      } satisfies MacroCallResponseMessage);
-    } catch (error) {
-      if (!isActive()) return;
-      worker.postMessage({
-        type: 'macro-response',
-        success: false,
-        error: error instanceof Error ? error.message : String(error),
-      } satisfies MacroCallResponseMessage);
+    if (this.workerStack.length > this.maxIdleWorkers) {
+      this.workerStack.shift()!.terminate();
     }
   }
 
@@ -65,18 +26,19 @@ export class PNPWorker {
     timeout: number = 30000,
   ): Promise<ComputeResult> {
     const worker = PNPWorker.getWorker();
+    let succeeded = false;
     return runWorkerJob(
       worker,
-      message,
+      { ...message, timeout },
       timeout,
-      async (payload, isActive) => {
-        if (PNPWorker.isMacroCallMessage(payload)) {
-          await PNPWorker.handleMacroCall(payload, worker, isActive);
-          return true;
+      async (payload) => {
+        if (!payload || typeof payload.success !== 'boolean' || payload.type) {
+          throw new Error('Invalid restricted worker response');
         }
+        succeeded = payload.success;
         return false;
       },
-      (reusableWorker) => PNPWorker.depositWorker(reusableWorker),
+      () => (succeeded ? PNPWorker.depositWorker(worker) : worker.terminate()),
     );
   }
 
