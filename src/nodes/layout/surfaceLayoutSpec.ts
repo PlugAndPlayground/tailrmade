@@ -19,9 +19,7 @@ import {
   ContainerEmphasis,
   ContainerTone,
   DEFAULT_CONTAINER_TONE,
-  isContainerTone,
   DEFAULT_CONTAINER_EMPHASIS,
-  isContainerEmphasis,
 } from '../../utils/theme/emphasis';
 import {
   dynamicWidgetDefaultProps,
@@ -516,24 +514,19 @@ export function compileSurfaceSpec(
     if (item.mobileBehavior !== undefined) {
       overrides.mobileBehavior = item.mobileBehavior;
     }
-    if (item.emphasis !== undefined) {
-      if (isContainerEmphasis(item.emphasis)) {
-        overrides.emphasis = item.emphasis;
+    Object.entries(CONTAINER_ENUMS).forEach(([key, allowed]) => {
+      const value: unknown = item[key as keyof ContainerSpecItem];
+      if (value === undefined) {
+        return;
+      }
+      if (typeof value === 'string' && allowed.includes(value)) {
+        overrides[key] = value;
       } else {
         warnings.push(
-          `container "${id}": "emphasis" must be ${CONTAINER_EMPHASES.join(' | ')}, so ${JSON.stringify(item.emphasis)} was ignored.`,
+          `container "${id}": "${key}" must be ${allowed.join(' | ')}, so ${JSON.stringify(value)} was ignored.`,
         );
       }
-    }
-    if (item.tone !== undefined) {
-      if (isContainerTone(item.tone)) {
-        overrides.tone = item.tone;
-      } else {
-        warnings.push(
-          `container "${id}": "tone" must be ${CONTAINER_TONES.join(' | ')}, so ${JSON.stringify(item.tone)} was ignored.`,
-        );
-      }
-    }
+    });
 
     const props = normalizeDimensionProps(
       { ...defaults, ...overrides, ...(item.props ?? {}) },

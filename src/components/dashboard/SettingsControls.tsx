@@ -638,6 +638,14 @@ export const SliderControl: React.FC<SliderControlProps> = ({
 // Reusable Settings Sections
 // ============================================
 
+// Plain [value, label] pairs as AlignmentControl options
+const toggleOptions = (options: [value: string, label: string][]) =>
+  options.map(([value, label]) => (
+    <ToggleButton size="small" value={value} key={value}>
+      {label}
+    </ToggleButton>
+  ));
+
 interface SettingsSectionProps {
   setProp: any;
   props: any;
@@ -656,14 +664,10 @@ export const LayoutSection: React.FC<SettingsSectionProps> = ({
       value={props.flexDirection || 'column'}
       onChange={(value) => setProp((p: any) => (p.flexDirection = value))}
       label="Direction"
-      options={[
-        <ToggleButton size="small" value="column" key="column">
-          Vertical
-        </ToggleButton>,
-        <ToggleButton size="small" value="row" key="row">
-          Horizontal
-        </ToggleButton>,
-      ]}
+      options={toggleOptions([
+        ['column', 'Vertical'],
+        ['row', 'Horizontal'],
+      ])}
     />
 
     {props.flexDirection === 'row' && (
@@ -671,17 +675,11 @@ export const LayoutSection: React.FC<SettingsSectionProps> = ({
         value={props.mobileBehavior || 'row'}
         onChange={(value) => setProp((p: any) => (p.mobileBehavior = value))}
         label="Narrow width behavior"
-        options={[
-          <ToggleButton size="small" value="column" key="column">
-            Switch to vertical
-          </ToggleButton>,
-          <ToggleButton size="small" value="wrap" key="wrap">
-            Wrap
-          </ToggleButton>,
-          <ToggleButton size="small" value="row" key="row">
-            Stay horizontal
-          </ToggleButton>,
-        ]}
+        options={toggleOptions([
+          ['column', 'Switch to vertical'],
+          ['wrap', 'Wrap'],
+          ['row', 'Stay horizontal'],
+        ])}
       />
     )}
   </>
@@ -892,17 +890,11 @@ export const EmphasisSection: React.FC<SettingsSectionProps> = ({
         value={props.tone ?? 'neutral'}
         onChange={(value) => setProp((p: any) => (p.tone = value))}
         label="Tone"
-        options={[
-          <ToggleButton size="small" value="neutral" key="neutral">
-            Neutral
-          </ToggleButton>,
-          <ToggleButton size="small" value="primary" key="primary">
-            Primary
-          </ToggleButton>,
-          <ToggleButton size="small" value="secondary" key="secondary">
-            Secondary
-          </ToggleButton>,
-        ]}
+        options={toggleOptions([
+          ['neutral', 'Neutral'],
+          ['primary', 'Primary'],
+          ['secondary', 'Secondary'],
+        ])}
       />
     )}
   </>
