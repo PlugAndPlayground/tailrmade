@@ -196,6 +196,8 @@ export const TextView: React.FC<TextViewProps> = ({
           width: '100%',
           whiteSpace: 'pre-wrap',
           overflowWrap: 'anywhere',
+          '& > :first-child': { marginTop: 0 },
+          '& > :last-child': { marginBottom: 0, paddingBottom: 0 },
           ...resolveTextElementStyle(textProps),
         },
       ]}

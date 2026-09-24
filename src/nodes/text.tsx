@@ -45,6 +45,7 @@ import {
 } from '../utils/constants';
 import { DEFAULT_DASHBOARD_ICON } from '../components/dashboard/dashboardIcons';
 import { AppThemeProvider } from '../components/dashboard/AppThemeProvider';
+import { appSurfaceSx } from '../utils/theme';
 import { INHERIT_COLOR } from '../utils/themeColors';
 import { getEnumValue } from '../utils/utils';
 import { NumberType } from './datatypes/numberType';
@@ -726,7 +727,8 @@ const TextNodeWidget: React.FC<HybridWidgetContentProps<Text>> = (props) => {
     <AppThemeProvider>
       <Box
         data-cy="text-canvas-card"
-        sx={{
+        sx={(theme) => ({
+          ...appSurfaceSx(theme),
           bgcolor: 'background.default',
           color: 'text.primary',
           borderRadius: 1,
@@ -734,7 +736,7 @@ const TextNodeWidget: React.FC<HybridWidgetContentProps<Text>> = (props) => {
           py: 0.5,
           minHeight: '100%',
           boxSizing: 'border-box',
-        }}
+        })}
       >
         {editor}
       </Box>

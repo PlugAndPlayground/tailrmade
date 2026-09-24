@@ -262,7 +262,10 @@ describe('dynamic Text node', () => {
       testController.setNodeInputValue('styled-text', 'Variant', 'h2');
       await testController.executeNodeByID('styled-text');
     });
-    canvasEditor('styled-text').should('have.css', 'font-size', '24px');
+    canvasEditor('styled-text').should(($element) => {
+      const size = parseFloat(getComputedStyle($element[0]).fontSize);
+      expect(size, 'h2 font size').to.be.within(20, 24);
+    });
   });
 
   it('takes the text color its widget names', () => {

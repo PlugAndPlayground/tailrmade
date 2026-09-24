@@ -10,6 +10,7 @@
 
 export type ThemeMode = 'light' | 'dark';
 export type ThemeModeSetting = ThemeMode | 'system';
+export const THEME_MODES: ThemeMode[] = ['light', 'dark'];
 export const DEFAULT_THEME_MODE: ThemeMode = 'dark';
 
 // Geometry of a control (height, inner padding, icon size), as opposed to
@@ -19,9 +20,6 @@ export const DEFAULT_THEME_MODE: ThemeMode = 'dark';
 // density.
 export type Density = 'XS' | 'S' | 'M' | 'L' | 'XL';
 export const DENSITIES: Density[] = ['XS', 'S', 'M', 'L', 'XL'];
-
-// Three steps, not MUI's 25. A creator picks a character, not a shadow ramp.
-export type Elevation = 'none' | 'subtle' | 'raised';
 
 export type ButtonVariant = 'contained' | 'outlined' | 'text';
 export type InputVariant = 'outlined' | 'filled' | 'standard';
@@ -60,12 +58,14 @@ export type ShapeTokens = {
   radius: number;
   density: Density;
   spacingUnit: number;
-  elevation: Elevation;
   buttonVariant: ButtonVariant;
   inputVariant: InputVariant;
 };
 
 export type ThemeTokens = ColorTokens & ShapeTokens;
+
+export const FONT_SCALAR_VAR = '--tm-font-scalar';
+export const fontScalarVar = (): string => `var(${FONT_SCALAR_VAR}, 1)`;
 
 export const COLOR_ROLE_SET: ReadonlySet<string> = new Set<string>(COLOR_ROLES);
 

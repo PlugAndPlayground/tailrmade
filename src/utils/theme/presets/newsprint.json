@@ -35,6 +35,13 @@
     "fontFamilyMono": "IBM Plex Mono",
     "fontSizeScalar": 1.0625
   },
-  "geometry": { "radius": 0, "density": "M", "spacingUnit": 8, "elevation": "none" },
-  "variants": { "button": "text", "input": "standard" }
+  "geometry": {
+    "radius": 0,
+    "density": "M",
+    "spacingUnit": 8
+  },
+  "variants": {
+    "button": "text",
+    "input": "standard"
+  }
 }

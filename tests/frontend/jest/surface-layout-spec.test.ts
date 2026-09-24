@@ -14,6 +14,45 @@ import type { SerializedCraftTree } from '../../../src/utils/surfaceTree';
 import { normalizeTextProps } from '../../../src/text/model';
 
 describe('surfaceLayoutSpec', () => {
+  describe('container emphasis and tone', () => {
+    const compileRow = (extra: Record<string, unknown>) =>
+      compileSurfaceSpec(
+        {
+          direction: 'column',
+          children: [{ direction: 'row', children: [], ...extra }],
+        },
+        new Set(),
+      );
+
+    it('round-trips through inspect -> set as first-class fields', () => {
+      const { tree, warnings } = compileRow({
+        emphasis: 'strong',
+        tone: 'primary',
+      });
+      expect(warnings).toEqual([]);
+      const row = decompileSurfaceTree(tree).root
+        .children[0] as ContainerSpecItem;
+      expect(row).toMatchObject({ emphasis: 'strong', tone: 'primary' });
+      expect(row.props).toBeUndefined();
+    });
+
+    it('names a value it does not know rather than storing it', () => {
+      const { warnings } = compileRow({ emphasis: 'loud', tone: 'pink' });
+      expect(warnings).toEqual([
+        expect.stringContaining('"emphasis" must be none | subtle | strong'),
+        expect.stringContaining('"tone" must be neutral | primary | secondary'),
+      ]);
+      const { warnings: patchWarnings } = applySpecProperties(
+        {},
+        { tone: 'pink' },
+        'container',
+      );
+      expect(patchWarnings).toEqual([
+        '"tone" must be neutral | primary | secondary.',
+      ]);
+    });
+  });
+
   describe('compileSurfaceSpec dimensions', () => {
     // a numeric height compiled straight into the tree and then crashed the
     // dashboard on render with `height.endsWith is not a function`

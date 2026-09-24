@@ -22,7 +22,7 @@ import { addNodeWithPlacement } from './DashboardEditor';
 import { TRgba } from '../../utils/color';
 import { ensureVisible } from '../../pixi/utils-pixi';
 import InterfaceController, { ListenEvent } from '../../InterfaceController';
-import { getDefaultContainerBackground } from '../../nodes/datatypes/widgetLayoutType';
+import { TRANSPARENT_COLOR } from '../../utils/themeColors';
 import { NodeListOptionType } from '../Search';
 import { getNodeGroup } from '../nodeSearchConstants';
 import { getAllNodeTypes } from '../../nodes/allNodes';
@@ -313,7 +313,7 @@ const getStaticTools = () => [
         canvas
         is={Container}
         padding={[8, 8, 8, 8]}
-        background={getDefaultContainerBackground()}
+        background={TRANSPARENT_COLOR}
         gap={8}
         flexDirection="column"
       />
@@ -329,7 +329,7 @@ const getStaticTools = () => [
         canvas
         is={Container}
         padding={[8, 8, 8, 8]}
-        background={getDefaultContainerBackground()}
+        background={TRANSPARENT_COLOR}
         gap={8}
         flexDirection="row"
       />

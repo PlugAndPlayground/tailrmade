@@ -29,6 +29,13 @@ const setLayout = (children: unknown[]) =>
 const appText = (text: string) =>
   cy.get('[data-cy="dashboard"] [data-cy="static-text"]').contains(text);
 
+const shouldHaveFluidSize =
+  (min: number, max: number) =>
+  ($element: JQuery<HTMLElement>): void => {
+    const size = parseFloat(getComputedStyle($element[0]).fontSize);
+    expect(size, 'fluid font size').to.be.within(min, max);
+  };
+
 const selectAllInFirstEditor = () =>
   cy
     .get('[data-cy="static-text-editor"]')
@@ -75,7 +82,7 @@ describe('static Text', () => {
     // labels
     appText('Heading')
       .closest('[data-cy="static-text"] > div')
-      .should('have.css', 'font-size', '32px');
+      .should(shouldHaveFluidSize(26, 32));
     appText('Caption')
       .closest('[data-cy="static-text"] > div')
       .should('have.css', 'font-size', '12px');

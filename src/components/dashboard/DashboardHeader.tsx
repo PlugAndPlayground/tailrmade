@@ -150,17 +150,6 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
       >
         <DevicePreviewToggle />
       </Box>
-
-      <Box
-        aria-hidden
-        sx={{
-          flex: '1 1 0',
-          minWidth: 0,
-          '@container dashboard-header (max-width: 340px)': {
-            display: 'none',
-          },
-        }}
-      />
     </Box>
   );
 };

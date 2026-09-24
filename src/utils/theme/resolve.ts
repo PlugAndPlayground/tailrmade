@@ -2,6 +2,7 @@ import Color from 'color';
 import { getPreset, presetToTokens } from './presets';
 import {
   ColorRole,
+  ColorTokens,
   DEFAULT_THEME_MODE,
   isColorRole,
   ThemeMode,
@@ -22,11 +23,9 @@ export type ThemeLayerSource =
 export type ThemeLayer = {
   source: ThemeLayerSource;
   presetId?: string;
-  // absent means "inherit the mode from the layer above" - NOT "follow the
-  // system preference", which is the explicit 'system' value. The absence of a
-  // mode across the whole chain means DEFAULT_THEME_MODE. See resolveMode().
   mode?: ThemeModeSetting;
   tokens?: Partial<ThemeTokens>;
+  tokensByMode?: Partial<Record<ThemeMode, Partial<ColorTokens>>>;
 };
 
 export type ThemeWarningKind = 'contrast';
@@ -125,6 +124,10 @@ const CONTRAST_PAIRS: Array<[ColorRole, ColorRole]> = [
   ['text.primary', 'background.paper'],
   ['text.secondary', 'background.default'],
   ['text.secondary', 'background.paper'],
+  ['primary', 'background.default'],
+  ['primary', 'background.paper'],
+  ['secondary', 'background.default'],
+  ['secondary', 'background.paper'],
 ];
 
 /**
@@ -170,20 +173,28 @@ export const resolveTheme = (
   const tokens = presetToTokens(preset, mode);
   const provenance: ThemeProvenance = {};
 
-  layers.forEach((layer) => {
-    if (!layer.tokens) {
+  const apply = (
+    source: ThemeLayerSource,
+    patch: Partial<ThemeTokens> | undefined,
+  ): void => {
+    if (!patch) {
       return;
     }
-    (Object.keys(layer.tokens) as Array<keyof ThemeTokens>).forEach((key) => {
-      const value = layer.tokens![key];
+    (Object.keys(patch) as Array<keyof ThemeTokens>).forEach((key) => {
+      const value = patch[key];
       if (value === undefined) {
         return;
       }
       tokens[key] = value as never;
-      if (layer.source !== 'preset') {
-        provenance[key] = layer.source;
+      if (source !== 'preset') {
+        provenance[key] = source;
       }
     });
+  };
+
+  layers.forEach((layer) => {
+    apply(layer.source, layer.tokens);
+    apply(layer.source, layer.tokensByMode?.[mode]);
   });
 
   return {

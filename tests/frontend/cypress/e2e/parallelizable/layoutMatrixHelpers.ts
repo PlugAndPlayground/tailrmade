@@ -25,7 +25,7 @@ export type Axis = 'width' | 'height';
 // px values used for "fixed" siblings. Distinct per side so a fixed+fixed
 // case can assert each sibling independently (not just their sum), and both
 // comfortably clear the simplified spec's own floors (containerDefaultProps
-// minWidth/minHeight '80px', dynamicWidgetDefaultProps minWidth/minHeight
+// minWidth '80px', dynamicWidgetDefaultProps minWidth/minHeight
 // '48px') so those floors never bind and silently inflate a "fixed" size.
 export const FIXED_PX_A = 150;
 export const FIXED_PX_B = 120;

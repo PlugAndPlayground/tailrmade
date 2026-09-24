@@ -35,6 +35,13 @@
     "fontFamilyMono": "JetBrains Mono",
     "fontSizeScalar": 0.9375
   },
-  "geometry": { "radius": 0, "density": "XS", "spacingUnit": 4, "elevation": "none" },
-  "variants": { "button": "outlined", "input": "standard" }
+  "geometry": {
+    "radius": 0,
+    "density": "XS",
+    "spacingUnit": 4
+  },
+  "variants": {
+    "button": "outlined",
+    "input": "standard"
+  }
 }
