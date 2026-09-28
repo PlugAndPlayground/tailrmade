@@ -150,9 +150,9 @@ describe('AI connect_sockets to a Modal (surface + real sockets)', () => {
 
       expect(result.is_error, `got: ${result.content}`).to.not.equal(true);
       const parsed = JSON.parse(result.content);
-      // modal-specific guidance is appended to the inherited surface ai_docs
-      expect(parsed.ai_docs).to.match(/Open Dialog/);
-      expect(parsed.ai_docs, 'inherits surface docs too').to.match(
+      // modal-specific guidance is appended to the inherited surface docs
+      expect(parsed.docs).to.match(/Open Dialog/);
+      expect(parsed.docs, 'inherits surface docs too').to.match(
         /set_surface_layout/,
       );
     });

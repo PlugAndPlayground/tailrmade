@@ -4,6 +4,9 @@ import { BackendGateway } from './BackendGateway';
 
 const LOCAL_COMPANION_ADDRESS = 'http://localhost:6655';
 const POLL_INTERVAL = 4000;
+const REQUEST_TIMEOUT_MS = 30_000;
+
+export class CompanionRequestError extends Error {}
 
 export interface CompanionMessage {
   finalHeaders: Record<string, any>;
@@ -25,15 +28,12 @@ export class CompanionBackend {
     try {
       const preferences =
         await BackendGateway.getInstance().getUserPreferences();
-      if (
-        BackendGateway.getInstance().isLoggedIn() &&
-        preferences.companionLocation === EXECUTION_LOCATION_CLOUD
-      ) {
+      if (preferences.companionLocation === EXECUTION_LOCATION_CLOUD) {
         return BackendGateway.getInstance().getCloudCompanionBaseUrl();
       }
     } catch (error) {
-      console.warn(
-        'Failed to get companion location preference, defaulting to local',
+      throw new CompanionRequestError(
+        'Unable to read Companion location. Check your Companion location setting and retry.',
       );
     }
     return LOCAL_COMPANION_ADDRESS;
@@ -95,27 +95,78 @@ export class CompanionBackend {
     if (this.dummyCompanion) {
       return this.preparedDummyResponses.shift();
     } else {
+      const companionAddress = await this.getCompanionAddress();
+      const isCloud =
+        companionAddress ===
+        BackendGateway.getInstance().getCloudCompanionBaseUrl();
+      const name = isCloud ? 'Cloud Companion' : 'Local Companion';
+      if (isCloud && !BackendGateway.getInstance().isLoggedIn()) {
+        throw new CompanionRequestError(
+          'Cloud Companion requires sign-in. Sign in or select Local in Companion location.',
+        );
+      }
+      let headers: Record<string, string> = {};
+      if (isCloud) {
+        try {
+          headers = await BackendGateway.getInstance().getAuthHeader();
+        } catch (_) {
+          throw new CompanionRequestError(
+            'Cloud Companion authentication failed. Sign in again and retry.',
+          );
+        }
+      }
+      const controller = new AbortController();
+      const timeoutId = setTimeout(
+        () => controller.abort(),
+        REQUEST_TIMEOUT_MS,
+      );
       try {
-        const companionAddress = await this.getCompanionAddress();
-        const isCloud =
-          companionAddress ===
-          BackendGateway.getInstance().getCloudCompanionBaseUrl();
-        const res = fetch(companionAddress + '/forward', {
+        const res = await fetch(companionAddress + '/forward', {
           method: 'Post',
+          signal: controller.signal,
           headers: {
             'Content-Type': 'application/json',
-            ...(isCloud
-              ? await BackendGateway.getInstance().getAuthHeader()
-              : {}),
+            ...headers,
           },
           body: JSON.stringify(message),
         });
-        const companionRes = await (await res).json();
+        if (!res.ok) {
+          if (isCloud && (res.status === 401 || res.status === 403)) {
+            throw new CompanionRequestError(
+              'Cloud Companion access was denied. Sign in again and check your account access.',
+            );
+          }
+          if (isCloud && res.status === 429) {
+            throw new CompanionRequestError(
+              'Cloud Companion request limit reached. Try again later or select Local in Companion location.',
+            );
+          }
+          throw new CompanionRequestError(
+            `${name} returned HTTP ${res.status}. ${isCloud ? 'Try again later.' : 'Check the Companion logs and restart it.'}`,
+          );
+        }
+        let companionRes: any;
+        try {
+          companionRes = await res.json();
+        } catch (error) {
+          if (controller.signal.aborted) throw error;
+          throw new CompanionRequestError(
+            `${name} returned an invalid response. ${isCloud ? 'Try again later.' : 'Update or restart the Companion and retry.'}`,
+          );
+        }
         const tokenLimitMessage = this.getTokenLimitMessage(companionRes);
         if (tokenLimitMessage) {
-          InterfaceController.showSnackBar(
-            `Cloud Companion limit reached: ${tokenLimitMessage}`,
-            { variant: 'warning' },
+          throw new CompanionRequestError(
+            `${name} usage limit reached. Try again after the limit resets${isCloud ? ' or select Local in Companion location' : ''}.`,
+          );
+        }
+        if (
+          !companionRes ||
+          typeof companionRes.status !== 'number' ||
+          !('response' in companionRes)
+        ) {
+          throw new CompanionRequestError(
+            `${name} returned an invalid response. Check that the Companion is up to date and retry.`,
           );
         }
 
@@ -128,12 +179,19 @@ export class CompanionBackend {
 
         return companionRes;
       } catch (error) {
-        return {
-          status: 400,
-          response: {
-            text: 'Unable to reach companion, is it running and reachable?',
-          },
-        };
+        if (error instanceof CompanionRequestError) throw error;
+        if (controller.signal.aborted) {
+          throw new CompanionRequestError(
+            `${name} request timed out after 30 seconds. Check the Companion and target API before retrying; the request may already have been processed.`,
+          );
+        }
+        throw new CompanionRequestError(
+          isCloud
+            ? 'Cloud Companion is unreachable. Check your internet connection and retry, or select Local in Companion location.'
+            : `Local Companion is unreachable at ${companionAddress}. Start the Companion and retry. Check that the browser can access this address.`,
+        );
+      } finally {
+        clearTimeout(timeoutId);
       }
     }
   }

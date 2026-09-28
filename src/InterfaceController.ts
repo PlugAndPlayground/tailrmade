@@ -72,6 +72,8 @@ export enum ListenEvent {
   DisplayedSurfaceChanged, // data = { nodeId: string } - the UI surface shown in the dashboard changed
   SurfaceRuntimeChanged, // data = { nodeId: string } - a surface's runtime override sockets (visible/layout) changed
   ModalOpenChanged, // data = { nodeId: string } - a UI modal node's open/closed state changed
+  NodeStatusChanged, // data = { nodeId: string } - a node's error/warning/custom status changed
+  NodeDetailPopoverRequested, // data = { nodeId: string; kind: 'status' | 'comment'; x: number; y: number } | null - open the pinned detail popover, or null to close it
 }
 
 type InterfaceEventListener = (data: any, event: ListenEvent) => void;

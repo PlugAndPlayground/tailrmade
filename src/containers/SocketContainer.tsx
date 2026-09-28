@@ -8,14 +8,10 @@ import LockIcon from '@mui/icons-material/Lock';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
-import WarningIcon from '@mui/icons-material/Warning';
 import DashboardCustomizeIcon from '@mui/icons-material/DashboardCustomize';
+import { StatusSeverityIcon } from './../components/StatusDetail';
 import InterfaceController, { ListenEvent } from './../InterfaceController';
-import {
-  COLOR_WARNING,
-  DISABLED_OPACITY,
-  STATUS_SEVERITY,
-} from './../utils/constants';
+import { COLOR_WARNING, DISABLED_OPACITY } from './../utils/constants';
 import { writeDataToClipboard } from './../utils/utils';
 import { TRgba } from './../utils/color';
 import * as styles from './../utils/style.module.css';
@@ -52,7 +48,7 @@ const onChangeDropdown = (
   // Update local state using reference socket
   const referenceSocket = props.socketsToUpdate[0];
   setDataTypeValue(referenceSocket.dataType);
-  setHasError(referenceSocket.status.getSeverity() >= STATUS_SEVERITY.WARNING);
+  setHasError(referenceSocket.status.isProblem());
 };
 export const SocketContainer = memo(
   (props: SocketContainerProps) => {
@@ -60,7 +56,7 @@ export const SocketContainer = memo(
     const referenceSocket = props.socketsToUpdate[0];
 
     const [hasError, setHasError] = useState(
-      referenceSocket.status.getSeverity() >= STATUS_SEVERITY.WARNING,
+      referenceSocket.status.isProblem(),
     );
 
     useEffect(() => {
@@ -92,12 +88,9 @@ export const SocketContainer = memo(
       : dataTypeValue.getOutputWidget(baseProps);
 
     useInterval(() => {
-      const newHasError =
-        referenceSocket.status.getSeverity() >= STATUS_SEVERITY.WARNING;
+      const newHasError = referenceSocket.status.isProblem();
       if (hasError !== newHasError) {
-        setHasError(
-          referenceSocket.status.getSeverity() >= STATUS_SEVERITY.WARNING,
-        );
+        setHasError(newHasError);
       }
     }, 100);
 
@@ -365,12 +358,13 @@ const SocketHeader = React.memo(
               {referenceSocket.name}
             </Box>
             {props.hasError && (
-              <WarningIcon
-                sx={{
-                  fontSize: '16px',
-                  pl: 0.5,
-                }}
-              />
+              <Box sx={{ pl: 0.5, display: 'flex', fontSize: '16px' }}>
+                <StatusSeverityIcon
+                  status={referenceSocket.status}
+                  fontSize="inherit"
+                  color="currentColor"
+                />
+              </Box>
             )}
           </Box>
           <IconButton

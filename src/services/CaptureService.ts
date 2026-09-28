@@ -5,6 +5,7 @@ import type html2canvasType from 'html2canvas-pro';
 import type { Options as Html2CanvasOptions } from 'html2canvas-pro';
 import PPGraph from '../classes/GraphClass';
 import InterfaceController from '../InterfaceController';
+import { waitForFrames } from '../utils/waitForFrames';
 import {
   CaptureRect,
   computeDomCaptureScale,
@@ -107,21 +108,6 @@ export const blobToDataURL = (blob: Blob): Promise<string> =>
     reader.readAsDataURL(blob);
   });
 
-/** Two frames is what the hybrid node containers need to catch up with the canvas. */
-const nextFrames = (count = 2): Promise<void> =>
-  new Promise((resolve) => {
-    let remaining = count;
-    const step = () => {
-      remaining -= 1;
-      if (remaining <= 0) {
-        resolve();
-      } else {
-        requestAnimationFrame(step);
-      }
-    };
-    requestAnimationFrame(step);
-  });
-
 /**
  * Resolves once the video element holds a frame that was produced after the
  * call.
@@ -131,7 +117,7 @@ const nextVideoFrame = (video: HTMLVideoElement): Promise<void> => {
     requestVideoFrameCallback?: (callback: () => void) => number;
   };
   if (typeof withFrameCallback.requestVideoFrameCallback !== 'function') {
-    return nextFrames();
+    return waitForFrames();
   }
   return new Promise((resolve) => {
     // a stream that stalls must not hang the capture
@@ -332,7 +318,7 @@ const captureGraphCanvas = async (
   const restoreUI = hideTransientUI();
   try {
     // let the hidden chrome and the inline style overrides reach the screen
-    await nextFrames();
+    await waitForFrames();
 
     // the pixi layer, rendered straight into a texture from the world space
     // frame, which sidesteps preserveDrawingBuffer entirely
@@ -548,7 +534,7 @@ const captureWidgetCanvas = async (
   try {
     root.render(render() as React.ReactElement);
     // react commits and the browser lays out and loads fonts
-    await nextFrames(3);
+    await waitForFrames(3);
 
     const size = computeOutputSize({ x: 0, y: 0, width, height }, scale);
     warnIfDownscaled(size.downscaledBy, width * scale, height * scale);

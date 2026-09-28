@@ -1,10 +1,16 @@
 /**
- * Development-only transcript of an agentic AI run.
+ * Development-only AI transcripts and backend request diagnostics.
  *
  * The assistant panel shows what the agent chose to say; this records what it
  * actually did - every tool call with its arguments, every tool result the
  * model got back, and the captures it looked at - so a run can be read after
  * the fact to judge how well the MCP tools and their descriptions work.
+ * Request events also cover non-agentic calls. Match request_start to its
+ * end/error/cancelled event by requestId; backendRequestId identifies the
+ * server request when that response header is available. Failures include
+ * stage, error name, HTTP status, duration and request size, without bodies
+ * or credentials. Request failures also appear in the browser console in
+ * production; the full development transcript can contain conversation data.
  *
  * Entries are POSTed to the webpack dev server, which appends them as JSON
  * lines under logs/ai/ (see webpack.development.ts). It is a no-op in a
@@ -28,7 +34,11 @@ export type AILogEventType =
   | 'tool_result'
   | 'vision'
   | 'run_end'
-  | 'run_error';
+  | 'run_error'
+  | 'request_start'
+  | 'request_end'
+  | 'request_error'
+  | 'request_cancelled';
 
 export type AILogEvent = {
   type: AILogEventType;

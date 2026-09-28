@@ -4,7 +4,6 @@ import Socket from '../../classes/SocketClass';
 import { TRgba } from '../../utils/color';
 import type { TParseType } from '../../utils/interfaces';
 import {
-  STATUS_SEVERITY,
   SOCKET_COLOR_HEX,
   SOCKET_CORNERRADIUS,
   SOCKET_WIDTH,
@@ -281,7 +280,7 @@ export class AbstractType {
     status: PNPStatus,
   ) {
     errorBox.clear();
-    if (status.getSeverity() >= STATUS_SEVERITY.WARNING) {
+    if (status.isProblem()) {
       const errorBoxWidth = SOCKET_WIDTH * 2 - SOCKET_WIDTH / 2;
       errorBox
         .roundRect(

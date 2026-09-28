@@ -5,6 +5,7 @@ import { v4 as uuid } from 'uuid';
 
 import { NODE_SOURCE, NODE_WIDTH, SOCKET_TYPE } from '../utils/constants';
 import { GRAPH_DATA_VERSION } from '../utils/graphMigrations';
+import { serializeSocketData } from '../utils/serializeSocketData';
 import SocketFocus from './SocketFocus';
 import {
   CustomArgs,
@@ -251,7 +252,10 @@ export default class PPGraph {
       this.onPointerClick.bind(this),
     );
 
-    this.viewport.addEventListener('moved', () => this.socketFocus.refresh());
+    this.viewport.addEventListener('moved', () => {
+      this.socketFocus.refresh();
+      this.refreshZoomInvariantNodeVisuals();
+    });
     this.viewport.addEventListener('pointermove', (event) =>
       this.onViewportMove(event),
     );
@@ -632,6 +636,21 @@ export default class PPGraph {
 
   get viewportScaleX(): number {
     return this.viewport.scale.x;
+  }
+
+  // The error outline and the status badge are sized in screen pixels, so they
+  // have to be re-applied whenever the viewport scale changes.
+  private lastZoomInvariantScale = 0;
+
+  private refreshZoomInvariantNodeVisuals(): void {
+    const scale = this.viewportScaleX;
+    if (scale === this.lastZoomInvariantScale) {
+      return;
+    }
+    this.lastZoomInvariantScale = scale;
+    Object.values(this.nodes).forEach((node) =>
+      node.refreshZoomInvariantVisuals(),
+    );
   }
 
   get showExecutionVisualisation(): boolean {
@@ -1556,16 +1575,7 @@ export default class PPGraph {
         return;
       }
 
-      let deepCopy;
-      try {
-        deepCopy = structuredClone(
-          socket.dataType.prepareDataForSaving(socket.data),
-        );
-      } catch (error) {
-        console.error('Error during deep copy:', error);
-      }
-
-      foundSocket.data = deepCopy;
+      foundSocket.data = serializeSocketData(socket);
     });
 
     // get serialized links

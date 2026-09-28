@@ -41,6 +41,7 @@ export function shareOptions(): any {
 
   return [
     <Tooltip
+      key="copy-url"
       title={
         !isRemote || currentGraph.access === 'private'
           ? 'App is local/private. To share URL, please log in and make it public'
@@ -62,6 +63,7 @@ export function shareOptions(): any {
       </span>
     </Tooltip>,
     <MenuItem
+      key="download-plain-text"
       data-cy="download-plain-text"
       onClick={() => PPStorage.getInstance().downloadCurrentGraph(false)}
     >
@@ -71,6 +73,7 @@ export function shareOptions(): any {
       <ListItemText>Download (Plain Text)</ListItemText>
     </MenuItem>,
     <MenuItem
+      key="download-compressed"
       data-cy="download-compressed"
       onClick={() => PPStorage.getInstance().downloadCurrentGraph(true)}
     >
@@ -80,6 +83,7 @@ export function shareOptions(): any {
       <ListItemText>Download (Compressed)</ListItemText>
     </MenuItem>,
     <MenuItem
+      key="share-tailrmade-link"
       data-cy="share-tailrmade-link"
       onClick={PPStorage.getInstance().copyCurrentGraphURLToClipboard}
     >

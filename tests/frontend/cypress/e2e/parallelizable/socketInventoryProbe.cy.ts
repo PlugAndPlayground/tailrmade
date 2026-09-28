@@ -28,7 +28,7 @@ describe('socket inventory probe', () => {
           type: string;
           name: string;
           description: string;
-          ai_docs: string;
+          docs: string;
           sockets: Array<{
             name: string;
             socket_type: string;
@@ -53,7 +53,7 @@ describe('socket inventory probe', () => {
             node_key: d.type,
             node_name: d.name,
             node_description: d.description,
-            node_has_ai_docs: Boolean(d.ai_docs && d.ai_docs.length > 0),
+            node_has_docs: Boolean(d.docs && d.docs.length > 0),
             socket_name: s.name,
             direction: s.socket_type,
             data_type: s.data_type,

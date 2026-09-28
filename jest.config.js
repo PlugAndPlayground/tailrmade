@@ -4,7 +4,7 @@ module.exports = {
     '^.+\\.[tj]sx?$': '<rootDir>/node_modules/babel-jest/build/index.js',
   },
   transformIgnorePatterns: [
-    '/node_modules/(?!(uuid|color|color-string|color-convert|color-name|colors-named|colors-named-hex|pretty-bytes)/)',
+    '/node_modules/(?!(uuid|color|color-string|color-convert|color-name|colors-named|colors-named-hex|pretty-bytes|marked)/)',
   ],
   modulePathIgnorePatterns: [
     '<rootDir>/dist/',

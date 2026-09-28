@@ -168,8 +168,7 @@ export const WidgetInspector = () => {
     >
       <Stack
         direction="row"
-        alignItems="center"
-        justifyContent="space-between"
+        sx={{ alignItems: 'center', justifyContent: 'space-between' }}
         data-cy="settings-panel-header"
       >
         <Typography

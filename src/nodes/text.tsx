@@ -754,7 +754,7 @@ export class Text extends HybridNode2 {
     return 'Rich text that shows live values from its inputs';
   }
 
-  public getAIDocs(): string {
+  public getDocs(): string {
     return `Shows rich text on a UI surface, with live values from its own inputs.
 
 Tokens are Handlebars paths into this node's inputs: {{temp}}, or {{d.temp}}

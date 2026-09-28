@@ -1,10 +1,10 @@
 import PPNode from '../../classes/NodeClass';
 import Socket from '../../classes/SocketClass';
 import {
+  NodeExecutionError,
   NodeExecutionWarning,
   PNPCustomStatus,
 } from '../../classes/ErrorClass';
-import { wrapDownloadLink } from '../../utils/utils';
 import { NODE_TYPE_COLOR, SOCKET_TYPE } from '../../utils/constants';
 import { TRgba } from '../../utils/color';
 import { BooleanType } from '../datatypes/booleanType';
@@ -12,7 +12,6 @@ import { EnumStructure, EnumType } from '../datatypes/enumType';
 import { JSONType } from '../datatypes/jsonType';
 import { StringType } from '../datatypes/stringType';
 import UpdateBehaviourClass from '../../classes/UpdateBehaviourClass';
-import { CompanionBackend } from '../../services/CompanionBackend';
 import {
   NodeRisk,
   NetworkRisk,
@@ -20,6 +19,10 @@ import {
   ApiKeyRisk,
   findApiKeyReferences,
 } from '../../classes/NodeRisk';
+import {
+  CompanionBackend,
+  CompanionRequestError,
+} from '../../services/CompanionBackend';
 
 export const urlInputName = 'URL';
 const bodyInputName = 'Body';
@@ -81,24 +84,20 @@ export class HTTPNode extends PPNode {
     return 'Make an HTTP request to get data from or send data to a server or API';
   }
 
-  public getAdditionalDescription(): string {
-    return `<p>${wrapDownloadLink(
-      'https://github.com/magnificus/pnp-companion-2/releases/',
-      'Download tailrmade Companion',
-    )}</p>`;
-  }
-
-  public getAIDocs(): string {
+  public getDocs(): string {
     return `Reference API keys in Headers or URL as $TM_KEY{KEYNAME}, e.g.
 Authorization: "Bearer $TM_KEY{OPENAI_KEY}". The value is substituted at
 request time and is not stored in the graph.
 
 KEYNAME comes from either:
-- The cloud: the logged-in user stores it under "Manage API Keys".
+- The cloud: store it under "Manage API Keys" while logged in.
 - The companion app: enable "Send Through Companion" and define it as an
   environment variable there.
 
-The user must configure the key in the chosen source.`;
+The key must be configured in whichever source is used.
+
+Sending through the companion app needs
+[tailrmade Companion](https://github.com/magnificus/pnp-companion-2/releases/).`;
   }
 
   public getTags(): string[] {
@@ -202,6 +201,12 @@ The user must configure the key in the chosen source.`;
         return await awaitedRes.json();
       }
     } catch (error) {
+      if (usingCompanion) {
+        if (error instanceof CompanionRequestError) {
+          throw new NodeExecutionError(error.message);
+        }
+        throw error;
+      }
       console.trace(error);
       // something went terribly wrong with the request
       this.pushStatusCode(400);
@@ -221,20 +226,16 @@ If it is a CORS issue, select the HTTP node and in the Info tab on the right dow
     URL,
     method: 'Get' | 'Post',
   ): Promise<CompanionResponse> {
-    try {
-      const companionSpecific = {
-        finalHeaders: headers,
-        finalBody: method == 'Post' ? JSON.stringify(body) : '{}',
-        finalURL: URL,
-        finalMethod: method,
-      };
-      const companionRes =
-        await CompanionBackend.getInstance().sendMessage(companionSpecific);
+    const companionSpecific = {
+      finalHeaders: headers,
+      finalBody: method == 'Post' ? JSON.stringify(body) : '{}',
+      finalURL: URL,
+      finalMethod: method,
+    };
+    const companionRes =
+      await CompanionBackend.getInstance().sendMessage(companionSpecific);
 
-      return companionRes;
-    } catch (error) {
-      return { status: 404, response: error };
-    }
+    return companionRes;
   }
 
   getColor(): TRgba {

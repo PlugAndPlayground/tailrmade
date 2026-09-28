@@ -788,7 +788,7 @@ export const BooleanWidget: React.FunctionComponent<BooleanTypeProps> = (
             checked={data}
             onChange={onChange}
             disabled={!property.isInput() || property.hasLink()}
-            inputProps={{ 'aria-label': 'controlled' }}
+            slotProps={{ input: { 'aria-label': 'controlled' } }}
             size="small"
           />
         }

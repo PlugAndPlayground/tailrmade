@@ -393,8 +393,8 @@ export const WidgetPaper = React.forwardRef<HTMLDivElement, WidgetPaperProps>(
         elevation={0}
         component={Stack}
         direction="column"
-        justifyContent="center"
         sx={{
+          justifyContent: 'center',
           bgcolor:
             inDashboard || !hasBackground
               ? 'transparent'

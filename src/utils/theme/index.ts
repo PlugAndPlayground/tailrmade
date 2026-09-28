@@ -7,3 +7,4 @@ export * from './context';
 export * from './density';
 export * from './variants';
 export * from './store';
+export * from './cssVariables';

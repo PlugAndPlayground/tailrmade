@@ -22,8 +22,8 @@ const SocialIcons = (props) => {
   return (
     <Stack
       spacing={0.5}
-      alignItems="left"
       sx={{
+        alignItems: 'flex-start',
         display: 'flex',
         gap: 0.5,
         // these buttons are transparent, so the icon colour has to follow

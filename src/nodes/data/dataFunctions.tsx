@@ -10,7 +10,6 @@ import { ArrayType } from '../datatypes/arrayType';
 import { StringType } from '../datatypes/stringType';
 import { CodeType } from '../datatypes/codeType';
 import { NumberType } from '../datatypes/numberType';
-import * as PIXI from 'pixi.js';
 import {
   CONSTANT_NAME,
   ENTIRE_OBJECT_NAME,
@@ -217,7 +216,6 @@ export class CustomFunction extends PPNode {
       ? [new UnrestrictedCodeRisk()]
       : [];
   }
-  modifiedBanner: PIXI.Graphics;
   previousUserInput = '';
   functionWithVariablesFromInputObject = '';
 
@@ -229,12 +227,18 @@ export class CustomFunction extends PPNode {
     return 'Run a custom JavaScript function. Function parameters become input sockets.';
   }
 
-  public getAIDocs(): string {
+  public getDocs(): string {
     return `The Code input defines a JavaScript function whose parameters become
 input sockets. Set Code before configuring or connecting those sockets because
 they do not exist until the code defines them.
 
 The function's return value becomes the node's output.
+
+Execution defaults to a QuickJS sandbox in a Web Worker, where document, window,
+and network access are unavailable.
+Set "Main Thread" to true before executing code that uses the DOM or an imported
+library containing functions (functions and DOM elements cannot be sent to workers).
+Await asynchronous library operations so failures are reported by this node.
 
 It cannot be placed on a UI surface directly. To display a DOM element
 (canvas, SVG, or div), connect its output to an Element Renderer; see that
@@ -368,7 +372,6 @@ Parameter names become sockets and a link does not follow a renamed parameter â€
 
   public async onNodeAdded(source: TNodeSource): Promise<void> {
     await super.onNodeAdded(source);
-    this.modifiedBanner = this._StatusesRef.addChild(new PIXI.Graphics());
     // added this to make sure all sockets are in place before anything happens (caused visual issues on load before)
     if (this.getInputData(anyCodeName) !== undefined) {
       this.potentiallyUpdateFunctionAndSockets(this.getInputData(anyCodeName));

@@ -1,9 +1,17 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import debounce from 'lodash/debounce';
 import { TRgba } from '../../utils/color';
-import { Box, Button, ButtonGroup, Grid, ThemeProvider, Typography, } from '@mui/material';
+import {
+  Box,
+  Button,
+  ButtonGroup,
+  Grid,
+  ThemeProvider,
+  Typography,
+} from '@mui/material';
 import CircularProgress, {
-  CircularProgressProps, } from '@mui/material/CircularProgress';
+  CircularProgressProps,
+} from '@mui/material/CircularProgress';
 import { ErrorBoundary } from 'react-error-boundary';
 import InterfaceController, { ListenEvent } from '../../InterfaceController';
 import PPStorage from '../../PPStorage';
@@ -11,7 +19,8 @@ import ErrorFallback from '../../components/ErrorFallback';
 import PPGraph from '../../classes/GraphClass';
 import PPSocket from '../../classes/SocketClass';
 import HybridNode2, {
-  HybridWidgetContentProps, } from '../../classes/HybridNode2';
+  HybridWidgetContentProps,
+} from '../../classes/HybridNode2';
 import { FileType } from '../datatypes/fileType';
 import { TriggerType } from '../datatypes/triggerType';
 import { ImageType } from '../datatypes/imageType';
@@ -569,10 +578,10 @@ const VideoOverlay: React.FC<{
 }> = ({ loadingState, localResourceId }) => (
   <Grid
     container
-    alignItems="center"
-    justifyContent="center"
     direction="column"
     sx={{
+      alignItems: 'center',
+      justifyContent: 'center',
       position: 'absolute',
       top: '50%',
       left: '50%',

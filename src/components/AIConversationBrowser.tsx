@@ -12,9 +12,15 @@ import {
   Switch,
   Tooltip,
   Typography,
+  TextField,
+  List,
+  ListItem,
+  ListItemButton,
+  ListItemText,
 } from '@mui/material';
 import {
   Add as AddIcon,
+  DeleteOutlined as DeleteIcon,
   AutoAwesome as AutoAwesomeIcon,
   KeyboardArrowDown as KeyboardArrowDownIcon,
   TuneOutlined as SettingsIcon,
@@ -75,6 +81,7 @@ const toggleSx = {
 };
 
 const AIConversationBrowser = () => {
+  const backend = AIBackend.getInstance();
   const backendConversationNames = Object.keys(
     AIBackend.getInstance().conversations,
   );
@@ -84,8 +91,9 @@ const AIConversationBrowser = () => {
       : ['Conversation 1'],
   );
   const [selectedConversation, setSelectedConversation] = useState(
-    backendConversationNames[0] || 'Conversation 1',
+    backend.selectedConversationId,
   );
+  const [search, setSearch] = useState('');
   const [selectedModel, setSelectedModel] = useAIAgentModelPreference();
   const selectedProvider = getAIAgentProvider(selectedModel);
   const [preferences, savePreferences] = useUserPreferences();
@@ -102,6 +110,7 @@ const AIConversationBrowser = () => {
   useEffect(() => {
     const syncConversations = () => {
       setConversations(Object.keys(AIBackend.getInstance().conversations));
+      setSelectedConversation(AIBackend.getInstance().selectedConversationId);
     };
     const listenerID = InterfaceController.addListener(
       ListenEvent.newAIMessageArrived,
@@ -111,10 +120,8 @@ const AIConversationBrowser = () => {
   }, []);
 
   const createConversation = () => {
-    const newConversationId = `Conversation ${conversations.length + 1}`;
-    AIBackend.getInstance().conversations[newConversationId] = [];
-    setConversations((prev) => [...prev, newConversationId]);
-    setSelectedConversation(newConversationId);
+    backend.createConversation();
+    setSearch('');
   };
 
   return (
@@ -196,24 +203,91 @@ const AIConversationBrowser = () => {
         </Box>
 
         <Stack spacing={1} sx={{ mt: 1.5 }}>
-          <FormControl fullWidth>
-            <Typography variant="caption" sx={{ color: secondaryText }}>
-              Conversation
-            </Typography>
-            <Select
-              variant="outlined"
-              data-cy="Select Conversation"
-              value={selectedConversation}
-              onChange={(event) => setSelectedConversation(event.target.value)}
-              sx={selectSx}
-            >
-              {conversations.map((conversation) => (
-                <MenuItem key={conversation} value={conversation}>
-                  {conversation}
-                </MenuItem>
+          <TextField
+            size="small"
+            placeholder="Search conversations"
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            slotProps={{ htmlInput: { 'aria-label': 'Search conversations' } }}
+            sx={{ ...selectSx, '& input': { color: '#fff' } }}
+          />
+          <List
+            dense
+            disablePadding
+            aria-label="Conversations"
+            sx={{ maxHeight: 180, overflowY: 'auto' }}
+          >
+            {conversations
+              .filter((id) => {
+                const query = search.toLowerCase();
+                return (
+                  (backend.conversationTitles[id] || 'New conversation')
+                    .toLowerCase()
+                    .includes(query) ||
+                  backend
+                    .getConversation(id)
+                    .some((message) =>
+                      message.content.toLowerCase().includes(query),
+                    )
+                );
+              })
+              .map((id) => (
+                <ListItem
+                  key={id}
+                  disablePadding
+                  secondaryAction={
+                    <Tooltip title="Delete conversation">
+                      <IconButton
+                        edge="end"
+                        size="small"
+                        aria-label={`Delete ${backend.conversationTitles[id] || 'conversation'}`}
+                        onClick={() => {
+                          if (
+                            !backend.getConversation(id).length ||
+                            window.confirm(
+                              'Delete this conversation? This cannot be undone.',
+                            )
+                          )
+                            backend.deleteConversation(id);
+                        }}
+                        sx={{ color: secondaryText }}
+                      >
+                        <DeleteIcon fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
+                  }
+                >
+                  <ListItemButton
+                    selected={id === selectedConversation}
+                    onClick={() => backend.selectConversation(id)}
+                    sx={{
+                      minWidth: 0,
+                      '&.Mui-selected': { bgcolor: 'rgba(255,255,255,0.18)' },
+                    }}
+                  >
+                    <ListItemText
+                      primary={
+                        backend.conversationTitles[id] || 'New conversation'
+                      }
+                      secondary={
+                        backend.isConversationRunning(id)
+                          ? 'Responding...'
+                          : `${backend.getConversation(id).length} messages`
+                      }
+                      slotProps={{
+                        primary: {
+                          noWrap: true,
+                          title:
+                            backend.conversationTitles[id] ||
+                            'New conversation',
+                        },
+                        secondary: { sx: { color: secondaryText } },
+                      }}
+                    />
+                  </ListItemButton>
+                </ListItem>
               ))}
-            </Select>
-          </FormControl>
+          </List>
         </Stack>
 
         <Collapse in={showSettings} data-cy="AI Settings">
@@ -294,9 +368,11 @@ const AIConversationBrowser = () => {
                 <Switch
                   checked={performActions}
                   onChange={(event) => setPerformActions(event.target.checked)}
-                  inputProps={{
-                    'aria-label': 'Perform actions',
-                    'data-cy': 'AI Perform Actions Toggle',
+                  slotProps={{
+                    input: {
+                      'aria-label': 'Perform actions',
+                      'data-cy': 'AI Perform Actions Toggle',
+                    },
                   }}
                 />
               }
@@ -313,9 +389,11 @@ const AIConversationBrowser = () => {
                     onChange={(event) =>
                       savePreferences({ aiAutoCapture: event.target.checked })
                     }
-                    inputProps={{
-                      'aria-label': 'Let the AI see the app',
-                      'data-cy': 'AI Auto Capture Toggle',
+                    slotProps={{
+                      input: {
+                        'aria-label': 'Let the AI see the app',
+                        'data-cy': 'AI Auto Capture Toggle',
+                      },
                     }}
                   />
                 }
@@ -328,6 +406,7 @@ const AIConversationBrowser = () => {
       <Divider />
 
       <AIConversationEditor
+        key={selectedConversation}
         conversationID={selectedConversation}
         selectedModel={selectedModel}
         performActions={performActions}

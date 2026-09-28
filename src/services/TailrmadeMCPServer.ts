@@ -13,10 +13,11 @@ import {
 import PPGraph from '../classes/GraphClass';
 import PPNode from '../classes/NodeClass';
 import Socket from '../classes/SocketClass';
+import { PNPStatus } from '../classes/ErrorClass';
 import InterfaceController from '../InterfaceController';
 import { getAllNodeTypes, getAINodesInDetail } from '../nodes/allNodes';
 import { ensureVisible, zoomToFitNodes } from '../pixi/utils-pixi';
-import { STATUS_SEVERITY, TRIGGER_TYPE_OPTIONS } from '../utils/constants';
+import { TRIGGER_TYPE_OPTIONS } from '../utils/constants';
 import {
   dashboardLayoutInputName,
   surfaceElementLayoutSuffix,
@@ -306,7 +307,7 @@ export class TailrmadeMCPServer {
       {
         name: 'describe_node',
         description:
-          "Get one node type's description, AI usage docs, and socket types and defaults.",
+          "Get one node type's description, full docs, and socket types and defaults.",
         input_schema: {
           type: 'object',
           properties: {
@@ -736,7 +737,7 @@ export class TailrmadeMCPServer {
       update_behaviour: this.updateBehaviourToSerializable(node),
       status: {
         node: this.statusToSerializable(node.status.node),
-        socket_summary: this.statusToSerializable(node.status.socket),
+        socket_summary: this.statusToSerializable(node.getSocketStatus()),
         custom: node.status.custom.map((status) =>
           this.statusToSerializable(status),
         ),
@@ -783,7 +784,7 @@ export class TailrmadeMCPServer {
     const issues = Object.values(PPGraph.currentGraph.nodes).flatMap((node) => {
       const nodeIssues = [
         this.statusToIssue(node, 'node', node.status.node),
-        this.statusToIssue(node, 'socket_summary', node.status.socket),
+        this.statusToIssue(node, 'socket_summary', node.getSocketStatus()),
         ...node.status.custom.map((status) =>
           this.statusToIssue(node, 'custom', status),
         ),
@@ -810,15 +811,10 @@ export class TailrmadeMCPServer {
   private statusToIssue(
     node: PPNode,
     source: 'node' | 'socket_summary' | 'custom' | 'socket',
-    status: {
-      getSeverity: () => STATUS_SEVERITY;
-      getName: () => string;
-      message?: string;
-    },
+    status: PNPStatus,
     socket_name?: string,
   ) {
-    const severity = status.getSeverity();
-    if (severity < STATUS_SEVERITY.WARNING) {
+    if (!status.isProblem()) {
       return undefined;
     }
 
@@ -827,33 +823,15 @@ export class TailrmadeMCPServer {
       node_name: node.getName(),
       source,
       socket_name,
-      severity:
-        severity >= STATUS_SEVERITY.FATAL
-          ? 'fatal'
-          : severity >= STATUS_SEVERITY.ERROR
-            ? 'error'
-            : 'warning',
+      severity: status.getSeverityName(),
       status_name: status.getName(),
       message: status.message || '',
     };
   }
 
-  private statusToSerializable(status: {
-    getSeverity: () => STATUS_SEVERITY;
-    getName: () => string;
-    getDescription: () => string;
-    message?: string;
-  }) {
-    const severity = status.getSeverity();
+  private statusToSerializable(status: PNPStatus) {
     return {
-      severity:
-        severity >= STATUS_SEVERITY.FATAL
-          ? 'fatal'
-          : severity >= STATUS_SEVERITY.ERROR
-            ? 'error'
-            : severity >= STATUS_SEVERITY.WARNING
-              ? 'warning'
-              : 'success',
+      severity: status.getSeverityName(),
       status_name: status.getName(),
       description: status.getDescription(),
       message: status.message || '',
@@ -927,7 +905,7 @@ export class TailrmadeMCPServer {
         type: key,
         name: node.getName(),
         description: node.getDescription(),
-        ai_docs: node.getAIDocs(),
+        docs: node.getDocs(),
         tags: node.getTags(),
         update_behaviour: this.updateBehaviourToSerializable(node),
         sockets: node.getAllSockets().map((socket) => ({
