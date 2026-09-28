@@ -10,10 +10,16 @@ import {
   Typography,
 } from '@mui/material';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
+import FactCheckOutlinedIcon from '@mui/icons-material/FactCheckOutlined';
+import MyLocationIcon from '@mui/icons-material/MyLocation';
 import { AppRisk } from '../classes/NodeRisk';
+import PPGraph from '../classes/GraphClass';
 import { createStore } from './createStore';
 import { pendingAppRun } from '../services/appExecution';
 import InterfaceController from '../InterfaceController';
+import { ensureVisible } from '../pixi/utils-pixi';
+import { VISIBILITY_ACTION } from '../utils/constants_shared';
+import { setStackView } from '../utils/layoutModel';
 
 type Review = {
   paste?: boolean;
@@ -87,7 +93,7 @@ export function AppRiskDialog(): React.ReactElement | null {
         </Typography>
         <Button
           variant="contained"
-          startIcon={<PlayArrowIcon />}
+          startIcon={<FactCheckOutlinedIcon />}
           data-cy="start-app"
           disabled={starting}
           sx={{ flexShrink: 0 }}
@@ -105,7 +111,7 @@ export function AppRiskDialog(): React.ReactElement | null {
             }
           }}
         >
-          Run app
+          Review app
         </Button>
       </Box>
     );
@@ -159,13 +165,54 @@ export function AppRiskDialog(): React.ReactElement | null {
               )}
               <Typography variant="body2">{risk.description}</Typography>
             </Alert>
-            <Typography
-              variant="caption"
-              component="p"
-              sx={{ mt: 0.5, color: 'text.secondary' }}
-            >
-              {nodes.map((node) => node.name).join(', ')}
-            </Typography>
+            <Box sx={{ mt: 1, display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+              {nodes.map((node) => (
+                <Button
+                  key={node.id}
+                  size="small"
+                  variant="outlined"
+                  color="inherit"
+                  startIcon={<MyLocationIcon />}
+                  aria-label={`Go to node ${node.name}`}
+                  data-cy="go-to-risk-node"
+                  data-node-id={node.id}
+                  sx={{
+                    maxWidth: '100%',
+                    minHeight: 36,
+                    px: 1.5,
+                    textAlign: 'left',
+                    textTransform: 'none',
+                    overflowWrap: 'anywhere',
+                    color: 'text.primary',
+                    bgcolor: 'action.hover',
+                    borderColor: 'text.secondary',
+                    '&:hover': {
+                      bgcolor: 'action.selected',
+                      borderColor: 'text.primary',
+                    },
+                    '&.Mui-focusVisible': {
+                      outline: '2px solid',
+                      outlineColor: 'text.primary',
+                      outlineOffset: 2,
+                    },
+                  }}
+                  onClick={() => {
+                    const target = PPGraph.currentGraph.nodes[node.id];
+                    if (!target) return;
+                    finish(false);
+                    InterfaceController.toggleAppView(VISIBILITY_ACTION.CLOSE);
+                    InterfaceController.toggleShowDashboard(
+                      VISIBILITY_ACTION.CLOSE,
+                    );
+                    setStackView('graph');
+                    PPGraph.currentGraph.selection.selectNodes([target], false);
+                    void ensureVisible([target]);
+                  }}
+                >
+                  {node.name}
+                </Button>
+              ))}
+            </Box>
           </Box>
         ))}
       </DialogContent>

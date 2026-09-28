@@ -87,6 +87,7 @@ import {
 } from '../services/nodePasteTrust';
 import {
   getAppFingerprint,
+  getAppReviewContent,
   isAppApproved,
   rememberAppApproval,
 } from '../services/appTrust';
@@ -1621,6 +1622,8 @@ export default class PPGraph {
   }
 
   private async configureGraph(storedGraph: StoredGraph): Promise<boolean> {
+    // Loading nodes can add defaults or generated values to their serialized data.
+    const loadedGraphData = structuredClone(storedGraph.graphData);
     const CONFIGURE_GRAPH_SPINNER_MESSAGE = 'Configuring graph';
     InterfaceController.showSpinner(CONFIGURE_GRAPH_SPINNER_MESSAGE);
 
@@ -1714,14 +1717,23 @@ export default class PPGraph {
 
     InterfaceController.hideSpinner();
     document.body.style.cursor = 'default';
+    const initialReviewContent = getAppReviewContent(
+      this.serialize(),
+      collectAppRisks(Object.values(this.nodes)),
+    );
     const pending = {
       name: storedGraph.name,
-      run: async (): Promise<void> => {
+      run: async (reviewOnLoad = false): Promise<void> => {
         const risks = collectAppRisks(Object.values(this.nodes));
         const graph = this.serialize();
-        const reviewedContent = JSON.stringify({ graph, risks });
-        const fingerprint = await getAppFingerprint(graph, risks);
+        const reviewedContent = getAppReviewContent(graph, risks);
+        const fingerprint = await getAppFingerprint(
+          reviewedContent === initialReviewContent ? loadedGraphData : graph,
+          risks,
+        );
         if (pendingAppRun.get() !== pending) return;
+        if (reviewOnLoad && (!risks.length || isAppApproved(fingerprint)))
+          return;
         const approved =
           isAppApproved(fingerprint) ||
           (await reviewAppRisks(this.name, risks));
@@ -1729,10 +1741,10 @@ export default class PPGraph {
         if (!approved || pendingAppRun.get() !== pending) return;
         // Recheck synchronously so edits during hashing or review cannot inherit approval.
         if (
-          JSON.stringify({
-            graph: this.serialize(),
-            risks: collectAppRisks(Object.values(this.nodes)),
-          }) !== reviewedContent
+          getAppReviewContent(
+            this.serialize(),
+            collectAppRisks(Object.values(this.nodes)),
+          ) !== reviewedContent
         )
           return;
         if (risks.length) rememberAppApproval(fingerprint);
@@ -1762,6 +1774,13 @@ export default class PPGraph {
     InterfaceController.notifyListeners(ListenEvent.GraphConfigured, {
       id: storedGraph.id,
       name: storedGraph.name,
+    });
+
+    // Open the review without making graph loading wait for a user decision.
+    void pending.run(true).catch((error) => {
+      InterfaceController.showSnackBar(`Starting app failed: ${error}`, {
+        variant: 'error',
+      });
     });
 
     return true;

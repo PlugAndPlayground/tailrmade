@@ -8,6 +8,7 @@ import {
 
 describe('app risk review', () => {
   let loading: Promise<boolean>;
+  let loadedFile: any;
 
   beforeEach(() => {
     openNewGraph();
@@ -18,18 +19,17 @@ describe('app risk review', () => {
     });
   });
 
-  const beginLoad = (nodes: any[], links: any[] = [], start = true): void => {
+  const beginLoad = (nodes: any[], links: any[] = []): void => {
     doWithTestController((controller) => {
       const graph = controller.getGraph();
       const stored = graph.getSerializedStoredGraph();
       stored.name = 'Risk review test';
       stored.graphData.nodes = nodes;
       stored.graphData.links = links;
+      loadedFile = JSON.parse(JSON.stringify(stored));
       loading = graph.configure(stored);
     });
     cy.then(() => loading).should('equal', true);
-    cy.get('[data-cy="app-not-running"]').should('be.visible');
-    if (start) cy.get('[data-cy="start-app"]').click();
   };
 
   const codeNode = (version = 3) => ({
@@ -44,13 +44,45 @@ describe('app risk review', () => {
     version,
   });
 
+  [1280, 390].forEach((width) => {
+    it(`navigates to a specific risk node without running the app at ${width}px`, () => {
+      cy.viewport(width, 900);
+      beginLoad([
+        codeNode(),
+        { ...codeNode(), id: 'second-code', x: 5000, y: 5000 },
+      ]);
+      cy.get('[data-cy="go-to-risk-node"]').should('have.length', 2);
+      cy.get('[data-cy="go-to-risk-node"][data-node-id="second-code"]').click();
+      cy.get('[data-cy="app-risk-dialog"]').should('not.exist');
+      cy.get('[data-cy="app-not-running"]').should('be.visible');
+      shouldWithTestController((controller) => {
+        const graph = controller.getGraph();
+        expect(
+          graph.selection.selectedNodes.map((node) => node.id),
+        ).to.deep.equal(['second-code']);
+        const node = controller.getNodeByID('second-code');
+        const position = graph.viewport.toScreen(node.x, node.y);
+        expect(position.x).to.be.within(0, width);
+        expect(position.y).to.be.within(0, 900);
+        expect(node.debug_timesExecuted).to.equal(0);
+      });
+      cy.window().then(
+        (win: any) => expect(win.__riskCodeRuns).to.be.undefined,
+      );
+      cy.get('[data-cy="start-app"]').click();
+      cy.get('[data-cy="app-risk-dialog"]').should('be.visible');
+      cy.get('[data-cy="app-risk-dialog"]')
+        .contains('button', 'Keep inspecting')
+        .click();
+    });
+  });
+
   it('remembers approval on reload and reviews changed code again', () => {
     let saved: any;
-    beginLoad([codeNode()]);
-    doWithTestController((controller) => {
-      saved = JSON.parse(
-        JSON.stringify(controller.getGraph().getSerializedStoredGraph()),
-      );
+    // Missing defaults are regenerated on load, including the shape's random color.
+    beginLoad([codeNode(), serializedNode('DRAW_Shape', 'shape', [])]);
+    cy.then(() => {
+      saved = JSON.parse(JSON.stringify(loadedFile));
     });
     cy.get('[data-cy="run-reviewed-app"]').click();
     cy.get('[data-cy="app-not-running"]').should('not.exist');
@@ -66,7 +98,6 @@ describe('app risk review', () => {
       ).data = '() => { window.__changedRiskCodeRan = true; return 8; }';
       await controller.getGraph().configure(saved);
     });
-    cy.get('[data-cy="start-app"]').click();
     cy.get('[data-cy="app-risk-dialog"]').should('be.visible');
     cy.window().then(
       (win: any) => expect(win.__changedRiskCodeRan).to.be.undefined,
@@ -100,21 +131,14 @@ describe('app risk review', () => {
         ]),
       ],
       [],
-      false,
     );
-    cy.get('[data-cy="app-risk-dialog"]').should('not.exist');
+    cy.get('[data-cy="app-risk-dialog"]').should('be.visible');
     cy.get('[data-cy="paused-widget"]').should('exist');
     cy.window().then((win: any) => {
       expect(win.__riskCodeRuns).to.be.undefined;
       expect(win.__riskHtmlRuns).to.be.undefined;
       expect(requests).to.equal(0);
     });
-    cy.viewport(1280, 900);
-    cy.screenshot('app-paused-desktop');
-    cy.viewport(390, 844);
-    cy.get('[data-cy="start-app"]').should('be.visible');
-    cy.screenshot('app-paused-mobile');
-    cy.get('[data-cy="start-app"]').click();
     cy.get('[data-cy="app-risk-dialog"]')
       .should('be.visible')
       .and('contain', 'Runs unrestricted JavaScript');
@@ -151,7 +175,7 @@ describe('app risk review', () => {
     doWithTestController((controller) =>
       expect(controller.getNodes()).to.have.length(1),
     );
-    beginLoad([serializedNode('add', 'add', [])], [], false);
+    beginLoad([serializedNode('add', 'add', [])]);
     cy.then(() => loading).should('equal', true);
     cy.get('[data-cy="app-risk-dialog"]').should('not.exist');
     doWithTestController(async (controller) => {
@@ -223,6 +247,7 @@ describe('app risk review', () => {
         version: 3,
       },
     ]);
+    cy.get('[data-cy="start-app"]').click();
     cy.get('[data-cy="app-risk-dialog"]').should('not.exist');
     cy.then(() => loading).should('equal', true);
     shouldWithTestController((controller) =>
@@ -235,7 +260,7 @@ describe('app risk review', () => {
   it('discards an outstanding approval when another app is loaded', () => {
     beginLoad([codeNode()]);
     cy.get('[data-cy="app-risk-dialog"]').should('be.visible');
-    beginLoad([serializedNode('add', 'replacement', [])], [], false);
+    beginLoad([serializedNode('add', 'replacement', [])]);
     cy.get('[data-cy="app-risk-dialog"]').should('not.exist');
     cy.window().then((win: any) => expect(win.__riskCodeRuns).to.be.undefined);
     doWithTestController((controller) =>

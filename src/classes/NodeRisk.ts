@@ -52,6 +52,17 @@ export class NetworkRisk extends NodeRisk {
   }
 }
 
+export class NavigationRisk extends NodeRisk {
+  readonly kind = 'navigation';
+  readonly title = 'Opens web pages';
+  readonly description =
+    'Can open HTTP and HTTPS pages in new tabs and send data in their URLs. URL credentials, query strings, and fragments are hidden. Connected inputs may determine destinations at runtime.';
+
+  constructor(url?: unknown) {
+    super(new NetworkRisk(url).target);
+  }
+}
+
 export class CompanionRisk extends NodeRisk {
   readonly kind = 'companion';
   readonly title = 'Uses your Companion';
