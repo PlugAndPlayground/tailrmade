@@ -9,12 +9,12 @@ export function getAppReviewContent(
 ): string {
   const { viewportCenterPosition, viewportScale, ...settings } =
     graph.graphSettings;
-  // Ignore navigation state, but retain all node data and wiring.
+  // Layout can settle after the dialog opens; it does not change execution.
   return JSON.stringify(
     {
       version: graph.version,
       settings,
-      nodes: graph.nodes,
+      nodes: graph.nodes.map(({ x, y, width, height, ...node }) => node),
       links: graph.links,
       risks,
     },
@@ -36,7 +36,14 @@ export async function getAppFingerprint(
   risks: AppRisk[],
 ): Promise<string | null> {
   try {
-    const content = getAppReviewContent(graph, risks);
+    // Migrated nodes may receive new IDs on each load. The original graph
+    // already identifies the reviewed code and wiring; retain risk capabilities.
+    const content = getAppReviewContent(
+      graph,
+      risks
+        .map(({ risk }) => ({ risk, nodes: [] }))
+        .sort((a, b) => a.risk.id.localeCompare(b.risk.id)),
+    );
     const hash = await globalThis.crypto.subtle.digest(
       'SHA-256',
       new TextEncoder().encode(content),

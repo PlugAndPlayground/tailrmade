@@ -1,3 +1,4 @@
+import { inflate } from 'pako';
 import {
   openNewGraph,
   doWithTestController,
@@ -42,6 +43,48 @@ describe('app risk review', () => {
       serializedSocket('Main Thread', version === 3, 'BooleanType'),
     ]),
     version,
+  });
+
+  ['CG Test.ppgraph'].forEach((fixture) => {
+    it(`persists approval without saving ${fixture}`, () => {
+      cy.fixture(fixture).then((raw) => {
+        const stored =
+          typeof raw === 'string'
+            ? JSON.parse(
+                new TextDecoder().decode(
+                  inflate(
+                    Uint8Array.from(
+                      atob(raw.trim().replace(/-/g, '+').replace(/_/g, '/')),
+                      (char) => char.charCodeAt(0),
+                    ),
+                  ),
+                ),
+              )
+            : raw;
+        (stored.graphData ?? stored).nodes.push(codeNode());
+        const load = () =>
+          doWithTestController(async (controller) => {
+            await controller.loadStringifiedGraph(JSON.stringify(stored));
+          });
+        load();
+        cy.get('[data-cy="run-reviewed-app"]').should('be.visible');
+        doWithTestController((controller) => {
+          controller.getNodeByID('code').x += 100;
+        });
+        cy.get('[data-cy="run-reviewed-app"]').click();
+        cy.window().should((win) => {
+          expect(
+            Object.keys(win.localStorage).filter((key) =>
+              key.startsWith('tailrmade.app-approval.'),
+            ),
+          ).to.have.length.greaterThan(0);
+        });
+        load();
+        cy.get('[data-cy="start-app"]').click();
+        cy.get('[data-cy="app-not-running"]').should('not.exist');
+        cy.get('[data-cy="app-risk-dialog"]').should('not.exist');
+      });
+    });
   });
 
   [1280, 390].forEach((width) => {
@@ -165,7 +208,7 @@ describe('app risk review', () => {
     });
   });
 
-  it('keeps the app inspectable after declining and requires approval for harmless apps', () => {
+  it('keeps the app inspectable after declining and automatically runs harmless apps', () => {
     beginLoad([codeNode()]);
     cy.get('[data-cy="app-risk-dialog"]')
       .contains('button', 'Keep inspecting')
@@ -178,14 +221,8 @@ describe('app risk review', () => {
     beginLoad([serializedNode('add', 'add', [])]);
     cy.then(() => loading).should('equal', true);
     cy.get('[data-cy="app-risk-dialog"]').should('not.exist');
-    doWithTestController(async (controller) => {
-      await controller.getNodeByID('add').execute();
-      expect(controller.getNodeByID('add').debug_timesExecuted).to.equal(0);
-      expect(controller.getGraph().graphConfiguredAndReady).to.equal(true);
-    });
-    cy.get('[data-cy="start-app"]').click();
     cy.get('[data-cy="app-not-running"]').should('not.exist');
-    doWithTestController((controller) =>
+    shouldWithTestController((controller) =>
       expect(
         controller.getNodeByID('add').debug_timesExecuted,
       ).to.be.greaterThan(0),
@@ -247,8 +284,8 @@ describe('app risk review', () => {
         version: 3,
       },
     ]);
-    cy.get('[data-cy="start-app"]').click();
     cy.get('[data-cy="app-risk-dialog"]').should('not.exist');
+    cy.get('[data-cy="app-not-running"]').should('not.exist');
     cy.then(() => loading).should('equal', true);
     shouldWithTestController((controller) =>
       expect(
@@ -263,12 +300,7 @@ describe('app risk review', () => {
     beginLoad([serializedNode('add', 'replacement', [])]);
     cy.get('[data-cy="app-risk-dialog"]').should('not.exist');
     cy.window().then((win: any) => expect(win.__riskCodeRuns).to.be.undefined);
-    doWithTestController((controller) =>
-      expect(
-        controller.getNodeByID('replacement').debug_timesExecuted,
-      ).to.equal(0),
-    );
-    cy.get('[data-cy="start-app"]').click();
+    cy.get('[data-cy="app-not-running"]').should('not.exist');
     shouldWithTestController((controller) =>
       expect(
         controller.getNodeByID('replacement').debug_timesExecuted,

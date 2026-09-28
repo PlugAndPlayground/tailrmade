@@ -1,6 +1,7 @@
 import { webcrypto } from 'node:crypto';
 import {
   getAppFingerprint,
+  getAppReviewContent,
   isAppApproved,
   rememberAppApproval,
 } from '../../../src/services/appTrust';
@@ -53,6 +54,29 @@ it('ignores viewport and drawer state and normalizes object key order', async ()
   moved.nodes[0] = { socketArray: moved.nodes[0].socketArray, id: 'code' };
   expect(await getAppFingerprint(moved, risks)).toBe(
     await getAppFingerprint(graph(), risks),
+  );
+});
+
+it('keeps review content stable when node geometry settles', async () => {
+  const moved = graph();
+  Object.assign(moved.nodes[0], { x: 300, y: 50, width: 400, height: 200 });
+  expect(getAppReviewContent(moved, risks)).toBe(
+    getAppReviewContent(graph(), risks),
+  );
+  expect(await getAppFingerprint(moved, risks)).toBe(
+    await getAppFingerprint(graph(), risks),
+  );
+});
+
+it('does not bind stored approval to generated migration node IDs', async () => {
+  const first = [
+    { ...risks[0], nodes: [{ id: 'generated-a', name: 'Surface' }] },
+  ];
+  const second = [
+    { ...risks[0], nodes: [{ id: 'generated-b', name: 'Surface' }] },
+  ];
+  expect(await getAppFingerprint(graph(), first)).toBe(
+    await getAppFingerprint(graph(), second),
   );
 });
 

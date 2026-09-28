@@ -1592,7 +1592,10 @@ export default class PPGraph {
 
   private isConfiguring = false;
 
-  async configure(storedGraph: StoredGraph): Promise<boolean> {
+  async configure(
+    storedGraph: StoredGraph,
+    approvalGraphData: SerializedGraph = storedGraph.graphData,
+  ): Promise<boolean> {
     if (this.isConfiguring) return false;
     PNPWorker.resetSession();
     resetNodePasteTrust();
@@ -1603,7 +1606,7 @@ export default class PPGraph {
     FlowLogic.pendingExecution.clear();
     let configured = false;
     try {
-      configured = await this.configureGraph(storedGraph);
+      configured = await this.configureGraph(storedGraph, approvalGraphData);
       return configured;
     } finally {
       try {
@@ -1621,9 +1624,12 @@ export default class PPGraph {
     }
   }
 
-  private async configureGraph(storedGraph: StoredGraph): Promise<boolean> {
+  private async configureGraph(
+    storedGraph: StoredGraph,
+    approvalGraphData: SerializedGraph,
+  ): Promise<boolean> {
     // Loading nodes can add defaults or generated values to their serialized data.
-    const loadedGraphData = structuredClone(storedGraph.graphData);
+    const loadedGraphData = structuredClone(approvalGraphData);
     const CONFIGURE_GRAPH_SPINNER_MESSAGE = 'Configuring graph';
     InterfaceController.showSpinner(CONFIGURE_GRAPH_SPINNER_MESSAGE);
 
@@ -1732,8 +1738,7 @@ export default class PPGraph {
           risks,
         );
         if (pendingAppRun.get() !== pending) return;
-        if (reviewOnLoad && (!risks.length || isAppApproved(fingerprint)))
-          return;
+        if (reviewOnLoad && risks.length && isAppApproved(fingerprint)) return;
         const approved =
           isAppApproved(fingerprint) ||
           (await reviewAppRisks(this.name, risks));
