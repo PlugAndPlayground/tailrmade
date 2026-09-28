@@ -80,7 +80,6 @@ describe('app risk review', () => {
           ).to.have.length.greaterThan(0);
         });
         load();
-        cy.get('[data-cy="start-app"]').click();
         cy.get('[data-cy="app-not-running"]').should('not.exist');
         cy.get('[data-cy="app-risk-dialog"]').should('not.exist');
       });
@@ -132,7 +131,6 @@ describe('app risk review', () => {
     doWithTestController(async (controller) => {
       await controller.getGraph().configure(saved);
     });
-    cy.get('[data-cy="start-app"]').click();
     cy.get('[data-cy="app-not-running"]').should('not.exist');
     cy.get('[data-cy="app-risk-dialog"]').should('not.exist');
     doWithTestController(async (controller) => {

@@ -1729,7 +1729,7 @@ export default class PPGraph {
     );
     const pending = {
       name: storedGraph.name,
-      run: async (reviewOnLoad = false): Promise<void> => {
+      run: async (): Promise<void> => {
         const risks = collectAppRisks(Object.values(this.nodes));
         const graph = this.serialize();
         const reviewedContent = getAppReviewContent(graph, risks);
@@ -1738,7 +1738,6 @@ export default class PPGraph {
           risks,
         );
         if (pendingAppRun.get() !== pending) return;
-        if (reviewOnLoad && risks.length && isAppApproved(fingerprint)) return;
         const approved =
           isAppApproved(fingerprint) ||
           (await reviewAppRisks(this.name, risks));
@@ -1782,7 +1781,7 @@ export default class PPGraph {
     });
 
     // Open the review without making graph loading wait for a user decision.
-    void pending.run(true).catch((error) => {
+    void pending.run().catch((error) => {
       InterfaceController.showSnackBar(`Starting app failed: ${error}`, {
         variant: 'error',
       });
