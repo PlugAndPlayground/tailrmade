@@ -6,6 +6,7 @@ export function runWorkerJob(
   timeout: number,
   handleMessage: (payload: any, isActive: () => boolean) => Promise<boolean>,
   release: (worker: Worker) => void,
+  signal?: AbortSignal,
 ): Promise<ComputeResult> {
   return new Promise((resolve, reject) => {
     let settled = false;
@@ -13,6 +14,7 @@ export function runWorkerJob(
       if (settled) return false;
       settled = true;
       clearTimeout(timer);
+      signal?.removeEventListener('abort', abort);
       worker.onmessage = null;
       worker.onerror = null;
       worker.onmessageerror = null;
@@ -26,6 +28,12 @@ export function runWorkerJob(
     const timer = setTimeout(() => {
       fail(new Error('Compute operation timed out'));
     }, timeout);
+    const abort = (): void => fail(new Error('App changed; compute cancelled'));
+    signal?.addEventListener('abort', abort, { once: true });
+    if (signal?.aborted) {
+      abort();
+      return;
+    }
 
     worker.onmessage = async (event: MessageEvent<any>) => {
       if (settled) return;

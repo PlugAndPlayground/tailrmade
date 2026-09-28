@@ -16,11 +16,24 @@ import { pendingAppRun } from '../services/appExecution';
 import InterfaceController from '../InterfaceController';
 
 type Review = {
+  paste?: boolean;
   name: string;
   risks: AppRisk[];
   resolve: (approved: boolean) => void;
 };
 const reviewStore = createStore<Review | null>(null);
+
+export function reviewNodePaste(count: number): Promise<boolean> {
+  cancelAppRiskReview();
+  return new Promise((resolve) =>
+    reviewStore.set({
+      name: `${count} node${count === 1 ? '' : 's'}`,
+      risks: [],
+      paste: true,
+      resolve,
+    }),
+  );
+}
 
 export function cancelAppRiskReview(): void {
   const review = reviewStore.get();
@@ -108,7 +121,7 @@ export function AppRiskDialog(): React.ReactElement | null {
       fullWidth
       maxWidth="sm"
       aria-labelledby="app-risk-title"
-      data-cy="app-risk-dialog"
+      data-cy={review.paste ? 'node-paste-dialog' : 'app-risk-dialog'}
       sx={{
         zIndex: 1500,
         '& .MuiDialog-paper': {
@@ -118,9 +131,18 @@ export function AppRiskDialog(): React.ReactElement | null {
       }}
     >
       <DialogTitle id="app-risk-title" sx={{ overflowWrap: 'anywhere' }}>
-        Before running {review.name}
+        {review.paste
+          ? `Paste ${review.name}?`
+          : `Before running ${review.name}`}
       </DialogTitle>
       <DialogContent dividers>
+        {review.paste && (
+          <Alert severity="warning">
+            Pasted nodes can run code, access saved Tailrmade data, and send
+            network requests. They may run immediately if this app is running.
+            Only paste nodes from a source you trust.
+          </Alert>
+        )}
         {review.risks.map(({ risk, nodes }) => (
           <Box
             key={risk.id}
@@ -149,15 +171,15 @@ export function AppRiskDialog(): React.ReactElement | null {
       </DialogContent>
       <DialogActions>
         <Button color="inherit" onClick={() => finish(false)} autoFocus>
-          Keep inspecting
+          {review.paste ? 'Cancel' : 'Keep inspecting'}
         </Button>
         <Button
           variant="contained"
           startIcon={<PlayArrowIcon />}
           onClick={() => finish(true)}
-          data-cy="run-reviewed-app"
+          data-cy={review.paste ? 'confirm-node-paste' : 'run-reviewed-app'}
         >
-          Run app
+          {review.paste ? 'Paste nodes' : 'Run app'}
         </Button>
       </DialogActions>
     </Dialog>

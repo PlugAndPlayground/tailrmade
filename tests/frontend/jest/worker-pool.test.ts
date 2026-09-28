@@ -9,6 +9,7 @@ describe('restricted worker pool', () => {
   const create = createComputeWorker as jest.Mock;
   let created: any[];
   beforeEach(() => {
+    PNPWorker.resetSession();
     PNPWorker.workerStack = [];
     PNPWorker.workersAllocated = 0;
     created = [];
@@ -63,6 +64,31 @@ describe('restricted worker pool', () => {
     await expect(
       new PNPWorker().work({ code: '() => 1', data: null }),
     ).rejects.toThrow('Worker initialization failed');
+    expect(PNPWorker.workerStack).toHaveLength(0);
+  });
+
+  it('discards idle contexts when the app changes', async () => {
+    const service = new PNPWorker();
+    await service.work({ code: 'same code', data: 'private' });
+    const oldWorker = created[0];
+    PNPWorker.resetSession();
+    expect(oldWorker.terminate).toHaveBeenCalledTimes(1);
+    expect(PNPWorker.workerStack).toHaveLength(0);
+    await service.work({ code: 'same code', data: 'next app' });
+    expect(create).toHaveBeenCalledTimes(2);
+  });
+
+  it('cancels active jobs and ignores their late replies on app change', async () => {
+    const worker = create();
+    worker.postMessage.mockImplementation(() => {});
+    PNPWorker.workerStack.push(worker);
+    const job = new PNPWorker().work({ code: 'pending', data: null });
+    const rejected = expect(job).rejects.toThrow('App changed');
+    const lateReply = worker.onmessage;
+    PNPWorker.resetSession();
+    await rejected;
+    await lateReply({ data: { success: true, result: 'private' } });
+    expect(worker.terminate).toHaveBeenCalledTimes(1);
     expect(PNPWorker.workerStack).toHaveLength(0);
   });
 

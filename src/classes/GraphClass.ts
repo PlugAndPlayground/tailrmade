@@ -75,8 +75,21 @@ import { collectAppRisks } from './NodeRisk';
 import {
   cancelAppRiskReview,
   reviewAppRisks,
+  reviewNodePaste,
 } from '../components/AppRiskDialog';
 import { appExecutionAllowed, pendingAppRun } from '../services/appExecution';
+import { PNPWorker } from '../nodes/data/worker/PNPWorker';
+import {
+  getNodePasteSession,
+  isLocalNodePaste,
+  registerLocalSelection,
+  resetNodePasteTrust,
+} from '../services/nodePasteTrust';
+import {
+  getAppFingerprint,
+  isAppApproved,
+  rememberAppApproval,
+} from '../services/appTrust';
 
 // withtout this the compilation order breaks
 const DUMMY_IMPORT = getNodesBounds;
@@ -1308,6 +1321,8 @@ export default class PPGraph {
 
   // teardown done before another app is loaded and not undoable
   async clear(): Promise<void> {
+    PNPWorker.resetSession();
+    resetNodePasteTrust();
     pendingAppRun.set(null);
     cancelAppRiskReview();
     appExecutionAllowed.set(false);
@@ -1358,6 +1373,13 @@ export default class PPGraph {
     data: SerializedSelection,
     pastePos: PIXI.Point = new PIXI.Point(0, 0),
   ): Promise<PPNode[]> {
+    const session = getNodePasteSession();
+    const trusted = isLocalNodePaste(data);
+    data = structuredClone(data);
+    if (!trusted) {
+      if (!(await reviewNodePaste(data.nodes.length))) return [];
+      if (session !== getNodePasteSession()) return [];
+    }
     const newNodes: PPNode[] = [];
     const mappingOfOldAndNewNodes: { [key: string]: PPNode } = {};
 
@@ -1368,6 +1390,7 @@ export default class PPGraph {
     });
 
     const action = async () => {
+      if (session !== getNodePasteSession()) return;
       const originalNodes: SerializedSelection = data;
       newNodes.length = 0;
       //create nodes
@@ -1555,6 +1578,7 @@ export default class PPGraph {
       links: linksSerialized,
     };
 
+    registerLocalSelection(data);
     return data;
   }
 
@@ -1569,6 +1593,8 @@ export default class PPGraph {
 
   async configure(storedGraph: StoredGraph): Promise<boolean> {
     if (this.isConfiguring) return false;
+    PNPWorker.resetSession();
+    resetNodePasteTrust();
     this.isConfiguring = true;
     pendingAppRun.set(null);
     cancelAppRiskReview();
@@ -1691,12 +1717,25 @@ export default class PPGraph {
     const pending = {
       name: storedGraph.name,
       run: async (): Promise<void> => {
-        const approved = await reviewAppRisks(
-          this.name,
-          collectAppRisks(Object.values(this.nodes)),
-        );
+        const risks = collectAppRisks(Object.values(this.nodes));
+        const graph = this.serialize();
+        const reviewedContent = JSON.stringify({ graph, risks });
+        const fingerprint = await getAppFingerprint(graph, risks);
+        if (pendingAppRun.get() !== pending) return;
+        const approved =
+          isAppApproved(fingerprint) ||
+          (await reviewAppRisks(this.name, risks));
         // A different app may have been opened while its risks were reviewed.
         if (!approved || pendingAppRun.get() !== pending) return;
+        // Recheck synchronously so edits during hashing or review cannot inherit approval.
+        if (
+          JSON.stringify({
+            graph: this.serialize(),
+            risks: collectAppRisks(Object.values(this.nodes)),
+          }) !== reviewedContent
+        )
+          return;
+        if (risks.length) rememberAppApproval(fingerprint);
         pendingAppRun.set(null);
         appExecutionAllowed.set(true);
         await this.executeAllSeedNodes(Object.values(this.nodes));

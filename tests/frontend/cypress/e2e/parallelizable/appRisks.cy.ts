@@ -11,6 +11,11 @@ describe('app risk review', () => {
 
   beforeEach(() => {
     openNewGraph();
+    cy.window().then((win) => {
+      Object.keys(win.localStorage)
+        .filter((key) => key.startsWith('tailrmade.app-approval.'))
+        .forEach((key) => win.localStorage.removeItem(key));
+    });
   });
 
   const beginLoad = (nodes: any[], links: any[] = [], start = true): void => {
@@ -37,6 +42,38 @@ describe('app risk review', () => {
       serializedSocket('Main Thread', version === 3, 'BooleanType'),
     ]),
     version,
+  });
+
+  it('remembers approval on reload and reviews changed code again', () => {
+    let saved: any;
+    beginLoad([codeNode()]);
+    doWithTestController((controller) => {
+      saved = JSON.parse(
+        JSON.stringify(controller.getGraph().getSerializedStoredGraph()),
+      );
+    });
+    cy.get('[data-cy="run-reviewed-app"]').click();
+    cy.get('[data-cy="app-not-running"]').should('not.exist');
+    doWithTestController(async (controller) => {
+      await controller.getGraph().configure(saved);
+    });
+    cy.get('[data-cy="start-app"]').click();
+    cy.get('[data-cy="app-not-running"]').should('not.exist');
+    cy.get('[data-cy="app-risk-dialog"]').should('not.exist');
+    doWithTestController(async (controller) => {
+      saved.graphData.nodes[0].socketArray.find(
+        (socket: any) => socket.name === 'Code',
+      ).data = '() => { window.__changedRiskCodeRan = true; return 8; }';
+      await controller.getGraph().configure(saved);
+    });
+    cy.get('[data-cy="start-app"]').click();
+    cy.get('[data-cy="app-risk-dialog"]').should('be.visible');
+    cy.window().then(
+      (win: any) => expect(win.__changedRiskCodeRan).to.be.undefined,
+    );
+    cy.get('[data-cy="app-risk-dialog"]')
+      .contains('button', 'Keep inspecting')
+      .click();
   });
 
   it('blocks main-thread code, HTML scripts and HTTP until approval', () => {
@@ -231,7 +268,7 @@ describe('app risk review', () => {
     ]);
     cy.get('[data-cy="app-risk-dialog"]')
       .should('contain', 'OPENAI_KEY')
-      .and('contain', 'https://example.com')
+      .and('contain', 'https://example.com/private')
       .and('not.contain', 'not-for-display');
     cy.get('[data-cy="app-risk-dialog"]')
       .contains('button', 'Keep inspecting')

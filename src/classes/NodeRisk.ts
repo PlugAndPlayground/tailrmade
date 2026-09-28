@@ -32,14 +32,20 @@ export class NetworkRisk extends NodeRisk {
   readonly kind = 'network';
   readonly title = 'Connects to external services';
   readonly description =
-    'Can send and receive data. Connected inputs and custom code may determine additional destinations at runtime.';
+    'Can send and receive data. URL credentials, query strings, and fragments are hidden. Connected inputs and custom code may determine additional destinations at runtime.';
 
-  constructor(url?: unknown) {
+  constructor(
+    url?: unknown,
+    baseURL = typeof document === 'undefined' ? undefined : document.baseURI,
+  ) {
     let destination = 'Destination determined at runtime';
     if (typeof url === 'string') {
       try {
-        // Never disclose query strings, credentials, or API keys in the review.
-        destination = new URL(url).origin;
+        const parsed = new URL(url, baseURL);
+        if (['http:', 'https:', 'ws:', 'wss:'].includes(parsed.protocol)) {
+          // Show the endpoint without credentials or query/fragment secrets.
+          destination = parsed.origin + parsed.pathname;
+        }
       } catch {}
     }
     super(destination);
