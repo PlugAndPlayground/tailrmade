@@ -72,8 +72,11 @@ import {
 import { StoredGraph } from '../utils/indexedDB';
 import PPStorage, { DEFAULT_ACCESS, DEFAULT_LOCATION } from '../PPStorage';
 import { collectAppRisks } from './NodeRisk';
-import { reviewAppRisks } from '../components/AppRiskDialog';
-import { appExecutionAllowed } from '../services/appExecution';
+import {
+  cancelAppRiskReview,
+  reviewAppRisks,
+} from '../components/AppRiskDialog';
+import { appExecutionAllowed, pendingAppRun } from '../services/appExecution';
 
 // withtout this the compilation order breaks
 const DUMMY_IMPORT = getNodesBounds;
@@ -1305,6 +1308,9 @@ export default class PPGraph {
 
   // teardown done before another app is loaded and not undoable
   async clear(): Promise<void> {
+    pendingAppRun.set(null);
+    cancelAppRiskReview();
+    appExecutionAllowed.set(false);
     this.graphConfiguredAndReady = false;
     InterfaceController.toggleDashboardInEditMode(VISIBILITY_ACTION.CLOSE);
     this.socketFocus.forgetAll();
@@ -1334,6 +1340,7 @@ export default class PPGraph {
     this.updateEmptyCanvasVisibility();
 
     InterfaceController.spamToast('graph_cleared');
+    if (!this.isConfiguring) appExecutionAllowed.set(true);
   }
 
   async duplicateSelection(
@@ -1563,6 +1570,8 @@ export default class PPGraph {
   async configure(storedGraph: StoredGraph): Promise<boolean> {
     if (this.isConfiguring) return false;
     this.isConfiguring = true;
+    pendingAppRun.set(null);
+    cancelAppRiskReview();
     appExecutionAllowed.set(false);
     FlowLogic.pendingExecution.clear();
     let configured = false;
@@ -1577,9 +1586,9 @@ export default class PPGraph {
         }
       } finally {
         InterfaceController.hideSpinner('Configuring graph');
-        appExecutionAllowed.set(
-          configured || Object.keys(this.nodes).length === 0,
-        );
+        if (!configured) {
+          appExecutionAllowed.set(Object.keys(this.nodes).length === 0);
+        }
         this.isConfiguring = false;
       }
     }
@@ -1677,21 +1686,28 @@ export default class PPGraph {
       }
     }
 
-    const risks = collectAppRisks(Object.values(this.nodes));
     InterfaceController.hideSpinner();
     document.body.style.cursor = 'default';
-    if (!(await reviewAppRisks(storedGraph.name, risks))) return false;
-    appExecutionAllowed.set(true);
-
-    // execute all seed nodes to make sure there are values everywhere
-    await this.executeAllSeedNodes(Object.values(this.nodes));
-
-    // Fire DashboardLoaded after nodes are created and executed,
-    // so page nodes have their listeners registered for default page activation
-    InterfaceController.notifyListeners(ListenEvent.DashboardLoaded, {
-      id: storedGraph.id,
+    const pending = {
       name: storedGraph.name,
-    });
+      run: async (): Promise<void> => {
+        const approved = await reviewAppRisks(
+          this.name,
+          collectAppRisks(Object.values(this.nodes)),
+        );
+        // A different app may have been opened while its risks were reviewed.
+        if (!approved || pendingAppRun.get() !== pending) return;
+        pendingAppRun.set(null);
+        appExecutionAllowed.set(true);
+        await this.executeAllSeedNodes(Object.values(this.nodes));
+        if (!appExecutionAllowed.get() || this.id !== storedGraph.id) return;
+        InterfaceController.notifyListeners(ListenEvent.DashboardLoaded, {
+          id: storedGraph.id,
+          name: storedGraph.name,
+        });
+      },
+    };
+    pendingAppRun.set(pending);
 
     this.graphConfiguredAndReady = true;
 

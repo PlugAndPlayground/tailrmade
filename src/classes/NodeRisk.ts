@@ -18,14 +18,7 @@ export class UnrestrictedCodeRisk extends NodeRisk {
   readonly severity = 'critical' as const;
   readonly title = 'Runs unrestricted JavaScript';
   readonly description =
-    'Can access the Tailrmade page and browser-stored data, make requests, and freeze the tab. Includes main-thread code and unsanitized HTML.';
-}
-
-export class WorkerCodeRisk extends NodeRisk {
-  readonly kind = 'worker-code';
-  readonly title = 'Runs custom JavaScript in a worker';
-  readonly description =
-    'Runs in QuickJS without network, browser storage, or app macro access. Receives the connected input data, with execution and guest-memory limits.';
+    "Can access the Tailrmade page and data saved by Tailrmade in this browser, send network requests, and freeze this tab. This does not grant general access to your computer's files or other apps.";
 }
 
 export class ApiKeyRisk extends NodeRisk {
@@ -57,14 +50,14 @@ export class CompanionRisk extends NodeRisk {
   readonly kind = 'companion';
   readonly title = 'Uses your Companion';
   readonly description =
-    'Routes requests through your configured local or cloud Companion. A local Companion may reach services on your computer or network.';
+    'Sends requests through your Tailrmade Companion. If it runs on your computer, it can contact services on that computer or your local network. This is separate from access to data saved in Tailrmade.';
 }
 
 export class StorageRisk extends NodeRisk {
   readonly kind = 'storage';
-  readonly title = 'Accesses stored data';
+  readonly title = 'Accesses Tailrmade data';
   readonly description =
-    'Can access local or cloud storage using your account. Write and delete nodes can change or remove stored data.';
+    'Can read data saved through Tailrmade in this browser or your Tailrmade cloud storage. Write and delete nodes can change or remove that data. This does not access files elsewhere on your computer.';
 }
 
 export class AIUsageRisk extends NodeRisk {

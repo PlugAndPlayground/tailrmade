@@ -2,7 +2,6 @@ import {
   ApiKeyRisk,
   NetworkRisk,
   UnrestrictedCodeRisk,
-  WorkerCodeRisk,
   collectAppRisks,
   findApiKeyReferences,
 } from '../../../src/classes/NodeRisk';
@@ -13,7 +12,7 @@ describe('app risk disclosure', () => {
       {
         id: 'a',
         nodeName: 'First',
-        getRisks: () => [new WorkerCodeRisk(), new ApiKeyRisk('OPENAI')],
+        getRisks: () => [new ApiKeyRisk('OPENAI')],
       },
       {
         id: 'b',
@@ -30,7 +29,7 @@ describe('app risk disclosure', () => {
       { id: 'a', name: 'First' },
       { id: 'b', name: 'Second' },
     ]);
-    expect(risks).toHaveLength(4);
+    expect(risks).toHaveLength(3);
   });
 
   it('extracts nested key references without disclosing values or looping on cycles', () => {

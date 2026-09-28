@@ -199,7 +199,7 @@ function CanvasHybridNodeContent<T extends HybridNode2>(
   props: CanvasHybridNodeContentProps<T>,
 ): React.ReactElement {
   const allowed = appExecutionAllowed.useStore();
-  if (!allowed) return <></>;
+  if (!allowed) return <PausedWidget name={props.node.getName()} />;
   return (
     <HybridNodeErrorBoundary node={props.node}>
       <Box
@@ -782,6 +782,29 @@ type DynamicWidgetContainerHybridNodeProps = DashboardWidgetProps & {
   property: HybridNode2;
 };
 
+function PausedWidget({ name }: { name: string }): React.ReactElement {
+  return (
+    <Box
+      data-cy="paused-widget"
+      sx={{
+        width: '100%',
+        height: '100%',
+        minHeight: 24,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        overflow: 'hidden',
+        color: 'text.secondary',
+        bgcolor: 'action.hover',
+        fontSize: 12,
+        overflowWrap: 'anywhere',
+      }}
+    >
+      {name}
+    </Box>
+  );
+}
+
 const DynamicWidgetContainerHybridNodeInner: React.FunctionComponent<
   DynamicWidgetContainerHybridNodeProps
 > = (props) => {
@@ -844,7 +867,7 @@ const DynamicWidgetContainerHybridNodeInner: React.FunctionComponent<
         isSurfacePreview={props.isSurfacePreview}
       >
         <HybridNodeErrorBoundary node={props.property}>
-          {allowed && (
+          {allowed ? (
             <props.property.getWidgetContent
               {...widgetInputProps}
               index={props.index}
@@ -864,6 +887,8 @@ const DynamicWidgetContainerHybridNodeInner: React.FunctionComponent<
               width={props.width}
               height={props.height}
             />
+          ) : (
+            <PausedWidget name={props.property.getName()} />
           )}
         </HybridNodeErrorBoundary>
       </DashboardContentGate>

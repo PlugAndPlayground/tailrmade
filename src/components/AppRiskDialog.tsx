@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   Alert,
   Box,
@@ -12,6 +12,8 @@ import {
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import { AppRisk } from '../classes/NodeRisk';
 import { createStore } from './createStore';
+import { pendingAppRun } from '../services/appExecution';
+import InterfaceController from '../InterfaceController';
 
 type Review = {
   name: string;
@@ -19,6 +21,12 @@ type Review = {
   resolve: (approved: boolean) => void;
 };
 const reviewStore = createStore<Review | null>(null);
+
+export function cancelAppRiskReview(): void {
+  const review = reviewStore.get();
+  reviewStore.set(null);
+  review?.resolve(false);
+}
 
 export function reviewAppRisks(
   name: string,
@@ -31,7 +39,64 @@ export function reviewAppRisks(
 
 export function AppRiskDialog(): React.ReactElement | null {
   const review = reviewStore.useStore();
-  if (!review) return null;
+  const pending = pendingAppRun.useStore();
+  const [starting, setStarting] = useState(false);
+  if (!review) {
+    if (!pending) return null;
+    return (
+      <Box
+        data-cy="app-not-running"
+        sx={{
+          position: 'fixed',
+          bottom: 64,
+          left: '50%',
+          transform: 'translateX(-50%)',
+          zIndex: 1400,
+          width: 'max-content',
+          maxWidth: 'calc(100% - 32px)',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 2,
+          px: 2,
+          py: 1,
+          bgcolor: 'background.paper',
+          border: 1,
+          borderColor: 'divider',
+          borderRadius: 1,
+          boxShadow: 2,
+        }}
+      >
+        <Typography
+          variant="body2"
+          sx={{ minWidth: 0, overflowWrap: 'anywhere' }}
+        >
+          {pending.name} - Not running
+        </Typography>
+        <Button
+          variant="contained"
+          startIcon={<PlayArrowIcon />}
+          data-cy="start-app"
+          disabled={starting}
+          sx={{ flexShrink: 0 }}
+          onClick={async () => {
+            setStarting(true);
+            try {
+              await pending.run();
+            } catch (error) {
+              InterfaceController.showSnackBar(
+                `Starting app failed: ${error}`,
+                { variant: 'error' },
+              );
+            } finally {
+              setStarting(false);
+            }
+          }}
+        >
+          Run app
+        </Button>
+      </Box>
+    );
+  }
   const finish = (approved: boolean): void => {
     reviewStore.set(null);
     review.resolve(approved);
@@ -84,7 +149,7 @@ export function AppRiskDialog(): React.ReactElement | null {
       </DialogContent>
       <DialogActions>
         <Button color="inherit" onClick={() => finish(false)} autoFocus>
-          Cancel
+          Keep inspecting
         </Button>
         <Button
           variant="contained"

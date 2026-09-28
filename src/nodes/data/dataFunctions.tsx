@@ -20,11 +20,7 @@ import { BooleanType } from '../datatypes/booleanType';
 import PPGraph from '../../classes/GraphClass';
 import { NodeConfigurationWarning, PNPSuccess } from '../../classes/ErrorClass';
 import { PNPWorker } from './worker/PNPWorker';
-import {
-  NodeRisk,
-  UnrestrictedCodeRisk,
-  WorkerCodeRisk,
-} from '../../classes/NodeRisk';
+import { NodeRisk, UnrestrictedCodeRisk } from '../../classes/NodeRisk';
 import { BackPropagation } from '../../interfaces';
 
 export const arrayName = 'Array';
@@ -219,7 +215,7 @@ export class CustomFunction extends PPNode {
     return this.isRiskInputConnected(allowFullAccessName) ||
       this.getInputData(allowFullAccessName)
       ? [new UnrestrictedCodeRisk()]
-      : [new WorkerCodeRisk()];
+      : [];
   }
   modifiedBanner: PIXI.Graphics;
   previousUserInput = '';
