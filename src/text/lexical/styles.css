@@ -30,6 +30,15 @@ body {
   min-height: 1lh;
 }
 
+.text-inline-input > :first-child {
+  margin-top: 0;
+}
+
+.text-inline-input > :last-child {
+  margin-bottom: 0;
+  padding-bottom: 0;
+}
+
 .editor-input {
   min-height: 160px;
   resize: none;

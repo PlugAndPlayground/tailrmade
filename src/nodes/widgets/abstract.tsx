@@ -2,7 +2,11 @@ import * as React from 'react';
 import { Paper, Stack } from '@mui/material';
 import HybridNode2 from '../../classes/HybridNode2';
 import Socket from '../../classes/SocketClass';
-import { NODE_TYPE_COLOR, SOCKET_TYPE } from '../../utils/constants';
+import {
+  NODE_TYPE_COLOR,
+  SOCKET_TYPE,
+  UNSET_VALUE,
+} from '../../utils/constants';
 import { TRgba } from '../../utils/color';
 import { WidgetProps } from '../../utils/interfaces';
 import { BackPropagation } from '../../interfaces';
@@ -21,7 +25,7 @@ export const defaultProps: WidgetProps = {
   width: '100%',
   height: 'auto',
   minWidth: '48px',
-  minHeight: '36px',
+  minHeight: UNSET_VALUE,
 };
 
 export const initialValueName = 'Initial Value';
@@ -114,8 +118,8 @@ const sizeTokens: Record<WidgetSize, SizeTokens> = {
     fontSize: 12,
     helperFontSize: 10,
     iconSize: 16,
-    controlHeight: 36,
-    tabHeight: 32,
+    controlHeight: 28,
+    tabHeight: 28,
     inputPadding: { top: 12, bottom: 4 },
   },
   S: {
@@ -124,8 +128,9 @@ const sizeTokens: Record<WidgetSize, SizeTokens> = {
     fontSize: 14,
     helperFontSize: 11,
     iconSize: 20,
-    controlHeight: 48,
-    tabHeight: 40,
+    controlHeight: 40,
+    tabHeight: 36,
+    inputPadding: { top: 17, bottom: 3 },
   },
   M: {
     muiSize: 'medium',

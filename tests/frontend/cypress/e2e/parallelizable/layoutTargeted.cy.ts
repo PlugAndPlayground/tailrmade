@@ -318,7 +318,9 @@ describe('UI surface targeted layout suites', () => {
         align,
         children: [
           widgetItem(b1, { width: 'auto' }),
-          containerItem(b2, { width: 'auto' }),
+          // containers hug their content by default; the align cases below
+          // need a real height difference to act on
+          containerItem(b2, { width: 'auto', props: { minHeight: '80px' } }),
         ],
       },
     ];
@@ -376,8 +378,8 @@ describe('UI surface targeted layout suites', () => {
     });
 
     it('align flex-start keeps unequal heights; align stretch equalizes them', () => {
-      // widget hugs to ~48px, the container sibling floors at its default
-      // minHeight 80px - a real height difference for align to act on
+      // widget hugs to ~48px, the container sibling floors at the 80px
+      // minHeight hugRow gives it - a real height difference for align to act on
       applyLayout(hugRow('flex-start', 'flex-start'));
       cy.document({ timeout: 5000 }).should((doc) => {
         const m = measureRow(doc, refs());

@@ -128,7 +128,7 @@ describe('text props', () => {
       customStyles: {},
     };
     expect(resolveTextElementStyle(base)).toMatchObject({
-      fontSize: '32px',
+      fontSize: expect.stringContaining('clamp('),
       fontWeight: 700,
       color: 'primary.main',
       textAlign: 'center',

@@ -5,11 +5,14 @@ import {
 } from '../../../src/utils/theme/muiTheme';
 import { resolveDensity } from '../../../src/utils/theme/density';
 import { resolveTheme } from '../../../src/utils/theme/resolve';
-import { Density } from '../../../src/utils/theme/tokens';
+import { Density, ThemeMode } from '../../../src/utils/theme/tokens';
 
-const resolvedWith = (tokens: Record<string, unknown>) =>
-  resolveTheme([{ source: 'saved', mode: 'dark', tokens: tokens as never }], {
-    prefersDark: true,
+const resolvedWith = (
+  tokens: Record<string, unknown>,
+  mode: ThemeMode = 'dark',
+) =>
+  resolveTheme([{ source: 'saved', mode, tokens: tokens as never }], {
+    prefersDark: mode === 'dark',
   });
 
 beforeEach(() => clearAppThemeCache());
@@ -42,15 +45,36 @@ describe('token -> MUI mapping', () => {
     );
   });
 
-  it('expands the three elevation steps into a full shadow array', () => {
-    const flat = createAppTheme(resolvedWith({ elevation: 'none' }));
-    const raised = createAppTheme(resolvedWith({ elevation: 'raised' }));
-    expect(flat.shadows).toHaveLength(25);
-    expect(raised.shadows).toHaveLength(25);
-    expect(flat.shadows[4]).toBe('none');
-    expect(raised.shadows[4]).not.toBe('none');
-    // index 0 is 'none' at every step - MUI relies on it
-    expect(raised.shadows[0]).toBe('none');
+  it('builds a full shadow array with shadows[0] as none', () => {
+    const theme = createAppTheme(resolvedWith({}));
+    expect(theme.shadows).toHaveLength(25);
+    expect(theme.shadows[0]).toBe('none');
+    expect(theme.shadows[1]).not.toBe('none');
+  });
+
+  it('puts a faint light edge in front of every shadow in dark mode', () => {
+    const shadows = tokensToThemeOptions(resolvedWith({}, 'dark'))
+      .shadows as string[];
+    expect(shadows[1]).toContain('rgba(255, 255, 255, 0.06)');
+    expect(shadows[1].indexOf('255, 255, 255')).toBeLessThan(
+      shadows[1].indexOf('0, 0, 0'),
+    );
+  });
+
+  it('leaves light-mode shadows without an edge', () => {
+    const shadows = tokensToThemeOptions(resolvedWith({}, 'light'))
+      .shadows as string[];
+    expect(shadows[1]).not.toContain('255, 255, 255');
+  });
+
+  it('stops MUI uppercasing button labels the creator typed', () => {
+    const options = tokensToThemeOptions(resolvedWith({}));
+    expect((options.typography as any).button.textTransform).toBe('none');
+  });
+
+  it('holds automatic contrast text to the same bar as the theme warning', () => {
+    const options = tokensToThemeOptions(resolvedWith({}));
+    expect((options.palette as any).contrastThreshold).toBe(4.5);
   });
 
   it('lets MUI derive what the creator did not author', () => {

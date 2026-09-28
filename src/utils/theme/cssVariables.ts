@@ -1,4 +1,6 @@
 import { Theme } from '@mui/material';
+import { resolveThemeOfMuiTheme } from './context';
+import { FONT_SCALAR_VAR } from './tokens';
 
 // The theme as CSS custom properties, for authored HTML. The Tailwind color
 // names that read these are declared once in template.html (`@theme inline`),
@@ -27,3 +29,10 @@ export const themeToCssVariables = (theme: Theme): Record<string, string> => {
     '--tm-font-family': typography.fontFamily as string,
   };
 };
+
+export const appSurfaceSx = (
+  theme: Theme,
+): Record<string, string | number> => ({
+  containerType: 'inline-size',
+  [FONT_SCALAR_VAR]: resolveThemeOfMuiTheme(theme).tokens.fontSizeScalar,
+});

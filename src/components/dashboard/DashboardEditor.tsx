@@ -6,6 +6,7 @@ import DashboardCustomizeIcon from '@mui/icons-material/DashboardCustomize';
 import EditIcon from '@mui/icons-material/Edit';
 import { Frame, Element, useEditor } from '@craftjs/core';
 import { AppThemeProvider } from './AppThemeProvider';
+import { appSurfaceSx } from '../../utils/theme';
 import * as PIXI from 'pixi.js';
 import PPGraph from '../../classes/GraphClass';
 import InterfaceController, { ListenEvent } from '../../InterfaceController';
@@ -1086,7 +1087,8 @@ export const DashboardEditor: React.FC<DashboardEditorProps> = ({
               <AppThemeProvider>
                 <Box
                   data-cy="app-theme-surface"
-                  sx={{
+                  sx={(theme) => ({
+                    ...appSurfaceSx(theme),
                     flex: '1 0 auto',
                     width: '100%',
                     minWidth: 0,
@@ -1100,7 +1102,7 @@ export const DashboardEditor: React.FC<DashboardEditorProps> = ({
                       pl: 'env(safe-area-inset-left)',
                       pr: 'env(safe-area-inset-right)',
                     }),
-                  }}
+                  })}
                 >
                   <Frame>
                     <Element is={Container} canvas {...rootProps}></Element>

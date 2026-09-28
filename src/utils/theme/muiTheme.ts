@@ -1,30 +1,27 @@
 import { createTheme, Theme, ThemeOptions } from '@mui/material';
 import { ResolvedTheme } from './resolve';
-import { Density, Elevation, ThemeTokens } from './tokens';
+import { Density, ThemeMode, ThemeTokens } from './tokens';
 
-// MUI's shadow array has exactly 25 entries. A creator picks a character, not
-// a ramp, so each of the three elevation steps expands into a full array here.
-const ELEVATION_SHADOWS: Record<Elevation, [string, string]> = {
-  none: ['none', 'none'],
-  subtle: [
-    '0px 1px 2px rgba(0, 0, 0, 0.12)',
-    '0px 2px 8px rgba(0, 0, 0, 0.16)',
-  ],
-  raised: [
-    '0px 2px 6px rgba(0, 0, 0, 0.20)',
-    '0px 8px 24px rgba(0, 0, 0, 0.28)',
-  ],
-};
+// MUI's shadow array has exactly 25 entries. Shadows are not a theme choice -
+// in an app they only lift overlays (menus, popovers, dialogs) off the page -
+// so one soft pair covers the whole ramp: low for small lifts, high for
+// anything floating.
+const SHADOW_LOW = '0px 1px 2px rgba(0, 0, 0, 0.12)';
+const SHADOW_HIGH = '0px 2px 8px rgba(0, 0, 0, 0.16)';
 
-const buildShadows = (elevation: Elevation): string[] => {
-  const [low, high] = ELEVATION_SHADOWS[elevation];
-  return Array.from({ length: 25 }, (_, index) => {
+const DARK_EDGE = '0 0 0 1px rgba(255, 255, 255, 0.06)';
+
+const withDarkEdge = (shadow: string, mode: ThemeMode): string =>
+  mode === 'dark' ? `${DARK_EDGE}, ${shadow}` : shadow;
+
+const buildShadows = (mode: ThemeMode): string[] =>
+  Array.from({ length: 25 }, (_, index) => {
+    // MUI requires shadows[0] to be 'none' - it is what elevation={0} renders
     if (index === 0) {
       return 'none';
     }
-    return index <= 4 ? low : high;
+    return withDarkEdge(index <= 4 ? SHADOW_LOW : SHADOW_HIGH, mode);
   });
-};
 
 // Density is the geometry of a CONTROL. MUI only distinguishes small/medium,
 // so the XS/S and M/L/XL pairs share a MUI size here and the finer separation
@@ -76,6 +73,7 @@ export const tokensToThemeOptions = (resolved: ResolvedTheme): ThemeOptions => {
   return {
     palette: {
       mode: resolved.mode,
+      contrastThreshold: 4.5,
       // only `main` is authored - MUI derives light, dark and contrastText
       primary: { main: tokens.primary },
       secondary: { main: tokens.secondary },
@@ -101,12 +99,13 @@ export const tokensToThemeOptions = (resolved: ResolvedTheme): ThemeOptions => {
         'sans-serif',
       ]),
       fontSize: MUI_BASE_FONT_SIZE * tokens.fontSizeScalar,
+      button: { textTransform: 'none' as const },
     },
     // the geometry of LAYOUT - gaps, stack spacing, surface padding. Never
     // derived from density.
     spacing: tokens.spacingUnit,
     shape: { borderRadius: tokens.radius },
-    shadows: buildShadows(tokens.elevation) as ThemeOptions['shadows'],
+    shadows: buildShadows(resolved.mode) as ThemeOptions['shadows'],
     components: {
       MuiPaper: { styleOverrides: { root: { backgroundImage: 'none' } } },
       MuiButton: {
