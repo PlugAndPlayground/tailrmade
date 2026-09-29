@@ -7,6 +7,8 @@ import { NumberType } from '../datatypes/numberType';
 import { DynamicEnumType } from '../datatypes/dynamicEnumType';
 import { rawSheetToTable } from '../../utils/rawSpreadsheet';
 
+const EXCEL_MAX_ROWS = 1_048_576; // Excel worksheet row limit (2^20).
+
 export class SpreadsheetToTable extends TypeConversionNode {
   getName(): string {
     return 'Spreadsheet to Table';
@@ -36,7 +38,7 @@ export class SpreadsheetToTable extends TypeConversionNode {
       new Socket(
         SOCKET_TYPE.IN,
         'Header Row',
-        new NumberType(true, 1, 1048576, 1),
+        new NumberType(true, 1, EXCEL_MAX_ROWS, 1),
         1,
       ),
       new Socket(SOCKET_TYPE.OUT, 'JSON Array', new JSONArrayType(), []),
