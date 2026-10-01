@@ -70,7 +70,10 @@ describe('AI backend communication', () => {
       );
       await expect(
         requestAI({ ...options, onBackendError }),
-      ).rejects.toMatchObject({ status, message: 'Token limit exceeded' });
+      ).rejects.toMatchObject({
+        status,
+        message: `AI request failed (HTTP ${status}): Token limit exceeded`,
+      });
       expect(onBackendError).toHaveBeenCalledWith(payload);
       expect(log.log).toHaveBeenLastCalledWith(
         expect.objectContaining({
@@ -81,6 +84,28 @@ describe('AI backend communication', () => {
       );
     },
   );
+
+  it('surfaces Gemini parameter errors through the generic relay error', async () => {
+    const message =
+      'Invalid JSON payload received. Unknown name "extra_parameter"';
+    (fetch as jest.Mock).mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          error: 'AI request failed',
+          details: {
+            error: { code: 400, status: 'INVALID_ARGUMENT', message },
+          },
+        }),
+        { status: 400 },
+      ),
+    );
+    await expect(
+      requestAI({ ...options, provider: 'gemini' }),
+    ).rejects.toMatchObject({
+      status: 400,
+      message: `AI request failed (HTTP 400): ${message}`,
+    });
+  });
 
   it('handles a non-JSON proxy error and gives actionable advice for oversized requests', async () => {
     (fetch as jest.Mock).mockResolvedValue(

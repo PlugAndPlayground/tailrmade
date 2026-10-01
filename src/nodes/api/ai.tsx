@@ -184,7 +184,9 @@ export class AINode extends HTTPNode {
       );
 
       if (!result?.success || !result.data) {
-        throw new Error(result?.error || `${provider} API request failed`);
+        throw new Error(
+          result?.message || result?.error || `${provider} API request failed`,
+        );
       }
 
       outputObject[outputContentName] = result.data;

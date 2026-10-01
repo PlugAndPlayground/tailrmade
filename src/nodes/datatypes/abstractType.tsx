@@ -2,6 +2,11 @@ import React from 'react';
 import { inspect } from 'util';
 import Socket from '../../classes/SocketClass';
 import { TRgba } from '../../utils/color';
+import {
+  ColorSetting,
+  INHERIT_COLOR,
+  TRANSPARENT_COLOR,
+} from '../../utils/themeColors';
 import type { TParseType } from '../../utils/interfaces';
 import {
   SOCKET_COLOR_HEX,
@@ -27,6 +32,7 @@ export interface DataTypeProps {
 
 type DataTypeWidgetProps = {
   background: Record<'r' | 'g' | 'b' | 'a', number>;
+  color: ColorSetting;
   width: string;
   height: string;
   minWidth: string;
@@ -34,7 +40,8 @@ type DataTypeWidgetProps = {
 };
 
 export const dataTypeWidgetDefaultProps: DataTypeWidgetProps = {
-  background: { r: 9, g: 13, b: 26, a: 1 },
+  background: TRANSPARENT_COLOR,
+  color: INHERIT_COLOR,
   width: '100%',
   height: 'auto',
   minWidth: '48px',

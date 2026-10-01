@@ -1,8 +1,10 @@
 import {
   clearDocumentOverride,
+  isEmptyThemeDocument,
   parseThemeDocument,
   serializeThemeDocument,
   setDocumentMode,
+  setDocumentModeOverride,
   setDocumentOverride,
   ThemeDocument,
   themeDocumentToLayer,
@@ -192,6 +194,26 @@ describe('contrast warnings', () => {
     expect(flagged[0].ratio).toBeLessThan(4.5);
   });
 
+  // primary is a text role too (tone 'primary'), not only a button fill
+  it('checks primary and secondary against the backgrounds', () => {
+    const resolved = resolveTheme(
+      [
+        {
+          source: 'saved',
+          mode: 'dark',
+          tokens: { primary: '#3C54AB', 'background.paper': '#1E2A56' },
+        },
+      ],
+      dark,
+    );
+    expect(
+      resolved.warnings.some(
+        (warning) =>
+          warning.role === 'primary' && warning.against === 'background.paper',
+      ),
+    ).toBe(true);
+  });
+
   it('measures a translucent role against what it sits on', () => {
     // rgba text has no contrast of its own - measured raw it reports nonsense
     const resolved = resolveTheme(
@@ -312,6 +334,51 @@ describe('authored color values round-trip through the color picker', () => {
   });
 });
 
+describe('per-mode color overrides', () => {
+  const resolveIn = (document: ThemeDocument, mode: ThemeMode) =>
+    resolveTheme([{ ...themeDocumentToLayer(document), mode }], light);
+
+  it('applies in its own mode and leaves the other on the preset', () => {
+    const document = setDocumentModeOverride({}, 'dark', 'primary', '#123456');
+    expect(resolveIn(document, 'dark').tokens.primary).toBe('#123456');
+    expect(resolveIn(document, 'light').tokens.primary).toBe(
+      getPreset(undefined).roles.light.primary,
+    );
+  });
+
+  // both shapes holding one role would leave a value the picker cannot clear
+  it('replaces a mode-agnostic value for the same role, and the other way round', () => {
+    const perMode = setDocumentModeOverride(
+      setDocumentOverride({}, 'primary', '#999999'),
+      'dark',
+      'primary',
+      '#111111',
+    );
+    expect(perMode.override?.primary).toBeUndefined();
+    const flat = setDocumentOverride(perMode, 'primary', '#999999');
+    expect(flat.overrideByMode).toBeUndefined();
+  });
+
+  it('reset clears the role in both modes', () => {
+    let document = setDocumentModeOverride({}, 'dark', 'primary', '#111111');
+    document = setDocumentModeOverride(document, 'light', 'primary', '#eeeeee');
+    expect(
+      isEmptyThemeDocument(clearDocumentOverride(document, 'primary')),
+    ).toBe(true);
+  });
+
+  it('round-trips through the parser, dropping shape tokens', () => {
+    const document = setDocumentModeOverride({}, 'dark', 'primary', '#111111');
+    expect(parseThemeDocument(JSON.parse(JSON.stringify(document)))).toEqual(
+      document,
+    );
+    expect(
+      parseThemeDocument({ overrideByMode: { dark: { radius: 8 } } })
+        .overrideByMode,
+    ).toBeUndefined();
+  });
+});
+
 describe('presets are actually distinct', () => {
   // a preset set that only varies its palette produces apps that all feel the
   // same. Guard the non-color axes too, so a new preset has to commit to a
@@ -321,7 +388,6 @@ describe('presets are actually distinct', () => {
       preset.geometry.radius,
       preset.geometry.density,
       preset.geometry.spacingUnit,
-      preset.geometry.elevation,
       preset.variants.button,
       preset.variants.input,
     ].join('|');

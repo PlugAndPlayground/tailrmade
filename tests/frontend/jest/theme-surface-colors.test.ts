@@ -6,8 +6,12 @@ import {
   isTransparentColor,
   TRANSPARENT_COLOR,
 } from '../../../src/utils/themeColors';
-import { rootProps } from '../../../src/utils/surfaceTree';
 import {
+  dynamicWidgetDefaultProps,
+  rootProps,
+} from '../../../src/utils/surfaceTree';
+import {
+  DynamicWidgetName,
   surfaceJsonSocketName,
   RootName,
 } from '../../../src/utils/constants_shared';
@@ -51,6 +55,16 @@ describe('surface color defaults', () => {
     // the app theme's background.default is what should show through
     expect(rootProps.background).toEqual({ r: 0, g: 0, b: 0, a: 0 });
     expect(rootProps.color).toBe(INHERIT_COLOR);
+  });
+
+  it('leaves a new widget deferring to the theme, like the root', () => {
+    expect(dynamicWidgetDefaultProps.background).toEqual({
+      r: 0,
+      g: 0,
+      b: 0,
+      a: 0,
+    });
+    expect(dynamicWidgetDefaultProps.color).toBe(INHERIT_COLOR);
   });
 
   it('renders an inherited color as the CSS keyword, not as black', () => {
@@ -183,5 +197,81 @@ describe('deferring to the theme', () => {
     // `background: inherit` would copy whatever the parent painted instead
     expect(isInheritColor(TRANSPARENT_COLOR)).toBe(false);
     expect(isTransparentColor(INHERIT_COLOR)).toBe(false);
+  });
+});
+
+describe('v6 -> v7 migration', () => {
+  const WHITE = { r: 255, g: 255, b: 255, a: 1 };
+  const DARK_TEXT = { r: 51, g: 51, b: 51, a: 1 };
+  const migrate = (rootColor: unknown, widgetProps: Record<string, unknown>) =>
+    treeOf(
+      migrateGraphDataOnLoad({
+        version: 6,
+        graphSettings: {},
+        overlay: {},
+        links: [],
+        nodes: [
+          {
+            socketArray: [
+              {
+                name: surfaceJsonSocketName,
+                data: JSON.stringify({
+                  [RootName]: {
+                    type: { resolvedName: 'Container' },
+                    props: { background: TRANSPARENT_COLOR, color: rootColor },
+                    nodes: ['widget'],
+                  },
+                  widget: {
+                    type: { resolvedName: DynamicWidgetName },
+                    props: widgetProps,
+                    nodes: [],
+                  },
+                }),
+              },
+            ],
+          },
+        ],
+      } as any),
+    );
+
+  // a root left on the container's #333 by the v4 -> v5 gap
+  it('frees a root left dark, and only that exact value', () => {
+    expect(migrate(DARK_TEXT, {})[RootName].props.color).toBe(INHERIT_COLOR);
+    const chosen = { r: 51, g: 51, b: 52, a: 1 };
+    expect(migrate(chosen, {})[RootName].props.color).toEqual(chosen);
+  });
+
+  it('frees white text on a transparent widget', () => {
+    const { widget } = migrate(INHERIT_COLOR, {
+      background: TRANSPARENT_COLOR,
+      color: WHITE,
+    });
+    expect(widget.props.color).toBe(INHERIT_COLOR);
+  });
+
+  it('frees a socket widget from the dark card and white text', () => {
+    const { widget } = migrate(INHERIT_COLOR, {
+      background: { r: 9, g: 13, b: 26, a: 1 },
+      color: WHITE,
+    });
+    expect(widget.props.background).toEqual(TRANSPARENT_COLOR);
+    expect(widget.props.color).toBe(INHERIT_COLOR);
+  });
+
+  it('keeps white on a background the creator painted', () => {
+    const { widget } = migrate(INHERIT_COLOR, {
+      background: { r: 20, g: 40, b: 80, a: 1 },
+      color: WHITE,
+    });
+    expect(widget.props.color).toEqual(WHITE);
+  });
+
+  it('drops only the old 36px control min-height', () => {
+    expect(
+      migrate(INHERIT_COLOR, { minHeight: '36px' }).widget.props.minHeight,
+    ).toBe('unset');
+    expect(
+      migrate(INHERIT_COLOR, { minHeight: '48px' }).widget.props.minHeight,
+    ).toBe('48px');
   });
 });

@@ -9,6 +9,7 @@ import {
   TextField,
   ToggleButton,
   ToggleButtonGroup,
+  Tooltip,
   Typography,
 } from '@mui/material';
 import { TRgba } from '../../utils/color';
@@ -637,6 +638,14 @@ export const SliderControl: React.FC<SliderControlProps> = ({
 // Reusable Settings Sections
 // ============================================
 
+// Plain [value, label] pairs as AlignmentControl options
+const toggleOptions = (options: [value: string, label: string][]) =>
+  options.map(([value, label]) => (
+    <ToggleButton size="small" value={value} key={value}>
+      {label}
+    </ToggleButton>
+  ));
+
 interface SettingsSectionProps {
   setProp: any;
   props: any;
@@ -655,14 +664,10 @@ export const LayoutSection: React.FC<SettingsSectionProps> = ({
       value={props.flexDirection || 'column'}
       onChange={(value) => setProp((p: any) => (p.flexDirection = value))}
       label="Direction"
-      options={[
-        <ToggleButton size="small" value="column" key="column">
-          Vertical
-        </ToggleButton>,
-        <ToggleButton size="small" value="row" key="row">
-          Horizontal
-        </ToggleButton>,
-      ]}
+      options={toggleOptions([
+        ['column', 'Vertical'],
+        ['row', 'Horizontal'],
+      ])}
     />
 
     {props.flexDirection === 'row' && (
@@ -670,17 +675,11 @@ export const LayoutSection: React.FC<SettingsSectionProps> = ({
         value={props.mobileBehavior || 'row'}
         onChange={(value) => setProp((p: any) => (p.mobileBehavior = value))}
         label="Narrow width behavior"
-        options={[
-          <ToggleButton size="small" value="column" key="column">
-            Switch to vertical
-          </ToggleButton>,
-          <ToggleButton size="small" value="wrap" key="wrap">
-            Wrap
-          </ToggleButton>,
-          <ToggleButton size="small" value="row" key="row">
-            Stay horizontal
-          </ToggleButton>,
-        ]}
+        options={toggleOptions([
+          ['column', 'Switch to vertical'],
+          ['wrap', 'Wrap'],
+          ['row', 'Stay horizontal'],
+        ])}
       />
     )}
   </>
@@ -849,6 +848,55 @@ export const ColorSection: React.FC<SettingsSectionProps> = ({
       color={props.color ?? INHERIT_COLOR}
       controlBackground={false}
     />
+  </>
+);
+
+export const EmphasisSection: React.FC<SettingsSectionProps> = ({
+  setProp,
+  props,
+}) => (
+  <>
+    <AlignmentControl
+      value={props.emphasis ?? 'none'}
+      onChange={(value) => setProp((p: any) => (p.emphasis = value))}
+      label="Emphasis"
+      options={[
+        <ToggleButton size="small" value="none" key="none">
+          None
+        </ToggleButton>,
+        <Tooltip
+          key="subtle"
+          title="A faint tint of the theme's text color - darker on a light app, lighter on a dark one"
+          disableInteractive
+        >
+          <ToggleButton size="small" value="subtle">
+            Subtle
+          </ToggleButton>
+        </Tooltip>,
+        <Tooltip
+          key="strong"
+          title="A card: the theme's paper color, a divider border and a soft shadow"
+          disableInteractive
+        >
+          <ToggleButton size="small" value="strong">
+            Strong
+          </ToggleButton>
+        </Tooltip>,
+      ]}
+    />
+    {/* a tone colors the emphasis, so it does nothing without one */}
+    {(props.emphasis ?? 'none') !== 'none' && (
+      <AlignmentControl
+        value={props.tone ?? 'neutral'}
+        onChange={(value) => setProp((p: any) => (p.tone = value))}
+        label="Tone"
+        options={toggleOptions([
+          ['neutral', 'Neutral'],
+          ['primary', 'Primary'],
+          ['secondary', 'Secondary'],
+        ])}
+      />
+    )}
   </>
 );
 

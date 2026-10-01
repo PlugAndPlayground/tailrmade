@@ -3,12 +3,18 @@ import {
   clearAllDocumentOverrides,
   clearDocumentOverride,
   setDocumentMode,
+  setDocumentModeOverride,
   setDocumentOverride,
   setDocumentPreset,
   ThemeDocument,
 } from '../../utils/theme/document';
 import { getThemeDocument, setThemeDocument } from '../../utils/theme/store';
-import { ThemeModeSetting, ThemeTokens } from '../../utils/theme/tokens';
+import {
+  ColorRole,
+  ThemeMode,
+  ThemeModeSetting,
+  ThemeTokens,
+} from '../../utils/theme/tokens';
 
 /**
  * Every write to the saved theme layer goes through here, so marking the graph
@@ -34,6 +40,15 @@ export const overrideThemeToken = <K extends keyof ThemeTokens>(
 ): void =>
   updateThemeDocument((document) => setDocumentOverride(document, key, value));
 
+export const overrideThemeColorForMode = (
+  mode: ThemeMode,
+  role: ColorRole,
+  value: string,
+): void =>
+  updateThemeDocument((document) =>
+    setDocumentModeOverride(document, mode, role, value),
+  );
+
 export const resetThemeToken = (key: keyof ThemeTokens): void =>
   updateThemeDocument((document) => clearDocumentOverride(document, key));
 
@@ -52,21 +67,28 @@ const pendingOverrides = new Map<
   { timer: ReturnType<typeof setTimeout>; write: () => void }
 >();
 
-export const overrideThemeTokenDebounced = <K extends keyof ThemeTokens>(
-  key: K,
-  value: ThemeTokens[K],
-): void => {
+const debounce = (key: keyof ThemeTokens, write: () => void): void => {
   const existing = pendingOverrides.get(key);
   if (existing) {
     clearTimeout(existing.timer);
   }
-  const write = () => overrideThemeToken(key, value);
   const timer = setTimeout(() => {
     pendingOverrides.delete(key);
     write();
   }, OVERRIDE_DEBOUNCE_MS);
   pendingOverrides.set(key, { timer, write });
 };
+
+export const overrideThemeTokenDebounced = <K extends keyof ThemeTokens>(
+  key: K,
+  value: ThemeTokens[K],
+): void => debounce(key, () => overrideThemeToken(key, value));
+
+export const overrideThemeColorForModeDebounced = (
+  mode: ThemeMode,
+  role: ColorRole,
+  value: string,
+): void => debounce(role, () => overrideThemeColorForMode(mode, role, value));
 
 /** Writes any trailing values immediately - for tests and teardown. */
 export const flushThemeTokenOverrides = (): void => {

@@ -16,16 +16,18 @@ function describeFailure(status: number, payload: any): string {
     return 'The request was too large to send. Remove an image attachment, or start a new conversation if this one has collected a lot of them.';
   }
   const message = [
+    payload?.details?.error?.message,
+    payload?.details?.error,
+    payload?.details?.message,
+    payload?.details,
     payload?.error?.message,
     payload?.error,
     payload?.message,
-    payload?.details?.error?.message,
-    payload?.details?.error,
-    payload?.details,
+    payload,
   ].find((value) => typeof value === 'string' && value.trim());
-  return (
-    message?.slice(0, 2000) || `AI backend request failed (HTTP ${status}).`
-  );
+  return message
+    ? `AI request failed (HTTP ${status}): ${message.slice(0, 2000)}`
+    : `AI backend request failed (HTTP ${status}).`;
 }
 
 /** One boundary for authentication, HTTP, response decoding and stream failures. */
