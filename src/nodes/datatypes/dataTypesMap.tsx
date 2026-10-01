@@ -17,6 +17,7 @@ import {
 } from './graphInputType';
 import { ImageType } from './imageType';
 import { JSONType } from './jsonType';
+import { WorkbookType } from './workbookType';
 import { HtmlType } from './htmlType';
 import { NumberType } from './numberType';
 import { StringType } from './stringType';
@@ -47,6 +48,7 @@ export const allDataTypes = {
   StringType: StringType,
   TriggerType: TriggerType,
   JSONType: JSONType,
+  WorkbookType: WorkbookType,
   HtmlType: HtmlType,
   ImageType: ImageType,
   CodeType: CodeType,
