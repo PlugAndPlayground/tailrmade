@@ -1763,13 +1763,23 @@ export default class PPGraph {
           return;
         if (risks.length) rememberAppApproval(fingerprint);
         pendingAppRun.set(null);
+        const session = getNodePasteSession();
+        // Loading mode includes both conditional branches in initial propagation
+        // and prevents macro callbacks from queuing extra executions.
+        this.graphConfiguredAndReady = false;
         appExecutionAllowed.set(true);
-        await this.executeAllSeedNodes(Object.values(this.nodes));
-        if (!appExecutionAllowed.get() || this.id !== storedGraph.id) return;
-        InterfaceController.notifyListeners(ListenEvent.DashboardLoaded, {
-          id: storedGraph.id,
-          name: storedGraph.name,
-        });
+        try {
+          await this.executeAllSeedNodes(Object.values(this.nodes));
+          if (session !== getNodePasteSession()) return;
+          InterfaceController.notifyListeners(ListenEvent.DashboardLoaded, {
+            id: storedGraph.id,
+            name: storedGraph.name,
+          });
+        } finally {
+          if (session === getNodePasteSession()) {
+            this.graphConfiguredAndReady = true;
+          }
+        }
       },
     };
     pendingAppRun.set(pending);

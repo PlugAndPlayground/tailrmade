@@ -1,4 +1,8 @@
-import { doWithTestController, openNewGraph } from '../helpers';
+import {
+  doWithTestController,
+  openNewGraph,
+  waitForGraphToBeReady,
+} from '../helpers';
 
 // End-to-end check of the layered autoAlignNodes rewrite for the fan-in case
 // (many sources into one target). The old greedy placer collapsed the sources
@@ -56,12 +60,11 @@ describe('autoAlignNodes fan-in layout', () => {
 
   it('centres the target on its sources with gentle wire angles', () => {
     const ids = ['sink', 's1', 's2', 's3'];
-    // loadStringifiedGraph awaits configure() end-to-end (nodes created with
-    // their configured dimensions, links added, seed nodes executed), so no
-    // settle wait is needed before reading geometry for the layout.
+    // Approval and initial execution can finish after loading the graph.
     doWithTestController(async (tc) => {
       await tc.loadStringifiedGraph(GRAPH);
     });
+    waitForGraphToBeReady();
     doWithTestController(async (tc) => {
       const nodes = ids.map((id) => tc.getNodeByID(id));
       await (tc as any).getGraph().selection.autoAlignNodes(nodes);

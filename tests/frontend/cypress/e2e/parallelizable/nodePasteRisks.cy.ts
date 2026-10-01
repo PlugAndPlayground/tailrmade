@@ -132,7 +132,8 @@ describe('node paste warning', () => {
         stored.graphData.links = [];
         await graph.configure(stored);
       });
-      cy.get('[data-cy="start-app"]').click();
+      cy.get('[data-cy="app-risk-dialog"]').should('not.exist');
+      cy.get('[data-cy="app-not-running"]').should('not.exist');
       cy.window()
         .its('testController')
         .should((controller) => {
