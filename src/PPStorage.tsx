@@ -419,11 +419,19 @@ export default class PPStorage {
     try {
       document.body.style.cursor = 'wait';
       PPStorage.getInstance().dateOfLastGraphLoaded = new Date(fileData.date);
+      const approvalGraphData = structuredClone(fileData.graphData);
       const migratedFileData = {
         ...fileData,
         graphData: migrateGraphDataOnLoad(fileData.graphData),
       };
-      await PPGraph.currentGraph.configure(migratedFileData);
+      if (
+        !(await PPGraph.currentGraph.configure(
+          migratedFileData,
+          approvalGraphData,
+        ))
+      ) {
+        return undefined;
+      }
 
       InterfaceController.notifyListeners(
         ListenEvent.GraphChanged,
@@ -448,6 +456,8 @@ export default class PPStorage {
         variant: 'error',
       });
       return undefined;
+    } finally {
+      document.body.style.cursor = 'default';
     }
   }
 

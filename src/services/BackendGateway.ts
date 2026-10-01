@@ -1,5 +1,10 @@
 import { FirebaseAppHandler } from '../firebase/FirebaseAppHandler';
-import type { StorageType, UserPreferences } from './shared-types';
+import {
+  CLOUD_MODE,
+  type StorageType,
+  type UserPreferences,
+} from './shared-types';
+import InterfaceController, { ListenEvent } from '../InterfaceController';
 import { BackendApiClient } from './BackendApiClient';
 import type { StoredGraph } from '../utils/indexedDB';
 import type { AccessType } from '../utils/interfaces';
@@ -24,11 +29,13 @@ export class BackendGateway {
   }
 
   initialize(): void {
-    FirebaseAppHandler.getInstance();
+    if (CLOUD_MODE) {
+      FirebaseAppHandler.getInstance();
+    }
   }
 
   isLoggedIn(): boolean {
-    return FirebaseAppHandler.getInstance().getIsLoggedIn();
+    return CLOUD_MODE && FirebaseAppHandler.getInstance().getIsLoggedIn();
   }
 
   getIsLoggedIn(): boolean {
@@ -36,6 +43,7 @@ export class BackendGateway {
   }
 
   getCurrentUser() {
+    if (!CLOUD_MODE) return null;
     return FirebaseAppHandler.getInstance().getCurrentUser();
   }
 
@@ -44,6 +52,7 @@ export class BackendGateway {
   }
 
   refreshCurrentUserData() {
+    if (!CLOUD_MODE) return Promise.resolve(null);
     return FirebaseAppHandler.getInstance().refreshCurrentUserData();
   }
 
@@ -52,6 +61,7 @@ export class BackendGateway {
   }
 
   awaitPotentialLogin(): Promise<boolean> {
+    if (!CLOUD_MODE) return Promise.resolve(false);
     return FirebaseAppHandler.getInstance().awaitPotentialLogin();
   }
 
@@ -66,16 +76,24 @@ export class BackendGateway {
   }
 
   refreshGraphsMetadata(notifyListeners = true): Promise<boolean> {
+    if (!CLOUD_MODE) {
+      if (notifyListeners) {
+        InterfaceController.notifyListeners(ListenEvent.GraphListUpdated, []);
+      }
+      return Promise.resolve(false);
+    }
     return FirebaseAppHandler.getInstance().refreshGraphsMetadata(
       notifyListeners,
     );
   }
 
   getGraphsMetadata(): MetadataListResult {
+    if (!CLOUD_MODE) return { objects: [] };
     return FirebaseAppHandler.getInstance().getGraphsMetadata();
   }
 
   getExampleGraphs(): Promise<StoredItemMetadata[]> {
+    if (!CLOUD_MODE) return Promise.resolve([]);
     return FirebaseAppHandler.getInstance().getExampleGraphs();
   }
 
@@ -188,14 +206,17 @@ export class BackendGateway {
   }
 
   logAppOpened(appName: string): void {
+    if (!CLOUD_MODE) return;
     FirebaseAppHandler.getInstance().logAppOpened(appName);
   }
 
   logAIUsage(provider: string, model: string, tokensUsed: number): void {
+    if (!CLOUD_MODE) return;
     FirebaseAppHandler.getInstance().logAIUsage(provider, model, tokensUsed);
   }
 
   logCloudCompanionUsage(domain: string): void {
+    if (!CLOUD_MODE) return;
     FirebaseAppHandler.getInstance().logCloudCompanionUsage(domain);
   }
 

@@ -72,6 +72,26 @@ import {
 } from './Action';
 import { StoredGraph } from '../utils/indexedDB';
 import PPStorage, { DEFAULT_ACCESS, DEFAULT_LOCATION } from '../PPStorage';
+import { collectAppRisks } from './NodeRisk';
+import {
+  cancelAppRiskReview,
+  reviewAppRisks,
+  reviewNodePaste,
+} from '../components/AppRiskDialog';
+import { appExecutionAllowed, pendingAppRun } from '../services/appExecution';
+import { PNPWorker } from '../nodes/data/worker/PNPWorker';
+import {
+  getNodePasteSession,
+  isLocalNodePaste,
+  registerLocalSelection,
+  resetNodePasteTrust,
+} from '../services/nodePasteTrust';
+import {
+  getAppFingerprint,
+  getAppReviewContent,
+  isAppApproved,
+  rememberAppApproval,
+} from '../services/appTrust';
 
 // withtout this the compilation order breaks
 const DUMMY_IMPORT = getNodesBounds;
@@ -1321,6 +1341,11 @@ export default class PPGraph {
 
   // teardown done before another app is loaded and not undoable
   async clear(): Promise<void> {
+    PNPWorker.resetSession();
+    resetNodePasteTrust();
+    pendingAppRun.set(null);
+    cancelAppRiskReview();
+    appExecutionAllowed.set(false);
     this.graphConfiguredAndReady = false;
     InterfaceController.toggleDashboardInEditMode(VISIBILITY_ACTION.CLOSE);
     this.socketFocus.forgetAll();
@@ -1350,6 +1375,7 @@ export default class PPGraph {
     this.updateEmptyCanvasVisibility();
 
     InterfaceController.spamToast('graph_cleared');
+    if (!this.isConfiguring) appExecutionAllowed.set(true);
   }
 
   async duplicateSelection(
@@ -1367,6 +1393,13 @@ export default class PPGraph {
     data: SerializedSelection,
     pastePos: PIXI.Point = new PIXI.Point(0, 0),
   ): Promise<PPNode[]> {
+    const session = getNodePasteSession();
+    const trusted = isLocalNodePaste(data);
+    data = structuredClone(data);
+    if (!trusted) {
+      if (!(await reviewNodePaste(data.nodes.length))) return [];
+      if (session !== getNodePasteSession()) return [];
+    }
     const newNodes: PPNode[] = [];
     const mappingOfOldAndNewNodes: { [key: string]: PPNode } = {};
 
@@ -1377,6 +1410,7 @@ export default class PPGraph {
     });
 
     const action = async () => {
+      if (session !== getNodePasteSession()) return;
       const originalNodes: SerializedSelection = data;
       newNodes.length = 0;
       //create nodes
@@ -1555,6 +1589,7 @@ export default class PPGraph {
       links: linksSerialized,
     };
 
+    registerLocalSelection(data);
     return data;
   }
 
@@ -1565,7 +1600,46 @@ export default class PPGraph {
     );
   }
 
-  async configure(storedGraph: StoredGraph): Promise<boolean> {
+  private isConfiguring = false;
+
+  async configure(
+    storedGraph: StoredGraph,
+    approvalGraphData: SerializedGraph = storedGraph.graphData,
+  ): Promise<boolean> {
+    if (this.isConfiguring) return false;
+    PNPWorker.resetSession();
+    resetNodePasteTrust();
+    this.isConfiguring = true;
+    pendingAppRun.set(null);
+    cancelAppRiskReview();
+    appExecutionAllowed.set(false);
+    FlowLogic.pendingExecution.clear();
+    let configured = false;
+    try {
+      configured = await this.configureGraph(storedGraph, approvalGraphData);
+      return configured;
+    } finally {
+      try {
+        if (!configured) {
+          appExecutionAllowed.set(false);
+          await this.clear();
+        }
+      } finally {
+        InterfaceController.hideSpinner('Configuring graph');
+        if (!configured) {
+          appExecutionAllowed.set(Object.keys(this.nodes).length === 0);
+        }
+        this.isConfiguring = false;
+      }
+    }
+  }
+
+  private async configureGraph(
+    storedGraph: StoredGraph,
+    approvalGraphData: SerializedGraph,
+  ): Promise<boolean> {
+    // Loading nodes can add defaults or generated values to their serialized data.
+    const loadedGraphData = structuredClone(approvalGraphData);
     const CONFIGURE_GRAPH_SPINNER_MESSAGE = 'Configuring graph';
     InterfaceController.showSpinner(CONFIGURE_GRAPH_SPINNER_MESSAGE);
 
@@ -1657,15 +1731,58 @@ export default class PPGraph {
       }
     }
 
-    // execute all seed nodes to make sure there are values everywhere
-    await this.executeAllSeedNodes(Object.values(this.nodes));
-
-    // Fire DashboardLoaded after nodes are created and executed,
-    // so page nodes have their listeners registered for default page activation
-    InterfaceController.notifyListeners(ListenEvent.DashboardLoaded, {
-      id: storedGraph.id,
+    InterfaceController.hideSpinner();
+    document.body.style.cursor = 'default';
+    const initialReviewContent = getAppReviewContent(
+      this.serialize(),
+      collectAppRisks(Object.values(this.nodes)),
+    );
+    const pending = {
       name: storedGraph.name,
-    });
+      run: async (): Promise<void> => {
+        const risks = collectAppRisks(Object.values(this.nodes));
+        const graph = this.serialize();
+        const reviewedContent = getAppReviewContent(graph, risks);
+        const fingerprint = await getAppFingerprint(
+          reviewedContent === initialReviewContent ? loadedGraphData : graph,
+          risks,
+        );
+        if (pendingAppRun.get() !== pending) return;
+        const approved =
+          isAppApproved(fingerprint) ||
+          (await reviewAppRisks(this.name, risks));
+        // A different app may have been opened while its risks were reviewed.
+        if (!approved || pendingAppRun.get() !== pending) return;
+        // Recheck synchronously so edits during hashing or review cannot inherit approval.
+        if (
+          getAppReviewContent(
+            this.serialize(),
+            collectAppRisks(Object.values(this.nodes)),
+          ) !== reviewedContent
+        )
+          return;
+        if (risks.length) rememberAppApproval(fingerprint);
+        pendingAppRun.set(null);
+        const session = getNodePasteSession();
+        // Loading mode includes both conditional branches in initial propagation
+        // and prevents macro callbacks from queuing extra executions.
+        this.graphConfiguredAndReady = false;
+        appExecutionAllowed.set(true);
+        try {
+          await this.executeAllSeedNodes(Object.values(this.nodes));
+          if (session !== getNodePasteSession()) return;
+          InterfaceController.notifyListeners(ListenEvent.DashboardLoaded, {
+            id: storedGraph.id,
+            name: storedGraph.name,
+          });
+        } finally {
+          if (session === getNodePasteSession()) {
+            this.graphConfiguredAndReady = true;
+          }
+        }
+      },
+    };
+    pendingAppRun.set(pending);
 
     this.graphConfiguredAndReady = true;
 
@@ -1681,6 +1798,13 @@ export default class PPGraph {
     InterfaceController.notifyListeners(ListenEvent.GraphConfigured, {
       id: storedGraph.id,
       name: storedGraph.name,
+    });
+
+    // Open the review without making graph loading wait for a user decision.
+    void pending.run().catch((error) => {
+      InterfaceController.showSnackBar(`Starting app failed: ${error}`, {
+        variant: 'error',
+      });
     });
 
     return true;
@@ -1835,6 +1959,7 @@ export default class PPGraph {
   }
 
   async invokeMacro(name: string, args: any[]): Promise<any> {
+    if (!appExecutionAllowed.get()) return undefined;
     // in case the macro hasnt selected a macro yet return empty object
     if (name == EMPTY_DEFAULT_MACRO_NAME) {
       return {};

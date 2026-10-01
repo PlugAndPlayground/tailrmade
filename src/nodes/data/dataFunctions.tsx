@@ -19,6 +19,7 @@ import { BooleanType } from '../datatypes/booleanType';
 import PPGraph from '../../classes/GraphClass';
 import { NodeConfigurationWarning, PNPSuccess } from '../../classes/ErrorClass';
 import { PNPWorker } from './worker/PNPWorker';
+import { NodeRisk, UnrestrictedCodeRisk } from '../../classes/NodeRisk';
 import { BackPropagation } from '../../interfaces';
 
 export const arrayName = 'Array';
@@ -209,6 +210,12 @@ const MACRO_CALL_REGEX = /\bmacro\s*\(/;
 
 // customfunction does any number of inputs but only one output for simplicity
 export class CustomFunction extends PPNode {
+  public getRisks(): NodeRisk[] {
+    return this.isRiskInputConnected(allowFullAccessName) ||
+      this.getInputData(allowFullAccessName)
+      ? [new UnrestrictedCodeRisk()]
+      : [];
+  }
   previousUserInput = '';
   functionWithVariablesFromInputObject = '';
 
@@ -227,7 +234,8 @@ they do not exist until the code defines them.
 
 The function's return value becomes the node's output.
 
-Execution defaults to a Web Worker, where document and window are unavailable.
+Execution defaults to a QuickJS sandbox in a Web Worker, where document, window,
+and network access are unavailable.
 Set "Main Thread" to true before executing code that uses the DOM or an imported
 library containing functions (functions and DOM elements cannot be sent to workers).
 Await asynchronous library operations so failures are reported by this node.
@@ -461,7 +469,7 @@ Parameter names become sockets and a link does not follow a renamed parameter â€
           }
         }
 
-        throw new Error(errorMessage);
+        throw new Error(errorMessage, { cause: err });
       }
     } else {
       const finalized =
@@ -475,7 +483,7 @@ Parameter names become sockets and a link does not follow a renamed parameter â€
 
         // Add line number information if available
         if (worked.lineNumber) {
-          errorMessage += ` (line: ${worked.lineNumber - 2}`; //why -2? Its offset for some reason
+          errorMessage += ` (line: ${worked.lineNumber}`;
           if (worked.columnNumber) {
             errorMessage += `, column: ${worked.columnNumber}`;
           }
