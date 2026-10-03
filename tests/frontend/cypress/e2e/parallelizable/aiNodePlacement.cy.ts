@@ -116,4 +116,130 @@ describe('AI node placement (no overlap, scoped auto-alignment)', () => {
       );
     });
   });
+  it('lays out finished sections as separate blocks, left to right', () => {
+    doWithTestController(async (tc) => {
+      await tc.addNode('Constant', 'pre-existing-node', 2000, 2000);
+      const preExistingBefore = {
+        x: tc.getNodeByID('pre-existing-node').x,
+        y: tc.getNodeByID('pre-existing-node').y,
+      };
+      tc.beginAIAgentTurn();
+
+      const addConstant = async (nodeId: string) => {
+        const result = await tc.callMCPTool('add_node', {
+          node_type: 'Constant',
+          node_id: nodeId,
+        });
+        expect(result.is_error, `add_node failed: ${result.content}`).to.not.eq(
+          true,
+        );
+      };
+      const connect = async (fromNode: string, toNode: string) => {
+        const result = await tc.callMCPTool('connect_sockets', {
+          from_node: fromNode,
+          from_socket: 'Out',
+          to_node: toNode,
+          to_socket: 'In',
+        });
+        expect(result.is_error, `connect failed: ${result.content}`).to.not.eq(
+          true,
+        );
+      };
+
+      await addConstant('ai-node-20');
+      await addConstant('ai-node-21');
+      await connect('ai-node-20', 'ai-node-21');
+      const firstResult = await tc.callMCPTool('finish_section', {
+        title: 'First',
+        node_ids: ['ai-node-20', 'ai-node-21', 'pre-existing-node'],
+      });
+      expect(
+        firstResult.is_error,
+        `finish_section failed: ${firstResult.content}`,
+      ).to.not.eq(true);
+      expect(JSON.parse(firstResult.content).skipped_node_ids).to.deep.eq([
+        'pre-existing-node',
+      ]);
+
+      await addConstant('ai-node-22');
+      await addConstant('ai-node-23');
+      await connect('ai-node-22', 'ai-node-23');
+      const secondResult = await tc.callMCPTool('finish_section', {
+        title: 'Second',
+        node_ids: ['ai-node-22', 'ai-node-23'],
+      });
+      expect(secondResult.is_error).to.not.eq(true);
+
+      // a node already in a section can't be claimed again
+      const againResult = await tc.callMCPTool('finish_section', {
+        title: 'Again',
+        node_ids: ['ai-node-20'],
+      });
+      expect(againResult.is_error).to.eq(true);
+
+      await tc.finishAIAgentTurn();
+
+      const first = ['ai-node-20', 'ai-node-21'].map((id) =>
+        tc.getNodeByID(id),
+      );
+      const second = ['ai-node-22', 'ai-node-23'].map((id) =>
+        tc.getNodeByID(id),
+      );
+      const firstRight = Math.max(...first.map((n) => n.x + n.nodeWidth));
+      const secondLeft = Math.min(...second.map((n) => n.x));
+      expect(
+        secondLeft,
+        'second section starts right of the first',
+      ).to.be.greaterThan(firstRight);
+      expect(first[0].x + first[0].nodeWidth).to.be.lessThan(first[1].x);
+      expect(second[0].x + second[0].nodeWidth).to.be.lessThan(second[1].x);
+
+      const preExisting = tc.getNodeByID('pre-existing-node');
+      expect(preExisting.x, 'pre-existing node x unchanged').to.eq(
+        preExistingBefore.x,
+      );
+      expect(preExisting.y, 'pre-existing node y unchanged').to.eq(
+        preExistingBefore.y,
+      );
+    });
+  });
+  it('restructures existing nodes only when asked, as one undoable move', () => {
+    doWithTestController(async (tc) => {
+      await tc.addNode('Constant', 'existing-a', 0, 0);
+      await tc.addNode('Constant', 'existing-b', 0, 400);
+      await tc.connectNodesByIDAction('existing-a', 'existing-b', 'Out', 'In');
+      const before = ['existing-a', 'existing-b'].map((id) => ({
+        x: tc.getNodeByID(id).x,
+        y: tc.getNodeByID(id).y,
+      }));
+      tc.beginAIAgentTurn();
+
+      const refused = await tc.callMCPTool('finish_section', {
+        title: 'Data',
+        node_ids: ['existing-a', 'existing-b'],
+      });
+      expect(refused.is_error).to.eq(true);
+
+      const result = await tc.callMCPTool('finish_section', {
+        title: 'Data',
+        node_ids: ['existing-a', 'existing-b'],
+        restructure: true,
+      });
+      expect(result.is_error, result.content).to.not.eq(true);
+      await tc.finishAIAgentTurn();
+
+      const a = tc.getNodeByID('existing-a');
+      const b = tc.getNodeByID('existing-b');
+      expect(a.x, 'section starts right of the old graph').to.be.greaterThan(
+        before[0].x + a.nodeWidth,
+      );
+      expect(a.x + a.nodeWidth).to.be.lessThan(b.x);
+
+      await tc.undo();
+      ['existing-a', 'existing-b'].forEach((id, i) => {
+        expect(tc.getNodeByID(id).x, `${id} x restored`).to.eq(before[i].x);
+        expect(tc.getNodeByID(id).y, `${id} y restored`).to.eq(before[i].y);
+      });
+    });
+  });
 });

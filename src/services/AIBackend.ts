@@ -55,6 +55,10 @@ const MUTATION_TOOL_NAMES = new Set([
   'set_default_surface',
 ]);
 
+// MCP tools that only make sense while editing, but don't change the graph's
+// behaviour or what the app renders (so they don't trigger an auto-capture).
+const LAYOUT_TOOL_NAMES = new Set(['finish_section']);
+
 // How many times one run may show itself the app without being asked to.
 const MAX_AUTO_CAPTURES_PER_RUN = 4;
 
@@ -639,7 +643,12 @@ export class AIBackend {
       const tools = TailrmadeMCPServer.getInstance()
         .listTools()
         .filter((tool) => canSeeTheApp || tool.name !== 'inspect_ui')
-        .filter((tool) => performActions || !MUTATION_TOOL_NAMES.has(tool.name))
+        .filter(
+          (tool) =>
+            performActions ||
+            (!MUTATION_TOOL_NAMES.has(tool.name) &&
+              !LAYOUT_TOOL_NAMES.has(tool.name)),
+        )
         .map(({ name, description, input_schema }) => ({
           name,
           description,
@@ -784,7 +793,11 @@ export class AIBackend {
               InterfaceController.showSurface(touchedSurfaceId);
             }
           }
-          if (toolName === 'inspect_warnings_and_errors') {
+          // a check scoped to one section doesn't cover the whole graph
+          if (
+            toolName === 'inspect_warnings_and_errors' &&
+            !Array.isArray(toolUse.arguments?.node_ids)
+          ) {
             checkedWarningsAndErrors = true;
           }
           const isInspectionTool = inspectionToolNames.has(toolName);
@@ -834,7 +847,9 @@ export class AIBackend {
           if (result.is_error || !isInspectionTool) {
             assistantMessage += result.is_error
               ? `\n*${toolName} failed: ${String(result.content ?? '').replace(/\*/g, '')}*`
-              : `\n*Used ${toolName}.*`;
+              : toolName === 'finish_section'
+                ? `\n*Section ready: ${String(toolUse.arguments?.title ?? '').replace(/\*/g, '')}.*`
+                : `\n*Used ${toolName}.*`;
             applyAssistantText(assistantMessage);
           }
         }
@@ -1398,6 +1413,8 @@ Use the browser-local MCP tools to inspect and edit the live graph. Use them whe
 4. To change part of a UI, use set_layout_value: it patches named properties on one item, addressed by the id inspect_surface reports. Reach for set_surface_layout only when building or restructuring a surface. Sizes are css strings everywhere.
 5. Use inspect_ui to see the app as it actually renders. The layout json says what should be there; the screenshot shows what is.
 6. After using any mutation tool and before saying the task is complete, call inspect_warnings_and_errors. If warnings or errors remain, fix them when possible or clearly report what remains.
+7. Build larger requests (a whole app, or roughly 8 or more new nodes) section by section so the user can follow along. First reply with a short numbered list of the logical sections, e.g. 1. Fetch data 2. Filter query 3. Formatting 4. Filter UI 5. Results UI. Then, for each section in turn: add its nodes, connect them, set their values, call inspect_warnings_and_errors with that section's node_ids and fix what you can, call finish_section with its title and node_ids, and write one sentence on what the section does before starting the next. Order sections along the data flow; use placement "below" to start a new row, e.g. for the UI sections. Small changes need no sections.
+8. When asked to structure or explain an existing app, never change links, values or behaviour. Inspect the graph, post the section plan, then call finish_section with restructure true for each section, putting every node in exactly one section and macros with their contents. Add brief comments where they help, and explain each section in one sentence.
 
 ## Available Node Types
 Each line is key (Name): description. [docs] marks extra AI documentation.
