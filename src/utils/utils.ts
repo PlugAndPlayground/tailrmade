@@ -1456,6 +1456,16 @@ export const loadGraphFromIGraphSearch = async (graph: IGraphSearch) => {
   }
 };
 
+// Parameters can live in the query string or in the URL fragment (#...).
+// The fragment is never sent to the server, so large payloads like loadFullGraph belong there.
+// Fragment values take precedence over query values.
+export const getURLParameters = (): URLSearchParams => {
+  const params = new URLSearchParams(window.location.search);
+  const hashParams = new URLSearchParams(window.location.hash.slice(1));
+  hashParams.forEach((value, key) => params.set(key, value));
+  return params;
+};
+
 export const loadGraph = async (urlParams: URLSearchParams) => {
   // Remote graph loading:
   const loadGraph = urlParams.get(URL_PARAMETER_NAME.LOADGRAPH); // Compact format: "owner;;name;;location;;access"

@@ -72,8 +72,18 @@ export function checkForUnsavedChanges(): boolean {
 function removeUrlParameter(parameter: string): void {
   const currentUrl = new URL(window.location.href);
   const searchParams = new URLSearchParams(currentUrl.search);
-  searchParams.delete(parameter);
-  currentUrl.search = searchParams.toString();
+  const hashParams = new URLSearchParams(currentUrl.hash.slice(1));
+  if (!searchParams.has(parameter) && !hashParams.has(parameter)) {
+    return;
+  }
+  if (searchParams.has(parameter)) {
+    searchParams.delete(parameter);
+    currentUrl.search = searchParams.toString();
+  }
+  if (hashParams.has(parameter)) {
+    hashParams.delete(parameter);
+    currentUrl.hash = hashParams.toString();
+  }
   window.history.pushState({}, '', currentUrl.href);
 }
 
@@ -922,7 +932,7 @@ export default class PPStorage {
       PPGraph.currentGraph.getSerializedStoredGraph(),
       true,
     );
-    const URL = 'https://tailrmade.app/?loadFullGraph=' + serialized;
+    const URL = `https://tailrmade.app/#${constants.URL_PARAMETER_NAME.LOADURLGRAPH}=` + serialized;
     writeDataToClipboard(URL, false);
     InterfaceController.showSnackBar('Copied graph URL to clipboard');
   }
