@@ -16,6 +16,7 @@ import {
   cutOrCopyClipboard,
   getCurrentCursorPosition,
   getDashboardWidth,
+  getURLParameters,
   loadGraph,
   pasteClipboard,
   roundNumber,
@@ -577,8 +578,7 @@ export const createPixiApp = (
         return;
       }
 
-      const urlParams = new URLSearchParams(window.location.search);
-      void loadGraph(urlParams);
+      void loadGraph(getURLParameters());
     });
 
     // register key events
@@ -610,8 +610,7 @@ export const createPixiApp = (
     PPStorage.getInstance().applyGestureMode(viewport.current);
     InterfaceController.toggleShowDashboard(VISIBILITY_ACTION.CLOSE);
 
-    const urlParams = new URLSearchParams(window.location.search);
-    void loadGraph(urlParams);
+    void loadGraph(getURLParameters());
 
     console.log('PPGraph.currentGraph:', PPGraph.currentGraph);
 
