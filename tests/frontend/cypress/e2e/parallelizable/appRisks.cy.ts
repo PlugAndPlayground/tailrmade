@@ -5,6 +5,9 @@ import {
   shouldWithTestController,
   serializedNode,
   serializedSocket,
+  clickNode,
+  getNodeCenterById,
+  controlOrMetaKey,
 } from '../helpers';
 
 describe('app risk review', () => {
@@ -93,10 +96,20 @@ describe('app risk review', () => {
         codeNode(),
         { ...codeNode(), id: 'second-code', x: 5000, y: 5000 },
       ]);
+      cy.get('[data-cy="app-risk-dialog"]').should(
+        'have.attr',
+        'aria-modal',
+        'false',
+      );
+      cy.get(
+        '[aria-label="Center review"], [aria-label="Inspect alongside graph"]',
+      ).should('not.exist');
       cy.get('[data-cy="go-to-risk-node"]').should('have.length', 2);
       cy.get('[data-cy="go-to-risk-node"][data-node-id="second-code"]').click();
-      cy.get('[data-cy="app-risk-dialog"]').should('not.exist');
-      cy.get('[data-cy="app-not-running"]').should('be.visible');
+      cy.get('[data-cy="app-risk-dialog"]')
+        .should('be.visible')
+        .and('have.attr', 'aria-modal', 'false');
+      cy.get('[data-cy="app-not-running"]').should('not.exist');
       shouldWithTestController((controller) => {
         const graph = controller.getGraph();
         expect(
@@ -104,18 +117,210 @@ describe('app risk review', () => {
         ).to.deep.equal(['second-code']);
         const node = controller.getNodeByID('second-code');
         const position = graph.viewport.toScreen(node.x, node.y);
-        expect(position.x).to.be.within(0, width);
-        expect(position.y).to.be.within(0, 900);
+        expect(position.x).to.be.within(width >= 900 ? 444 : 0, width);
+        expect(position.y).to.be.within(0, width >= 900 ? 900 : 468);
         expect(node.debug_timesExecuted).to.equal(0);
       });
       cy.window().then(
         (win: any) => expect(win.__riskCodeRuns).to.be.undefined,
       );
-      cy.get('[data-cy="start-app"]').click();
+      if (width >= 900) {
+        doWithTestController((controller) =>
+          controller.getGraph().selection.selectNodes([], false),
+        );
+        clickNode('second-code');
+        shouldWithTestController((controller) => {
+          expect(
+            controller
+              .getGraph()
+              .selection.selectedNodes.map((node) => node.id),
+          ).to.deep.equal(['second-code']);
+        });
+      }
+      getNodeCenterById('second-code').then(([x, y]) => {
+        expect(x).to.be.within(width >= 900 ? 444 : 0, width);
+        expect(y).to.be.within(0, width >= 900 ? 900 : 468);
+      });
+      cy.screenshot(`app-risk-panel-${width}`, { capture: 'runner' });
+      cy.get('[data-cy="go-to-risk-node"][data-node-id="code"]').click();
+      shouldWithTestController((controller) => {
+        expect(
+          controller.getGraph().selection.selectedNodes.map((node) => node.id),
+        ).to.deep.equal(['code']);
+      });
       cy.get('[data-cy="app-risk-dialog"]').should('be.visible');
       cy.get('[data-cy="app-risk-dialog"]')
         .contains('button', 'Keep inspecting')
         .click();
+    });
+  });
+
+  it('searches a large node list and inspects every affected node at once', () => {
+    const ids = Array.from({ length: 30 }, (_, index) => `code-${index}`);
+    beginLoad(ids.map((id, index) => ({ ...codeNode(), id, x: index * 300 })));
+    cy.get('[data-cy="go-to-risk-node"]').should('have.length', 30);
+    cy.get('[data-cy="app-risk-dialog"]').find('input').type('code-29');
+    cy.get('[data-cy="go-to-risk-node"]')
+      .should('have.length', 1)
+      .and('have.attr', 'data-node-id', 'code-29');
+    cy.get('[data-cy="inspect-all-risk-nodes"]').click();
+    cy.get('[data-cy="app-risk-dialog"]')
+      .should('be.visible')
+      .and('have.attr', 'aria-modal', 'false');
+    shouldWithTestController((controller) => {
+      expect(
+        controller.getGraph().selection.selectedNodes.map((node) => node.id),
+      ).to.have.members(ids);
+      ids.forEach((id) =>
+        expect(controller.getNodeByID(id).debug_timesExecuted).to.equal(0),
+      );
+    });
+    cy.get('[data-cy="app-risk-dialog"]')
+      .find('input')
+      .should('have.value', 'code-29')
+      .clear();
+    cy.get('[data-cy="go-to-risk-node"]').should('have.length', 30);
+  });
+
+  it('runs the app from the review panel only after approval', () => {
+    beginLoad([codeNode()]);
+    cy.get('[data-cy="app-risk-dialog"]').should(
+      'have.attr',
+      'aria-modal',
+      'false',
+    );
+    cy.window().then((win: any) => expect(win.__riskCodeRuns).to.be.undefined);
+    cy.get('[data-cy="run-reviewed-app"]').click();
+    cy.get('[data-cy="app-risk-dialog"]').should('not.exist');
+    cy.window().should((win: any) =>
+      expect(win.__riskCodeRuns).to.be.greaterThan(0),
+    );
+  });
+
+  [1280, 900].forEach((width) => {
+    it(`keeps the inspector beside the review at ${width}px, including after resizing`, () => {
+      cy.viewport(width, 900);
+      beginLoad([codeNode()]);
+      cy.get('[data-cy="go-to-risk-node"]').click();
+      cy.get('[data-cy="inspector-column"]').then(($column) => {
+        if ($column.width() === 0)
+          cy.get('[data-cy="right-drawer-toggle-btn"]').click();
+      });
+      cy.get('#inspector-container-node').should('be.visible');
+      const checkLayout = () => {
+        cy.get('[data-cy="inspector-column"]').should(($column) => {
+          const inspector = $column[0].getBoundingClientRect();
+          const review = $column[0].ownerDocument
+            .querySelector('[data-cy="app-risk-dialog"]')
+            .getBoundingClientRect();
+          expect(inspector.width).to.be.at.least(240);
+          expect(inspector.left).to.be.at.least(review.right);
+          expect(inspector.right).to.be.at.most(width + 1);
+        });
+      };
+      checkLayout();
+      cy.get('[data-cy="inspector-column"]')
+        .children()
+        .first()
+        .trigger('pointerdown', {
+          clientX: width - 340,
+          pointerId: 1,
+          eventConstructor: 'PointerEvent',
+        });
+      cy.get('body')
+        .trigger('pointermove', {
+          clientX: 0,
+          pointerId: 1,
+          eventConstructor: 'PointerEvent',
+        })
+        .trigger('pointerup', {
+          pointerId: 1,
+          eventConstructor: 'PointerEvent',
+        });
+      cy.get('[data-cy="inspector-column"]').should(($column) => {
+        expect($column.width()).to.be.closeTo(width - 548, 1);
+      });
+      checkLayout();
+      getNodeCenterById('code');
+      cy.screenshot(`app-risk-inspector-${width}`, { capture: 'runner' });
+      cy.get('[data-cy="graph-inspector-tab"]').click();
+      cy.get('[data-cy="app-risk-dialog"]').should('be.visible');
+    });
+  });
+
+  it('lists a node only once when it has several risks', () => {
+    beginLoad([
+      serializedNode('httpnode', 'http', [
+        serializedSocket('URL', 'https://example.com/api?token=hidden-secret'),
+        serializedSocket(
+          'Headers',
+          { Authorization: 'Bearer $TM_KEY{TEST_KEY}' },
+          'JSONType',
+        ),
+        serializedSocket('Send Through Companion', true, 'BooleanType'),
+      ]),
+    ]);
+    cy.get('[data-cy="inspect-risk-group"]').should(
+      'have.length.greaterThan',
+      1,
+    );
+    cy.get('[data-cy="go-to-risk-node"]').should('have.length', 1);
+    cy.get('[data-cy="go-to-risk-node"]')
+      .should('contain', 'Connects to external services')
+      .and('contain', 'Uses API keys')
+      .and('contain', 'Uses your Companion')
+      .and('contain', 'https://example.com/api')
+      .and('contain', 'TEST_KEY')
+      .and('not.contain', 'hidden-secret');
+    cy.get('[data-cy="app-risk-dialog"]').find('input').type('TEST_KEY');
+    cy.get('[data-cy="go-to-risk-node"]').should('have.length', 1);
+    cy.get('[data-cy="app-risk-dialog"]')
+      .find('input')
+      .clear()
+      .type('external services');
+    cy.get('[data-cy="go-to-risk-node"]').should('have.length', 1);
+    cy.viewport(1280, 900);
+    cy.get('[data-cy="go-to-risk-node"]').scrollIntoView();
+    cy.screenshot('node-capabilities-desktop', { capture: 'runner' });
+    cy.viewport(390, 900);
+    cy.get('[data-cy="go-to-risk-node"]').scrollIntoView();
+    cy.screenshot('node-capabilities-mobile', { capture: 'runner' });
+    cy.get('[data-cy="inspect-risk-group"]').first().click();
+    shouldWithTestController((controller) => {
+      expect(
+        controller.getGraph().selection.selectedNodes.map((node) => node.id),
+      ).to.deep.equal(['http']);
+      expect(controller.getNodeByID('http').debug_timesExecuted).to.equal(0);
+    });
+  });
+
+  [false, true].forEach((saveAs) => {
+    it(`trusts an app after ${saveAs ? 'Save As' : 'Save'} without running it first`, () => {
+      beginLoad([codeNode()]);
+      cy.get('[data-cy="app-risk-dialog"]')
+        .contains('button', 'Keep inspecting')
+        .click();
+      cy.get('body').type(`${controlOrMetaKey()}${saveAs ? '{shift}' : ''}s`);
+      cy.contains('was saved to local database').should('be.visible');
+      cy.window().then(
+        (win: any) => expect(win.__riskCodeRuns).to.be.undefined,
+      );
+      cy.reload();
+      cy.window().should((win: any) =>
+        expect(win.__riskCodeRuns).to.be.greaterThan(0),
+      );
+      cy.get('[data-cy="app-risk-dialog"]').should('not.exist');
+      doWithTestController(async (controller) => {
+        const changed = controller.getGraph().getSerializedStoredGraph();
+        changed.graphData.nodes[0].socketArray.find(
+          (socket: any) => socket.name === 'Code',
+        ).data = '() => { window.__unsavedRiskRan = true; return 9; }';
+        await controller.getGraph().configure(changed);
+      });
+      cy.get('[data-cy="app-risk-dialog"]').should('be.visible');
+      cy.window().then(
+        (win: any) => expect(win.__unsavedRiskRan).to.be.undefined,
+      );
     });
   });
 
