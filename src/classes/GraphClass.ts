@@ -72,7 +72,7 @@ import {
 } from './Action';
 import { StoredGraph } from '../utils/indexedDB';
 import PPStorage, { DEFAULT_ACCESS, DEFAULT_LOCATION } from '../PPStorage';
-import { collectAppRisks } from './NodeRisk';
+import { collectAppRisks, requiresAppRiskReview } from './NodeRisk';
 import {
   cancelAppRiskReview,
   reviewAppRisks,
@@ -1761,7 +1761,7 @@ export default class PPGraph {
           ) !== reviewedContent
         )
           return;
-        if (risks.length) rememberAppApproval(fingerprint);
+        if (requiresAppRiskReview(risks)) rememberAppApproval(fingerprint);
         pendingAppRun.set(null);
         const session = getNodePasteSession();
         // Loading mode includes both conditional branches in initial propagation

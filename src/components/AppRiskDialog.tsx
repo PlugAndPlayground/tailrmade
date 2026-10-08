@@ -26,7 +26,8 @@ import ComputerIcon from '@mui/icons-material/Computer';
 import StorageIcon from '@mui/icons-material/Storage';
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
-import { AppRisk, NodeRisk } from '../classes/NodeRisk';
+import ImageOutlinedIcon from '@mui/icons-material/ImageOutlined';
+import { AppRisk, NodeRisk, requiresAppRiskReview } from '../classes/NodeRisk';
 import PPGraph from '../classes/GraphClass';
 import { createStore } from './createStore';
 import { pendingAppRun } from '../services/appExecution';
@@ -55,6 +56,16 @@ const capabilityStyles: Record<
   },
   'api-key': { Icon: KeyIcon, color: '#ffd48a', background: '#443316' },
   network: { Icon: PublicIcon, color: '#a9dfff', background: '#173b50' },
+  'external-image': {
+    Icon: ImageOutlinedIcon,
+    color: '#a9dfff',
+    background: '#173b50',
+  },
+  'dynamic-image': {
+    Icon: ImageOutlinedIcon,
+    color: '#ffd48a',
+    background: '#443316',
+  },
   navigation: { Icon: OpenInNewIcon, color: '#a9dfff', background: '#173b50' },
   companion: { Icon: ComputerIcon, color: '#ffd48a', background: '#443316' },
   storage: { Icon: StorageIcon, color: '#a4e4dc', background: '#193b39' },
@@ -133,7 +144,7 @@ export function reviewAppRisks(
   name: string,
   risks: AppRisk[],
 ): Promise<boolean> {
-  if (!risks.length) return Promise.resolve(true);
+  if (!requiresAppRiskReview(risks)) return Promise.resolve(true);
   reviewStore.get()?.resolve(false);
   return new Promise((resolve) => reviewStore.set({ name, risks, resolve }));
 }
@@ -413,7 +424,7 @@ export function AppRiskDialog({
             sx={{ mb: 2, '&:last-child': { mb: 0 }, overflowWrap: 'anywhere' }}
           >
             <Alert
-              severity={risk.severity === 'critical' ? 'error' : 'warning'}
+              severity={risk.severity === 'critical' ? 'error' : risk.severity}
             >
               <Typography sx={{ fontWeight: 600 }}>{risk.title}</Typography>
               {risk.target && (

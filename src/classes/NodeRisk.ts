@@ -1,4 +1,4 @@
-export type RiskSeverity = 'critical' | 'warning';
+export type RiskSeverity = 'critical' | 'warning' | 'info';
 
 export abstract class NodeRisk {
   abstract readonly kind: string;
@@ -52,6 +52,45 @@ export class NetworkRisk extends NodeRisk {
   }
 }
 
+export class ExternalImageRisk extends NodeRisk {
+  readonly kind = 'external-image';
+  readonly severity = 'info' as const;
+  readonly title = 'Loads external images';
+  readonly description =
+    'Loads an image from a fixed address. The host receives the image request. URL credentials, query strings, and fragments are hidden.';
+
+  constructor(url: string) {
+    super(new NetworkRisk(url).target);
+  }
+}
+
+export class DynamicImageRisk extends NodeRisk {
+  readonly kind = 'dynamic-image';
+  readonly title = 'Loads images from dynamic URLs';
+  readonly description =
+    'The image source comes from connected inputs. Generated addresses may include app data and send it to the image host.';
+}
+
+export function getImageSourceRisks(
+  source: unknown,
+  connected: boolean,
+  baseURL = typeof document === 'undefined' ? undefined : document.baseURI,
+): NodeRisk[] {
+  // A saved input value cannot predict what its connection will produce.
+  if (connected) return [new DynamicImageRisk()];
+  if (typeof source !== 'string' || !source.trim()) return [];
+  try {
+    const url = new URL(source, baseURL);
+    if (
+      ['http:', 'https:'].includes(url.protocol) &&
+      (!baseURL || url.origin !== new URL(baseURL).origin)
+    ) {
+      return [new ExternalImageRisk(url.href)];
+    }
+  } catch {}
+  return [];
+}
+
 export class NavigationRisk extends NodeRisk {
   readonly kind = 'navigation';
   readonly title = 'Opens web pages';
@@ -95,6 +134,10 @@ export interface AppRisk {
   nodes: Array<{ id: string; name: string }>;
 }
 
+export function requiresAppRiskReview(risks: AppRisk[]): boolean {
+  return risks.some(({ risk }) => risk.severity !== 'info');
+}
+
 export function collectAppRisks(nodes: RiskSource[]): AppRisk[] {
   const grouped = new Map<string, AppRisk>();
   for (const node of nodes) {
@@ -106,10 +149,13 @@ export function collectAppRisks(nodes: RiskSource[]): AppRisk[] {
       grouped.set(risk.id, entry);
     }
   }
+  const severityOrder: Record<RiskSeverity, number> = {
+    critical: 0,
+    warning: 1,
+    info: 2,
+  };
   return [...grouped.values()].sort(
-    (a, b) =>
-      Number(b.risk.severity === 'critical') -
-      Number(a.risk.severity === 'critical'),
+    (a, b) => severityOrder[a.risk.severity] - severityOrder[b.risk.severity],
   );
 }
 

@@ -1,12 +1,80 @@
 import {
   ApiKeyRisk,
   NetworkRisk,
+  ExternalImageRisk,
+  DynamicImageRisk,
   UnrestrictedCodeRisk,
   collectAppRisks,
   findApiKeyReferences,
+  getImageSourceRisks,
+  requiresAppRiskReview,
 } from '../../../src/classes/NodeRisk';
 
 describe('app risk disclosure', () => {
+  it('does not require approval for informational image loads alone', () => {
+    const risks = collectAppRisks([
+      {
+        id: 'image',
+        nodeName: 'Image',
+        getRisks: () => [
+          new ExternalImageRisk('https://images.example.com/photo.png'),
+        ],
+      },
+    ]);
+    expect(requiresAppRiskReview(risks)).toBe(false);
+    expect(requiresAppRiskReview([])).toBe(false);
+    expect(
+      requiresAppRiskReview([...risks, { risk: new NetworkRisk(), nodes: [] }]),
+    ).toBe(true);
+  });
+
+  it('classifies fixed image sources and hides URL secrets', () => {
+    const baseURL = 'https://app.example.com/editor';
+    for (const source of [
+      'https://user:secret@images.example.com/photo.png?key=secret#secret',
+      '//images.example.com/photo.png?key=secret',
+    ]) {
+      const risks = getImageSourceRisks(source, false, baseURL);
+      expect(risks).toHaveLength(1);
+      expect(risks[0]).toBeInstanceOf(ExternalImageRisk);
+      expect(risks[0].severity).toBe('info');
+      expect(risks[0].target).toBe('https://images.example.com/photo.png');
+    }
+    for (const source of [
+      undefined,
+      '',
+      'data:image/png;base64,AAAA',
+      'blob:https://app.example.com/image',
+      '/assets/photo.png',
+      'https://app.example.com/photo.png',
+    ]) {
+      expect(getImageSourceRisks(source, false, baseURL)).toEqual([]);
+    }
+  });
+
+  it('does not mistake saved image data for a predictable connected source', () => {
+    expect(
+      getImageSourceRisks('data:image/png;base64,AAAA', true)[0],
+    ).toBeInstanceOf(DynamicImageRisk);
+    const risks = collectAppRisks([
+      {
+        id: 'image',
+        nodeName: 'Image',
+        getRisks: () => [
+          new ExternalImageRisk('https://example.com/image.png'),
+          new DynamicImageRisk(),
+          new UnrestrictedCodeRisk(),
+        ],
+      },
+    ]);
+    expect(risks.map(({ risk }) => risk.severity)).toEqual([
+      'critical',
+      'warning',
+      'info',
+    ]);
+    expect(requiresAppRiskReview(risks)).toBe(true);
+  });
+
   it('groups shared capabilities by target and puts unrestricted code first', () => {
     const risks = collectAppRisks([
       {

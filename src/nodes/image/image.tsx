@@ -1,6 +1,6 @@
 import React from 'react';
 import { appExecutionAllowed } from '../../services/appExecution';
-import { NodeRisk, NetworkRisk } from '../../classes/NodeRisk';
+import { NodeRisk, getImageSourceRisks } from '../../classes/NodeRisk';
 import * as PIXI from 'pixi.js';
 import DOMPurify from 'dompurify';
 import { TRgba } from '../../utils/color';
@@ -86,15 +86,10 @@ const defaultProps: WidgetProps = {
 
 export class Image extends PPNode implements Layoutable {
   public getRisks(): NodeRisk[] {
-    const source = this.getInputData(imageInputName);
-    return this.isRiskInputConnected(imageInputName) ||
-      (typeof source === 'string' && /^https?:/i.test(source))
-      ? [
-          new NetworkRisk(
-            this.isRiskInputConnected(imageInputName) ? undefined : source,
-          ),
-        ]
-      : [];
+    return getImageSourceRisks(
+      this.getInputData(imageInputName),
+      this.isRiskInputConnected(imageInputName),
+    );
   }
   sprite: PIXI.Sprite;
   texture: PIXI.Texture;

@@ -13,10 +13,15 @@ import {
 describe('app risk review', () => {
   let loading: Promise<boolean>;
   let loadedFile: any;
+  let png: string;
 
   beforeEach(() => {
     openNewGraph();
     cy.window().then((win) => {
+      const canvas = win.document.createElement('canvas');
+      canvas.width = canvas.height = 1;
+      canvas.getContext('2d')!.fillRect(0, 0, 1, 1);
+      png = canvas.toDataURL('image/png').split(',')[1];
       Object.keys(win.localStorage)
         .filter((key) => key.startsWith('tailrmade.app-approval.'))
         .forEach((key) => win.localStorage.removeItem(key));
@@ -46,6 +51,98 @@ describe('app risk review', () => {
       serializedSocket('Main Thread', version === 3, 'BooleanType'),
     ]),
     version,
+  });
+
+  const externalImageURL =
+    'https://images.example.test/risk-static-image.png?token=hidden-secret';
+  const imageNode = (source: string) =>
+    serializedNode('image', 'image', [
+      serializedSocket('Image', source, 'ImageType'),
+    ]);
+
+  ['external', 'local', 'embedded', 'raw base64'].forEach((kind, index) => {
+    it(`runs a fixed ${kind} image without a warning`, () => {
+      const source = [
+        externalImageURL,
+        '/risk-static-image.png',
+        `data:image/png;base64,${png}`,
+        png,
+      ][index];
+      cy.intercept('GET', '**/risk-static-image.png*', {
+        headers: {
+          'content-type': 'image/png',
+          'access-control-allow-origin': '*',
+        },
+        body: Uint8Array.from(atob(png), (char) => char.charCodeAt(0)).buffer,
+      }).as('imageRequest');
+      beginLoad([imageNode(source)]);
+      shouldWithTestController((controller) => {
+        const node = controller.getNodeByID('image');
+        expect(node.debug_timesExecuted).to.be.greaterThan(0);
+        expect(node.getRisks().map((risk) => risk.severity)).to.deep.equal(
+          index === 0 ? ['info'] : [],
+        );
+        expect(node.getOutputData('Details')).to.include({
+          textureWidth: 1,
+          textureHeight: 1,
+        });
+      });
+      cy.get('[data-cy="app-risk-dialog"]').should('not.exist');
+      cy.get('[data-cy="app-not-running"]').should('not.exist');
+      cy.window().should((win) => {
+        expect(
+          Object.keys(win.localStorage).filter((key) =>
+            key.startsWith('tailrmade.app-approval.'),
+          ),
+        ).to.be.empty;
+      });
+      if (index < 2) cy.wait('@imageRequest');
+    });
+  });
+
+  it('shows fixed external images as information alongside blocking risks', () => {
+    cy.viewport(1280, 900);
+    beginLoad([codeNode(), { ...imageNode(externalImageURL), x: 400 }]);
+    cy.get('[data-cy="go-to-risk-node"][data-node-id="image"]')
+      .should('contain', 'Loads external images')
+      .and('not.contain', 'Connects to external services')
+      .and('not.contain', 'hidden-secret');
+    cy.get('[data-cy="app-risk-dialog"] .MuiAlert-colorInfo').should(
+      'contain',
+      'Loads external images',
+    );
+    shouldWithTestController((controller) => {
+      expect(controller.getNodeByID('code').debug_timesExecuted).to.equal(0);
+    });
+    cy.screenshot('external-image-information', { capture: 'runner' });
+  });
+
+  it('requires review for connected image sources before evaluating them', () => {
+    beginLoad(
+      [
+        serializedNode('constant', 'source', [
+          serializedSocket('In', externalImageURL),
+        ]),
+        imageNode(`data:image/png;base64,${png}`),
+      ],
+      [
+        {
+          id: 'image-link',
+          sourceNodeId: 'source',
+          sourceSocketName: 'Out',
+          targetNodeId: 'image',
+          targetSocketName: 'Image',
+        },
+      ],
+    );
+    cy.get('[data-cy="app-risk-dialog"]').should(
+      'contain',
+      'Loads images from dynamic URLs',
+    );
+    shouldWithTestController((controller) => {
+      expect(controller.getNodeByID('source').debug_timesExecuted).to.equal(0);
+      expect(controller.getNodeByID('image').debug_timesExecuted).to.equal(0);
+    });
   });
 
   ['CG Test.ppgraph'].forEach((fixture) => {
