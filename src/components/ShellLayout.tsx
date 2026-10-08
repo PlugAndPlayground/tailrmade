@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Box, IconButton, Tooltip, Typography } from '@mui/material';
 import PPGraph from '../classes/GraphClass';
 import InterfaceController, { ListenEvent } from '../InterfaceController';
@@ -21,6 +21,11 @@ import { getDashboardBackground, LeftDrawerView } from '../utils/constants';
 import { DrawerSide, IOverlay } from '../utils/interfaces';
 import { SHELL_CONSTANTS } from '../utils/constants';
 import { VISIBILITY_ACTION } from '../utils/constants_shared';
+import {
+  APP_RISK_PANEL_WIDTH,
+  AppRiskDialog,
+  useAppRiskReviewOpen,
+} from './AppRiskDialog';
 
 type ShellLayoutProps = {
   overlayState: IOverlay;
@@ -39,6 +44,10 @@ const ShellLayout: React.FunctionComponent<ShellLayoutProps> = (props) => {
   const smallScreen = useIsSmallScreen();
   const stackLayout = useIsStackLayout();
   const stackView = useStackView();
+  const riskReviewOpen = useAppRiskReviewOpen();
+  const [canvasElement, setCanvasElement] = useState<HTMLDivElement | null>(
+    null,
+  );
   const { appView, overlayState } = props;
   const appTokens = useResolvedAppTheme().tokens;
   const isDashboardMaximised =
@@ -148,6 +157,7 @@ const ShellLayout: React.FunctionComponent<ShellLayoutProps> = (props) => {
         )}
 
         <BottomBar />
+        <AppRiskDialog />
       </>
     );
   }
@@ -184,6 +194,8 @@ const ShellLayout: React.FunctionComponent<ShellLayoutProps> = (props) => {
         </Box>
       )}
 
+      <AppRiskDialog canvasElement={canvasElement} />
+
       <LeftRightDrawer
         isLeft={true}
         hidden={appView}
@@ -202,6 +214,7 @@ const ShellLayout: React.FunctionComponent<ShellLayoutProps> = (props) => {
 
       <Box
         data-cy="canvas-strip"
+        ref={setCanvasElement}
         sx={{
           display: appView || isDashboardMaximised ? 'none' : 'block',
           flex: '1 1 0',
@@ -237,6 +250,7 @@ const ShellLayout: React.FunctionComponent<ShellLayoutProps> = (props) => {
 
       <LeftRightDrawer
         isLeft={false}
+        reservedWidth={riskReviewOpen ? APP_RISK_PANEL_WIDTH : 0}
         hidden={appView}
         overlayState={overlayState}
         updateOverlayState={props.updateOverlayState}

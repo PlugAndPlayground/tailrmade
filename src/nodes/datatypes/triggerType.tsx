@@ -1,4 +1,5 @@
 import React from 'react';
+import { appExecutionAllowed } from '../../services/appExecution';
 import Socket from '../../classes/SocketClass';
 import { TriggerWidget } from '../../widgets';
 import { AbstractType, DataTypeProps } from './abstractType';
@@ -53,6 +54,10 @@ export class TriggerType extends AbstractType {
   }
 
   async onDataSet(data: any, socket: Socket): Promise<void> {
+    if (!appExecutionAllowed.get()) {
+      this.previousData = data;
+      return;
+    }
     await super.onDataSet(data, socket);
 
     if (

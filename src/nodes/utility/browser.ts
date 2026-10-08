@@ -1,4 +1,5 @@
-import { CustomFunction } from '../data/dataFunctions';
+import { NodeExecutionWarning } from '../../classes/ErrorClass';
+import { NavigationRisk, NodeRisk } from '../../classes/NodeRisk';
 import { NODE_TYPE_COLOR, SOCKET_TYPE } from '../../utils/constants';
 import { TRgba } from '../../utils/color';
 import UpdateBehaviourClass from '../../classes/UpdateBehaviourClass';
@@ -10,13 +11,35 @@ import { migrateFromCustomFunctionCommon } from '../data/array';
 const URLName = 'url';
 
 export class OpenURL extends PPNode {
+  public getRisks(): NodeRisk[] {
+    return [
+      new NavigationRisk(
+        this.isRiskInputConnected(URLName)
+          ? undefined
+          : this.getInputData(URLName),
+      ),
+    ];
+  }
+
   protected getDefaultIO(): Socket[] {
     return [new Socket(SOCKET_TYPE.IN, URLName, new StringType())];
   }
 
   protected async onExecute(input: any, output: any): Promise<void> {
-    const url = input[URLName];
-    window.open(url, '_blank')?.focus();
+    let url: URL;
+    try {
+      const value = input[URLName];
+      if (typeof value !== 'string' || !value.trim()) throw new Error();
+      url = new URL(value, document.baseURI);
+    } catch {
+      throw new NodeExecutionWarning('Enter a valid HTTP or HTTPS URL.');
+    }
+    if (url.protocol !== 'http:' && url.protocol !== 'https:') {
+      throw new NodeExecutionWarning(
+        'Open URL only supports HTTP and HTTPS links.',
+      );
+    }
+    window.open(url.href, '_blank', 'noopener,noreferrer');
   }
 
   public getName(): string {

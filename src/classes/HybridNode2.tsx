@@ -1,5 +1,6 @@
 import * as PIXI from 'pixi.js';
 import React, { useEffect, useState } from 'react';
+import { appExecutionAllowed } from '../services/appExecution';
 import { TRgba } from '../utils/color';
 import { createRoot, Root } from 'react-dom/client';
 import { Box, ThemeProvider } from '@mui/material';
@@ -196,6 +197,8 @@ function startCanvasTouchPan(
 function CanvasHybridNodeContent<T extends HybridNode2>(
   props: CanvasHybridNodeContentProps<T>,
 ): React.ReactElement {
+  const allowed = appExecutionAllowed.useStore();
+  if (!allowed) return <PausedWidget name={props.node.getName()} />;
   return (
     <HybridNodeErrorBoundary node={props.node}>
       <Box
@@ -778,9 +781,33 @@ type DynamicWidgetContainerHybridNodeProps = DashboardWidgetProps & {
   property: HybridNode2;
 };
 
+function PausedWidget({ name }: { name: string }): React.ReactElement {
+  return (
+    <Box
+      data-cy="paused-widget"
+      sx={{
+        width: '100%',
+        height: '100%',
+        minHeight: 24,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        overflow: 'hidden',
+        color: 'text.secondary',
+        bgcolor: 'action.hover',
+        fontSize: 12,
+        overflowWrap: 'anywhere',
+      }}
+    >
+      {name}
+    </Box>
+  );
+}
+
 const DynamicWidgetContainerHybridNodeInner: React.FunctionComponent<
   DynamicWidgetContainerHybridNodeProps
 > = (props) => {
+  const allowed = appExecutionAllowed.useStore();
   const [showDashboard, setShowDashboard] = useState(true);
   const [_, setDummyExecutionVar] = useState(0);
 
@@ -839,25 +866,29 @@ const DynamicWidgetContainerHybridNodeInner: React.FunctionComponent<
         isSurfacePreview={props.isSurfacePreview}
       >
         <HybridNodeErrorBoundary node={props.property}>
-          <props.property.getWidgetContent
-            {...widgetInputProps}
-            index={props.index}
-            id={props.property.id}
-            selected={props.property.selected}
-            isOnlySelected={PPGraph.currentGraph.selection.isOnlySelectedNode(
-              props.property,
-            )}
-            node={props.property}
-            isInteractionEnabled={props.property.isInteractionEnabled()}
-            inDashboard={true}
-            isEditMode={props.isEditMode}
-            isSurfacePreview={props.isSurfacePreview}
-            dataCyId={`${props.property.id}-dashboard${props.isSurfacePreview ? '-preview' : ''}`}
-            disabled={props.disabled}
-            showDashboard={showDashboard}
-            width={props.width}
-            height={props.height}
-          />
+          {allowed ? (
+            <props.property.getWidgetContent
+              {...widgetInputProps}
+              index={props.index}
+              id={props.property.id}
+              selected={props.property.selected}
+              isOnlySelected={PPGraph.currentGraph.selection.isOnlySelectedNode(
+                props.property,
+              )}
+              node={props.property}
+              isInteractionEnabled={props.property.isInteractionEnabled()}
+              inDashboard={true}
+              isEditMode={props.isEditMode}
+              isSurfacePreview={props.isSurfacePreview}
+              dataCyId={`${props.property.id}-dashboard${props.isSurfacePreview ? '-preview' : ''}`}
+              disabled={props.disabled}
+              showDashboard={showDashboard}
+              width={props.width}
+              height={props.height}
+            />
+          ) : (
+            <PausedWidget name={props.property.getName()} />
+          )}
         </HybridNodeErrorBoundary>
       </DashboardContentGate>
     </Box>

@@ -3,6 +3,7 @@ import PPNode from '../../classes/NodeClass';
 import { TNodeSource } from '../../utils/interfaces';
 import { getNodeDataFromText } from '../../utils/utils';
 import { Segment } from './segment';
+import { registerLocalSelection } from '../../services/nodePasteTrust';
 import * as PIXI from 'pixi.js';
 
 export abstract class SegmentNode extends PPNode {
@@ -24,8 +25,11 @@ export abstract class SegmentNode extends PPNode {
 
   // paste my segment and remove self
   public async addAndDestroy() {
+    const data = getNodeDataFromText(this.getSegment().getData());
+    // Bundled segments are application code, not external clipboard content.
+    registerLocalSelection(data);
     await PPGraph.currentGraph.perform_action_pasteNodes(
-      getNodeDataFromText(this.getSegment().getData()),
+      data,
       new PIXI.Point(this.x, this.y),
     );
 

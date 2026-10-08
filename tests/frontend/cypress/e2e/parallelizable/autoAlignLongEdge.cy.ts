@@ -1,4 +1,8 @@
-import { doWithTestController, openNewGraph } from '../helpers';
+import {
+  doWithTestController,
+  openNewGraph,
+  waitForGraphToBeReady,
+} from '../helpers';
 
 // The user's Day Tracker graph: two html renderers feed a "make" node; a custom
 // function feeds the surface directly (a long edge that skips make's column);
@@ -118,12 +122,11 @@ describe('autoAlignNodes long-edge routing', () => {
       'shy-crab-26',
       'tricky-badger-46',
     ];
-    // loadStringifiedGraph awaits configure() end-to-end (nodes created with
-    // their configured dimensions, links added, seed nodes executed), so no
-    // settle wait is needed before reading geometry for the layout.
+    // Approval and initial execution can finish after loading the graph.
     doWithTestController(async (tc) => {
       await tc.loadStringifiedGraph(GRAPH);
     });
+    waitForGraphToBeReady();
     doWithTestController(async (tc) => {
       const nodes = ids.map((id) => tc.getNodeByID(id));
       await (tc as any).getGraph().selection.autoAlignNodes(nodes);

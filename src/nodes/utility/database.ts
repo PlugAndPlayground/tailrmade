@@ -12,6 +12,8 @@ import {
   NodeExecutionWarning,
 } from '../../classes/ErrorClass';
 import PPNode from '../../classes/NodeClass';
+import { NodeRisk, NetworkRisk } from '../../classes/NodeRisk';
+import { appExecutionAllowed } from '../../services/appExecution';
 import InterfaceController, { ListenEvent } from '../../InterfaceController';
 import { ArrayType } from '../datatypes/arrayType';
 import { FileType } from '../datatypes/fileType';
@@ -55,6 +57,18 @@ const getSqlite3 = async () => {
 };
 
 export class SqliteReader extends PPNode {
+  public getRisks(): NodeRisk[] {
+    return this.isRiskInputConnected(inputResourceURLSocketName) ||
+      this.getInputData(inputResourceURLSocketName)
+      ? [
+          new NetworkRisk(
+            this.isRiskInputConnected(inputResourceURLSocketName)
+              ? undefined
+              : this.getInputData(inputResourceURLSocketName),
+          ),
+        ]
+      : [];
+  }
   sqlite3;
   db;
   listenID;
@@ -129,9 +143,6 @@ export class SqliteReader extends PPNode {
   public onNodeAdded = async (source: TNodeSource): Promise<void> => {
     await super.onNodeAdded(source);
 
-    // adding a node should not wait for the engine
-    void this.openDatabase().catch((error) => this.reportError(error));
-
     this.listenID = InterfaceController.addListener(
       ListenEvent.ResourceUpdated,
       (data: any) => {
@@ -183,6 +194,7 @@ export class SqliteReader extends PPNode {
 
   // queue up a load
   openDatabase = (force = false): Promise<void> => {
+    if (!appExecutionAllowed.get()) return Promise.resolve();
     const next = (this.pendingLoad ?? Promise.resolve())
       .catch(() => undefined)
       .then(() => this.openDatabaseNow(force));
@@ -191,6 +203,7 @@ export class SqliteReader extends PPNode {
   };
 
   private openDatabaseNow = async (force: boolean): Promise<void> => {
+    if (!appExecutionAllowed.get() || this.destroyed) return;
     const sourceKey = this.getSourceKey();
     if (!sourceKey) {
       this.closeDatabase();
