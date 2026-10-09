@@ -109,14 +109,17 @@ const PixiOutputWidget: React.FunctionComponent<any> = (props) => {
 
   // Reference socket for reading state
   const property = props.socketsToUpdate[0];
+  const bodyProps: DynamicWidgetContainerNodeProps = {
+    property: property.getNode(),
+    disabled: props.disabled,
+    width: props.width,
+    height: props.height,
+  };
 
-  return (
-    <DynamicWidgetPixiBody
-      property={property.getNode()}
-      disabled={props.disabled}
-      width={props.width}
-      height={props.height}
-    />
+  return typeof bodyProps.property.getWidgetBody === 'function' ? (
+    bodyProps.property.getWidgetBody(bodyProps)
+  ) : (
+    <DynamicWidgetPixiBody {...bodyProps} />
   );
 };
 
