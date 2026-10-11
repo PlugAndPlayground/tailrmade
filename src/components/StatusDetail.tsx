@@ -6,6 +6,8 @@ import { PNPStatus } from '../classes/ErrorClass';
 import {
   STATUS_ERROR_ICON_TEXTURE,
   STATUS_WARNING_ICON_TEXTURE,
+  STATUS_REDUNDANT_ICON_TEXTURE,
+  STATUS_SEVERITY,
 } from '../utils/constants';
 import { writeTextToClipboard } from '../utils/utils';
 
@@ -22,7 +24,9 @@ export const StatusSeverityIcon: React.FC<{
 }> = ({ status, fontSize = 'small', color }) => {
   const source = status.isError()
     ? STATUS_ERROR_ICON_TEXTURE
-    : STATUS_WARNING_ICON_TEXTURE;
+    : status.getSeverity() === STATUS_SEVERITY.REDUNDANT
+      ? STATUS_REDUNDANT_ICON_TEXTURE
+      : STATUS_WARNING_ICON_TEXTURE;
   const size = ICON_SIZE[fontSize];
   const mask = `url(${source}) no-repeat center / contain`;
   return (

@@ -6,6 +6,10 @@ import { TNodeSource } from '../../utils/interfaces';
 import { AbstractType } from '../datatypes/abstractType';
 
 export abstract class TypeConversionNode extends PPNode {
+  public getSeemsRedundant(): boolean {
+    return this.hasNoUsedOutputs();
+  }
+
   public getName(): string {
     return 'Type Convert';
   }

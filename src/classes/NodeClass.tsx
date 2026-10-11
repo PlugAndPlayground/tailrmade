@@ -69,6 +69,7 @@ import {
   PNPError,
   PNPStatus,
   PNPSuccess,
+  NodeRedundantStatus,
 } from './ErrorClass';
 import { shouldEnterHybridEditModeOnCanvasClick } from '../utils/nodeInteractivity';
 import {
@@ -173,6 +174,19 @@ export default class PPNode extends PIXI.Container implements IWarningHandler {
 
   public isSurface(): boolean {
     return false;
+  }
+
+  // Opt in on stateless node types. Unused outputs alone do not establish
+  // redundancy for widgets, external effects, shared state, or custom code.
+  public getSeemsRedundant(): boolean {
+    return false;
+  }
+
+  protected hasNoUsedOutputs(): boolean {
+    return (
+      this.outputSocketArray.length > 0 &&
+      this.outputSocketArray.every((socket) => !socket.hasLink())
+    );
   }
 
   protected onCanvasClickResolved({
@@ -882,7 +896,7 @@ export default class PPNode extends PIXI.Container implements IWarningHandler {
     this._ErrorBoundaryRef.clear();
     this.errorBoundaryIsDrawn = false;
     const status = this.getWorstStatus();
-    if (!status) {
+    if (!status?.isProblem()) {
       return;
     }
 
@@ -983,7 +997,15 @@ export default class PPNode extends PIXI.Container implements IWarningHandler {
   }
 
   public getWorstStatus(): PNPStatus | undefined {
-    return this.getWarningsAndErrors()[0];
+    return this.getVisibleStatuses()[0];
+  }
+
+  public getVisibleStatuses(): PNPStatus[] {
+    const statuses = this.getWarningsAndErrors();
+    if (this.getSeemsRedundant()) {
+      statuses.push(new NodeRedundantStatus());
+    }
+    return statuses;
   }
 
   protected static currentViewportScale(): number {

@@ -2,6 +2,7 @@ import { TRgba } from '../utils/color';
 import {
   COLOR_ERROR,
   COLOR_WARNING,
+  COLOR_REDUNDANT,
   STATUS_SEVERITY,
 } from '../utils/constants';
 
@@ -23,7 +24,7 @@ export abstract class PNPStatus extends Error {
   public abstract getColor(): TRgba;
   public abstract getSeverity(): STATUS_SEVERITY;
 
-  // Worth surfacing to the user at all.
+  // Warnings and errors; informational statuses are shown separately.
   public isProblem(): boolean {
     return this.getSeverity() >= STATUS_SEVERITY.WARNING;
   }
@@ -132,6 +133,38 @@ export class PNPSuccess extends PNPStatus {
 
   public getColor(): TRgba {
     return TRgba.white();
+  }
+}
+
+export class NodeRedundantStatus extends PNPStatus {
+  constructor() {
+    super(
+      'This node may be redundant because none of its outputs are connected.',
+    );
+  }
+
+  public getSeverity(): STATUS_SEVERITY {
+    return STATUS_SEVERITY.REDUNDANT;
+  }
+
+  public getSeverityName(): string {
+    return 'redundant';
+  }
+
+  public getBucketName(): string {
+    return 'Redundant';
+  }
+
+  public getName(): string {
+    return 'Possibly redundant';
+  }
+
+  public getDescription(): string {
+    return 'Stateless node with unused outputs';
+  }
+
+  public getColor(): TRgba {
+    return TRgba.fromString(COLOR_REDUNDANT);
   }
 }
 
