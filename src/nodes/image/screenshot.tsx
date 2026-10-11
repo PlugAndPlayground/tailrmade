@@ -41,9 +41,13 @@ const detailsOutputName = 'Details';
 const SOURCE_OPTIONS = CAPTURE_SOURCES.map((source) => ({ text: source }));
 
 export class Screenshot extends PPNode {
-  // Screen sharing can be started or stopped independently of the outputs.
+  // Ordinary captures only produce data; screen-sharing controls also have effects.
   public getSeemsRedundant(): boolean {
-    return false;
+    return (
+      this.getInputData(sourceName) !== 'Screen sharing' &&
+      !this.getInputOrTriggerSocketByName(stopSharingName, false)?.hasLink() &&
+      super.getSeemsRedundant()
+    );
   }
 
   public getName(): string {

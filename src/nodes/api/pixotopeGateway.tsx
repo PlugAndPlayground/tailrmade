@@ -19,6 +19,11 @@ const timeoutName = 'Timeout';
 const gatewayAddressDefault = 'http://localhost:16208/gateway/2.0.0/publish';
 
 export class PixotopeGatewayGet extends HTTPNode {
+  public getSeemsRedundant(): boolean {
+    // The gateway transports a read using HTTP POST.
+    return PPNode.prototype.getSeemsRedundant.call(this);
+  }
+
   public getName(): string {
     return 'Pixotope Get';
   }
@@ -137,6 +142,11 @@ export class PixotopeGatewaySet extends HTTPNode {
 }
 
 export class PixotopeGatewayCall extends HTTPNode {
+  public getSeemsRedundant(): boolean {
+    // "Method" here names a remote operation, not an HTTP verb.
+    return false;
+  }
+
   public getName(): string {
     return 'Pixotope Call';
   }

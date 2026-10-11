@@ -214,9 +214,9 @@ const MACRO_CALL_REGEX = /\bmacro\s*\(/;
 
 // customfunction does any number of inputs but only one output for simplicity
 export class CustomFunction extends PPNode {
-  // Execution can have effects independent of the outputs.
+  // Main-thread code may act on the app without returning a consumed result.
   public getSeemsRedundant(): boolean {
-    return false;
+    return !this.getInputData(allowFullAccessName) && super.getSeemsRedundant();
   }
 
   previousUserInput = '';

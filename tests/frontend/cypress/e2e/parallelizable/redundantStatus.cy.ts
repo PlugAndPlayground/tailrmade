@@ -30,9 +30,6 @@ describe('redundant node status', () => {
       for (const type of [
         'WidgetButton',
         'UISurfaceNode',
-        'HTTPNode',
-        'WebSocketNode',
-        'CustomFunction',
         'ConsolePrint',
         'StateWrite',
         'StorageWrite',
@@ -48,6 +45,109 @@ describe('redundant node status', () => {
           type,
         ).to.eq(false);
       }
+    });
+  });
+
+  it('uses execution mode and operation settings, updating badges without execution', () => {
+    openNewGraph();
+    closeBothDrawers();
+    doWithTestController(async (controller) => {
+      const cases: Array<[string, string, unknown, unknown]> = [
+        ['CustomFunction', 'Main Thread', false, true],
+        ['HTTPNode', 'Method', 'Get', 'Post'],
+        ['AINode', 'Persistant conversation', false, true],
+        ['Screenshot', 'Source', 'Graph', 'Screen sharing'],
+        ['Theme', 'Mode', 'Keep app setting', 'dark'],
+      ];
+      for (const [type, setting, redundantValue, usefulValue] of cases) {
+        const node = await controller.addNode(type, `conditional-${type}`);
+        controller.setNodeInputValue(node.id, setting, redundantValue);
+        expect(node.getSeemsRedundant(), `${type}: unused result`).to.eq(true);
+        const executions = node.debug_timesExecuted;
+        controller.setNodeInputValue(node.id, setting, usefulValue);
+        expect(node.getSeemsRedundant(), `${type}: independent effect`).to.eq(
+          false,
+        );
+        expect(
+          node
+            .getVisibleStatuses()
+            .some((status) => status.getSeverityName() === 'redundant'),
+        ).to.eq(false);
+        controller.setNodeInputValue(node.id, setting, redundantValue);
+        expect(node.getSeemsRedundant(), `${type}: restored setting`).to.eq(
+          true,
+        );
+        expect(
+          controller.getStatusBadgeCenter(node.id, 'status'),
+          `${type}: badge refreshed`,
+        ).not.to.be.null;
+        expect(node.debug_timesExecuted, `${type}: not executed`).to.eq(
+          executions,
+        );
+      }
+
+      const custom = controller.getNodeByID('conditional-CustomFunction');
+      const consumer = await controller.addNode('Constant', 'code-consumer');
+      await controller.connectNodesByID(custom.id, consumer.id, 'Code', 'In');
+      expect(custom.getSeemsRedundant(), 'connected Code output is used').to.eq(
+        false,
+      );
+      await controller.disconnectLink(consumer.id, 'In');
+      expect(custom.getSeemsRedundant()).to.eq(true);
+
+      const socket = await controller.addNode(
+        'WebSocketNode',
+        'conditional-websocket',
+      );
+      expect(socket.getSeemsRedundant(), 'empty URL').to.eq(true);
+      socket.setInputData('Enabled', false);
+      socket.setInputData('URL', 'wss://example.invalid');
+      expect(socket.getSeemsRedundant(), 'disabled').to.eq(true);
+      socket.setInputData('Enabled', true);
+      expect(socket.getSeemsRedundant(), 'configured sender').to.eq(false);
+      socket.setInputData('Enabled', false);
+
+      const state = await controller.addNode('State', 'conditional-state');
+      expect(state.getSeemsRedundant(), 'unconsumed internal state').to.eq(
+        true,
+      );
+      await controller.connectNodesByID(consumer.id, state.id, 'Out', 'State');
+      expect(
+        state.getSeemsRedundant(),
+        'writes back to the linked state source',
+      ).to.eq(false);
+      await controller.disconnectLink(state.id, 'State');
+      expect(state.getSeemsRedundant()).to.eq(true);
+
+      for (const type of [
+        'ArrayMethod',
+        'MapNode',
+        'Filter',
+        'ArrayFind',
+        'Reduce',
+        'LoadNPM',
+        'ReactUICombineArray',
+        'PixotopeGatewayGet',
+      ]) {
+        const node = await controller.addNode(type, `unused-${type}`);
+        expect(node.getSeemsRedundant(), type).to.eq(true);
+      }
+      const call = await controller.addNode(
+        'PixotopeGatewayCall',
+        'gateway-call',
+      );
+      call.setInputData('Method', 'Get');
+      expect(call.getSeemsRedundant(), 'RPC method is not an HTTP verb').to.eq(
+        false,
+      );
+      const write = await controller.addNode(
+        'PixotopeGatewaySet',
+        'gateway-set',
+      );
+      expect(
+        write.getSeemsRedundant(),
+        'gateway writes have independent effects',
+      ).to.eq(false);
     });
   });
 

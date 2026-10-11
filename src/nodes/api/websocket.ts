@@ -9,9 +9,12 @@ import { StringType } from '../datatypes/stringType';
 import { TriggerType } from '../datatypes/triggerType';
 
 export class WebSocketNode extends PPNode {
-  // Connections and outgoing messages have external effects.
+  // A configured, enabled connection can send messages without output consumers.
   public getSeemsRedundant(): boolean {
-    return false;
+    return (
+      (!this.getInputData('Enabled') || !this.getInputData('URL')?.trim()) &&
+      super.getSeemsRedundant()
+    );
   }
 
   private connection?: WebSocket;

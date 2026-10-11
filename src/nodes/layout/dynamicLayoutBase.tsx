@@ -15,11 +15,6 @@ import { DeferredReactTypeInterface } from '../datatypes/deferredHtmlType';
  * Provides common functionality for layout nodes
  */
 export abstract class LayoutableNodeBase extends PPNode implements Layoutable {
-  // Layout content can be displayed without downstream consumers.
-  public getSeemsRedundant(): boolean {
-    return false;
-  }
-
   isLayoutable(): boolean {
     return true;
   }

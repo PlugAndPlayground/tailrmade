@@ -134,6 +134,7 @@ export default class PPNode extends PIXI.Container implements IWarningHandler {
   // whether drawErrorBoundary actually painted something, so the zoom refresh
   // can skip clean nodes without re-deriving the status for every one of them
   private errorBoundaryIsDrawn = false;
+  private lastDrawnRedundancy: boolean | undefined;
 
   executionFilter: GlowFilter | undefined = undefined;
   dropShadowFilter: DropShadowFilter | undefined = undefined;
@@ -1021,6 +1022,8 @@ export default class PPNode extends PIXI.Container implements IWarningHandler {
       return;
     }
 
+    this.lastDrawnRedundancy = this.getSeemsRedundant();
+
     this._StatusesRef.clear();
     this._StatusesRef.removeChildren().forEach((child) => child.destroy());
 
@@ -1224,6 +1227,16 @@ export default class PPNode extends PIXI.Container implements IWarningHandler {
     this.drawStatuses();
     this.drawErrorBoundary();
     this.notifyStatusChanged();
+  }
+
+  public refreshRedundancyStatus(): void {
+    if (
+      this.hasBeenAdded &&
+      !this.destroyed &&
+      this.lastDrawnRedundancy !== this.getSeemsRedundant()
+    ) {
+      this.refreshSocketStatus();
+    }
   }
 
   drawDebugInfo(): void {
@@ -1485,6 +1498,7 @@ ${Math.round(bounds.minX)}, ${Math.round(
         (socket) => (socket.data = socket.dataType.getDefaultValue()),
       );
     }
+    this.refreshRedundancyStatus();
     // previous run was cancelled - pick it up here and run again
     if (this.wantsToExecute) {
       this.wantsToExecute = false;

@@ -85,9 +85,12 @@ function trimArrayToMaxSize(values: any[], maxSize: number): void {
 }
 
 abstract class StateNode extends PPNode {
-  // State can be updated or consumed outside the output connections.
+  // A linked State input writes back to its source, even with unused outputs.
   public getSeemsRedundant(): boolean {
-    return false;
+    return (
+      !this.getInputSocketByName('State')?.hasLink() &&
+      super.getSeemsRedundant()
+    );
   }
 
   public getTags(): string[] {

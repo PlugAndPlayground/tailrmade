@@ -41,9 +41,9 @@ export interface CompanionResponse {
 }
 
 export class HTTPNode extends PPNode {
-  // Requests can have external effects even when their response is unused.
+  // Reads only contribute their response; writes may matter without one.
   public getSeemsRedundant(): boolean {
-    return false;
+    return this.getInputData(methodName) === 'Get' && super.getSeemsRedundant();
   }
 
   public getName(): string {

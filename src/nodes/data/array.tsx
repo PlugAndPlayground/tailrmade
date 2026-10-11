@@ -48,11 +48,6 @@ const JSONArrayName = 'JSON Array';
 const JSONArrayNamePropertySuffix = ' - Property Name';
 
 export class ArrayMethod extends PPNode {
-  // User-provided callbacks can have effects independent of their result.
-  public getSeemsRedundant(): boolean {
-    return false;
-  }
-
   onOptionChange?: (value: string) => void;
   getColor(): TRgba {
     return TRgba.fromString(NODE_TYPE_COLOR.TRANSFORM);
@@ -289,11 +284,6 @@ function arrayNodeIO() {
 }
 
 class ArrayFunctionCodeBasic extends PPNode {
-  // User-provided callbacks can have effects independent of their result.
-  public getSeemsRedundant(): boolean {
-    return false;
-  }
-
   protected getDefaultIO(): Socket[] {
     return [
       new Socket(
@@ -891,11 +881,6 @@ export class Min extends SmallNode {
 }
 
 export class Reduce extends PPNode {
-  // User-provided callbacks can have effects independent of their result.
-  public getSeemsRedundant(): boolean {
-    return false;
-  }
-
   public getName(): string {
     return 'Reduce Array';
   }

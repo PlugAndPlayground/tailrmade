@@ -56,9 +56,22 @@ const isSameLayer = (
 ): boolean => JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
 
 export class Theme extends PPNode {
-  // The theme applies to the app without an output connection.
+  // An empty, inheriting theme does nothing unless it still owns a runtime layer.
   public getSeemsRedundant(): boolean {
-    return false;
+    if (!super.getSeemsRedundant() || runtimeLayerOwnerId === this.id) {
+      return false;
+    }
+    const preset = this.getInputData(PRESET_SOCKET);
+    const mode = this.getInputData(MODE_SOCKET);
+    const { tokens, tokensByMode } = parseThemeOverrides(
+      this.getInputData(OVERRIDES_SOCKET),
+    );
+    return (
+      (!preset || preset === INHERIT) &&
+      (!mode || mode === INHERIT) &&
+      !tokens &&
+      !tokensByMode
+    );
   }
 
   public getName(): string {
