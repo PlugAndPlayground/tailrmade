@@ -27,10 +27,6 @@ const parameterName2 = 'Input2';
 const outputName = 'Output';
 
 abstract class MathDynamicNode extends SmallDynamicInputNode {
-  public getSeemsRedundant(): boolean {
-    return this.hasNoUsedOutputs();
-  }
-
   public getColor(): TRgba {
     return NUMBER_COLOR.multiply(0.7);
   }
@@ -53,10 +49,6 @@ abstract class MathDynamicNode extends SmallDynamicInputNode {
 }
 
 abstract class MathPPNode extends PPNode {
-  public getSeemsRedundant(): boolean {
-    return this.hasNoUsedOutputs();
-  }
-
   public getParallelInputsOutputs(): boolean {
     return true;
   }

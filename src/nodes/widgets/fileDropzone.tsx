@@ -67,6 +67,11 @@ const showPasteFromClipboardName = 'Show paste from clipboard button';
 const fileInterpretationModeName = 'File interpretation';
 
 export class FileDropzone extends PPNode implements Layoutable {
+  // The dropzone is an interactive UI element.
+  public getSeemsRedundant(): boolean {
+    return false;
+  }
+
   public getName(): string {
     return 'File upload (interface)';
   }

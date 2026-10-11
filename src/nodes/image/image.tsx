@@ -77,6 +77,11 @@ const defaultProps: WidgetProps = {
 };
 
 export class Image extends PPNode implements Layoutable {
+  // Images can be displayed without downstream consumers.
+  public getSeemsRedundant(): boolean {
+    return false;
+  }
+
   sprite: PIXI.Sprite;
   texture: PIXI.Texture;
   maskRef: PIXI.Graphics;

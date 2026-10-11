@@ -9,6 +9,11 @@ import { StringType } from '../datatypes/stringType';
 import { TriggerType } from '../datatypes/triggerType';
 
 export class WebSocketNode extends PPNode {
+  // Connections and outgoing messages have external effects.
+  public getSeemsRedundant(): boolean {
+    return false;
+  }
+
   private connection?: WebSocket;
   private connectionURL = '';
   private pendingMessages: (string | BufferSource | Blob)[] = [];

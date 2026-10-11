@@ -452,6 +452,11 @@ function getNavigateTriggerSocket(): PPSocket {
  * need to be told the group.
  */
 export class NavigateToPage extends PPNode {
+  // Navigation changes the displayed page.
+  public getSeemsRedundant(): boolean {
+    return false;
+  }
+
   private lastNavigatedTarget: string | undefined;
 
   public getName(): string {

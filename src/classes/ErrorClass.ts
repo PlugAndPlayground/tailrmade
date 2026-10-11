@@ -160,7 +160,7 @@ export class NodeRedundantStatus extends PNPStatus {
   }
 
   public getDescription(): string {
-    return 'Stateless node with unused outputs';
+    return 'Node with no connected outputs';
   }
 
   public getColor(): TRgba {

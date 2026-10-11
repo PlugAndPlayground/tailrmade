@@ -56,6 +56,11 @@ const isSameLayer = (
 ): boolean => JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
 
 export class Theme extends PPNode {
+  // The theme applies to the app without an output connection.
+  public getSeemsRedundant(): boolean {
+    return false;
+  }
+
   public getName(): string {
     return 'Theme';
   }

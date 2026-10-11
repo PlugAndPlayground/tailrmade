@@ -85,6 +85,11 @@ function trimArrayToMaxSize(values: any[], maxSize: number): void {
 }
 
 abstract class StateNode extends PPNode {
+  // State can be updated or consumed outside the output connections.
+  public getSeemsRedundant(): boolean {
+    return false;
+  }
+
   public getTags(): string[] {
     return ['State'].concat(super.getTags());
   }
@@ -303,6 +308,11 @@ export class NumberState extends StateNode {
 }
 
 export class StateWrite extends PPNode {
+  // State can be updated or consumed outside the output connections.
+  public getSeemsRedundant(): boolean {
+    return false;
+  }
+
   getColor(): TRgba {
     return TRgba.fromString(NODE_TYPE_COLOR.OUTPUT);
   }

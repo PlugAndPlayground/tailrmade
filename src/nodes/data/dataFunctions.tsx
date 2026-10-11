@@ -36,10 +36,6 @@ const constantOutName = 'Out';
 const constantDefaultData = 0;
 
 export class Constant extends PPNode {
-  public getSeemsRedundant(): boolean {
-    return this.hasNoUsedOutputs();
-  }
-
   public getName(): string {
     return 'Constant';
   }
@@ -85,10 +81,6 @@ export class Constant extends PPNode {
 }
 
 export class ParseArray extends PPNode {
-  public getSeemsRedundant(): boolean {
-    return this.hasNoUsedOutputs();
-  }
-
   public getName(): string {
     return 'Parse array';
   }
@@ -122,6 +114,11 @@ export class ParseArray extends PPNode {
 }
 
 export class ConsolePrint extends PPNode {
+  // Execution can have effects independent of the outputs.
+  public getSeemsRedundant(): boolean {
+    return false;
+  }
+
   public getName(): string {
     return 'Console print';
   }
@@ -217,6 +214,11 @@ const MACRO_CALL_REGEX = /\bmacro\s*\(/;
 
 // customfunction does any number of inputs but only one output for simplicity
 export class CustomFunction extends PPNode {
+  // Execution can have effects independent of the outputs.
+  public getSeemsRedundant(): boolean {
+    return false;
+  }
+
   previousUserInput = '';
   functionWithVariablesFromInputObject = '';
 

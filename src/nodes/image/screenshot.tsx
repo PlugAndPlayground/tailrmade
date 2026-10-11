@@ -41,6 +41,11 @@ const detailsOutputName = 'Details';
 const SOURCE_OPTIONS = CAPTURE_SOURCES.map((source) => ({ text: source }));
 
 export class Screenshot extends PPNode {
+  // Screen sharing can be started or stopped independently of the outputs.
+  public getSeemsRedundant(): boolean {
+    return false;
+  }
+
   public getName(): string {
     return 'Screenshot';
   }

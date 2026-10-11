@@ -590,6 +590,11 @@ abstract class StorageNode extends AbstractStorageNode {
 }
 
 abstract class StorageMutation extends StorageNode {
+  // Storage mutations are useful even when their outputs are unused.
+  public getSeemsRedundant(): boolean {
+    return false;
+  }
+
   getColor(): TRgba {
     return TRgba.fromString(NODE_TYPE_COLOR.OUTPUT);
   }
@@ -1092,6 +1097,11 @@ abstract class UserStorageScaffold extends LegacyStorageScaffold {
 }
 
 export class LocalStorageWrite extends LocalStorageScaffold {
+  // Storage mutations are useful even when their outputs are unused.
+  public getSeemsRedundant(): boolean {
+    return false;
+  }
+
   public getName() {
     return 'Local Storage Write (Deprecated)';
   }
@@ -1128,6 +1138,11 @@ export class LocalStorageWrite extends LocalStorageScaffold {
 }
 
 export class LocalStorageDelete extends LocalStorageScaffold {
+  // Storage mutations are useful even when their outputs are unused.
+  public getSeemsRedundant(): boolean {
+    return false;
+  }
+
   public getName() {
     return 'Local Storage Delete (Deprecated)';
   }
@@ -1201,6 +1216,11 @@ export class LocalStorageBrowse extends LocalStorageScaffold {
 }
 
 export class UserStorageWrite extends UserStorageScaffold {
+  // Storage mutations are useful even when their outputs are unused.
+  public getSeemsRedundant(): boolean {
+    return false;
+  }
+
   public getName() {
     return 'User Storage Write (Deprecated)';
   }
@@ -1254,6 +1274,11 @@ export class UserStorageRead extends UserStorageScaffold {
 }
 
 export class UserStorageDelete extends UserStorageScaffold {
+  // Storage mutations are useful even when their outputs are unused.
+  public getSeemsRedundant(): boolean {
+    return false;
+  }
+
   public getName() {
     return 'User Storage Delete (Deprecated)';
   }

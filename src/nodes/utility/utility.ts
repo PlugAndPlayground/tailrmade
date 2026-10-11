@@ -170,6 +170,11 @@ export class JumpToNode extends WidgetButton {
 const dataToCopyName = 'Input';
 
 export class WriteToClipboard extends PPNode {
+  // Execution changes state outside the output connections.
+  public getSeemsRedundant(): boolean {
+    return false;
+  }
+
   public getName(): string {
     return 'Write to clipboard';
   }
@@ -326,6 +331,11 @@ export class ThrottleDebounce extends PPNode {
 }
 
 export class LoadNPM extends PPNode {
+  // Execution changes state outside the output connections.
+  public getSeemsRedundant(): boolean {
+    return false;
+  }
+
   public getName(): string {
     return 'Load NPM package';
   }

@@ -48,6 +48,11 @@ const JSONArrayName = 'JSON Array';
 const JSONArrayNamePropertySuffix = ' - Property Name';
 
 export class ArrayMethod extends PPNode {
+  // User-provided callbacks can have effects independent of their result.
+  public getSeemsRedundant(): boolean {
+    return false;
+  }
+
   onOptionChange?: (value: string) => void;
   getColor(): TRgba {
     return TRgba.fromString(NODE_TYPE_COLOR.TRANSFORM);
@@ -141,10 +146,6 @@ export class ArrayMethod extends PPNode {
 }
 
 abstract class ArrayDynamicInputNode extends SmallDynamicInputNode {
-  public getSeemsRedundant(): boolean {
-    return this.hasNoUsedOutputs();
-  }
-
   public getColor(): TRgba {
     return ARRAY_COLOR.multiply(0.8);
   }
@@ -288,6 +289,11 @@ function arrayNodeIO() {
 }
 
 class ArrayFunctionCodeBasic extends PPNode {
+  // User-provided callbacks can have effects independent of their result.
+  public getSeemsRedundant(): boolean {
+    return false;
+  }
+
   protected getDefaultIO(): Socket[] {
     return [
       new Socket(
@@ -435,10 +441,6 @@ export class ArrayFind extends ArrayFunctionCodeBasic {
 }
 
 export class ArrayZip extends DynamicInputNode {
-  public getSeemsRedundant(): boolean {
-    return this.hasNoUsedOutputs();
-  }
-
   public getName(): string {
     return 'Zip Arrays';
   }
@@ -492,10 +494,6 @@ export class ArrayZip extends DynamicInputNode {
 }
 
 export class Uniques extends PPNode {
-  public getSeemsRedundant(): boolean {
-    return this.hasNoUsedOutputs();
-  }
-
   public getName(): string {
     return 'Unique Values';
   }
@@ -514,10 +512,6 @@ export class Uniques extends PPNode {
 }
 
 export class Flatten extends PPNode {
-  public getSeemsRedundant(): boolean {
-    return this.hasNoUsedOutputs();
-  }
-
   public getName(): string {
     return 'Flatten Array';
   }
@@ -538,10 +532,6 @@ export class Flatten extends PPNode {
 }
 
 export class ArraySlice extends PPNode {
-  public getSeemsRedundant(): boolean {
-    return this.hasNoUsedOutputs();
-  }
-
   public getName(): string {
     return 'Slice Array';
   }
@@ -572,10 +562,6 @@ export class ArraySlice extends PPNode {
 }
 
 export class ArrayCreate extends DynamicInputNode {
-  public getSeemsRedundant(): boolean {
-    return this.hasNoUsedOutputs();
-  }
-
   public getName(): string {
     return 'Create Array';
   }
@@ -608,10 +594,6 @@ export function migrateFromCustomFunctionCommon(node: PPNode): void {
 }
 
 export class ArrayGet extends SmallNode {
-  public getSeemsRedundant(): boolean {
-    return this.hasNoUsedOutputs();
-  }
-
   public getName(): string {
     return 'Get Element';
   }
@@ -716,10 +698,6 @@ export class ArraySet extends PPNode {
 }
 
 export class ArrayLength extends SmallNode {
-  public getSeemsRedundant(): boolean {
-    return this.hasNoUsedOutputs();
-  }
-
   public getName(): string {
     return 'Length';
   }
@@ -833,10 +811,6 @@ export class ArrayPush extends SmallNode {
 }
 
 export class Max extends SmallNode {
-  public getSeemsRedundant(): boolean {
-    return this.hasNoUsedOutputs();
-  }
-
   public getName(): string {
     return 'Max Element';
   }
@@ -877,10 +851,6 @@ export class Max extends SmallNode {
 }
 
 export class Min extends SmallNode {
-  public getSeemsRedundant(): boolean {
-    return this.hasNoUsedOutputs();
-  }
-
   public getName(): string {
     return 'Min Element';
   }
@@ -921,6 +891,11 @@ export class Min extends SmallNode {
 }
 
 export class Reduce extends PPNode {
+  // User-provided callbacks can have effects independent of their result.
+  public getSeemsRedundant(): boolean {
+    return false;
+  }
+
   public getName(): string {
     return 'Reduce Array';
   }
@@ -1003,10 +978,6 @@ export class Reverse extends PPNode {
 }
 
 export class ArrayContains extends PPNode {
-  public getSeemsRedundant(): boolean {
-    return this.hasNoUsedOutputs();
-  }
-
   public getName(): string {
     return 'Array Contains';
   }
@@ -1032,10 +1003,6 @@ export class ArrayContains extends PPNode {
 }
 
 export class ArrayIndexOf extends PPNode {
-  public getSeemsRedundant(): boolean {
-    return this.hasNoUsedOutputs();
-  }
-
   public getName(): string {
     return 'Array Index Of';
   }

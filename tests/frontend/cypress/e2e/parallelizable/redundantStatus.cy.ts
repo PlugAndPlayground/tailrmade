@@ -7,6 +7,50 @@ import {
 } from '../helpers';
 
 describe('redundant node status', () => {
+  it('defaults to unused outputs and lets nodes with independent effects opt out', () => {
+    openNewGraph();
+    closeBothDrawers();
+    doWithTestController(async (controller) => {
+      // These types had no opt-in override under the previous implementation.
+      const source = await controller.addNode('JSONGet', 'default-source');
+      const consumer = await controller.addNode(
+        'MathMax',
+        'default-consumer',
+        600,
+        0,
+      );
+      expect(source.getSeemsRedundant()).to.eq(true);
+      expect(consumer.getSeemsRedundant()).to.eq(true);
+      expect(source.getSeemsRedundant.call({ outputSocketArray: [] })).to.eq(
+        true,
+      );
+      await controller.connectNodesByID(source.id, consumer.id);
+      expect(source.getSeemsRedundant()).to.eq(false);
+
+      for (const type of [
+        'WidgetButton',
+        'UISurfaceNode',
+        'HTTPNode',
+        'WebSocketNode',
+        'CustomFunction',
+        'ConsolePrint',
+        'StateWrite',
+        'StorageWrite',
+        'Macro',
+        'ExecuteMacro',
+      ]) {
+        const node = await controller.addNode(type, `protected-${type}`);
+        expect(node.getSeemsRedundant(), type).to.eq(false);
+        expect(
+          node
+            .getVisibleStatuses()
+            .some((status) => status.getSeverityName() === 'redundant'),
+          type,
+        ).to.eq(false);
+      }
+    });
+  });
+
   it('shows redundancy below warnings and updates without executing the source', () => {
     openNewGraph();
     closeBothDrawers();

@@ -41,6 +41,11 @@ export interface CompanionResponse {
 }
 
 export class HTTPNode extends PPNode {
+  // Requests can have external effects even when their response is unused.
+  public getSeemsRedundant(): boolean {
+    return false;
+  }
+
   public getName(): string {
     return 'HTTP';
   }

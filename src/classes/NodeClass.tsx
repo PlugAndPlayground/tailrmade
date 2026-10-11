@@ -176,17 +176,9 @@ export default class PPNode extends PIXI.Container implements IWarningHandler {
     return false;
   }
 
-  // Opt in on stateless node types. Unused outputs alone do not establish
-  // redundancy for widgets, external effects, shared state, or custom code.
+  // Nodes with side effects, shared state, or visible content can opt out.
   public getSeemsRedundant(): boolean {
-    return false;
-  }
-
-  protected hasNoUsedOutputs(): boolean {
-    return (
-      this.outputSocketArray.length > 0 &&
-      this.outputSocketArray.every((socket) => !socket.hasLink())
-    );
+    return this.outputSocketArray.every((socket) => !socket.hasLink());
   }
 
   protected onCanvasClickResolved({
