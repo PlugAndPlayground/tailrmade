@@ -62,7 +62,6 @@ import {
   getDisplayedSurfaceNodeId,
 } from './AIVisionService';
 import { TriggerType } from '../nodes/datatypes/triggerType';
-import { appExecutionAllowed } from './appExecution';
 
 export interface MCPToolDefinition {
   name: string;
@@ -1253,22 +1252,22 @@ export class TailrmadeMCPServer {
     };
   }
 
-  private async runNode(input: RunNodeInput): Promise<MCPToolResult> {
-    if (typeof input.node_id !== 'string' || !input.node_id.trim()) {
-      throw new Error('run_node requires node_id');
+  private requireNode(nodeId: string, toolName: MCPToolName): PPNode {
+    if (typeof nodeId !== 'string' || !nodeId.trim()) {
+      throw new Error(`${toolName} requires node_id`);
     }
     const graph = PPGraph.currentGraph;
-    const node = Object.hasOwn(graph.nodes, input.node_id)
-      ? graph.nodes[input.node_id]
+    const node = Object.hasOwn(graph.nodes, nodeId)
+      ? graph.nodes[nodeId]
       : undefined;
     if (!node) {
-      throw new Error(`Node not found: ${input.node_id}`);
+      throw new Error(`Node not found: ${nodeId}`);
     }
-    if (!appExecutionAllowed.get()) {
-      throw new Error(
-        'App execution is paused. Enable app execution before running a node.',
-      );
-    }
+    return node;
+  }
+
+  private async runNode(input: RunNodeInput): Promise<MCPToolResult> {
+    const node = this.requireNode(input.node_id, 'run_node');
     if (node.isExecuting) {
       throw new Error(`Node is already running: ${input.node_id}`);
     }
@@ -1286,16 +1285,8 @@ export class TailrmadeMCPServer {
   }
 
   private async removeNode(input: RemoveNodeInput): Promise<MCPToolResult> {
-    if (typeof input.node_id !== 'string' || !input.node_id.trim()) {
-      throw new Error('remove_node requires node_id');
-    }
+    const node = this.requireNode(input.node_id, 'remove_node');
     const graph = PPGraph.currentGraph;
-    const node = Object.hasOwn(graph.nodes, input.node_id)
-      ? graph.nodes[input.node_id]
-      : undefined;
-    if (!node) {
-      throw new Error(`Node not found: ${input.node_id}`);
-    }
     await graph.perform_action_DeleteNodes([node], 'ai');
     this.turnCreatedNodeIds.delete(input.node_id);
     return {
