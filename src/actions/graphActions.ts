@@ -23,20 +23,6 @@ interface PreviousConnection {
   targetSocketName: string;
 }
 
-export function identifyRedundantNodes(): PPNode[] {
-  const graph = PPGraph.currentGraph;
-  const nodes = Object.values(graph.nodes).filter((node) =>
-    node.getSeemsRedundant(),
-  );
-  graph.selection.selectNodes(nodes);
-  InterfaceController.showSnackBar(
-    nodes.length === 0
-      ? 'No redundant nodes identified'
-      : `Identified ${nodes.length} potentially redundant ${nodes.length === 1 ? 'node' : 'nodes'}. Selected for review.`,
-  );
-  return nodes;
-}
-
 function connectionIntoPreviousConnection(link: PPLink): PreviousConnection {
   return {
     sourceNodeId: link.getSource().getNode().id,

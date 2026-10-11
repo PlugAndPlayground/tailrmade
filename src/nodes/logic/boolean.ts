@@ -14,10 +14,6 @@ const invertedOutName = 'Inverted';
 const orOutName = 'Or';
 const andOutName = 'And';
 abstract class BooleanOperationNode extends SmallNode {
-  public getSeemsRedundant(): boolean {
-    return this.hasNoUsedOutputs();
-  }
-
   public getIsSimpleStyleNode(): boolean {
     return true;
   }
@@ -84,10 +80,6 @@ export class NOT extends BooleanOperationNode {
 }
 
 abstract class BooleanDynamicNode extends SmallDynamicInputNode {
-  public getSeemsRedundant(): boolean {
-    return this.hasNoUsedOutputs();
-  }
-
   public getTags(): string[] {
     return ['Logic'].concat(super.getTags());
   }

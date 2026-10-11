@@ -43,7 +43,6 @@ import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
 import SensorsIcon from '@mui/icons-material/Sensors';
 import { VISIBILITY_ACTION } from '../../utils/constants_shared';
 import { SubMenuItem } from './ContextMenus';
-import { identifyRedundantNodes } from '../../actions/graphActions';
 
 const GestureModeMenuItem = (props) => {
   const GestureIcon = props.icon;
@@ -283,15 +282,6 @@ export const GraphContextMenu = (props) => {
             <ClearIcon fontSize="small" />
           </ListItemIcon>
           <ListItemText>Clear</ListItemText>
-        </MenuItem>
-        <MenuItem
-          data-cy="identify-redundant-nodes"
-          onClick={() => identifyRedundantNodes()}
-        >
-          <ListItemIcon>
-            <SearchIcon fontSize="small" />
-          </ListItemIcon>
-          <ListItemText>Identify redundant nodes</ListItemText>
         </MenuItem>
         <Divider />
         <MenuItem disabled>Menus</MenuItem>

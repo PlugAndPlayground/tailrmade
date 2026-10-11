@@ -36,10 +36,6 @@ const constantOutName = 'Out';
 const constantDefaultData = 0;
 
 export class Constant extends PPNode {
-  public getSeemsRedundant(): boolean {
-    return this.hasNoUsedOutputs();
-  }
-
   public getName(): string {
     return 'Constant';
   }
@@ -85,10 +81,6 @@ export class Constant extends PPNode {
 }
 
 export class ParseArray extends PPNode {
-  public getSeemsRedundant(): boolean {
-    return this.hasNoUsedOutputs();
-  }
-
   public getName(): string {
     return 'Parse array';
   }
