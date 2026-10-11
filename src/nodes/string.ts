@@ -21,6 +21,10 @@ const outputName = 'Output';
 const methodsAllowingEmptySecondArgument = new Set(['replace', 'replaceAll']);
 
 export class StringFunction extends PPNode {
+  public getSeemsRedundant(): boolean {
+    return this.hasNoUsedOutputs();
+  }
+
   protected async onExecute(
     input: any,
     output: Record<string, unknown>,
@@ -95,6 +99,10 @@ export class StringFunction extends PPNode {
 }
 
 abstract class StringDynamicInputNode extends SmallDynamicInputNode {
+  public getSeemsRedundant(): boolean {
+    return this.hasNoUsedOutputs();
+  }
+
   public getColor(): TRgba {
     return STRING_COLOR.multiply(0.8);
   }
