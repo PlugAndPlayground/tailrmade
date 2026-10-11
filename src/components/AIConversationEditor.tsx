@@ -799,6 +799,11 @@ const AIConversationEditor = ({
     setInputValue('');
     setAttachments([]);
     setIsLoading(true);
+    void AIBackend.getInstance().generateConversationTitle(
+      conversationID,
+      prompt,
+      selectedModel,
+    );
 
     try {
       await AIBackend.getInstance().sendMessageClaude(

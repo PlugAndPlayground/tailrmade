@@ -2,6 +2,12 @@ import React, { useEffect, useState } from 'react';
 import {
   Box,
   Collapse,
+  Button,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogContentText,
+  DialogTitle,
   Divider,
   FormControl,
   FormControlLabel,
@@ -82,18 +88,14 @@ const toggleSx = {
 
 const AIConversationBrowser = () => {
   const backend = AIBackend.getInstance();
-  const backendConversationNames = Object.keys(
-    AIBackend.getInstance().conversations,
-  );
   const [conversations, setConversations] = useState(
-    backendConversationNames.length > 0
-      ? backendConversationNames
-      : ['Conversation 1'],
+    Object.keys(backend.conversations),
   );
   const [selectedConversation, setSelectedConversation] = useState(
-    backend.selectedConversationId,
+    backend.selectedConversationID,
   );
   const [search, setSearch] = useState('');
+  const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
   const [selectedModel, setSelectedModel] = useAIAgentModelPreference();
   const selectedProvider = getAIAgentProvider(selectedModel);
   const [preferences, savePreferences] = useUserPreferences();
@@ -110,7 +112,7 @@ const AIConversationBrowser = () => {
   useEffect(() => {
     const syncConversations = () => {
       setConversations(Object.keys(AIBackend.getInstance().conversations));
-      setSelectedConversation(AIBackend.getInstance().selectedConversationId);
+      setSelectedConversation(AIBackend.getInstance().selectedConversationID);
     };
     const listenerID = InterfaceController.addListener(
       ListenEvent.newAIMessageArrived,
@@ -221,7 +223,7 @@ const AIConversationBrowser = () => {
               .filter((id) => {
                 const query = search.toLowerCase();
                 return (
-                  (backend.conversationTitles[id] || 'New conversation')
+                  (backend.titles[id] || 'New conversation')
                     .toLowerCase()
                     .includes(query) ||
                   backend
@@ -240,15 +242,11 @@ const AIConversationBrowser = () => {
                       <IconButton
                         edge="end"
                         size="small"
-                        aria-label={`Delete ${backend.conversationTitles[id] || 'conversation'}`}
+                        aria-label={`Delete ${backend.titles[id] || 'conversation'}`}
                         onClick={() => {
-                          if (
-                            !backend.getConversation(id).length ||
-                            window.confirm(
-                              'Delete this conversation? This cannot be undone.',
-                            )
-                          )
+                          if (!backend.getConversation(id).length)
                             backend.deleteConversation(id);
+                          else setDeleteTarget(id);
                         }}
                         sx={{ color: secondaryText }}
                       >
@@ -266,9 +264,7 @@ const AIConversationBrowser = () => {
                     }}
                   >
                     <ListItemText
-                      primary={
-                        backend.conversationTitles[id] || 'New conversation'
-                      }
+                      primary={backend.titles[id] || 'New conversation'}
                       secondary={
                         backend.isConversationRunning(id)
                           ? 'Responding...'
@@ -277,9 +273,7 @@ const AIConversationBrowser = () => {
                       slotProps={{
                         primary: {
                           noWrap: true,
-                          title:
-                            backend.conversationTitles[id] ||
-                            'New conversation',
+                          title: backend.titles[id] || 'New conversation',
                         },
                         secondary: { sx: { color: secondaryText } },
                       }}
@@ -411,6 +405,32 @@ const AIConversationBrowser = () => {
         selectedModel={selectedModel}
         performActions={performActions}
       />
+      <Dialog
+        open={deleteTarget !== null}
+        onClose={() => setDeleteTarget(null)}
+      >
+        <DialogTitle>Delete conversation?</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            Delete “
+            {deleteTarget ? backend.getConversationTitle(deleteTarget) : ''}”
+            and all its messages from this browser? This cannot be undone.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setDeleteTarget(null)}>Cancel</Button>
+          <Button
+            color="error"
+            data-cy="Confirm Delete Conversation"
+            onClick={() => {
+              if (deleteTarget) backend.deleteConversation(deleteTarget);
+              setDeleteTarget(null);
+            }}
+          >
+            Delete
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 };

@@ -76,6 +76,7 @@ describe('conversation lifecycle', () => {
     'cuts off an agent reply cancelled during a tool call (throws: %p)',
     async (throws) => {
       const backend = new AIBackend();
+      const initialId = backend.selectedConversationID;
       jest
         .spyOn(backend as any, 'getConversationStartInstructions')
         .mockResolvedValue('');
@@ -83,7 +84,7 @@ describe('conversation lifecycle', () => {
       jest.spyOn(backend as any, 'getSelectedNodesContext').mockReturnValue('');
       jest.spyOn(backend as any, 'getAIRelayEndpoint').mockReturnValue('/ai');
       const callTool = jest.fn(async () => {
-        backend.cancelCurrentRequest('Conversation 1');
+        backend.cancelCurrentRequest(initialId);
         if (throws) throw new Error('Tool failed after cancellation');
         return { content: 'Done' };
       });
@@ -102,14 +103,14 @@ describe('conversation lifecycle', () => {
         ],
       });
       const result = await (backend as any).sendAgenticMessage(
-        'Conversation 1',
+        initialId,
         'Rename nodes',
         DEFAULT_MODEL,
         {},
         2048,
       );
       expect(result.status).toBe(499);
-      expect(backend.conversations['Conversation 1'][1].content).toBe(
+      expect(backend.conversations[initialId][1].content).toBe(
         'Working on your request.\n\n*Using set_node_name...*',
       );
       expect(callTool).toHaveBeenCalledTimes(1);
@@ -188,51 +189,70 @@ describe('conversation lifecycle', () => {
   });
   it('uses unique IDs and replaces the last deleted conversation', () => {
     const backend = new AIBackend();
+    const initialId = backend.selectedConversationID;
     const first = backend.createConversation();
     backend.deleteConversation(first);
     const second = backend.createConversation();
     expect(second).not.toBe(first);
-    backend.deleteConversation('Conversation 1');
+    backend.deleteConversation(initialId);
     backend.deleteConversation(second);
     expect(Object.keys(backend.conversations)).toEqual([
-      backend.selectedConversationId,
+      backend.selectedConversationID,
     ]);
-    expect(backend.getConversation(backend.selectedConversationId)).toEqual([]);
+    expect(backend.getConversation(backend.selectedConversationID)).toEqual([]);
   });
 
   it('names a conversation once with the same provider and model', async () => {
     const backend = new AIBackend();
-    const request = jest
-      .spyOn(backend as any, 'sendNormalizedMessage')
-      .mockResolvedValue({
-        success: true,
-        data: { content: [{ text: 'A useful title' }] },
-      });
-    await (backend as any).nameConversation('Conversation 1', DEFAULT_MODEL);
-    await (backend as any).nameConversation('Conversation 1', DEFAULT_MODEL);
-    expect(request).toHaveBeenCalledTimes(1);
-    expect(request.mock.calls[0][0]).toBe(getAIAgentProvider(DEFAULT_MODEL));
-    expect(request.mock.calls[0][3]).toBe(DEFAULT_MODEL);
-    expect(backend.conversationTitles['Conversation 1']).toBe('A useful title');
+    const id = backend.selectedConversationID;
+    jest.spyOn(backend as any, 'canUseAI').mockReturnValue(true);
+    jest.spyOn(backend as any, 'getAIRelayEndpoint').mockReturnValue('/ai');
+    jest
+      .spyOn(backend as any, 'logAIUsage')
+      .mockImplementation(() => undefined);
+    (requestAI as jest.Mock).mockClear().mockResolvedValue({
+      text: 'A useful title',
+      usage: { inputTokens: 10, outputTokens: 5 },
+    });
+    await backend.generateConversationTitle(id, 'Build a chart', DEFAULT_MODEL);
+    await backend.generateConversationTitle(id, 'Build a chart', DEFAULT_MODEL);
+    expect(requestAI).toHaveBeenCalledTimes(1);
+    expect(requestAI).toHaveBeenCalledWith(
+      expect.objectContaining({
+        provider: getAIAgentProvider(DEFAULT_MODEL),
+        model: DEFAULT_MODEL,
+      }),
+    );
+    expect(backend.titles[id]).toBe('A useful title');
   });
 
   it('ignores a title arriving after deletion', async () => {
     const backend = new AIBackend();
+    const id = backend.selectedConversationID;
+    jest.spyOn(backend as any, 'canUseAI').mockReturnValue(true);
+    jest.spyOn(backend as any, 'getAIRelayEndpoint').mockReturnValue('/ai');
+    jest
+      .spyOn(backend as any, 'logAIUsage')
+      .mockImplementation(() => undefined);
     let resolve: (value: any) => void = () => undefined;
-    jest.spyOn(backend as any, 'sendNormalizedMessage').mockImplementation(
+    (requestAI as jest.Mock).mockImplementation(
       () =>
         new Promise((done) => {
           resolve = done;
         }),
     );
-    const pending = (backend as any).nameConversation(
-      'Conversation 1',
+    const pending = backend.generateConversationTitle(
+      id,
+      'Build a chart',
       DEFAULT_MODEL,
     );
-    backend.deleteConversation('Conversation 1');
-    resolve({ success: true, data: { content: [{ text: 'Late title' }] } });
+    backend.deleteConversation(id);
+    resolve({
+      text: 'Late title',
+      usage: { inputTokens: 10, outputTokens: 5 },
+    });
     await pending;
-    expect(backend.conversationTitles['Conversation 1']).toBeUndefined();
-    expect(backend.conversations['Conversation 1']).toBeUndefined();
+    expect(backend.titles[id]).toBeUndefined();
+    expect(backend.conversations[id]).toBeUndefined();
   });
 });
