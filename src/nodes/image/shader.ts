@@ -70,6 +70,7 @@ const defaultImage =
 // upper bound for the UI resolution multiplier, and for the texture size it produces
 const maxUIResolution = 4;
 const maxRenderTextureSize = 4096;
+const maxCachedGeometries = 16;
 
 export class Shader extends DRAW_Base implements TextureMirrorSource {
   shader: PIXI.Shader;
@@ -79,11 +80,14 @@ export class Shader extends DRAW_Base implements TextureMirrorSource {
   prevGLVertex: string;
   prevGLFragment: string;
 
-  // reused across draws so we don't allocate GPU buffers on every update
-  private geometry: PIXI.Geometry | undefined;
-  private geometrySize = { width: 0, height: 0 };
+  // quads are immutable once created, so meshes of the same size can share
+  // one instead of allocating GPU buffers on every update
+  private geometries: Map<string, PIXI.Geometry> = new Map();
+  // only used synchronously while rendering into this.renderTexture
   private renderMesh: PIXI.Mesh<PIXI.Geometry, PIXI.Shader> | undefined;
   private renderRoot: PIXI.Container | undefined;
+  // image resources of the current shader, used to build per-draw shaders
+  private imageSources: Record<string, PIXI.TextureSource<any>> = {};
   // textures we created from canvases/images, keyed by image name, so a
   // canvas that stays the same object gets re-uploaded instead of re-cached
   private ownedTextures: Record<
@@ -192,15 +196,25 @@ export class Shader extends DRAW_Base implements TextureMirrorSource {
     input: any,
     container: PIXI.Container,
   ): Promise<void> {
-    if (!(await this.renderToTexture(input)) || !this.geometry) {
+    const uniforms = await this.renderToTexture(input);
+    if (!uniforms || !this.shader) {
       return;
     }
     // the Graphics output may be drawn by another renderer (e.g. a Combine node
-    // in a UI widget), so hand out a mesh rather than a sprite of the texture
-    const newContainer = new PIXI.Container();
-    newContainer.addChild(
-      new PIXI.Mesh({ geometry: this.geometry, shader: this.shader }),
+    // in a UI widget), so hand out a mesh rather than a sprite of the texture.
+    // The draw function can be called several times with different inputs
+    // before anything renders (macros, Multiplier, overrides), so each mesh
+    // gets its own uniforms instead of sharing this.shader's
+    const shader = new PIXI.Shader({
+      glProgram: this.shader.glProgram,
+      resources: { ...this.imageSources, shaderUniforms: uniforms },
+    });
+    const geometry = this.getGeometry(
+      input[inputWidthName],
+      input[inputHeightName],
     );
+    const newContainer = new PIXI.Container();
+    newContainer.addChild(new PIXI.Mesh({ geometry, shader }));
     container.addChild(newContainer);
   }
 
@@ -216,8 +230,10 @@ export class Shader extends DRAW_Base implements TextureMirrorSource {
   }
 
   // Renders the shader into this.renderTexture on the main renderer, returns
-  // false if there was nothing to render
-  private async renderToTexture(input: any): Promise<boolean> {
+  // the uniforms it used or undefined if there was nothing to render
+  private async renderToTexture(
+    input: any,
+  ): Promise<Record<string, any> | undefined> {
     const currTime = (Date.now() % 1000) / 1000;
 
     const width = input[inputWidthName];
@@ -225,7 +241,7 @@ export class Shader extends DRAW_Base implements TextureMirrorSource {
     // inputs can still be empty while upstream nodes haven't executed yet
     const images: Record<string, unknown> = input[imageInputDataName] ?? {};
     if (!width || !height) {
-      return false;
+      return undefined;
     }
 
     const uniforms: Record<string, any> = JSON.parse(
@@ -272,6 +288,7 @@ export class Shader extends DRAW_Base implements TextureMirrorSource {
       } catch (e) {
         console.warn('Failed to add images to shader', e);
       }
+      this.imageSources = { ...resources };
       this.prevImageNames
         .filter((name) => images[name] == undefined)
         .forEach((removed) => {
@@ -297,12 +314,13 @@ export class Shader extends DRAW_Base implements TextureMirrorSource {
       });
     }
 
-    const geometry = this.updateGeometry(width, height);
+    const geometry = this.getGeometry(width, height);
     if (this.renderMesh === undefined || this.renderRoot === undefined) {
       this.renderMesh = new PIXI.Mesh({ geometry, shader: this.shader });
       this.renderRoot = new PIXI.Container();
       this.renderRoot.addChild(this.renderMesh);
     } else {
+      this.renderMesh.geometry = geometry;
       this.renderMesh.shader = this.shader;
     }
     const renderRoot = this.renderRoot;
@@ -337,7 +355,7 @@ export class Shader extends DRAW_Base implements TextureMirrorSource {
 
     this.setOutputData(renderTextureDataName, { Image: this.renderTexture });
     this.renderListeners.forEach((listener) => listener());
-    return true;
+    return uniforms;
   }
 
   private async getImageSource(
@@ -364,27 +382,26 @@ export class Shader extends DRAW_Base implements TextureMirrorSource {
     return texture.source;
   }
 
-  private updateGeometry(width: number, height: number): PIXI.Geometry {
-    // x, y for each corner
-    const positions = [0, height, width, height, width, 0, 0, 0];
-    if (this.geometry === undefined) {
-      this.geometry = new PIXI.Geometry({
+  private getGeometry(width: number, height: number): PIXI.Geometry {
+    const key = `${width}x${height}`;
+    let geometry = this.geometries.get(key);
+    if (geometry === undefined) {
+      // sizes that are no longer drawn would pile up, e.g. while dragging a
+      // width slider, so start over. Meshes still using them keep them alive
+      if (this.geometries.size >= maxCachedGeometries) {
+        this.geometries.clear();
+      }
+      geometry = new PIXI.Geometry({
         attributes: {
-          aPosition: positions,
+          // x, y for each corner
+          aPosition: [0, height, width, height, width, 0, 0, 0],
           aUV: [0, 1, 1, 1, 1, 0, 0, 0],
         },
         indexBuffer: [0, 1, 2, 0, 2, 3],
       });
-    } else if (
-      this.geometrySize.width !== width ||
-      this.geometrySize.height !== height
-    ) {
-      this.geometry.getAttribute('aPosition').buffer.data = new Float32Array(
-        positions,
-      );
+      this.geometries.set(key, geometry);
     }
-    this.geometrySize = { width, height };
-    return this.geometry;
+    return geometry;
   }
 
   // TextureMirrorSource - lets UI widgets show what we rendered on the main renderer
