@@ -16,23 +16,23 @@ export abstract class NodeRisk {
 export class UnrestrictedCodeRisk extends NodeRisk {
   readonly kind = 'unrestricted-code';
   readonly severity = 'critical' as const;
-  readonly title = 'Runs unrestricted JavaScript';
+  readonly title = 'Runs JavaScript with browser access';
   readonly description =
-    "Can access the Tailrmade page and data saved by Tailrmade in this browser, send network requests, and freeze this tab. This does not grant general access to your computer's files or other apps.";
+    "Runs outside the code sandbox, which is useful for page interactions and browser libraries. Code can access the Tailrmade page and its saved browser data, and make network requests. Long-running code can make this tab unresponsive. Normal browser permissions still apply; this does not grant general access to your computer's files or other apps.";
 }
 
 export class ApiKeyRisk extends NodeRisk {
   readonly kind = 'api-key';
   readonly title = 'Uses API keys';
   readonly description =
-    'Can use these credentials through the configured Companion. Requests may incur charges. Runtime inputs may introduce additional keys.';
+    'Uses the listed API keys through your configured Companion to authenticate requests. The service may charge for usage. Connected inputs can supply additional keys when the app runs.';
 }
 
 export class NetworkRisk extends NodeRisk {
   readonly kind = 'network';
   readonly title = 'Connects to external services';
   readonly description =
-    'Can send and receive data. URL credentials, query strings, and fragments are hidden. Connected inputs and custom code may determine additional destinations at runtime.';
+    'Sends and receives data using the listed destinations. Connected inputs or custom code can choose other destinations when the app runs. Addresses shown here omit credentials, query strings, and fragments.';
 
   constructor(
     url?: unknown,
@@ -57,7 +57,7 @@ export class ExternalImageRisk extends NodeRisk {
   readonly severity = 'info' as const;
   readonly title = 'Loads external images';
   readonly description =
-    'Loads an image from a fixed address. The host receives the image request. URL credentials, query strings, and fragments are hidden.';
+    'Loads an image from the listed address. The image host receives the request. The address shown here omits credentials, query strings, and fragments.';
 
   constructor(url: string) {
     super(new NetworkRisk(url).target);
@@ -68,7 +68,7 @@ export class DynamicImageRisk extends NodeRisk {
   readonly kind = 'dynamic-image';
   readonly title = 'Loads images from dynamic URLs';
   readonly description =
-    'The image source comes from connected inputs. Generated addresses may include app data and send it to the image host.';
+    'Uses connected inputs to choose which images to load. If an image address includes app data, the image host receives that data with the request.';
 }
 
 export function getImageSourceRisks(
@@ -95,7 +95,7 @@ export class NavigationRisk extends NodeRisk {
   readonly kind = 'navigation';
   readonly title = 'Opens web pages';
   readonly description =
-    'Can open HTTP and HTTPS pages in new tabs and send data in their URLs. URL credentials, query strings, and fragments are hidden. Connected inputs may determine destinations at runtime.';
+    'Opens web pages in new tabs. Data included in a URL is sent to that destination. Connected inputs can choose destinations when the app runs. Addresses shown here omit credentials, query strings, and fragments.';
 
   constructor(url?: unknown) {
     super(new NetworkRisk(url).target);
@@ -106,21 +106,21 @@ export class CompanionRisk extends NodeRisk {
   readonly kind = 'companion';
   readonly title = 'Uses your Companion';
   readonly description =
-    'Sends requests through your Tailrmade Companion. If it runs on your computer, it can contact services on that computer or your local network. This is separate from access to data saved in Tailrmade.';
+    'Routes requests through your configured Tailrmade Companion. A Companion running on your computer can connect to services on that computer or your local network.';
 }
 
 export class StorageRisk extends NodeRisk {
   readonly kind = 'storage';
   readonly title = 'Accesses Tailrmade data';
   readonly description =
-    'Can read data saved through Tailrmade in this browser or your Tailrmade cloud storage. Write and delete nodes can change or remove that data. This does not access files elsewhere on your computer.';
+    'Reads saved data from Tailrmade in this browser or your Tailrmade cloud storage. Write and delete nodes can also update or remove that data. This access is limited to Tailrmade storage, not other files on your computer.';
 }
 
 export class AIUsageRisk extends NodeRisk {
   readonly kind = 'ai-usage';
   readonly title = 'Uses AI services';
   readonly description =
-    'Sends app inputs to an AI provider and consumes usage or paid credits.';
+    'Sends app inputs to the configured AI provider for processing. Requests count toward your usage allowance and may use paid credits.';
 }
 
 export interface RiskSource {

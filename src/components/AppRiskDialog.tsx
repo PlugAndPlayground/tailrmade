@@ -25,7 +25,7 @@ import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import ComputerIcon from '@mui/icons-material/Computer';
 import StorageIcon from '@mui/icons-material/Storage';
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
-import WarningAmberIcon from '@mui/icons-material/WarningAmber';
+import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import ImageOutlinedIcon from '@mui/icons-material/ImageOutlined';
 import { AppRisk, NodeRisk, requiresAppRiskReview } from '../classes/NodeRisk';
 import PPGraph from '../classes/GraphClass';
@@ -51,8 +51,8 @@ const capabilityStyles: Record<
 > = {
   'unrestricted-code': {
     Icon: CodeIcon,
-    color: '#ffb4ab',
-    background: '#4b2025',
+    color: '#a4e4dc',
+    background: '#193b39',
   },
   'api-key': { Icon: KeyIcon, color: '#ffd48a', background: '#443316' },
   network: { Icon: PublicIcon, color: '#a9dfff', background: '#173b50' },
@@ -78,9 +78,9 @@ const capabilityStyles: Record<
 
 function NodeCapability({ risk }: { risk: NodeRisk }): React.ReactElement {
   const { Icon, color, background } = capabilityStyles[risk.kind] ?? {
-    Icon: WarningAmberIcon,
-    color: '#ffd48a',
-    background: '#443316',
+    Icon: InfoOutlinedIcon,
+    color: '#a9dfff',
+    background: '#173b50',
   };
   return (
     <Box
@@ -151,8 +151,10 @@ export function reviewAppRisks(
 
 export function AppRiskDialog({
   canvasElement,
+  dashboardVisible,
 }: {
   canvasElement?: HTMLDivElement | null;
+  dashboardVisible: boolean;
 }): React.ReactElement | null {
   const review = reviewStore.useStore();
   const pending = pendingAppRun.useStore();
@@ -187,15 +189,14 @@ export function AppRiskDialog({
   useEffect(() => {
     setSearch('');
     setInspection(nodes.map((node) => node.id));
-    if (review && !review.paste) {
-      InterfaceController.toggleAppView(VISIBILITY_ACTION.CLOSE);
-      InterfaceController.toggleShowDashboard(VISIBILITY_ACTION.CLOSE);
-      InterfaceController.toggleLeftSideDrawer(VISIBILITY_ACTION.CLOSE);
-      setStackView('graph');
-    }
   }, [review, nodes]);
   useEffect(() => {
-    if (!review || review.paste || !panelElement) return;
+    if (review && !review.paste && !dashboardVisible) {
+      InterfaceController.toggleLeftSideDrawer(VISIBILITY_ACTION.CLOSE);
+    }
+  }, [review, dashboardVisible]);
+  useEffect(() => {
+    if (!review || review.paste || dashboardVisible || !panelElement) return;
     const frameSelection = () => {
       const graph = PPGraph.currentGraph;
       const targets = inspection.map((id) => graph.nodes[id]).filter(Boolean);
@@ -235,7 +236,14 @@ export function AppRiskDialog({
       observer.disconnect();
       window.removeEventListener('resize', frameSelection);
     };
-  }, [review, inspection, stacked, panelElement, canvasElement]);
+  }, [
+    review,
+    inspection,
+    stacked,
+    panelElement,
+    canvasElement,
+    dashboardVisible,
+  ]);
   if (!review) {
     if (!pending) return null;
     return (
@@ -330,7 +338,7 @@ export function AppRiskDialog({
             }}
           >
             <Typography variant="body2" color="text.secondary">
-              {nodes.length} affected {nodes.length === 1 ? 'node' : 'nodes'}
+              {nodes.length} {nodes.length === 1 ? 'node' : 'nodes'} to review
             </Typography>
             <Button
               color="inherit"
@@ -345,16 +353,22 @@ export function AppRiskDialog({
       </DialogTitle>
       <DialogContent dividers>
         {review.paste && (
-          <Alert severity="warning">
-            Pasted nodes can run code, access saved Tailrmade data, and send
-            network requests. They may run immediately if this app is running.
-            Only paste nodes from a source you trust.
+          <Alert severity="info" role="note">
+            Depending on their configuration, pasted nodes can run code, use
+            saved Tailrmade data, and connect to services. They may run
+            immediately if this app is running. Check that their source and
+            behavior match what you expect before pasting.
           </Alert>
         )}
         {!review.paste && (
           <Box sx={{ borderBottom: 1, borderColor: 'divider', pb: 2, mb: 2 }}>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+              Many apps use these capabilities as part of normal operation.
+              Seeing this review does not mean a problem was found. Check that
+              the access below matches what you expect the app to do.
+            </Typography>
             <Typography variant="subtitle2" sx={{ mb: 1 }}>
-              Affected nodes ({nodes.length})
+              Nodes to review ({nodes.length})
             </Typography>
             <TextField
               fullWidth
@@ -415,7 +429,7 @@ export function AppRiskDialog({
         )}
         {!!review.risks.length && (
           <Typography variant="subtitle2" sx={{ mb: 1 }}>
-            Risk details
+            Capabilities
           </Typography>
         )}
         {review.risks.map(({ risk, nodes }) => (
@@ -424,7 +438,13 @@ export function AppRiskDialog({
             sx={{ mb: 2, '&:last-child': { mb: 0 }, overflowWrap: 'anywhere' }}
           >
             <Alert
-              severity={risk.severity === 'critical' ? 'error' : risk.severity}
+              severity="info"
+              role="note"
+              icon={React.createElement(
+                capabilityStyles[risk.kind]?.Icon ?? InfoOutlinedIcon,
+                { fontSize: 'inherit' },
+              )}
+              sx={{ bgcolor: 'action.hover', color: 'text.primary' }}
             >
               <Typography sx={{ fontWeight: 600 }}>{risk.title}</Typography>
               {risk.target && (
@@ -448,7 +468,14 @@ export function AppRiskDialog({
         ))}
       </DialogContent>
       <DialogActions sx={{ flexShrink: 0, flexWrap: 'wrap' }}>
-        <Button color="inherit" onClick={() => finish(false)} autoFocus>
+        <Button
+          color="inherit"
+          onClick={() => {
+            if (!review.paste) inspectNodes(nodes.map((node) => node.id));
+            finish(false);
+          }}
+          autoFocus
+        >
           {review.paste ? 'Cancel' : 'Keep inspecting'}
         </Button>
         <Button
@@ -462,7 +489,7 @@ export function AppRiskDialog({
       </DialogActions>
     </>
   );
-  if (!review.paste) {
+  if (!review.paste && !dashboardVisible) {
     return (
       <Paper
         ref={setPanelElement}
@@ -500,7 +527,7 @@ export function AppRiskDialog({
       fullWidth
       maxWidth="sm"
       aria-labelledby="app-risk-title"
-      data-cy="node-paste-dialog"
+      data-cy={review.paste ? 'node-paste-dialog' : 'app-risk-dialog'}
       sx={{
         zIndex: 1500,
         '& .MuiDialog-paper': {

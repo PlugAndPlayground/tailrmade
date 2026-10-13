@@ -193,11 +193,19 @@ describe('app risk review', () => {
         codeNode(),
         { ...codeNode(), id: 'second-code', x: 5000, y: 5000 },
       ]);
-      cy.get('[data-cy="app-risk-dialog"]').should(
-        'have.attr',
-        'aria-modal',
-        'false',
-      );
+      if (width < 900) {
+        cy.get('[data-cy="app-risk-dialog"] [role="dialog"]').should(
+          'have.attr',
+          'aria-modal',
+          'true',
+        );
+      } else {
+        cy.get('[data-cy="app-risk-dialog"]').should(
+          'have.attr',
+          'aria-modal',
+          'false',
+        );
+      }
       cy.get(
         '[aria-label="Center review"], [aria-label="Inspect alongside graph"]',
       ).should('not.exist');
@@ -484,7 +492,7 @@ describe('app risk review', () => {
     });
     cy.get('[data-cy="app-risk-dialog"]')
       .should('be.visible')
-      .and('contain', 'Runs unrestricted JavaScript');
+      .and('contain', 'Runs JavaScript with browser access');
     doWithTestController(async (controller) => {
       await controller.getNodeByID('code').execute();
       expect(controller.getNodeByID('code').debug_timesExecuted).to.equal(0);
@@ -533,7 +541,7 @@ describe('app risk review', () => {
     beginLoad([codeNode(2)]);
     cy.get('[data-cy="app-risk-dialog"]').should(
       'contain',
-      'Runs unrestricted JavaScript',
+      'Runs JavaScript with browser access',
     );
     cy.window().then((win: any) => expect(win.__riskCodeRuns).to.be.undefined);
     cy.get('[data-cy="run-reviewed-app"]').click();
@@ -565,7 +573,7 @@ describe('app risk review', () => {
     );
     cy.get('[data-cy="app-risk-dialog"]').should(
       'contain',
-      'Runs unrestricted JavaScript',
+      'Runs JavaScript with browser access',
     );
     cy.window().then((win: any) => expect(win.__riskCodeRuns).to.be.undefined);
     cy.get('[data-cy="app-risk-dialog"]')

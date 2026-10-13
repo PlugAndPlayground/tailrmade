@@ -49,6 +49,9 @@ const ShellLayout: React.FunctionComponent<ShellLayoutProps> = (props) => {
     null,
   );
   const { appView, overlayState } = props;
+  const dashboardVisible = stackLayout
+    ? stackView === 'ui'
+    : appView || overlayState[DrawerSide.DASHBOARD].visible;
   const appTokens = useResolvedAppTheme().tokens;
   const isDashboardMaximised =
     overlayState[DrawerSide.DASHBOARD].visible &&
@@ -157,7 +160,7 @@ const ShellLayout: React.FunctionComponent<ShellLayoutProps> = (props) => {
         )}
 
         <BottomBar />
-        <AppRiskDialog />
+        <AppRiskDialog dashboardVisible={dashboardVisible} />
       </>
     );
   }
@@ -194,7 +197,10 @@ const ShellLayout: React.FunctionComponent<ShellLayoutProps> = (props) => {
         </Box>
       )}
 
-      <AppRiskDialog canvasElement={canvasElement} />
+      <AppRiskDialog
+        canvasElement={canvasElement}
+        dashboardVisible={dashboardVisible}
+      />
 
       <LeftRightDrawer
         isLeft={true}
@@ -250,7 +256,9 @@ const ShellLayout: React.FunctionComponent<ShellLayoutProps> = (props) => {
 
       <LeftRightDrawer
         isLeft={false}
-        reservedWidth={riskReviewOpen ? APP_RISK_PANEL_WIDTH : 0}
+        reservedWidth={
+          riskReviewOpen && !dashboardVisible ? APP_RISK_PANEL_WIDTH : 0
+        }
         hidden={appView}
         overlayState={overlayState}
         updateOverlayState={props.updateOverlayState}

@@ -32,6 +32,7 @@ import {
   TouchGesture,
 } from '../utils/touchGestures';
 import { isCanvasExploreOnly, isStackLayout } from '../utils/stackLayout';
+import { goToOpenedApp, setStackView } from '../utils/layoutModel';
 import { BackendGateway } from '../services/BackendGateway';
 import { CLOUD_MODE } from '../services/shared-types';
 import { getLoadSeedNodes } from '../utils/updateBehaviour';
@@ -1675,6 +1676,12 @@ export default class PPGraph {
     };
 
     InterfaceController.updateOverlayState(overlayWithCurrentDrawerState);
+    if (
+      isStackLayout() &&
+      (storedDashboard?.visible || storedDashboard?.fullscreen)
+    ) {
+      setStackView('ui');
+    }
 
     // other settings
     this.showExecutionVisualisation =
@@ -1748,9 +1755,10 @@ export default class PPGraph {
           risks,
         );
         if (pendingAppRun.get() !== pending) return;
+        const needsReview =
+          !isAppApproved(fingerprint) && requiresAppRiskReview(risks);
         const approved =
-          isAppApproved(fingerprint) ||
-          (await reviewAppRisks(this.name, risks));
+          !needsReview || (await reviewAppRisks(this.name, risks));
         // A different app may have been opened while its risks were reviewed.
         if (!approved || pendingAppRun.get() !== pending) return;
         // Recheck synchronously so edits during hashing or review cannot inherit approval.
@@ -1763,6 +1771,14 @@ export default class PPGraph {
           return;
         if (requiresAppRiskReview(risks)) rememberAppApproval(fingerprint);
         pendingAppRun.set(null);
+        // Risk inspection temporarily opens the graph. Start in the app's
+        // saved dashboard mode once that review has been approved.
+        if (needsReview) {
+          InterfaceController.updateOverlayState({
+            [DrawerSide.DASHBOARD]:
+              overlayWithCurrentDrawerState[DrawerSide.DASHBOARD],
+          });
+        }
         const session = getNodePasteSession();
         // Loading mode includes both conditional branches in initial propagation
         // and prevents macro callbacks from queuing extra executions.
@@ -1771,6 +1787,7 @@ export default class PPGraph {
         try {
           await this.executeAllSeedNodes(Object.values(this.nodes));
           if (session !== getNodePasteSession()) return;
+          if (needsReview && isStackLayout()) goToOpenedApp(this);
           InterfaceController.notifyListeners(ListenEvent.DashboardLoaded, {
             id: storedGraph.id,
             name: storedGraph.name,
