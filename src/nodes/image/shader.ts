@@ -70,7 +70,6 @@ const defaultImage =
 // upper bound for the UI resolution multiplier, and for the texture size it produces
 const maxUIResolution = 4;
 const maxRenderTextureSize = 4096;
-const maxCachedGeometries = 16;
 
 export class Shader extends DRAW_Base implements TextureMirrorSource {
   shader: PIXI.Shader;
@@ -80,14 +79,6 @@ export class Shader extends DRAW_Base implements TextureMirrorSource {
   prevGLVertex: string;
   prevGLFragment: string;
 
-  // quads are immutable once created, so meshes of the same size can share
-  // one instead of allocating GPU buffers on every update
-  private geometries: Map<string, PIXI.Geometry> = new Map();
-  // only used synchronously while rendering into this.renderTexture
-  private renderMesh: PIXI.Mesh<PIXI.Geometry, PIXI.Shader> | undefined;
-  private renderRoot: PIXI.Container | undefined;
-  // image resources of the current shader, used to build per-draw shaders
-  private imageSources: Record<string, PIXI.TextureSource<any>> = {};
   // textures we created from canvases/images, keyed by image name, so a
   // canvas that stays the same object gets re-uploaded instead of re-cached
   private ownedTextures: Record<
@@ -196,26 +187,13 @@ export class Shader extends DRAW_Base implements TextureMirrorSource {
     input: any,
     container: PIXI.Container,
   ): Promise<void> {
-    const uniforms = await this.renderToTexture(input);
-    if (!uniforms || !this.shader) {
+    const rendered = await this.renderToTexture(input);
+    if (!rendered) {
       return;
     }
     // the Graphics output may be drawn by another renderer (e.g. a Combine node
-    // in a UI widget), so hand out a mesh rather than a sprite of the texture.
-    // The draw function can be called several times with different inputs
-    // before anything renders (macros, Multiplier, overrides), so each mesh
-    // gets its own uniforms instead of sharing this.shader's
-    const shader = new PIXI.Shader({
-      glProgram: this.shader.glProgram,
-      resources: { ...this.imageSources, shaderUniforms: uniforms },
-    });
-    const geometry = this.getGeometry(
-      input[inputWidthName],
-      input[inputHeightName],
-    );
-    const newContainer = new PIXI.Container();
-    newContainer.addChild(new PIXI.Mesh({ geometry, shader }));
-    container.addChild(newContainer);
+    // in a UI widget), so hand out the mesh rather than a sprite of the texture
+    container.addChild(rendered);
   }
 
   protected async onExecute(
@@ -230,10 +208,10 @@ export class Shader extends DRAW_Base implements TextureMirrorSource {
   }
 
   // Renders the shader into this.renderTexture on the main renderer, returns
-  // the uniforms it used or undefined if there was nothing to render
+  // the container it rendered or undefined if there was nothing to render
   private async renderToTexture(
     input: any,
-  ): Promise<Record<string, any> | undefined> {
+  ): Promise<PIXI.Container | undefined> {
     const currTime = (Date.now() % 1000) / 1000;
 
     const width = input[inputWidthName];
@@ -288,7 +266,6 @@ export class Shader extends DRAW_Base implements TextureMirrorSource {
       } catch (e) {
         console.warn('Failed to add images to shader', e);
       }
-      this.imageSources = { ...resources };
       this.prevImageNames
         .filter((name) => images[name] == undefined)
         .forEach((removed) => {
@@ -314,16 +291,15 @@ export class Shader extends DRAW_Base implements TextureMirrorSource {
       });
     }
 
-    const geometry = this.getGeometry(width, height);
-    if (this.renderMesh === undefined || this.renderRoot === undefined) {
-      this.renderMesh = new PIXI.Mesh({ geometry, shader: this.shader });
-      this.renderRoot = new PIXI.Container();
-      this.renderRoot.addChild(this.renderMesh);
-    } else {
-      this.renderMesh.geometry = geometry;
-      this.renderMesh.shader = this.shader;
-    }
-    const renderRoot = this.renderRoot;
+    const geometry = new PIXI.Geometry({
+      attributes: {
+        aPosition: [0, height, width, height, width, 0, 0, 0], // x, y
+        aUV: [0, 1, 1, 1, 1, 0, 0, 0],
+      },
+      indexBuffer: [0, 1, 2, 0, 2, 3],
+    });
+    const newContainer = new PIXI.Container();
+    newContainer.addChild(new PIXI.Mesh({ geometry, shader: this.shader }));
 
     // Capture any console errors from PIXI.js during render if it has changed
     const capturedErrors: any[] = [];
@@ -337,7 +313,7 @@ export class Shader extends DRAW_Base implements TextureMirrorSource {
 
     try {
       PPGraph.currentGraph.app.renderer.render({
-        container: renderRoot,
+        container: newContainer,
         target: this.renderTexture,
       });
 
@@ -355,7 +331,7 @@ export class Shader extends DRAW_Base implements TextureMirrorSource {
 
     this.setOutputData(renderTextureDataName, { Image: this.renderTexture });
     this.renderListeners.forEach((listener) => listener());
-    return uniforms;
+    return newContainer;
   }
 
   private async getImageSource(
@@ -380,28 +356,6 @@ export class Shader extends DRAW_Base implements TextureMirrorSource {
     const texture = PIXI.Texture.from(curr as any, true);
     this.ownedTextures[key] = { resource: curr, texture };
     return texture.source;
-  }
-
-  private getGeometry(width: number, height: number): PIXI.Geometry {
-    const key = `${width}x${height}`;
-    let geometry = this.geometries.get(key);
-    if (geometry === undefined) {
-      // sizes that are no longer drawn would pile up, e.g. while dragging a
-      // width slider, so start over. Meshes still using them keep them alive
-      if (this.geometries.size >= maxCachedGeometries) {
-        this.geometries.clear();
-      }
-      geometry = new PIXI.Geometry({
-        attributes: {
-          // x, y for each corner
-          aPosition: [0, height, width, height, width, 0, 0, 0],
-          aUV: [0, 1, 1, 1, 1, 0, 0, 0],
-        },
-        indexBuffer: [0, 1, 2, 0, 2, 3],
-      });
-      this.geometries.set(key, geometry);
-    }
-    return geometry;
   }
 
   // TextureMirrorSource - lets UI widgets show what we rendered on the main renderer
