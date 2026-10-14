@@ -42,6 +42,10 @@ const LOCAL_COMPANION_AI_BASE_URL = 'http://localhost:6655/ai';
 // MCP tools that mutate the graph.
 const MUTATION_TOOL_NAMES = new Set([
   'add_node',
+  'remove_node',
+  'undo',
+  'redo',
+  'run_node',
   'connect_sockets',
   'disconnect_sockets',
   'set_socket_value',

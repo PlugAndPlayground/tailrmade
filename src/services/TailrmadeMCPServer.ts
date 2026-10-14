@@ -91,6 +91,11 @@ type MCPToolName =
   | 'list_available_nodes'
   | 'describe_node'
   | 'add_node'
+  | 'remove_node'
+  | 'inspect_history'
+  | 'undo'
+  | 'redo'
+  | 'run_node'
   | 'connect_sockets'
   | 'disconnect_sockets'
   | 'set_socket_value'
@@ -108,6 +113,14 @@ type MCPToolName =
 
 interface AddNodeInput {
   node_type: string;
+  node_id: string;
+}
+
+interface RemoveNodeInput {
+  node_id: string;
+}
+
+interface RunNodeInput {
   node_id: string;
 }
 
@@ -362,6 +375,34 @@ export class TailrmadeMCPServer {
     const { highestNumber, nextId } = this.getAINodeIdSequence();
     return [
       {
+        name: 'inspect_history',
+        description:
+          'Inspect the shared editor undo/redo history, including action names, human or AI source, and which actions are applied. Inspect before undoing or redoing to identify the affected action.',
+        input_schema: { type: 'object', properties: {} },
+      },
+      {
+        name: 'undo',
+        description:
+          'Undo the most recent applied editor history entry. This is one history step, not an entire AI request, and may undo a human edit. Returns the affected action and updated history. Node execution and external side effects are not reversible through editor history.',
+        input_schema: { type: 'object', properties: {} },
+      },
+      {
+        name: 'redo',
+        description:
+          'Redo the next undone editor history entry. New edits clear the redo history. Returns the affected action and updated history.',
+        input_schema: { type: 'object', properties: {} },
+      },
+      {
+        name: 'run_node',
+        description:
+          'Run a node by exact ID with its current inputs, then update downstream nodes according to their update settings, like the editor Run action. Returns the requested node with output values and status after execution. May trigger external side effects such as HTTP requests; execution is not undoable. Use inspect_warnings_and_errors to check downstream errors.',
+        input_schema: {
+          type: 'object',
+          properties: { node_id: { type: 'string' } },
+          required: ['node_id'],
+        },
+      },
+      {
         name: 'inspect_graph',
         description:
           'Summarize the current graph, including node IDs, names, positions, and socket names.',
@@ -466,6 +507,18 @@ export class TailrmadeMCPServer {
             },
           },
           required: ['node_type', 'node_id'],
+        },
+      },
+      {
+        name: 'remove_node',
+        description:
+          'Delete one node by its exact ID and remove all its connections. Undo restores the node and its connections. Use inspect_graph or inspect_selected_nodes to find the ID. To only take a widget off a surface or unlink nodes while keeping them, use disconnect_sockets.',
+        input_schema: {
+          type: 'object',
+          properties: {
+            node_id: { type: 'string' },
+          },
+          required: ['node_id'],
         },
       },
       {
@@ -753,6 +806,15 @@ export class TailrmadeMCPServer {
     try {
       const toolName = name as MCPToolName;
       switch (toolName) {
+        case 'inspect_history':
+          return {
+            content: JSON.stringify(ActionHandler.getHistorySnapshot()),
+          };
+        case 'undo':
+        case 'redo':
+          return await this.changeHistory(toolName);
+        case 'run_node':
+          return await this.runNode(input as unknown as RunNodeInput);
         case 'inspect_graph':
           return this.inspectGraph();
         case 'inspect_nodes':
@@ -769,6 +831,8 @@ export class TailrmadeMCPServer {
           return this.describeNode(input as unknown as DescribeNodeInput);
         case 'add_node':
           return await this.addNode(input as unknown as AddNodeInput);
+        case 'remove_node':
+          return await this.removeNode(input as unknown as RemoveNodeInput);
         case 'connect_sockets':
           return await this.connectSockets(
             input as unknown as ConnectSocketsInput,
@@ -1164,6 +1228,69 @@ export class TailrmadeMCPServer {
           ),
         })),
       }),
+    };
+  }
+
+  private async changeHistory(
+    direction: 'undo' | 'redo',
+  ): Promise<MCPToolResult> {
+    const history = ActionHandler.getHistorySnapshot();
+    if (direction === 'undo' ? !history.canUndo : !history.canRedo) {
+      return { content: `Nothing to ${direction}.`, is_error: true };
+    }
+    const action =
+      history.entries[
+        direction === 'undo' ? history.appliedCount - 1 : history.appliedCount
+      ];
+    await ActionHandler[direction]();
+    return {
+      content: JSON.stringify({
+        status: direction === 'undo' ? 'undone' : 'redone',
+        action,
+        history: ActionHandler.getHistorySnapshot(),
+      }),
+    };
+  }
+
+  private requireNode(nodeId: string, toolName: MCPToolName): PPNode {
+    if (typeof nodeId !== 'string' || !nodeId.trim()) {
+      throw new Error(`${toolName} requires node_id`);
+    }
+    const graph = PPGraph.currentGraph;
+    const node = Object.hasOwn(graph.nodes, nodeId)
+      ? graph.nodes[nodeId]
+      : undefined;
+    if (!node) {
+      throw new Error(`Node not found: ${nodeId}`);
+    }
+    return node;
+  }
+
+  private async runNode(input: RunNodeInput): Promise<MCPToolResult> {
+    const node = this.requireNode(input.node_id, 'run_node');
+    if (node.isExecuting) {
+      throw new Error(`Node is already running: ${input.node_id}`);
+    }
+    await node.executeOptimizedChain();
+    const hasErrors = node
+      .getWarningsAndErrors()
+      .some((status) => status.isError());
+    return {
+      content: JSON.stringify({
+        status: hasErrors ? 'error' : 'executed',
+        node: this.nodeToSerializable(node),
+      }),
+      ...(hasErrors ? { is_error: true } : {}),
+    };
+  }
+
+  private async removeNode(input: RemoveNodeInput): Promise<MCPToolResult> {
+    const node = this.requireNode(input.node_id, 'remove_node');
+    const graph = PPGraph.currentGraph;
+    await graph.perform_action_DeleteNodes([node], 'ai');
+    this.turnCreatedNodeIds.delete(input.node_id);
+    return {
+      content: JSON.stringify({ node_id: input.node_id, status: 'removed' }),
     };
   }
 
