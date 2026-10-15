@@ -453,7 +453,7 @@ function getNavigateTriggerSocket(): PPSocket {
  */
 export class NavigateToPage extends PPNode {
   // Navigation changes the displayed page.
-  public getSeemsRedundant(): boolean {
+  public getSeemsUnused(): boolean {
     return false;
   }
 

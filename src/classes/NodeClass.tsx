@@ -69,7 +69,7 @@ import {
   PNPError,
   PNPStatus,
   PNPSuccess,
-  NodeRedundantStatus,
+  NodeUnusedStatus,
 } from './ErrorClass';
 import { shouldEnterHybridEditModeOnCanvasClick } from '../utils/nodeInteractivity';
 import {
@@ -134,7 +134,7 @@ export default class PPNode extends PIXI.Container implements IWarningHandler {
   // whether drawErrorBoundary actually painted something, so the zoom refresh
   // can skip clean nodes without re-deriving the status for every one of them
   private errorBoundaryIsDrawn = false;
-  private lastDrawnRedundancy: boolean | undefined;
+  private lastDrawnUnusedStatus: boolean | undefined;
 
   executionFilter: GlowFilter | undefined = undefined;
   dropShadowFilter: DropShadowFilter | undefined = undefined;
@@ -178,7 +178,7 @@ export default class PPNode extends PIXI.Container implements IWarningHandler {
   }
 
   // Nodes with side effects, shared state, or visible content can opt out.
-  public getSeemsRedundant(): boolean {
+  public getSeemsUnused(): boolean {
     return this.outputSocketArray.every((socket) => !socket.hasLink());
   }
 
@@ -995,8 +995,8 @@ export default class PPNode extends PIXI.Container implements IWarningHandler {
 
   public getVisibleStatuses(): PNPStatus[] {
     const statuses = this.getWarningsAndErrors();
-    if (this.getSeemsRedundant()) {
-      statuses.push(new NodeRedundantStatus());
+    if (this.getSeemsUnused()) {
+      statuses.push(new NodeUnusedStatus());
     }
     return statuses;
   }
@@ -1022,7 +1022,7 @@ export default class PPNode extends PIXI.Container implements IWarningHandler {
       return;
     }
 
-    this.lastDrawnRedundancy = this.getSeemsRedundant();
+    this.lastDrawnUnusedStatus = this.getSeemsUnused();
 
     this._StatusesRef.clear();
     this._StatusesRef.removeChildren().forEach((child) => child.destroy());
@@ -1229,11 +1229,11 @@ export default class PPNode extends PIXI.Container implements IWarningHandler {
     this.notifyStatusChanged();
   }
 
-  public refreshRedundancyStatus(): void {
+  public refreshUnusedStatus(): void {
     if (
       this.hasBeenAdded &&
       !this.destroyed &&
-      this.lastDrawnRedundancy !== this.getSeemsRedundant()
+      this.lastDrawnUnusedStatus !== this.getSeemsUnused()
     ) {
       this.refreshSocketStatus();
     }
@@ -1498,7 +1498,7 @@ ${Math.round(bounds.minX)}, ${Math.round(
         (socket) => (socket.data = socket.dataType.getDefaultValue()),
       );
     }
-    this.refreshRedundancyStatus();
+    this.refreshUnusedStatus();
     // previous run was cancelled - pick it up here and run again
     if (this.wantsToExecute) {
       this.wantsToExecute = false;
@@ -1645,9 +1645,7 @@ ${Math.round(bounds.minX)}, ${Math.round(
       // an upstream node for its preferred output, but other empty sockets
       // still use the normal compatibility rules so their declared types are
       // not bypassed globally.
-      const isEmptyAnyInput =
-        socket.isInput() &&
-        socket.data == null;
+      const isEmptyAnyInput = socket.isInput() && socket.data == null;
       if (
         isEmptyAnyInput ||
         IsCompatible(

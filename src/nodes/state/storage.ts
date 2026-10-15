@@ -591,7 +591,7 @@ abstract class StorageNode extends AbstractStorageNode {
 
 abstract class StorageMutation extends StorageNode {
   // Storage mutations are useful even when their outputs are unused.
-  public getSeemsRedundant(): boolean {
+  public getSeemsUnused(): boolean {
     return false;
   }
 
@@ -1003,6 +1003,12 @@ export class StorageBrowse extends StorageReader {
 }
 
 abstract class LegacyStorageScaffold extends AbstractStorageNode {
+  protected mutatesStorage = false;
+
+  public getSeemsUnused(): boolean {
+    return !this.mutatesStorage && super.getSeemsUnused();
+  }
+
   protected setInputSocketValue(
     node: PPNode,
     socketName: string,
@@ -1064,11 +1070,29 @@ abstract class LegacyStorageScaffold extends AbstractStorageNode {
       STORAGE_BACKEND_NAME,
       storageBackend,
     );
+    this.setInputSocketValue(
+      replacementNode,
+      SHOW_TOAST_NOTIFICATION_NAME,
+      false,
+    );
     configureReplacement?.(replacementNode);
   }
 }
 
 abstract class LocalStorageScaffold extends LegacyStorageScaffold {
+  protected async renameLegacyKeySockets(): Promise<void> {
+    await this.renameInputSocket(
+      LEGACY_LOCAL_STORAGE_KEY_NAME,
+      LOCATION_NAME,
+      new StringType(),
+    );
+    await this.renameInputSocket(
+      LEGACY_OBJECT_KEY_NAME,
+      KEY_NAME,
+      new StringType(),
+    );
+  }
+
   public getVersion(): number {
     return 2;
   }
@@ -1083,6 +1107,27 @@ abstract class LocalStorageScaffold extends LegacyStorageScaffold {
 }
 
 abstract class UserStorageScaffold extends LegacyStorageScaffold {
+  protected async migrateStorageMutation(
+    targetType: string,
+    configureReplacement?: (replacementNode: PPNode) => void,
+  ): Promise<void> {
+    const showToastNotification = this.getInputData(
+      SHOW_TOAST_NOTIFICATION_NAME,
+    );
+    await this.migrateToStorageNode(
+      targetType,
+      STORAGE_BACKEND_CLOUD,
+      (replacementNode) => {
+        this.setInputSocketValue(
+          replacementNode,
+          SHOW_TOAST_NOTIFICATION_NAME,
+          showToastNotification,
+        );
+        configureReplacement?.(replacementNode);
+      },
+    );
+  }
+
   public getVersion(): number {
     return 2;
   }
@@ -1097,10 +1142,7 @@ abstract class UserStorageScaffold extends LegacyStorageScaffold {
 }
 
 export class LocalStorageWrite extends LocalStorageScaffold {
-  // Storage mutations are useful even when their outputs are unused.
-  public getSeemsRedundant(): boolean {
-    return false;
-  }
+  protected mutatesStorage = true;
 
   public getName() {
     return 'Local Storage Write (Deprecated)';
@@ -1111,37 +1153,20 @@ export class LocalStorageWrite extends LocalStorageScaffold {
       return;
     }
 
-    await this.renameInputSocket(
-      LEGACY_LOCAL_STORAGE_KEY_NAME,
-      LOCATION_NAME,
-      new StringType(),
-    );
-    await this.renameInputSocket(
-      LEGACY_OBJECT_KEY_NAME,
-      KEY_NAME,
-      new StringType(),
-    );
+    await this.renameLegacyKeySockets();
     await this.migrateToStorageNode(
       'StorageWrite',
       STORAGE_BACKEND_LOCAL_STORAGE,
       (replacementNode) => {
         this.setInputSocketValue(replacementNode, NON_EMPTY_ONLY_NAME, false);
         this.setInputSocketValue(replacementNode, INSERT_ONLY_NAME, false);
-        this.setInputSocketValue(
-          replacementNode,
-          SHOW_TOAST_NOTIFICATION_NAME,
-          false,
-        );
       },
     );
   }
 }
 
 export class LocalStorageDelete extends LocalStorageScaffold {
-  // Storage mutations are useful even when their outputs are unused.
-  public getSeemsRedundant(): boolean {
-    return false;
-  }
+  protected mutatesStorage = true;
 
   public getName() {
     return 'Local Storage Delete (Deprecated)';
@@ -1152,26 +1177,10 @@ export class LocalStorageDelete extends LocalStorageScaffold {
       return;
     }
 
-    await this.renameInputSocket(
-      LEGACY_LOCAL_STORAGE_KEY_NAME,
-      LOCATION_NAME,
-      new StringType(),
-    );
-    await this.renameInputSocket(
-      LEGACY_OBJECT_KEY_NAME,
-      KEY_NAME,
-      new StringType(),
-    );
+    await this.renameLegacyKeySockets();
     await this.migrateToStorageNode(
       'StorageDelete',
       STORAGE_BACKEND_LOCAL_STORAGE,
-      (replacementNode) => {
-        this.setInputSocketValue(
-          replacementNode,
-          SHOW_TOAST_NOTIFICATION_NAME,
-          false,
-        );
-      },
     );
   }
 }
@@ -1204,22 +1213,12 @@ export class LocalStorageBrowse extends LocalStorageScaffold {
     await this.migrateToStorageNode(
       'StorageRead',
       STORAGE_BACKEND_LOCAL_STORAGE,
-      (replacementNode) => {
-        this.setInputSocketValue(
-          replacementNode,
-          SHOW_TOAST_NOTIFICATION_NAME,
-          false,
-        );
-      },
     );
   }
 }
 
 export class UserStorageWrite extends UserStorageScaffold {
-  // Storage mutations are useful even when their outputs are unused.
-  public getSeemsRedundant(): boolean {
-    return false;
-  }
+  protected mutatesStorage = true;
 
   public getName() {
     return 'User Storage Write (Deprecated)';
@@ -1230,22 +1229,10 @@ export class UserStorageWrite extends UserStorageScaffold {
       return;
     }
 
-    const showToastNotification = this.getInputData(
-      SHOW_TOAST_NOTIFICATION_NAME,
-    );
-    await this.migrateToStorageNode(
-      'StorageWrite',
-      STORAGE_BACKEND_CLOUD,
-      (replacementNode) => {
-        this.setInputSocketValue(replacementNode, NON_EMPTY_ONLY_NAME, false);
-        this.setInputSocketValue(replacementNode, INSERT_ONLY_NAME, false);
-        this.setInputSocketValue(
-          replacementNode,
-          SHOW_TOAST_NOTIFICATION_NAME,
-          showToastNotification,
-        );
-      },
-    );
+    await this.migrateStorageMutation('StorageWrite', (replacementNode) => {
+      this.setInputSocketValue(replacementNode, NON_EMPTY_ONLY_NAME, false);
+      this.setInputSocketValue(replacementNode, INSERT_ONLY_NAME, false);
+    });
   }
 }
 
@@ -1259,25 +1246,12 @@ export class UserStorageRead extends UserStorageScaffold {
       return;
     }
 
-    await this.migrateToStorageNode(
-      'StorageRead',
-      STORAGE_BACKEND_CLOUD,
-      (replacementNode) => {
-        this.setInputSocketValue(
-          replacementNode,
-          SHOW_TOAST_NOTIFICATION_NAME,
-          false,
-        );
-      },
-    );
+    await this.migrateToStorageNode('StorageRead', STORAGE_BACKEND_CLOUD);
   }
 }
 
 export class UserStorageDelete extends UserStorageScaffold {
-  // Storage mutations are useful even when their outputs are unused.
-  public getSeemsRedundant(): boolean {
-    return false;
-  }
+  protected mutatesStorage = true;
 
   public getName() {
     return 'User Storage Delete (Deprecated)';
@@ -1288,20 +1262,7 @@ export class UserStorageDelete extends UserStorageScaffold {
       return;
     }
 
-    const showToastNotification = this.getInputData(
-      SHOW_TOAST_NOTIFICATION_NAME,
-    );
-    await this.migrateToStorageNode(
-      'StorageDelete',
-      STORAGE_BACKEND_CLOUD,
-      (replacementNode) => {
-        this.setInputSocketValue(
-          replacementNode,
-          SHOW_TOAST_NOTIFICATION_NAME,
-          showToastNotification,
-        );
-      },
-    );
+    await this.migrateStorageMutation('StorageDelete');
   }
 }
 
@@ -1327,11 +1288,6 @@ export class UserStorageBrowse extends UserStorageScaffold {
           filterByLocation,
         );
         this.setInputSocketValue(replacementNode, LOCATION_NAME, location);
-        this.setInputSocketValue(
-          replacementNode,
-          SHOW_TOAST_NOTIFICATION_NAME,
-          false,
-        );
       },
     );
   }

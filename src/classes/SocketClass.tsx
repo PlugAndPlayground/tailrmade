@@ -401,7 +401,7 @@ export default class Socket
       // and does not have a link
     }
     if (!this.isOutput()) {
-      this.getNode()?.refreshRedundancyStatus();
+      this.getNode()?.refreshUnusedStatus();
     }
   }
 

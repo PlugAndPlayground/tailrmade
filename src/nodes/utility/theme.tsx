@@ -57,8 +57,8 @@ const isSameLayer = (
 
 export class Theme extends PPNode {
   // An empty, inheriting theme does nothing unless it still owns a runtime layer.
-  public getSeemsRedundant(): boolean {
-    if (!super.getSeemsRedundant() || runtimeLayerOwnerId === this.id) {
+  public getSeemsUnused(): boolean {
+    if (!super.getSeemsUnused() || runtimeLayerOwnerId === this.id) {
       return false;
     }
     const preset = this.getInputData(PRESET_SOCKET);

@@ -115,7 +115,7 @@ export class ParseArray extends PPNode {
 
 export class ConsolePrint extends PPNode {
   // Execution can have effects independent of the outputs.
-  public getSeemsRedundant(): boolean {
+  public getSeemsUnused(): boolean {
     return false;
   }
 
@@ -215,8 +215,8 @@ const MACRO_CALL_REGEX = /\bmacro\s*\(/;
 // customfunction does any number of inputs but only one output for simplicity
 export class CustomFunction extends PPNode {
   // Main-thread code may act on the app without returning a consumed result.
-  public getSeemsRedundant(): boolean {
-    return !this.getInputData(allowFullAccessName) && super.getSeemsRedundant();
+  public getSeemsUnused(): boolean {
+    return !this.getInputData(allowFullAccessName) && super.getSeemsUnused();
   }
 
   previousUserInput = '';

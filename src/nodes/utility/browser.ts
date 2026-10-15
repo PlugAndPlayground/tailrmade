@@ -11,7 +11,7 @@ const URLName = 'url';
 
 export class OpenURL extends PPNode {
   // Opening a URL is an external effect.
-  public getSeemsRedundant(): boolean {
+  public getSeemsUnused(): boolean {
     return false;
   }
 

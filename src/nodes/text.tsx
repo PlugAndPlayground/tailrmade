@@ -105,7 +105,7 @@ const FONT_WEIGHT_PRESETS = [
 
 export class Label extends PPNode implements Layoutable {
   // Labels are visible graph content.
-  public getSeemsRedundant(): boolean {
+  public getSeemsUnused(): boolean {
     return false;
   }
 

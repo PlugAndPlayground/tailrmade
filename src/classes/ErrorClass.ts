@@ -2,7 +2,7 @@ import { TRgba } from '../utils/color';
 import {
   COLOR_ERROR,
   COLOR_WARNING,
-  COLOR_REDUNDANT,
+  COLOR_UNUSED,
   STATUS_SEVERITY,
 } from '../utils/constants';
 
@@ -136,27 +136,25 @@ export class PNPSuccess extends PNPStatus {
   }
 }
 
-export class NodeRedundantStatus extends PNPStatus {
+export class NodeUnusedStatus extends PNPStatus {
   constructor() {
-    super(
-      'This node may be redundant because none of its outputs are connected.',
-    );
+    super('This node may be unused because none of its outputs are connected.');
   }
 
   public getSeverity(): STATUS_SEVERITY {
-    return STATUS_SEVERITY.REDUNDANT;
+    return STATUS_SEVERITY.UNUSED;
   }
 
   public getSeverityName(): string {
-    return 'redundant';
+    return 'unused';
   }
 
   public getBucketName(): string {
-    return 'Redundant';
+    return 'Unused';
   }
 
   public getName(): string {
-    return 'Possibly redundant';
+    return 'Possibly unused';
   }
 
   public getDescription(): string {
@@ -164,7 +162,7 @@ export class NodeRedundantStatus extends PNPStatus {
   }
 
   public getColor(): TRgba {
-    return TRgba.fromString(COLOR_REDUNDANT);
+    return TRgba.fromString(COLOR_UNUSED);
   }
 }
 

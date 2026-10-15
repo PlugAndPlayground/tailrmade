@@ -18,25 +18,19 @@ const timeoutName = 'Timeout';
 
 const gatewayAddressDefault = 'http://localhost:16208/gateway/2.0.0/publish';
 
-export class PixotopeGatewayGet extends HTTPNode {
-  public getSeemsRedundant(): boolean {
-    // The gateway transports a read using HTTP POST.
-    return PPNode.prototype.getSeemsRedundant.call(this);
-  }
+abstract class PixotopeGatewayNode extends HTTPNode {
+  protected readOnly = false;
 
-  public getName(): string {
-    return 'Pixotope Get';
-  }
-
-  public getDescription(): string {
-    return 'Pixotope Gateway: Get a value from a service';
+  public getSeemsUnused(): boolean {
+    // All gateway operations use HTTP POST, regardless of their effects.
+    return this.readOnly && PPNode.prototype.getSeemsUnused.call(this);
   }
 
   public getTags(): string[] {
     return ['Pixotope'].concat(super.getTags());
   }
 
-  protected getDefaultIO(): Socket[] {
+  protected getGatewayInputSockets(): Socket[] {
     return [
       new Socket(
         SOCKET_TYPE.IN,
@@ -46,6 +40,24 @@ export class PixotopeGatewayGet extends HTTPNode {
         false,
       ),
       new Socket(SOCKET_TYPE.IN, targetName, new StringType(), 'Store'),
+    ];
+  }
+}
+
+export class PixotopeGatewayGet extends PixotopeGatewayNode {
+  protected readOnly = true;
+
+  public getName(): string {
+    return 'Pixotope Get';
+  }
+
+  public getDescription(): string {
+    return 'Pixotope Gateway: Get a value from a service';
+  }
+
+  protected getDefaultIO(): Socket[] {
+    return [
+      ...this.getGatewayInputSockets(),
       new Socket(SOCKET_TYPE.IN, nameName, new StringType(), 'State'),
       new Socket(SOCKET_TYPE.OUT, outputContentName, new JSONType(), {}),
     ];
@@ -85,7 +97,7 @@ export class PixotopeGatewayGet extends HTTPNode {
   }
 }
 
-export class PixotopeGatewaySet extends HTTPNode {
+export class PixotopeGatewaySet extends PixotopeGatewayNode {
   public getName(): string {
     return 'Pixotope Set';
   }
@@ -94,24 +106,13 @@ export class PixotopeGatewaySet extends HTTPNode {
     return 'Pixotope Gateway: Set a value on a service';
   }
 
-  public getTags(): string[] {
-    return ['Pixotope'].concat(super.getTags());
-  }
-
   public getUpdateBehaviour(): UpdateBehaviourClass {
     return new UpdateBehaviourClass(false, false, false, 1000, this);
   }
 
   protected getDefaultIO(): Socket[] {
     return [
-      new Socket(
-        SOCKET_TYPE.IN,
-        urlInputName,
-        new StringType(),
-        gatewayAddressDefault,
-        false,
-      ),
-      new Socket(SOCKET_TYPE.IN, targetName, new StringType(), 'Store'),
+      ...this.getGatewayInputSockets(),
       new Socket(
         SOCKET_TYPE.IN,
         nameName,
@@ -141,12 +142,7 @@ export class PixotopeGatewaySet extends HTTPNode {
   }
 }
 
-export class PixotopeGatewayCall extends HTTPNode {
-  public getSeemsRedundant(): boolean {
-    // "Method" here names a remote operation, not an HTTP verb.
-    return false;
-  }
-
+export class PixotopeGatewayCall extends PixotopeGatewayNode {
   public getName(): string {
     return 'Pixotope Call';
   }
@@ -155,20 +151,9 @@ export class PixotopeGatewayCall extends HTTPNode {
     return 'Pixotope Gateway: Send a ZMQ call';
   }
 
-  public getTags(): string[] {
-    return ['Pixotope'].concat(super.getTags());
-  }
-
   protected getDefaultIO(): Socket[] {
     return [
-      new Socket(
-        SOCKET_TYPE.IN,
-        urlInputName,
-        new StringType(),
-        gatewayAddressDefault,
-        false,
-      ),
-      new Socket(SOCKET_TYPE.IN, targetName, new StringType(), 'Store'),
+      ...this.getGatewayInputSockets(),
       new Socket(SOCKET_TYPE.IN, methodName, new StringType(), 'GetAllStates'),
       new Socket(SOCKET_TYPE.IN, paramsName, new JSONType(), {
         Fingerprint: 'Tailrmade',

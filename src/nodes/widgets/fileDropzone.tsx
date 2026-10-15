@@ -68,7 +68,7 @@ const fileInterpretationModeName = 'File interpretation';
 
 export class FileDropzone extends PPNode implements Layoutable {
   // The dropzone is an interactive UI element.
-  public getSeemsRedundant(): boolean {
+  public getSeemsUnused(): boolean {
     return false;
   }
 

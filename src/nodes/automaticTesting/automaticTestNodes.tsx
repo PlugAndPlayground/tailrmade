@@ -10,7 +10,7 @@ const descriptionName = 'Test Description';
 
 abstract class TEST extends PPNode {
   // Tests report their results through notifications.
-  public getSeemsRedundant(): boolean {
+  public getSeemsUnused(): boolean {
     return false;
   }
 

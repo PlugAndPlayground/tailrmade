@@ -33,11 +33,11 @@ export const AIConversationName = 'Conversation';
 export const responseName = 'Response';
 
 export class AINode extends HTTPNode {
-  public getSeemsRedundant(): boolean {
+  public getSeemsUnused(): boolean {
     // Retained conversations can be advanced even when this response is unused.
     return (
       !this.getInputData(AIPersistantConversationName) &&
-      PPNode.prototype.getSeemsRedundant.call(this)
+      PPNode.prototype.getSeemsUnused.call(this)
     );
   }
 

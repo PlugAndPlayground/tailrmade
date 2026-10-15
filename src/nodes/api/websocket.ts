@@ -10,10 +10,10 @@ import { TriggerType } from '../datatypes/triggerType';
 
 export class WebSocketNode extends PPNode {
   // A configured, enabled connection can send messages without output consumers.
-  public getSeemsRedundant(): boolean {
+  public getSeemsUnused(): boolean {
     return (
       (!this.getInputData('Enabled') || !this.getInputData('URL')?.trim()) &&
-      super.getSeemsRedundant()
+      super.getSeemsUnused()
     );
   }
 

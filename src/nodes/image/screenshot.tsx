@@ -42,11 +42,11 @@ const SOURCE_OPTIONS = CAPTURE_SOURCES.map((source) => ({ text: source }));
 
 export class Screenshot extends PPNode {
   // Ordinary captures only produce data; screen-sharing controls also have effects.
-  public getSeemsRedundant(): boolean {
+  public getSeemsUnused(): boolean {
     return (
       this.getInputData(sourceName) !== 'Screen sharing' &&
       !this.getInputOrTriggerSocketByName(stopSharingName, false)?.hasLink() &&
-      super.getSeemsRedundant()
+      super.getSeemsUnused()
     );
   }
 

@@ -12,7 +12,7 @@ const saveFileDataName = 'Data';
 
 export class SaveFile extends PPNode {
   // Saving a file is an external effect.
-  public getSeemsRedundant(): boolean {
+  public getSeemsUnused(): boolean {
     return false;
   }
 

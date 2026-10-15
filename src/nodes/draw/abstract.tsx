@@ -71,7 +71,7 @@ const defaultProps: WidgetProps = {
 
 export abstract class DRAW_Base extends PPNode implements Layoutable {
   // Drawing nodes can render directly on the canvas.
-  public getSeemsRedundant(): boolean {
+  public getSeemsUnused(): boolean {
     return false;
   }
 

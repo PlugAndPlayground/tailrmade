@@ -24,7 +24,7 @@ import { BackendGateway } from '../../services/BackendGateway';
 
 export class Tailrmade extends PPNode {
   // This node can invoke graph and application actions.
-  public getSeemsRedundant(): boolean {
+  public getSeemsUnused(): boolean {
     return false;
   }
 

@@ -6,7 +6,7 @@ import {
   shouldWithTestController,
 } from '../helpers';
 
-describe('redundant node status', () => {
+describe('unused node status', () => {
   it('defaults to unused outputs and lets nodes with independent effects opt out', () => {
     openNewGraph();
     closeBothDrawers();
@@ -19,13 +19,11 @@ describe('redundant node status', () => {
         600,
         0,
       );
-      expect(source.getSeemsRedundant()).to.eq(true);
-      expect(consumer.getSeemsRedundant()).to.eq(true);
-      expect(source.getSeemsRedundant.call({ outputSocketArray: [] })).to.eq(
-        true,
-      );
+      expect(source.getSeemsUnused()).to.eq(true);
+      expect(consumer.getSeemsUnused()).to.eq(true);
+      expect(source.getSeemsUnused.call({ outputSocketArray: [] })).to.eq(true);
       await controller.connectNodesByID(source.id, consumer.id);
-      expect(source.getSeemsRedundant()).to.eq(false);
+      expect(source.getSeemsUnused()).to.eq(false);
 
       for (const type of [
         'WidgetButton',
@@ -37,11 +35,11 @@ describe('redundant node status', () => {
         'ExecuteMacro',
       ]) {
         const node = await controller.addNode(type, `protected-${type}`);
-        expect(node.getSeemsRedundant(), type).to.eq(false);
+        expect(node.getSeemsUnused(), type).to.eq(false);
         expect(
           node
             .getVisibleStatuses()
-            .some((status) => status.getSeverityName() === 'redundant'),
+            .some((status) => status.getSeverityName() === 'unused'),
           type,
         ).to.eq(false);
       }
@@ -59,24 +57,22 @@ describe('redundant node status', () => {
         ['Screenshot', 'Source', 'Graph', 'Screen sharing'],
         ['Theme', 'Mode', 'Keep app setting', 'dark'],
       ];
-      for (const [type, setting, redundantValue, usefulValue] of cases) {
+      for (const [type, setting, unusedValue, usefulValue] of cases) {
         const node = await controller.addNode(type, `conditional-${type}`);
-        controller.setNodeInputValue(node.id, setting, redundantValue);
-        expect(node.getSeemsRedundant(), `${type}: unused result`).to.eq(true);
+        controller.setNodeInputValue(node.id, setting, unusedValue);
+        expect(node.getSeemsUnused(), `${type}: unused result`).to.eq(true);
         const executions = node.debug_timesExecuted;
         controller.setNodeInputValue(node.id, setting, usefulValue);
-        expect(node.getSeemsRedundant(), `${type}: independent effect`).to.eq(
+        expect(node.getSeemsUnused(), `${type}: independent effect`).to.eq(
           false,
         );
         expect(
           node
             .getVisibleStatuses()
-            .some((status) => status.getSeverityName() === 'redundant'),
+            .some((status) => status.getSeverityName() === 'unused'),
         ).to.eq(false);
-        controller.setNodeInputValue(node.id, setting, redundantValue);
-        expect(node.getSeemsRedundant(), `${type}: restored setting`).to.eq(
-          true,
-        );
+        controller.setNodeInputValue(node.id, setting, unusedValue);
+        expect(node.getSeemsUnused(), `${type}: restored setting`).to.eq(true);
         expect(
           controller.getStatusBadgeCenter(node.id, 'status'),
           `${type}: badge refreshed`,
@@ -89,35 +85,33 @@ describe('redundant node status', () => {
       const custom = controller.getNodeByID('conditional-CustomFunction');
       const consumer = await controller.addNode('Constant', 'code-consumer');
       await controller.connectNodesByID(custom.id, consumer.id, 'Code', 'In');
-      expect(custom.getSeemsRedundant(), 'connected Code output is used').to.eq(
+      expect(custom.getSeemsUnused(), 'connected Code output is used').to.eq(
         false,
       );
       await controller.disconnectLink(consumer.id, 'In');
-      expect(custom.getSeemsRedundant()).to.eq(true);
+      expect(custom.getSeemsUnused()).to.eq(true);
 
       const socket = await controller.addNode(
         'WebSocketNode',
         'conditional-websocket',
       );
-      expect(socket.getSeemsRedundant(), 'empty URL').to.eq(true);
+      expect(socket.getSeemsUnused(), 'empty URL').to.eq(true);
       socket.setInputData('Enabled', false);
       socket.setInputData('URL', 'wss://example.invalid');
-      expect(socket.getSeemsRedundant(), 'disabled').to.eq(true);
+      expect(socket.getSeemsUnused(), 'disabled').to.eq(true);
       socket.setInputData('Enabled', true);
-      expect(socket.getSeemsRedundant(), 'configured sender').to.eq(false);
+      expect(socket.getSeemsUnused(), 'configured sender').to.eq(false);
       socket.setInputData('Enabled', false);
 
       const state = await controller.addNode('State', 'conditional-state');
-      expect(state.getSeemsRedundant(), 'unconsumed internal state').to.eq(
-        true,
-      );
+      expect(state.getSeemsUnused(), 'unconsumed internal state').to.eq(true);
       await controller.connectNodesByID(consumer.id, state.id, 'Out', 'State');
       expect(
-        state.getSeemsRedundant(),
+        state.getSeemsUnused(),
         'writes back to the linked state source',
       ).to.eq(false);
       await controller.disconnectLink(state.id, 'State');
-      expect(state.getSeemsRedundant()).to.eq(true);
+      expect(state.getSeemsUnused()).to.eq(true);
 
       for (const type of [
         'ArrayMethod',
@@ -130,14 +124,14 @@ describe('redundant node status', () => {
         'PixotopeGatewayGet',
       ]) {
         const node = await controller.addNode(type, `unused-${type}`);
-        expect(node.getSeemsRedundant(), type).to.eq(true);
+        expect(node.getSeemsUnused(), type).to.eq(true);
       }
       const call = await controller.addNode(
         'PixotopeGatewayCall',
         'gateway-call',
       );
       call.setInputData('Method', 'Get');
-      expect(call.getSeemsRedundant(), 'RPC method is not an HTTP verb').to.eq(
+      expect(call.getSeemsUnused(), 'RPC method is not an HTTP verb').to.eq(
         false,
       );
       const write = await controller.addNode(
@@ -145,13 +139,13 @@ describe('redundant node status', () => {
         'gateway-set',
       );
       expect(
-        write.getSeemsRedundant(),
+        write.getSeemsUnused(),
         'gateway writes have independent effects',
       ).to.eq(false);
     });
   });
 
-  it('shows redundancy below warnings and updates without executing the source', () => {
+  it('shows unused status below warnings and updates without executing the source', () => {
     openNewGraph();
     closeBothDrawers();
     doWithTestController(async (controller) => {
@@ -160,7 +154,9 @@ describe('redundant node status', () => {
     });
     shouldWithTestController((controller) => {
       const node = controller.getNodeByID('source');
-      expect(node.getWorstStatus()?.getSeverityName()).to.eq('redundant');
+      expect(node.getWorstStatus()?.getSeverityName()).to.eq('unused');
+      expect(node.getWorstStatus()?.getBucketName()).to.eq('Unused');
+      expect(node.getWorstStatus()?.getName()).to.eq('Possibly unused');
       expect(node.getWarningsAndErrors()).to.have.length(0);
       expect(controller.getStatusBadgeCenter('source', 'status')).not.to.be
         .null;
@@ -187,7 +183,7 @@ describe('redundant node status', () => {
     shouldWithTestController((controller) => {
       expect(
         controller.getNodeByID('source').getWorstStatus()?.getSeverityName(),
-      ).to.eq('redundant');
+      ).to.eq('unused');
       expect(controller.getStatusBadgeCenter('source', 'status')).not.to.be
         .null;
     });
@@ -200,7 +196,7 @@ describe('redundant node status', () => {
       const node = controller.getNodeByID('source');
       expect(
         node.getVisibleStatuses().map((status) => status.getSeverityName()),
-      ).to.deep.eq(['warning', 'redundant']);
+      ).to.deep.eq(['warning', 'unused']);
       expect(node.getWorstStatus()?.getSeverityName()).to.eq('warning');
     });
 
@@ -217,6 +213,10 @@ describe('redundant node status', () => {
     });
     cy.get('[data-cy="status-detail-message"]')
       .should('have.length', 1)
-      .and('contain', 'none of its outputs are connected');
+      .and(
+        'contain',
+        'may be unused because none of its outputs are connected',
+      );
+    cy.get('[role="img"][aria-label="Unused"]').should('be.visible');
   });
 });

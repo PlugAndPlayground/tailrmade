@@ -12,8 +12,8 @@ import { TNodeId } from '../utils/interfaces';
 import { getStatusIconTexture } from '../utils/statusIcons';
 
 const STATUS_BADGE_RADIUS = 12;
-const REDUNDANT_BADGE_RADIUS = 7;
-const REDUNDANT_BADGE_ALPHA = 0.45;
+const UNUSED_BADGE_RADIUS = 7;
+const UNUSED_BADGE_ALPHA = 0.45;
 const STATUS_BADGE_HIT_PADDING = 3;
 const STATUS_BADGE_GAP = 4;
 export const STATUS_BADGE_CONTAINER_NAME = 'statusBadge';
@@ -77,8 +77,8 @@ export class NodeStatusBadges {
       ? getStatusIconTexture(
           worst.isError()
             ? 'error'
-            : worst.getSeverity() === STATUS_SEVERITY.REDUNDANT
-              ? 'redundant'
+            : worst.getSeverity() === STATUS_SEVERITY.UNUSED
+              ? 'unused'
               : 'warning',
         )
       : undefined;
@@ -93,7 +93,7 @@ export class NodeStatusBadges {
         kind: 'status',
         tint: worst.getColor().hexNumber(),
         offsetX,
-        subtle: worst.getSeverity() === STATUS_SEVERITY.REDUNDANT,
+        subtle: worst.getSeverity() === STATUS_SEVERITY.UNUSED,
       });
       offsetX += STATUS_BADGE_RADIUS * 2 + STATUS_BADGE_GAP;
     }
@@ -126,14 +126,14 @@ export class NodeStatusBadges {
     offsetX: number;
     subtle?: boolean;
   }): void {
-    const radius = subtle ? REDUNDANT_BADGE_RADIUS : STATUS_BADGE_RADIUS;
+    const radius = subtle ? UNUSED_BADGE_RADIUS : STATUS_BADGE_RADIUS;
     const badge = new PIXI.Sprite(texture);
     badge.width = radius * 2;
     badge.height = radius * 2;
     badge.anchor.set(0.5);
     badge.name = name;
     badge.tint = tint;
-    badge.alpha = subtle ? REDUNDANT_BADGE_ALPHA : 1;
+    badge.alpha = subtle ? UNUSED_BADGE_ALPHA : 1;
     badge.x = offsetX;
     badge.y = 0;
     badge.eventMode = 'static';
@@ -150,7 +150,7 @@ export class NodeStatusBadges {
         badge.alpha = 0.9;
       });
       badge.on('pointerout', () => {
-        badge.alpha = REDUNDANT_BADGE_ALPHA;
+        badge.alpha = UNUSED_BADGE_ALPHA;
       });
     }
     badge.on('pointerdown', (event: PIXI.FederatedPointerEvent) => {

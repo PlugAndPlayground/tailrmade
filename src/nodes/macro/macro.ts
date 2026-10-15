@@ -47,7 +47,7 @@ export const MACRO_AUTOALIGN_PADDING = 100;
 
 export class Macro extends PPNode {
   // Macros can be referenced by name or execute nodes with side effects.
-  public getSeemsRedundant(): boolean {
+  public getSeemsUnused(): boolean {
     return false;
   }
 
@@ -547,7 +547,7 @@ export class Macro extends PPNode {
 
 export class ExecuteMacro extends PPNode {
   // Macros can be referenced by name or execute nodes with side effects.
-  public getSeemsRedundant(): boolean {
+  public getSeemsUnused(): boolean {
     return false;
   }
 

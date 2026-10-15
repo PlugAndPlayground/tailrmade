@@ -171,7 +171,7 @@ const dataToCopyName = 'Input';
 
 export class WriteToClipboard extends PPNode {
   // Execution changes state outside the output connections.
-  public getSeemsRedundant(): boolean {
+  public getSeemsUnused(): boolean {
     return false;
   }
 

@@ -4,15 +4,15 @@ import {
   STATUS_COMMENT_ICON_TEXTURE,
   STATUS_ERROR_ICON_TEXTURE,
   STATUS_WARNING_ICON_TEXTURE,
-  STATUS_REDUNDANT_ICON_TEXTURE,
+  STATUS_UNUSED_ICON_TEXTURE,
 } from './constants';
 
-export type StatusIconKind = 'error' | 'warning' | 'redundant' | 'comment';
+export type StatusIconKind = 'error' | 'warning' | 'unused' | 'comment';
 
 const SOURCES: Record<StatusIconKind, string> = {
   error: STATUS_ERROR_ICON_TEXTURE,
   warning: STATUS_WARNING_ICON_TEXTURE,
-  redundant: STATUS_REDUNDANT_ICON_TEXTURE,
+  unused: STATUS_UNUSED_ICON_TEXTURE,
   comment: STATUS_COMMENT_ICON_TEXTURE,
 };
 
