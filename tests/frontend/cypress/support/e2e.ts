@@ -17,7 +17,7 @@
 import './commands';
 import 'cypress-real-events';
 
-const cpuThrottleRate = Number(Cypress.env('cpuThrottleRate'));
+const cpuThrottleRate = Number(Cypress.expose('cpuThrottleRate'));
 const shouldThrottleCpu =
   Number.isFinite(cpuThrottleRate) &&
   cpuThrottleRate >= 1 &&
