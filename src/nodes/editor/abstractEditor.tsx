@@ -19,11 +19,7 @@ import { AbstractType } from '../datatypes/abstractType';
 import { WidgetContentProps } from '../../utils/interfaces';
 
 // Lazy load MonacoEditor
-const MonacoEditor = React.lazy(() =>
-  import('react-monaco-editor').then((module) => ({
-    default: module.default,
-  })),
-);
+const MonacoEditor = React.lazy(() => import('../../components/MonacoEditor'));
 
 // Loading component
 const EditorLoading = () => (
@@ -82,8 +78,6 @@ const EditorComponent = React.memo(
     return (
       <Suspense fallback={<EditorLoading />}>
         <MonacoEditor
-          width="100%"
-          height="100%"
           language={language}
           theme="vs-dark"
           value={value}

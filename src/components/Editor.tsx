@@ -4,14 +4,9 @@ import { Box, Button, CircularProgress } from '@mui/material';
 import ErrorFallback from './ErrorFallback';
 import { MAX_STRING_LENGTH, UNSET_VALUE } from '../utils/constants';
 import { convertToViewableString, getLoadedValue } from '../utils/utils';
-import type * as Monaco from 'monaco-editor/esm/vs/editor/editor.api';
+import type * as Monaco from 'monaco-editor/editor/editor.api';
 
-const MonacoEditor = React.lazy(() =>
-  import('react-monaco-editor').then((module) => ({
-    default: module.default,
-    monaco: module.monaco,
-  })),
-);
+const MonacoEditor = React.lazy(() => import('./MonacoEditor'));
 
 const EditorLoading = () => (
   <Box display="flex" justifyContent="center" alignItems="center" height="100%">
@@ -133,16 +128,6 @@ export const CodeEditor: React.FunctionComponent<CodeEditorProps> = ({
     };
   }, []);
 
-  // Cleanup Monaco editor on unmount
-  useEffect(() => {
-    return () => {
-      if (editorRef.current) {
-        editorRef.current.dispose();
-        editorRef.current = undefined;
-      }
-    };
-  }, []);
-
   useEffect(() => {
     const load = shouldLoadAll(value);
     setLoadAll(load);
@@ -185,8 +170,6 @@ export const CodeEditor: React.FunctionComponent<CodeEditorProps> = ({
         )}
         <Suspense fallback={<EditorLoading />}>
           <MonacoEditor
-            width="100%"
-            height="100%"
             language={language}
             theme="vs-dark"
             value={loadedValue}
@@ -205,7 +188,6 @@ export const CodeEditor: React.FunctionComponent<CodeEditorProps> = ({
             }}
             onChange={handleOnChange}
             editorDidMount={editorDidMount}
-            editorWillUnmount={(editor) => editor.getModel()?.dispose()}
           />
         </Suspense>
         {!inDashboard && (
