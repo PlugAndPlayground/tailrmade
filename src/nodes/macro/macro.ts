@@ -46,6 +46,11 @@ export const MACRO_PARAMETER_PREFIX_NAME = 'Parameter';
 export const MACRO_AUTOALIGN_PADDING = 100;
 
 export class Macro extends PPNode {
+  // Macros can be referenced by name or execute nodes with side effects.
+  public getSeemsUnused(): boolean {
+    return false;
+  }
+
   callerGraphics: PIXI.Graphics = undefined;
   textRef: PIXI.Text = undefined;
   prevCallers: string = '';
@@ -541,6 +546,11 @@ export class Macro extends PPNode {
 }
 
 export class ExecuteMacro extends PPNode {
+  // Macros can be referenced by name or execute nodes with side effects.
+  public getSeemsUnused(): boolean {
+    return false;
+  }
+
   static getMacroOptions(): any[] {
     return Object.values(PPGraph.currentGraph.macros).map((macro) => {
       return { text: macro.nodeName };

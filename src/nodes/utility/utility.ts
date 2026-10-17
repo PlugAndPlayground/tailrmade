@@ -170,6 +170,11 @@ export class JumpToNode extends WidgetButton {
 const dataToCopyName = 'Input';
 
 export class WriteToClipboard extends PPNode {
+  // Execution changes state outside the output connections.
+  public getSeemsUnused(): boolean {
+    return false;
+  }
+
   public getName(): string {
     return 'Write to clipboard';
   }

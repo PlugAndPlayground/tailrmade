@@ -2,6 +2,7 @@ import { TRgba } from '../utils/color';
 import {
   COLOR_ERROR,
   COLOR_WARNING,
+  COLOR_UNUSED,
   STATUS_SEVERITY,
 } from '../utils/constants';
 
@@ -23,7 +24,7 @@ export abstract class PNPStatus extends Error {
   public abstract getColor(): TRgba;
   public abstract getSeverity(): STATUS_SEVERITY;
 
-  // Worth surfacing to the user at all.
+  // Warnings and errors; informational statuses are shown separately.
   public isProblem(): boolean {
     return this.getSeverity() >= STATUS_SEVERITY.WARNING;
   }
@@ -132,6 +133,36 @@ export class PNPSuccess extends PNPStatus {
 
   public getColor(): TRgba {
     return TRgba.white();
+  }
+}
+
+export class NodeUnusedStatus extends PNPStatus {
+  constructor() {
+    super('This node may be unused because none of its outputs are connected.');
+  }
+
+  public getSeverity(): STATUS_SEVERITY {
+    return STATUS_SEVERITY.UNUSED;
+  }
+
+  public getSeverityName(): string {
+    return 'unused';
+  }
+
+  public getBucketName(): string {
+    return 'Unused';
+  }
+
+  public getName(): string {
+    return 'Possibly unused';
+  }
+
+  public getDescription(): string {
+    return 'Node with no connected outputs';
+  }
+
+  public getColor(): TRgba {
+    return TRgba.fromString(COLOR_UNUSED);
   }
 }
 

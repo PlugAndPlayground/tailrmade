@@ -11,6 +11,11 @@ const saveFileName = 'File Name';
 const saveFileDataName = 'Data';
 
 export class SaveFile extends PPNode {
+  // Saving a file is an external effect.
+  public getSeemsUnused(): boolean {
+    return false;
+  }
+
   protected getDefaultIO(): Socket[] {
     return [
       new Socket(SOCKET_TYPE.IN, saveFileDataName, new AnyType()),

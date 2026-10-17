@@ -10,6 +10,11 @@ import { migrateFromCustomFunctionCommon } from '../data/array';
 const URLName = 'url';
 
 export class OpenURL extends PPNode {
+  // Opening a URL is an external effect.
+  public getSeemsUnused(): boolean {
+    return false;
+  }
+
   protected getDefaultIO(): Socket[] {
     return [new Socket(SOCKET_TYPE.IN, URLName, new StringType())];
   }

@@ -41,6 +41,11 @@ export interface CompanionResponse {
 }
 
 export class HTTPNode extends PPNode {
+  // Reads only contribute their response; writes may matter without one.
+  public getSeemsUnused(): boolean {
+    return this.getInputData(methodName) === 'Get' && super.getSeemsUnused();
+  }
+
   public getName(): string {
     return 'HTTP';
   }

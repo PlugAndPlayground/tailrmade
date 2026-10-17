@@ -1118,6 +1118,8 @@ export default class PPGraph {
     //add link to input
     input.links = [link];
 
+    output.getNode().refreshSocketStatus();
+
     input.data = output.data;
 
     this.connectionContainer.addChild(link);

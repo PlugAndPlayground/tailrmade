@@ -6,11 +6,14 @@ import {
   DARK_HEX,
   ERROR_BOUNDARY_SCREEN_OFFSET,
   NODE_MARGIN,
+  STATUS_SEVERITY,
 } from '../utils/constants';
 import { TNodeId } from '../utils/interfaces';
 import { getStatusIconTexture } from '../utils/statusIcons';
 
 const STATUS_BADGE_RADIUS = 12;
+const UNUSED_BADGE_RADIUS = 7;
+const UNUSED_BADGE_ALPHA = 0.45;
 const STATUS_BADGE_HIT_PADDING = 3;
 const STATUS_BADGE_GAP = 4;
 export const STATUS_BADGE_CONTAINER_NAME = 'statusBadge';
@@ -71,7 +74,13 @@ export class NodeStatusBadges {
     this.container.eventMode = 'passive';
 
     const icon = worst
-      ? getStatusIconTexture(worst.isError() ? 'error' : 'warning')
+      ? getStatusIconTexture(
+          worst.isError()
+            ? 'error'
+            : worst.getSeverity() === STATUS_SEVERITY.UNUSED
+              ? 'unused'
+              : 'warning',
+        )
       : undefined;
     const commentIcon = hasComment
       ? getStatusIconTexture('comment')
@@ -84,6 +93,7 @@ export class NodeStatusBadges {
         kind: 'status',
         tint: worst.getColor().hexNumber(),
         offsetX,
+        subtle: worst.getSeverity() === STATUS_SEVERITY.UNUSED,
       });
       offsetX += STATUS_BADGE_RADIUS * 2 + STATUS_BADGE_GAP;
     }
@@ -107,25 +117,42 @@ export class NodeStatusBadges {
     kind,
     tint,
     offsetX,
+    subtle = false,
   }: {
     texture: PIXI.Texture;
     name: string;
     kind: 'status' | 'comment';
     tint: number;
     offsetX: number;
+    subtle?: boolean;
   }): void {
-    const radius = STATUS_BADGE_RADIUS;
+    const radius = subtle ? UNUSED_BADGE_RADIUS : STATUS_BADGE_RADIUS;
     const badge = new PIXI.Sprite(texture);
     badge.width = radius * 2;
     badge.height = radius * 2;
     badge.anchor.set(0.5);
     badge.name = name;
     badge.tint = tint;
+    badge.alpha = subtle ? UNUSED_BADGE_ALPHA : 1;
     badge.x = offsetX;
     badge.y = 0;
     badge.eventMode = 'static';
     badge.cursor = 'pointer';
-    badge.hitArea = new PIXI.Circle(0, 0, radius + STATUS_BADGE_HIT_PADDING);
+    // Keep the same click target even when the visible hint is smaller.
+    badge.hitArea = new PIXI.Circle(
+      0,
+      0,
+      ((STATUS_BADGE_RADIUS + STATUS_BADGE_HIT_PADDING) * STATUS_BADGE_RADIUS) /
+        radius,
+    );
+    if (subtle) {
+      badge.on('pointerover', () => {
+        badge.alpha = 0.9;
+      });
+      badge.on('pointerout', () => {
+        badge.alpha = UNUSED_BADGE_ALPHA;
+      });
+    }
     badge.on('pointerdown', (event: PIXI.FederatedPointerEvent) => {
       event.stopPropagation();
       InterfaceController.notifyListeners(
