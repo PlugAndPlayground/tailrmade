@@ -1,6 +1,6 @@
 import React, { useCallback, useState } from 'react';
 import { TRgba } from '../../utils/color';
-import { useDropzone } from 'react-dropzone';
+import { ErrorCode, useDropzone } from 'react-dropzone';
 import {
   Box,
   Typography,
@@ -442,8 +442,15 @@ const FileDropzoneComponent: React.FC<{
     useDropzone({
       onDrop,
       accept: getAcceptObject(),
-      onDropRejected: () => {
-        InterfaceController.showSnackBar(`File type not accepted.`);
+      onDropRejected: (fileRejections) => {
+        const tooMany = fileRejections.some(({ errors }) =>
+          errors.some((error) => error.code === ErrorCode.TooManyFiles),
+        );
+        InterfaceController.showSnackBar(
+          tooMany
+            ? `Maximum number of files (${maxFiles}) exceeded.`
+            : `File type not accepted.`,
+        );
       },
       disabled: isDisabled,
       maxFiles: maxFiles > 0 ? maxFiles : undefined,

@@ -5074,24 +5074,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@types/copy-webpack-plugin@npm:^10.1.3":
-  version: 10.1.3
-  resolution: "@types/copy-webpack-plugin@npm:10.1.3"
-  dependencies:
-    copy-webpack-plugin: "npm:*"
-  checksum: 10/cb04aa3a8e510fda03a9d9cc7f027a5e238b6b177862ed4e40f40567150975aef47c75232a220e98a101b05dd3a1f650ffcb7500a810aea1ebbae4d756d8e519
-  languageName: node
-  linkType: hard
-
-"@types/cypress@npm:^1.1.6":
-  version: 1.1.6
-  resolution: "@types/cypress@npm:1.1.6"
-  dependencies:
-    cypress: "npm:*"
-  checksum: 10/8b9243b093ede3edc8eeeb99fa89b8b778bdeca5194707f320ebbd939f27d9b61153dc4cc63cf70e59d1e0d6ef6e21696bb66e47eb4391e936d4fe86173a32eb
-  languageName: node
-  linkType: hard
-
 "@types/debug@npm:^4.0.0":
   version: 4.1.13
   resolution: "@types/debug@npm:4.1.13"
@@ -5443,15 +5425,6 @@ __metadata:
   version: 2.0.11
   resolution: "@types/unist@npm:2.0.11"
   checksum: 10/6d436e832bc35c6dde9f056ac515ebf2b3384a1d7f63679d12358766f9b313368077402e9c1126a14d827f10370a5485e628bf61aa91117cf4fc882423191a4e
-  languageName: node
-  linkType: hard
-
-"@types/uuid@npm:^11.0.0":
-  version: 11.0.0
-  resolution: "@types/uuid@npm:11.0.0"
-  dependencies:
-    uuid: "npm:*"
-  checksum: 10/9f94bd34e5d220c53cc58ea9f48a0061d3bc343e29bc33a17edc705f5e21fedda21553318151f2bc227c2b2b03727bbb536da2b82a61f84d2e1ca38abc5e5c3f
   languageName: node
   linkType: hard
 
@@ -6660,13 +6633,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"arch@npm:^2.2.0":
-  version: 2.2.0
-  resolution: "arch@npm:2.2.0"
-  checksum: 10/e35dbc6d362297000ab90930069576ba165fe63cd52383efcce14bd66c1b16a91ce849e1fd239964ed029d5e0bdfc32f68e9c7331b7df6c84ddebebfdbf242f7
-  languageName: node
-  linkType: hard
-
 "arch@npm:^3.0.0":
   version: 3.0.0
   resolution: "arch@npm:3.0.0"
@@ -6785,10 +6751,10 @@ __metadata:
   languageName: node
   linkType: hard
 
-"attr-accept@npm:^2.2.4":
-  version: 2.2.5
-  resolution: "attr-accept@npm:2.2.5"
-  checksum: 10/474b1c53e62c5b881c745d1f098196f190c8b493245e95d4b0fea9298d3acb56f551868fc12806885277e55e9d8ad3c5963e92d93456f4e4081dfc5190977bfd
+"attr-accept@npm:^4.0.0":
+  version: 4.0.1
+  resolution: "attr-accept@npm:4.0.1"
+  checksum: 10/7224dcbd49df255511aa09897d5bcd49ac667887cf67beef5a392f9fd5117fb299ed7211780b14ed9a1d4063423945c075a2670692cdea1dfbebdd41b2dcefd0
   languageName: node
   linkType: hard
 
@@ -7840,7 +7806,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"copy-webpack-plugin@npm:*, copy-webpack-plugin@npm:^14.0.0":
+"copy-webpack-plugin@npm:^14.0.0":
   version: 14.0.0
   resolution: "copy-webpack-plugin@npm:14.0.0"
   dependencies:
@@ -8160,55 +8126,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"cypress@npm:*":
-  version: 15.18.0
-  resolution: "cypress@npm:15.18.0"
-  dependencies:
-    "@cypress/request": "npm:^4.0.0"
-    "@cypress/xvfb": "npm:^1.2.4"
-    "@types/sinonjs__fake-timers": "npm:8.1.1"
-    "@types/sizzle": "npm:^2.3.2"
-    "@types/tmp": "npm:^0.2.3"
-    arch: "npm:^2.2.0"
-    blob-util: "npm:^2.0.2"
-    bluebird: "npm:^3.7.2"
-    buffer: "npm:^5.7.1"
-    cachedir: "npm:^2.4.0"
-    chalk: "npm:^4.1.0"
-    ci-info: "npm:^4.1.0"
-    cli-table3: "npm:0.6.1"
-    commander: "npm:^6.2.1"
-    common-tags: "npm:^1.8.0"
-    dayjs: "npm:^1.10.4"
-    debug: "npm:^4.3.4"
-    eventemitter2: "npm:6.4.7"
-    execa: "npm:4.1.0"
-    executable: "npm:^4.1.1"
-    fs-extra: "npm:^9.1.0"
-    hasha: "npm:5.2.2"
-    is-installed-globally: "npm:~0.4.0"
-    listr2: "npm:^9.0.5"
-    lodash: "npm:^4.17.23"
-    log-symbols: "npm:^4.0.0"
-    minimist: "npm:^1.2.8"
-    ospath: "npm:^1.2.2"
-    pretty-bytes: "npm:^5.6.0"
-    process: "npm:^0.11.10"
-    proxy-from-env: "npm:1.0.0"
-    request-progress: "npm:^3.0.0"
-    supports-color: "npm:^8.1.1"
-    systeminformation: "npm:^5.31.1"
-    tmp: "npm:~0.2.4"
-    tree-kill: "npm:1.2.2"
-    tslib: "npm:1.14.1"
-    untildify: "npm:^4.0.0"
-    yauzl: "npm:^3.3.1"
-  bin:
-    cypress: bin/cypress
-  checksum: 10/e81a161b0df769ee5ca6771becb2304df359fa569b654d2d346a577c9ac268b339b4f79756573e2c23dd630e0d8e73b9cad0bd99aef5f18ab4a1d10b03aa81de
-  languageName: node
-  linkType: hard
-
 "cypress@npm:^16.2.0":
   version: 16.2.0
   resolution: "cypress@npm:16.2.0"
@@ -8271,13 +8188,6 @@ __metadata:
   version: 4.0.1
   resolution: "data-uri-to-buffer@npm:4.0.1"
   checksum: 10/0d0790b67ffec5302f204c2ccca4494f70b4e2d940fea3d36b09f0bb2b8539c2e86690429eb1f1dc4bcc9e4df0644193073e63d9ee48ac9fce79ec1506e4aa4c
-  languageName: node
-  linkType: hard
-
-"dayjs@npm:^1.10.4":
-  version: 1.11.21
-  resolution: "dayjs@npm:1.11.21"
-  checksum: 10/dd16f9f2706b61b90e3c346a3211ac3afd9e26193136ce0e87f70bf74d1c17a447bceb230a88b175467fc9f5e3243d8c1544b9897092a12d9c80ee44d338dcb6
   languageName: node
   linkType: hard
 
@@ -9831,12 +9741,10 @@ __metadata:
   languageName: node
   linkType: hard
 
-"file-selector@npm:^2.1.0":
-  version: 2.1.2
-  resolution: "file-selector@npm:2.1.2"
-  dependencies:
-    tslib: "npm:^2.7.0"
-  checksum: 10/2a6be0e1904df85f8705a5171fd3b93c1b1ff2ad0143556adb78ac4de899bfc0ba1a20083b4febd4f7000759ec9119a31af76a057e29dd9215907da69ac95e50
+"file-selector@npm:^5.0.1":
+  version: 5.0.1
+  resolution: "file-selector@npm:5.0.1"
+  checksum: 10/536a4d414d3b163915de9bbee342aebac00483bd15e1b973694074012cd18281b6f6092e01e4458c3b79af8e1dfff5db9b2636f7c3366b80ed2827202f7f4e6c
   languageName: node
   linkType: hard
 
@@ -14865,16 +14773,19 @@ __metadata:
   languageName: node
   linkType: hard
 
-"react-dropzone@npm:^15.0.0":
-  version: 15.0.0
-  resolution: "react-dropzone@npm:15.0.0"
+"react-dropzone@npm:^20.1.3":
+  version: 20.1.4
+  resolution: "react-dropzone@npm:20.1.4"
   dependencies:
-    attr-accept: "npm:^2.2.4"
-    file-selector: "npm:^2.1.0"
-    prop-types: "npm:^15.8.1"
+    attr-accept: "npm:^4.0.0"
+    file-selector: "npm:^5.0.1"
   peerDependencies:
-    react: ">= 16.8 || 18.0.0"
-  checksum: 10/1c465e16af658ea73002fffddd164ddc85ef745daac620c378eda8a938e2d28a558348831fdcfcf20dfed8a6c4579894adf6a5adc6165ce20cdc25f036d1c3ca
+    "@types/react": "*"
+    react: ">= 18"
+  peerDependenciesMeta:
+    "@types/react":
+      optional: true
+  checksum: 10/6d81b46be854e3ca6c7fb051b570077177c4379c20fcd8173de5d033f243508c5b7609f4a8e148b047e99efa89417c79e5c2874863e53e4660fef317c92fdf09
   languageName: node
   linkType: hard
 
@@ -16262,13 +16173,10 @@ __metadata:
     "@mui/icons-material": "npm:^9.5.0"
     "@mui/material": "npm:^9.5.0"
     "@mui/system": "npm:^9.5.0"
-    "@types/copy-webpack-plugin": "npm:^10.1.3"
-    "@types/cypress": "npm:^1.1.6"
     "@types/jest": "npm:^30.0.0"
     "@types/node": "npm:^26.6.5"
     "@types/react": "npm:^19.3.0"
     "@types/react-dom": "npm:^19.3.0"
-    "@types/uuid": "npm:^11.0.0"
     "@types/webpack": "npm:^5.28.5"
     "@typescript-eslint/eslint-plugin": "npm:^8.71.2"
     "@typescript-eslint/parser": "npm:^8.71.2"
@@ -16327,7 +16235,7 @@ __metadata:
     prop-types: "npm:^15.8.1"
     react: "npm:^19.3.1"
     react-dom: "npm:^19.3.1"
-    react-dropzone: "npm:^15.0.0"
+    react-dropzone: "npm:^20.1.3"
     react-error-boundary: "npm:^6.1.6"
     react-frame-component: "npm:^5.3.2"
     react-lazylog: "npm:^4.5.3"
@@ -16666,14 +16574,14 @@ __metadata:
   languageName: node
   linkType: hard
 
-"tslib@npm:1.14.1, tslib@npm:^1.9.3":
+"tslib@npm:^1.9.3":
   version: 1.14.1
   resolution: "tslib@npm:1.14.1"
   checksum: 10/7dbf34e6f55c6492637adb81b555af5e3b4f9cc6b998fb440dac82d3b42bdc91560a35a5fb75e20e24a076c651438234da6743d139e4feabf0783f3cdfe1dddb
   languageName: node
   linkType: hard
 
-"tslib@npm:^2.0.0, tslib@npm:^2.0.3, tslib@npm:^2.1.0, tslib@npm:^2.4.0, tslib@npm:^2.7.0, tslib@npm:^2.8.1":
+"tslib@npm:^2.0.0, tslib@npm:^2.0.3, tslib@npm:^2.1.0, tslib@npm:^2.4.0, tslib@npm:^2.8.1":
   version: 2.8.1
   resolution: "tslib@npm:2.8.1"
   checksum: 10/3e2e043d5c2316461cb54e5c7fe02c30ef6dccb3384717ca22ae5c6b5bc95232a6241df19c622d9c73b809bea33b187f6dbc73030963e29950c2141bc32a79f7
@@ -17139,15 +17047,6 @@ __metadata:
   version: 0.4.0
   resolution: "utila@npm:0.4.0"
   checksum: 10/b068d8cb140588da0d0c80ee3c14c6b75d3f68760d8a1c6c3908d0270e9e4056454ff16189586481b7382926c44674f6929d08e06eaf9ec8f62736cd900169c5
-  languageName: node
-  linkType: hard
-
-"uuid@npm:*":
-  version: 14.0.1
-  resolution: "uuid@npm:14.0.1"
-  bin:
-    uuid: dist-node/bin/uuid
-  checksum: 10/0f978fd5b0269d7acb615342aeb131f0b8d85eeb8ec34f2915d906baa3befcc14a079a430d0f8116aec6fd20c850cbfab65d1b3d1643fa81ed373c0cf9574f18
   languageName: node
   linkType: hard
 
