@@ -25,6 +25,8 @@ import { CLOUD_MODE } from './services/shared-types';
 import { DASHBOARD_DEFAULT } from './utils/constants';
 import _ from 'lodash';
 import { BackendGateway } from './services/BackendGateway';
+import { collectAppRisks } from './classes/NodeRisk';
+import { getAppFingerprint, rememberAppApproval } from './services/appTrust';
 
 (window as any).__PIXI_INSPECTOR_GLOBAL_HOOK__ &&
   (window as any).__PIXI_INSPECTOR_GLOBAL_HOOK__.register({ PIXI: PIXI });
@@ -429,11 +431,19 @@ export default class PPStorage {
     try {
       document.body.style.cursor = 'wait';
       PPStorage.getInstance().dateOfLastGraphLoaded = new Date(fileData.date);
+      const approvalGraphData = structuredClone(fileData.graphData);
       const migratedFileData = {
         ...fileData,
         graphData: migrateGraphDataOnLoad(fileData.graphData),
       };
-      await PPGraph.currentGraph.configure(migratedFileData);
+      if (
+        !(await PPGraph.currentGraph.configure(
+          migratedFileData,
+          approvalGraphData,
+        ))
+      ) {
+        return undefined;
+      }
 
       InterfaceController.notifyListeners(
         ListenEvent.GraphChanged,
@@ -458,6 +468,8 @@ export default class PPStorage {
         variant: 'error',
       });
       return undefined;
+    } finally {
+      document.body.style.cursor = 'default';
     }
   }
 
@@ -681,6 +693,13 @@ export default class PPStorage {
     InterfaceController.showSpinner(SAVING_GRAPH_SPINNER_MESSAGE);
     try {
       const storedGraph = PPGraph.currentGraph.getSerializedStoredGraph();
+      // Bind trust to the snapshot being saved, even if editing continues during IO.
+      const savedApproval = setAsCurrentGraph
+        ? getAppFingerprint(
+            storedGraph.graphData,
+            collectAppRisks(Object.values(PPGraph.currentGraph.nodes)),
+          )
+        : null;
       const savedDate = storedGraph.date;
 
       const oldName = storedGraph.name;
@@ -722,6 +741,7 @@ export default class PPStorage {
         storedGraph.id = existingGraphDB!.id;
         await this.saveGraphToDabase(storedGraph);
       }
+      if (savedApproval) rememberAppApproval(await savedApproval);
       if (setAsCurrentGraph) {
         PPGraph.currentGraph.name = newName;
         PPGraph.currentGraph.location = location;

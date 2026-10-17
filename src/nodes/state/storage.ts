@@ -3,6 +3,7 @@ import { hri } from 'human-readable-ids';
 import FlowLogic from '../../classes/FlowLogic';
 import PPGraph from '../../classes/GraphClass';
 import PPNode from '../../classes/NodeClass';
+import { NodeRisk, StorageRisk } from '../../classes/NodeRisk';
 import { NodeExecutionWarning } from '../../classes/ErrorClass';
 import { NodeExecutionError } from '../../classes/ErrorClass';
 import Socket from '../../classes/SocketClass';
@@ -83,6 +84,9 @@ function getStorageSocketPrefix(options: StorageSocketOptions = {}): Socket[] {
 }
 
 abstract class AbstractStorageNode extends PPNode {
+  public getRisks(): NodeRisk[] {
+    return [new StorageRisk()];
+  }
   public socketShouldAutomaticallyAdapt(socket: Socket): boolean {
     return socket.name === VALUE_NAME || socket.name === FALLBACK_VALUE_NAME;
   }

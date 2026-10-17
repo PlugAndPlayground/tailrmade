@@ -39,6 +39,7 @@ export const ResizeHandle = ({ isLeft, onPointerDown }) => {
 // Types
 interface LeftRightDrawerProps {
   isLeft: boolean;
+  reservedWidth?: number;
   // app view hides every panel; kept mounted so nothing remounts on the way
   // back out
   hidden: boolean;
@@ -51,6 +52,7 @@ interface LeftRightDrawerProps {
 // on small screens do they still take over the whole width, as before.
 const LeftRightDrawer: React.FC<LeftRightDrawerProps> = ({
   isLeft,
+  reservedWidth = 0,
   hidden,
   overlayState,
   updateOverlayState,
@@ -67,6 +69,9 @@ const LeftRightDrawer: React.FC<LeftRightDrawerProps> = ({
 
   const side = isLeft ? DrawerSide.LEFT : DrawerSide.RIGHT;
   const drawerWidth = overlayState[side].width;
+  const columnWidth = reservedWidth
+    ? `min(${drawerWidth}px, calc(100vw - ${reservedWidth + SHELL_CONSTANTS.RAIL_WIDTH + SHELL_CONSTANTS.MIN_CANVAS_STRIP_WIDTH}px))`
+    : `${drawerWidth}px`;
   const activeView = overlayState[side].activeView;
   const isOpen = overlayState[side].visible;
 
@@ -139,7 +144,7 @@ const LeftRightDrawer: React.FC<LeftRightDrawerProps> = ({
         sx={{
           display: hidden ? 'none' : 'block',
           flex: 'none',
-          width: isOpen ? (smallScreen ? '100%' : `${drawerWidth}px`) : 0,
+          width: isOpen ? (smallScreen ? '100%' : columnWidth) : 0,
           height: '100dvh',
           position: overlayOnSmallScreen ? 'absolute' : 'relative',
           ...(overlayOnSmallScreen
@@ -166,7 +171,7 @@ const LeftRightDrawer: React.FC<LeftRightDrawerProps> = ({
                 while the column animates open or closed */}
             <Box
               sx={{
-                width: smallScreen ? '100%' : `${drawerWidth}px`,
+                width: smallScreen ? '100%' : columnWidth,
                 height: '100%',
                 display: 'flex',
                 flexDirection: 'column',
@@ -190,7 +195,7 @@ const LeftRightDrawer: React.FC<LeftRightDrawerProps> = ({
             }
             sx={{
               position: 'fixed',
-              right: isOpen ? `${drawerWidth}px` : '0',
+              right: isOpen ? columnWidth : '0',
               top: '144px',
               transform: 'translateY(-50%)',
               zIndex: 5,

@@ -1,109 +1,70 @@
-import PPGraph from '../../../classes/GraphClass';
-import {
-  ComputeMessage,
-  ComputeResult,
-  MacroCallRequestMessage,
-  MacroCallResponseMessage,
-} from './compute-worker';
+import { runWorkerJob } from './workerJob';
+import type { ComputeMessage, ComputeResult } from './compute-worker';
+import { createComputeWorker } from './createComputeWorker';
 
 export class PNPWorker {
+  static readonly maxIdleWorkers = 4;
   static workerStack: Worker[] = [];
   static workersAllocated = 0;
-  private static isMacroCallMessage(
-    payload: any,
-  ): payload is MacroCallRequestMessage {
-    return payload && payload.type === 'macro-call';
+  private static session = new AbortController();
+
+  static resetSession(): void {
+    this.session.abort();
+    this.session = new AbortController();
+    for (const worker of this.workerStack) worker.terminate();
+    this.workerStack = [];
+  }
+  private static getWorker(): Worker {
+    const idle = this.workerStack.pop();
+    if (idle) return idle;
+    const worker = createComputeWorker();
+    this.workersAllocated++;
+    return worker;
   }
 
-  private static getWorker(): Worker {
-    if (!this.workerStack.length) {
-      console.log(
-        'creating new worker, total current workers: ' +
-          ++this.workersAllocated,
-      );
-      const worker = new Worker(new URL('compute-worker.ts', import.meta.url));
-      this.workerStack.push(worker);
-    } else {
-      //console.log('re-using old worker');
-    }
-    return this.workerStack.pop()!;
-  }
   private static depositWorker(worker: Worker): void {
     this.workerStack.push(worker);
-  }
-
-  private static async handleMacroCall(
-    message: MacroCallRequestMessage,
-    worker: Worker,
-  ): Promise<void> {
-    try {
-      const result = await PPGraph.currentGraph.invokeMacro(
-        message.macroName,
-        message.macroArgs,
-      );
-
-      worker.postMessage({
-        type: 'macro-response',
-        success: true,
-        result,
-      } satisfies MacroCallResponseMessage);
-    } catch (error) {
-      worker.postMessage({
-        type: 'macro-response',
-        success: false,
-        error: error instanceof Error ? error.message : String(error),
-      } satisfies MacroCallResponseMessage);
+    if (this.workerStack.length > this.maxIdleWorkers) {
+      this.workerStack.shift()!.terminate();
     }
   }
 
-  public work(
+  public async work(
     message: ComputeMessage,
     timeout: number = 30000,
   ): Promise<ComputeResult> {
-    return new Promise((resolve, reject) => {
-      const worker = PNPWorker.getWorker();
-
-      const cleanup = () => {
-        clearTimeout(timer);
-        //worker.terminate();
-        PNPWorker.depositWorker(worker);
-      };
-
-      const timer = setTimeout(() => {
-        cleanup();
-        reject(new Error('Compute operation timed out'));
-      }, timeout);
-
-      worker.onmessage = async (e: MessageEvent<any>) => {
-        const payload = e.data;
-
-        if (PNPWorker.isMacroCallMessage(payload)) {
-          await PNPWorker.handleMacroCall(payload, worker);
-          return;
+    const { signal } = PNPWorker.session;
+    const worker = PNPWorker.getWorker();
+    let succeeded = false;
+    const result = await runWorkerJob(
+      worker,
+      { ...message, timeout },
+      timeout,
+      async (payload) => {
+        if (!payload || typeof payload.success !== 'boolean' || payload.type) {
+          throw new Error('Invalid restricted worker response');
         }
-
-        cleanup();
-        resolve(payload as ComputeResult);
-      };
-
-      worker.onerror = (err) => {
-        cleanup();
-        reject(err);
-      };
-
-      worker.postMessage(message);
-    });
+        succeeded = payload.success;
+        return false;
+      },
+      () => (succeeded ? PNPWorker.depositWorker(worker) : worker.terminate()),
+      signal,
+    );
+    if (signal.aborted) throw new Error('App changed; compute cancelled');
+    return result;
   }
 
   public async workChunkedArray(
     message: ComputeMessage,
     timeout: number = 10000,
   ): Promise<ComputeResult> {
+    const { signal } = PNPWorker.session;
     const array = message.data as Array<any>;
     const ITEMS_PER_CHUNK = 10000;
     const chunks = Math.ceil(array.length / ITEMS_PER_CHUNK);
     let outArray: any[] = [];
     for (let i = 0; i < chunks; i++) {
+      if (signal.aborted) throw new Error('App changed; compute cancelled');
       const pos = i * ITEMS_PER_CHUNK;
       const endPos = i < chunks - 1 ? (i + 1) * ITEMS_PER_CHUNK : undefined;
       const currData = array.slice(pos, endPos);

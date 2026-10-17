@@ -1,4 +1,8 @@
-import { doWithTestController, openNewGraph } from '../helpers';
+import {
+  doWithTestController,
+  openNewGraph,
+  waitForGraphToBeReady,
+} from '../helpers';
 
 // Simple axis-aligned bounding box overlap check, mirroring the box
 // deOverlap()/autoAlignNodes() work with (node.x/y is the top-left corner,
@@ -206,12 +210,11 @@ describe('autoAlignNodes keeps disconnected clusters in their original vertical 
   it('keeps the originally-higher cluster above the originally-lower cluster', () => {
     // order matters: this reproduces the tied-order-score degenerate case
     const ids = ['source-a', 'sink-a', 'source-b', 'sink-b'];
-    // loadStringifiedGraph awaits configure() end-to-end (nodes created with
-    // their configured dimensions, links added, seed nodes executed), so no
-    // settle wait is needed before reading geometry for the layout.
+    // Approval and initial execution can finish after loading the graph.
     doWithTestController(async (tc) => {
       await tc.loadStringifiedGraph(GRAPH);
     });
+    waitForGraphToBeReady();
     doWithTestController(async (tc) => {
       const nodes = ids.map((id) => tc.getNodeByID(id));
 

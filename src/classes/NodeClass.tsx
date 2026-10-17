@@ -82,10 +82,21 @@ import { DropShadowFilter, GlowFilter } from 'pixi-filters';
 import { getObjectsInsideBounds } from '../pixi/utils-pixi';
 import { BackPropagation, BackPropagationPayload } from '../interfaces';
 import { addDashboardContentOutput } from '../utils/layoutableHelpers';
+import { NodeRisk } from './NodeRisk';
+import { appExecutionAllowed } from '../services/appExecution';
 import { loadStatusIcons } from '../utils/statusIcons';
 import { NodeStatusBadges } from './NodeStatusBadges';
 
 export default class PPNode extends PIXI.Container implements IWarningHandler {
+  // Called after loading and migration, before execution. Inspect inputs only.
+  public getRisks(): NodeRisk[] {
+    return [];
+  }
+
+  protected isRiskInputConnected(name: string): boolean {
+    return Boolean(this.getInputSocketByName(name)?.links.length);
+  }
+
   _NodeNameRef: PIXI.Text;
   _BackgroundRef: PIXI.Container;
   _NodeTextStringRef: PIXI.Text;
@@ -1353,7 +1364,7 @@ ${Math.round(bounds.minX)}, ${Math.round(
 
   // if you want to optimize the mapping of arguments, override this function instead of execute(), but most of the time just override onExecute()
   protected async rawExecute(): Promise<void> {
-    if (!this.hasBeenAdded) {
+    if (!this.hasBeenAdded || !appExecutionAllowed.get()) {
       return;
     }
 
@@ -1451,6 +1462,7 @@ ${Math.round(bounds.minX)}, ${Math.round(
 
   // Don't call this from outside unless you know very well what you are doing, you are probably looking for executeOptimizedChain()
   public async execute(): Promise<void> {
+    if (!appExecutionAllowed.get() || this.destroyed) return;
     this.setStatus(new PNPSuccess());
     if (this.isExecuting) {
       this.wantsToExecute = true;

@@ -39,10 +39,10 @@ export class ImageType extends AbstractType {
     return 'Image';
   }
 
-  // append b64 header if it is missing
+  // Preserve image URLs; only add a header to raw base64 payloads.
   parse(data: any): TParseType {
     let value = data;
-    if (typeof data == 'string' && !data.startsWith('data'))
+    if (typeof data === 'string' && /^[A-Za-z0-9+/\s]+={0,2}$/.test(data))
       value = 'data:image/png;base64,' + data;
     return { value, warnings: [] };
   }

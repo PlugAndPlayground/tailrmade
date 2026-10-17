@@ -1,4 +1,6 @@
 import PPNode from '../../classes/NodeClass';
+import { NodeRisk, NetworkRisk } from '../../classes/NodeRisk';
+import { appExecutionAllowed } from '../../services/appExecution';
 import Socket from '../../classes/SocketClass';
 import UpdateBehaviourClass from '../../classes/UpdateBehaviourClass';
 import { TRgba } from '../../utils/color';
@@ -9,6 +11,14 @@ import { StringType } from '../datatypes/stringType';
 import { TriggerType } from '../datatypes/triggerType';
 
 export class WebSocketNode extends PPNode {
+  public getRisks(): NodeRisk[] {
+    return [
+      new NetworkRisk(
+        this.isRiskInputConnected('URL') ? undefined : this.getInputData('URL'),
+      ),
+    ];
+  }
+
   // A configured, enabled connection can send messages without output consumers.
   public getSeemsUnused(): boolean {
     return (
@@ -166,6 +176,7 @@ again to reconnect.`;
   }
 
   public async sendCurrentMessage(): Promise<void> {
+    if (!appExecutionAllowed.get()) return;
     if (!this.hasBeenAdded || this.destroyed) return;
     const URL = this.getInputData('URL');
     const Enabled = this.getInputData('Enabled');

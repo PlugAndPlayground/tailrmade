@@ -24,6 +24,7 @@ import { StoredGraph } from '../utils/indexedDB';
 import PPStorage from '../PPStorage';
 import { AccessType } from '../utils/interfaces';
 import {
+  CLOUD_MODE,
   getDefaultPreferences,
   type StorageType,
   type UserData,
@@ -489,7 +490,7 @@ export class FirebaseAppHandler {
     try {
       this.ensureUserLoggedIn(`list ${type}s`);
 
-      return this.backendApi.listItemsMetadata(type);
+      return await this.backendApi.listItemsMetadata(type);
     } catch (error) {
       console.error(`Error listing ${type}s:`, error);
       return {
@@ -502,7 +503,7 @@ export class FirebaseAppHandler {
 
   async refreshGraphsMetadata(notifyListeners = true): Promise<boolean> {
     let success = false;
-    if (this.getIsLoggedIn()) {
+    if (CLOUD_MODE && this.getIsLoggedIn()) {
       console.log('Fetching Cloud Graphs');
       const result = await this.listItemsMetadata('graph');
       this.cachedGraphs = result.objects;

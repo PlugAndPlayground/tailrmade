@@ -4,6 +4,7 @@ import PPGraph from './GraphClass';
 import PPNode from './NodeClass';
 import Socket from './SocketClass';
 import InterfaceController from '../InterfaceController';
+import { appExecutionAllowed } from '../services/appExecution';
 
 // Track if execution is pending and allow waiting for it
 let executionPromise: Promise<void> | null = null;
@@ -33,6 +34,7 @@ export default class FlowLogic {
   static pendingExecution = new Set<string>();
 
   static addPendingExecution(nodeId: string): void {
+    if (!appExecutionAllowed.get()) return;
     // Create a new execution promise if none exists
     if (!executionPromise) {
       executionPromise = new Promise<void>((resolve) => {
@@ -112,6 +114,7 @@ export default class FlowLogic {
     foundational: PPNode[],
     excludedParent: string = undefined, // this sucks man
   ): Promise<void> {
+    if (!appExecutionAllowed.get()) return;
     // if it turns out that any of the foundationals are dependent on some other of them, remove from foundational (they will get called later because they apparently are part of child chain)
     const foundationalOriginalSet: Set<string> = new Set(
       foundational.map((node) => node.id),

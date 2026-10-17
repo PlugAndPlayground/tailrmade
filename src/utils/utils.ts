@@ -6,6 +6,7 @@ import { useTheme } from '@mui/material';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import PPStorage, { checkForUnsavedChanges } from '../PPStorage';
 import PPGraph from '../classes/GraphClass';
+import { rememberCopiedSelection } from '../services/nodePasteTrust';
 import PPNode from '../classes/NodeClass';
 import PPSocket from '../classes/SocketClass';
 import HybridNode2 from '../classes/HybridNode2';
@@ -1046,6 +1047,7 @@ export const cutOrCopyClipboard = async (e: ClipboardEvent): Promise<void> => {
   ) {
     e.preventDefault();
     const serializeSelection = PPGraph.currentGraph.serializeSelection(false);
+    rememberCopiedSelection(serializeSelection);
     writeDataToClipboard(serializeSelection);
     if (e.type === 'cut') {
       await PPGraph.currentGraph.perform_action_DeleteSelectedNodes();

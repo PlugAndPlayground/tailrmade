@@ -1,4 +1,5 @@
 import Socket from '../../classes/SocketClass';
+import { NodeRisk, AIUsageRisk } from '../../classes/NodeRisk';
 import PPNode from '../../classes/NodeClass';
 import UpdateBehaviourClass from '../../classes/UpdateBehaviourClass';
 import { NODE_TYPE_COLOR, SOCKET_TYPE } from '../../utils/constants';
@@ -33,6 +34,10 @@ export const AIConversationName = 'Conversation';
 export const responseName = 'Response';
 
 export class AINode extends HTTPNode {
+  public getRisks(): NodeRisk[] {
+    return [new AIUsageRisk()];
+  }
+
   public getSeemsUnused(): boolean {
     // Retained conversations can be advanced even when this response is unused.
     return (
