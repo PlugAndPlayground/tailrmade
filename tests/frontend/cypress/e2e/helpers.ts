@@ -3,7 +3,7 @@ import type TestController from '../../../../src/TestController';
 
 // Long timeouts exist for the slow CI machines. Locally you can iterate
 // faster by shortening them, e.g. CYPRESS_pnpTimeout=15000 yarn cy:run ...
-export const PNP_TIMEOUT = Number(Cypress.env('pnpTimeout') ?? 120000);
+export const PNP_TIMEOUT = Number(Cypress.expose('pnpTimeout') ?? 120000);
 
 export function doWithTestController<T>(
   inFunction: (testController: TestController) => T,
@@ -488,9 +488,7 @@ export const loginWithTestAccount = (
   forceRelogin = false,
 ) => {
   const testEmail =
-    Cypress.env('TEST_EMAIL') ||
-    Cypress.env('CYPRESS_TEST_EMAIL') ||
-    'cypress-test@tailrmade.app';
+    Cypress.expose('TEST_EMAIL') || 'cypress-test@tailrmade.app';
 
   loginWithCredentials(testEmail, 'testing', clickAway, forceRelogin);
 };
@@ -619,7 +617,7 @@ export const loginWithCredentials = (
 };
 
 // override with CYPRESS_pnpBaseUrl to run against a dev server on another port
-const PNP_BASE_URL = Cypress.env('pnpBaseUrl') || 'http://127.0.0.1:8080';
+const PNP_BASE_URL = Cypress.expose('pnpBaseUrl') || 'http://127.0.0.1:8080';
 
 export const openNewGraph = () => {
   logCypressStep('openNewGraph', 'new graph');

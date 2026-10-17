@@ -104,6 +104,11 @@ const FONT_WEIGHT_PRESETS = [
 ];
 
 export class Label extends PPNode implements Layoutable {
+  // Labels are visible graph content.
+  public getSeemsUnused(): boolean {
+    return false;
+  }
+
   PIXIText: PIXI.Text;
   PIXITextStyle: PIXI.TextStyle;
   HTMLTextComponent: HTMLDivElement;

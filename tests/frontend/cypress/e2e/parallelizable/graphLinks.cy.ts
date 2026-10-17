@@ -1,6 +1,6 @@
 describe('Graph Links', () => {
   it('open graph, old format', () => {
-    const pnpBaseUrl = Cypress.env('pnpBaseUrl') || 'http://127.0.0.1:8080';
+    const pnpBaseUrl = Cypress.expose('pnpBaseUrl') || 'http://127.0.0.1:8080';
 
     cy.readFile('tests/frontend/cypress/fixtures/button.ppgraph').then(
       (data) => {

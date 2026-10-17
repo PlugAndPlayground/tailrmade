@@ -11,7 +11,7 @@ describe('socket inventory probe', () => {
 
   it('dumps every node + socket to JSON', () => {
     const outPath =
-      Cypress.env('inventoryOut') || 'cypress/_socket-inventory.json';
+      Cypress.expose('inventoryOut') || 'cypress/_socket-inventory.json';
 
     doWithTestController(async (tc) => {
       const keys = tc.getAllDefinedNodeTypes();

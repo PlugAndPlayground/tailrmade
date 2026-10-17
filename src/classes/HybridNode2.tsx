@@ -231,6 +231,11 @@ function CanvasHybridNodeContent<T extends HybridNode2>(
 }
 
 export default abstract class HybridNode2 extends PPNode implements Layoutable {
+  // Visible content is useful even without connected outputs.
+  public getSeemsUnused(): boolean {
+    return false;
+  }
+
   root: Root | undefined;
   static: HTMLElement;
   staticRoot: Root;

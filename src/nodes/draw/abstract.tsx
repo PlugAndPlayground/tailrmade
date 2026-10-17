@@ -70,6 +70,11 @@ const defaultProps: WidgetProps = {
 };
 
 export abstract class DRAW_Base extends PPNode implements Layoutable {
+  // Drawing nodes can render directly on the canvas.
+  public getSeemsUnused(): boolean {
+    return false;
+  }
+
   deferredGraphics: PIXI.Container;
   listenIDUp = '';
   listenIDMove = '';

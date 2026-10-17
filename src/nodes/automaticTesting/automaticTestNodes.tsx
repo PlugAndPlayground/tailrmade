@@ -9,6 +9,11 @@ const conditionName = 'Condition';
 const descriptionName = 'Test Description';
 
 abstract class TEST extends PPNode {
+  // Tests report their results through notifications.
+  public getSeemsUnused(): boolean {
+    return false;
+  }
+
   public getTags(): string[] {
     return ['Test'];
   }

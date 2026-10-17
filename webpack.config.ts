@@ -192,7 +192,7 @@ const webpackConfig = (
       },
       setupMiddlewares: (
         middlewares: import('webpack-dev-server').Middleware[],
-        devServer: import('webpack-dev-server'),
+        devServer: import('webpack-dev-server').default,
       ) => {
         if (!devServer) {
           throw new Error('webpack-dev-server is not defined');
