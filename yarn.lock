@@ -8665,15 +8665,15 @@ __metadata:
   languageName: node
   linkType: hard
 
-"dompurify@npm:3.2.7":
-  version: 3.2.7
-  resolution: "dompurify@npm:3.2.7"
+"dompurify@npm:3.4.15":
+  version: 3.4.15
+  resolution: "dompurify@npm:3.4.15"
   dependencies:
     "@types/trusted-types": "npm:^2.0.7"
   dependenciesMeta:
     "@types/trusted-types":
       optional: true
-  checksum: 10/51b7866fb834ee62d6c415f41ece5ce11db7b463f60a822932a1f832573a40b98be7715550298690e7647988fbe086db1098bda9b10548b3166fc975eb9bd849
+  checksum: 10/159f592307578405c5217ba40ab467d4ac35f23eb20abc7f32b85698b8c1aff92f71b00c80779f891a8e463edafab05d9a4db53052d5c67005240ac4fff7fc72
   languageName: node
   linkType: hard
 
@@ -13296,13 +13296,13 @@ __metadata:
   languageName: node
   linkType: hard
 
-"monaco-editor@npm:^0.55.1":
-  version: 0.55.1
-  resolution: "monaco-editor@npm:0.55.1"
+"monaco-editor@npm:^0.57.0":
+  version: 0.57.0
+  resolution: "monaco-editor@npm:0.57.0"
   dependencies:
-    dompurify: "npm:3.2.7"
+    dompurify: "npm:3.4.15"
     marked: "npm:14.0.0"
-  checksum: 10/73836b612a923342001b8cbb459aad0de486c94672fb7cf9d28bdafed9f3b7523d5aba510d9f8e7d24476a5aacf0d3a5c0cdc520ed4764f6f89f8cf5ba8d9329
+  checksum: 10/190a681cb01c8b862875803ca4fedcd6a945c90c09dad3c8c8932d37b9510ccb82991cab0177b8c98be7deb74d49e4727fb6d43c2fc6ed94f712beb9fb1ccec3
   languageName: node
   linkType: hard
 
@@ -14878,17 +14878,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"react-monaco-editor@npm:^0.59.0":
-  version: 0.59.0
-  resolution: "react-monaco-editor@npm:0.59.0"
-  peerDependencies:
-    monaco-editor: ^0.52.0
-    react: ">=16.8.0 <20.0.0"
-    react-dom: ">=16.8.0 <20.0.0"
-  checksum: 10/2eb1a5340718052a01e7145a5ebd42effe0a669bb15d337e74de0deb1846f1dcaa86464878ef75df90c5a2202408bd415b836e24a4b1943cc7bdb1cdae30690b
-  languageName: node
-  linkType: hard
-
 "react-number-format@npm:^5.0.0":
   version: 5.4.5
   resolution: "react-number-format@npm:5.4.5"
@@ -16220,7 +16209,7 @@ __metadata:
     marked: "npm:^18.1.1"
     match-sorter: "npm:^8.3.0"
     mini-css-extract-plugin: "npm:^2.10.2"
-    monaco-editor: "npm:^0.55.1"
+    monaco-editor: "npm:^0.57.0"
     monaco-editor-webpack-plugin: "npm:^7.1.1"
     notistack: "npm:^3.0.2"
     object-fit-math: "npm:^1.0.0"
@@ -16239,7 +16228,6 @@ __metadata:
     react-error-boundary: "npm:^6.1.6"
     react-frame-component: "npm:^5.3.2"
     react-lazylog: "npm:^4.5.3"
-    react-monaco-editor: "npm:^0.59.0"
     react-responsive-carousel: "npm:^3.2.23"
     simple-statistics: "npm:7.12.1"
     terser-webpack-plugin: "npm:^5.6.1"
