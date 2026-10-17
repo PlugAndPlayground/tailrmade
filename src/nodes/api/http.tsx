@@ -160,7 +160,7 @@ Sending through the companion app needs
         }
       } else {
         // no body if Get
-        const bodyToUse: BodyInit = method !== 'Get' ? body : undefined;
+        const bodyToUse = method !== 'Get' ? body : undefined;
         const res = fetch(url, {
           method: method,
           headers: headers,

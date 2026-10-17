@@ -2,7 +2,7 @@ import React from 'react';
 import { AbstractType } from './abstractType';
 import { ImageWidget } from './imageType';
 import { HtmlWidget } from '../../widgets';
-import { HtmlTypeProps } from './htmlType';
+import { HtmlType, HtmlTypeProps } from './htmlType';
 
 export const convertSvgToBase64 = (svgData: string): string => {
   if (!svgData) return '';
@@ -93,7 +93,8 @@ export class SvgImageType extends AbstractType {
   };
 
   getInputWidget = (props: HtmlTypeProps): any => {
-    props.dataType = this;
+    // svg is edited as markup, so it reuses the html editor
+    props.dataType = this as unknown as HtmlType;
     return <HtmlWidget {...props} />;
   };
 

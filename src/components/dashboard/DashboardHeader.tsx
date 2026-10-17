@@ -12,12 +12,15 @@ import { SurfaceBreadcrumb } from './SurfaceBreadcrumb';
 import { DevicePreviewToggle } from './DevicePreviewToggle';
 import { toggleToolbox, useSurfaceStack, useToolboxOpen } from './viewState';
 import { SHELL_CONSTANTS } from '../../utils/constants';
-import { VISIBILITY_ACTION } from '../../utils/constants_shared';
+import {
+  VISIBILITY_ACTION,
+  TVisibilityAction,
+} from '../../utils/constants_shared';
 
 type DashboardHeaderProps = {
   isEditMode: boolean;
   isMaximized: boolean;
-  toggleMaximized: (action: VISIBILITY_ACTION) => void;
+  toggleMaximized: (action: TVisibilityAction) => void;
 };
 
 export const DashboardHeader: React.FC<DashboardHeaderProps> = ({

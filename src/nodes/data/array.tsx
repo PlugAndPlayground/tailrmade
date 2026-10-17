@@ -123,7 +123,7 @@ export class ArrayMethod extends PPNode {
         SOCKET_TYPE.IN,
         'Method',
         new EnumType(arrayMethodsArrayOptions, (value) =>
-          this.onOptionChange(value),
+          this.onOptionChange?.(value),
         ),
         'map',
         false,
@@ -438,7 +438,7 @@ export class ArrayZip extends DynamicInputNode {
     return 'Zip multiple arrays into a single JSON Array';
   }
 
-  public getSocketForNewConnection = (socket: Socket): Socket =>
+  public getSocketForNewConnection = (socket: Socket): Socket | undefined =>
     DynamicInputNodeFunctions.getSocketForNewConnection(socket, this, true);
 
   protected getDefaultIO(): Socket[] {
@@ -466,10 +466,10 @@ export class ArrayZip extends DynamicInputNode {
     const actualInputs = this.inputSocketArray
       .filter((socket) => !socket.name.includes(JSONArrayNamePropertySuffix))
       .map((socket) => socket.name);
-    const outObject = [];
+    const outObject: Record<string, unknown>[] = [];
     if (actualInputs.length) {
       for (let i = 0; i < input[actualInputs[0]].length; i++) {
-        const newObject = {};
+        const newObject: Record<string, unknown> = {};
         for (const socketName of actualInputs) {
           const inputName = input[socketName + JSONArrayNamePropertySuffix];
           const usedName = inputName.length ? inputName : socketName;

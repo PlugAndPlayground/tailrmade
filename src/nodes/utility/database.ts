@@ -240,7 +240,7 @@ export class SqliteReader extends PPNode {
     this.db = db;
     this.loadedSource = sourceKey;
 
-    const returnArray = [];
+    const returnArray: unknown[] = [];
     this.db.exec({
       sql: "SELECT name FROM sqlite_master WHERE type='table'",
       rowMode: 'array',
@@ -255,7 +255,7 @@ export class SqliteReader extends PPNode {
 
   executeQuery = async (): Promise<void> => {
     if (this.db) {
-      const returnArray = [];
+      const returnArray: unknown[] = [];
       const columnNames = [];
       this.db.exec({
         sql: this.getInputData(sqlQuerySocketName),

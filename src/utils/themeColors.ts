@@ -6,7 +6,7 @@ import { TRgba } from './color';
 // object - no omission logic, and it round-trips through serialization as an
 // ordinary string. That is why foregrounds use it rather than alpha 0:
 // transparent text is invisible, not inherited.
-export const INHERIT_COLOR = 'inherit';
+export const INHERIT_COLOR = 'inherit' as const;
 
 export type ColorSetting =
   Record<'r' | 'g' | 'b' | 'a', number> | typeof INHERIT_COLOR;

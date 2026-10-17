@@ -85,19 +85,20 @@ const ModalDialogOverlay: React.FC<{ node: ModalNodeLike }> = ({ node }) => {
       open
       maxWidth={false}
       fullScreen={fullScreen}
-      disableEscapeKeyDown={!dismissOnEscape}
       onClose={handleClose}
       data-cy={`modal dialog of NODE_${node.id}`}
-      PaperProps={{
-        sx: {
-          overflow: fullScreen ? 'auto' : 'hidden',
-          overscrollBehavior: 'contain',
-          background,
-          backgroundImage: 'none',
-          ...(fullScreen && {
-            paddingTop: 'env(safe-area-inset-top)',
-            paddingBottom: 'env(safe-area-inset-bottom)',
-          }),
+      slotProps={{
+        paper: {
+          sx: {
+            overflow: fullScreen ? 'auto' : 'hidden',
+            overscrollBehavior: 'contain',
+            background,
+            backgroundImage: 'none',
+            ...(fullScreen && {
+              paddingTop: 'env(safe-area-inset-top)',
+              paddingBottom: 'env(safe-area-inset-bottom)',
+            }),
+          },
         },
       }}
     >

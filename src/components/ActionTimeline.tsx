@@ -134,8 +134,8 @@ const ActionTimeline: React.FC = () => {
             primary="Initial state"
             secondary="Before the first action"
             slotProps={{
-              primary: { noWrap: true, fontSize: 13 },
-              secondary: { noWrap: true, fontSize: 11 },
+              primary: { noWrap: true, sx: { fontSize: 13 } },
+              secondary: { noWrap: true, sx: { fontSize: 11 } },
             }}
           />
         </ListItemButton>
@@ -177,8 +177,8 @@ const ActionTimeline: React.FC = () => {
                 primary={entry.name}
                 secondary={`${entry.index + 1}. ${sourceLabel[entry.source]} action`}
                 slotProps={{
-                  primary: { noWrap: true, fontSize: 13 },
-                  secondary: { noWrap: true, fontSize: 11 },
+                  primary: { noWrap: true, sx: { fontSize: 13 } },
+                  secondary: { noWrap: true, sx: { fontSize: 11 } },
                 }}
               />
               <Box sx={{ display: 'flex', alignItems: 'center', ml: 1 }}>

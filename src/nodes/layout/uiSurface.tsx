@@ -391,7 +391,7 @@ everything to keep. Omitted connected widgets are appended with a warning.
 
   // a new connection from a ReactUI output creates a fresh, named element
   // socket (plus its hidden "<name> visible"/"<name> layout" companions)
-  public getSocketForNewConnection(socket: PPSocket): PPSocket {
+  public getSocketForNewConnection(socket: PPSocket): PPSocket | undefined {
     if (!socket.isInput() && socket.dataType instanceof DeferredReactType) {
       const sourceNode = socket.getNode();
       // block embedding a surface into itself or into one it already contains

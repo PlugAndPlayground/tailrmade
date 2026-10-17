@@ -41,8 +41,6 @@ const GraphInspectorContainer: React.FunctionComponent<
         <NodeArrayContainer
           graphId={PPGraph.currentGraph?.id}
           selectedNodes={props.selectedNodes}
-          filter={props.filter}
-          setFilter={props.setFilter}
           filterText={props.filterText}
           setFilterText={props.setFilterText}
         />

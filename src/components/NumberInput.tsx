@@ -22,7 +22,7 @@ import type { InputVariant } from '../utils/theme/tokens';
  */
 export interface NumberInputProps {
   label?: string;
-  value: number;
+  value: number | null; // null shows an empty field
   onChange?: (value: number) => void;
   min?: number;
   max?: number;

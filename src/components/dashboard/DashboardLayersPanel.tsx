@@ -229,7 +229,7 @@ const LayerItem: React.FC<LayerNodeProps> = ({ id, depth }) => {
       try {
         const isRoot = id === RootName;
         const nodeElementId = node?.props?.id;
-        let layoutable = null;
+        let layoutable: Layoutable | null | undefined = null;
         if (isRoot) {
           layoutable = getDisplayedSurfaceElement();
         } else if (nodeElementId) {
