@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 
-import { PrismTokenizer, registerCodeHighlighting } from '@lexical/code';
+import { PrismTokenizer, registerCodeHighlighting } from '@lexical/code-prism';
 import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext';
 
 // a code block without a language keeps none, so a bare ``` in the markdown
