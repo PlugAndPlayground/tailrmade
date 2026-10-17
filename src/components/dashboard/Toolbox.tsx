@@ -9,7 +9,7 @@ import { Box, Tooltip, Divider, Typography, Drawer } from '@mui/material';
 import { Element, useEditor } from '@craftjs/core';
 import { v4 as uuid } from 'uuid';
 import { hri } from 'human-readable-ids';
-import { Container } from './Container';
+import { Container, ContainerProps } from './Container';
 import { Text } from './Text';
 import TextFieldsIcon from '@mui/icons-material/TextFields';
 import TitleIcon from '@mui/icons-material/Title';
@@ -302,6 +302,11 @@ const StaticToolButton: React.FC<StaticToolButtonProps> = ({
   );
 };
 
+// craft fills props not passed to <Element> from Container.craft.props
+const PartialContainer = Container as React.ComponentType<
+  Partial<ContainerProps>
+>;
+
 const getStaticTools = () => [
   {
     icon: TableRowsIcon,
@@ -311,7 +316,7 @@ const getStaticTools = () => [
     element: (
       <Element
         canvas
-        is={Container}
+        is={PartialContainer}
         padding={[8, 8, 8, 8]}
         background={TRANSPARENT_COLOR}
         gap={8}
@@ -327,7 +332,7 @@ const getStaticTools = () => [
     element: (
       <Element
         canvas
-        is={Container}
+        is={PartialContainer}
         padding={[8, 8, 8, 8]}
         background={TRANSPARENT_COLOR}
         gap={8}
@@ -447,7 +452,7 @@ export const Toolbox: React.FC<ToolboxProps> = ({ addToDashboard }) => {
   }, [PPGraph.currentGraph]);
 
   useEffect(() => {
-    const ids = [];
+    const ids: string[] = [];
     ids.push(
       InterfaceController.addListener(ListenEvent.GraphChanged, () => {
         updateNodesAndInfo();

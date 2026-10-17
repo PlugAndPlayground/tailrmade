@@ -4,8 +4,12 @@ import { Paper, ThemeProvider, ClickAwayListener } from '@mui/material';
 import InterfaceController, { ListenEvent } from '../InterfaceController';
 import { getObjectAtPoint, useStateRef } from '../utils/utils';
 import { TOOLTIP_WIDTH, customTheme } from '../utils/constants';
+import type PPNode from '../classes/NodeClass';
 
 export abstract class Tooltipable {
+  // set on sockets, which pass their node on as the selected node
+  declare node?: PPNode;
+
   getTooltipContent(props): React.ReactElement {
     return <></>;
   }

@@ -36,7 +36,9 @@ export const PlaceholderWidget = ({
 
   return (
     <Box
-      ref={(ref) => connect(drag(ref))}
+      ref={(ref) => {
+        if (ref) connect(drag(ref as HTMLElement));
+      }}
       sx={{
         width: '100%',
         height: '120px',

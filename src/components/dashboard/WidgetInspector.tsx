@@ -67,19 +67,19 @@ const PropsDebugger = ({ dashboardItem }) => {
           <Typography variant="subtitle2" sx={{ mb: 1 }}>
             Dashboard ID: {dashboardItem.id}
           </Typography>
-          <Typography variant="body2" fontWeight="bold" sx={{ mb: 1 }}>
+          <Typography variant="body2" sx={{ fontWeight: 'bold', mb: 1 }}>
             Properties
           </Typography>
           <pre style={{ margin: 0, fontSize: '12px' }}>
             {JSON.stringify(dashboardItem.data.props, null, 2)}
           </pre>
-          <Typography variant="body2" fontWeight="bold" sx={{ mt: 2, mb: 1 }}>
+          <Typography variant="body2" sx={{ fontWeight: 'bold', mt: 2, mb: 1 }}>
             Custom
           </Typography>
           <pre style={{ margin: 0, fontSize: '12px' }}>
             {JSON.stringify(dashboardItem.data.custom || {}, null, 2)}
           </pre>
-          <Typography variant="body2" fontWeight="bold" sx={{ mt: 2, mb: 1 }}>
+          <Typography variant="body2" sx={{ fontWeight: 'bold', mt: 2, mb: 1 }}>
             Node Metadata
           </Typography>
           <pre style={{ margin: 0, fontSize: '12px' }}>
@@ -129,7 +129,14 @@ export const WidgetInspector = () => {
     (state, query) => {
       let [currentDashboardId] = state.events.selected;
       const isRoot = currentDashboardId === RootName;
-      let selected = null;
+      let selected: {
+        id: string;
+        name: string;
+        displayName: string;
+        settings: React.ElementType | undefined;
+        isDeletable: boolean;
+        parent: string | null;
+      } | null = null;
 
       if (currentDashboardId) {
         const currentNode = state.nodes[currentDashboardId];

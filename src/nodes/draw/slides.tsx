@@ -249,7 +249,7 @@ const MyFunctionalComponent = ({
   const [data, setData] = useState(initializing);
   const [initialized, setInitialized] = useState(false);
   const deckDivRef = useRef(null);
-  const deckRef = useRef(null);
+  const deckRef = useRef<any>(null);
   const revealCssLinkId = `reveal-css-${node.id}`;
   const themeLinkId = `reveal-theme-${node.id}`;
 
@@ -386,6 +386,10 @@ const MyFunctionalComponent = ({
     }, 100);
   }, [initialized, props[inputSocketNameData]]);
 
+  const pointerEventsInput = { ...props, node, inDashboard } as Parameters<
+    typeof getCanvasWidgetPointerEvents
+  >[0];
+
   // for slides on a hidden dashboard remove interaction
   // else inject css variable for the arrow controls as they get lost (reveal.js bug?)
   const controlStylesOverrides: BoxProps['sx'] =
@@ -393,12 +397,12 @@ const MyFunctionalComponent = ({
       ? { pointerEvents: 'none' }
       : {
           '--r-controls-spacing': '0.8em' as const,
-          pointerEvents: getCanvasWidgetPointerEvents(props),
+          pointerEvents: getCanvasWidgetPointerEvents(pointerEventsInput),
         };
 
   // specifically remove interaction for sections
   const sectionStylesOverrides: BoxProps['sx'] = {
-    pointerEvents: getCanvasWidgetPointerEvents(props),
+    pointerEvents: getCanvasWidgetPointerEvents(pointerEventsInput),
   };
 
   // and again specifically for sections of slides on a hidden dashboard

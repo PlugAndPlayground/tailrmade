@@ -154,7 +154,7 @@ async function applyStaticToDynamic(args: StaticToDynamicActionArgs) {
     surface.id,
     surface.getSocketForNewConnection(
       node.getOutputSocketByName(SOCKET_NAME_DASHBOARD_CONTENT),
-    ).name,
+    )!.name,
     true,
   );
   const tree = surface.getSurfaceTree();
@@ -298,7 +298,8 @@ export function convertDynamicTextToStatic(nodeId: string): Promise<boolean> {
   const serializedNode = node.serialize();
   const links = node
     .getAllSockets()
-    .flatMap((socket) => socket.links.map((link) => link.serialize()));
+    .flatMap((socket) => socket.links.map((link) => link.serialize()))
+    .filter((link) => link !== undefined);
   const previousTreeJSON = JSON.stringify(guard.surface.getSurfaceTree());
   const inputs = getTokenInputs(node);
   const textProps = textPropsFromSocketValues(

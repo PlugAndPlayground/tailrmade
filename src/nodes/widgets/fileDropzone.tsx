@@ -554,7 +554,7 @@ const FileDropzoneComponent: React.FC<{
         <input {...getInputProps()} />
         <Typography
           variant="body1"
-          textAlign="center"
+          sx={{ textAlign: 'center' }}
           color={isDisabled ? 'text.disabled' : 'text.primary'}
         >
           {isDragActive ? 'Drop files here...' : label}

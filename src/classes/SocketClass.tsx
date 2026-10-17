@@ -127,7 +127,7 @@ export default class Socket
   _dataType: AbstractType;
   _data: any;
   _defaultData: any; // for inputs: data backup while unplugged, restores data when unplugged again
-  _custom: Record<string, any>;
+  _custom: Record<string, any> | undefined;
   _links: PPLink[];
 
   // some sockets are dependent on other sockets to exist, if that other socket does not, then this should also be removed
@@ -152,11 +152,11 @@ export default class Socket
     this._inspectorCollapsed = value;
   }
 
-  node: PPNode = undefined; // populated when socket is added
+  node!: PPNode; // populated when socket is added
 
   // cached data, for performance reasons (mostly UI related)
   cachedParsedData = undefined;
-  cachedStringifiedData = undefined;
+  cachedStringifiedData: string | undefined = undefined;
   lastSetTime = new Date().getTime();
 
   visibilityCondition: () => boolean = () => true;

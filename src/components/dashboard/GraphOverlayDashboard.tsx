@@ -11,7 +11,7 @@ import {
   getDashboardBackground,
 } from '../../utils/constants';
 import { DrawerSide, IOverlay } from '../../utils/interfaces';
-import { VISIBILITY_ACTION } from '../../utils/constants_shared';
+import { TVisibilityAction } from '../../utils/constants_shared';
 import { DashboardEditor } from './DashboardEditor';
 import { DashboardHeader } from './DashboardHeader';
 import { ResizeHandle } from '../LeftRightDrawer';
@@ -22,7 +22,7 @@ type DashboardColumnProps = {
   updateOverlayState: (newState: Partial<IOverlay>) => void;
   isEditMode: boolean;
   appView: boolean;
-  toggleMaximized: (action: VISIBILITY_ACTION) => void;
+  toggleMaximized: (action: TVisibilityAction) => void;
   setDashboardWidthPercentage: (percentage: number) => void;
 };
 

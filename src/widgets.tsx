@@ -599,7 +599,7 @@ export const FileBrowserWidget: React.FunctionComponent<FileTypeProps> = (
   const property = props.socketsToUpdate[0];
 
   const [filename, setFilename] = useState(property.data);
-  const [options, setOptions] = useState([]);
+  const [options, setOptions] = useState<any[]>([]);
   const [filterExtensions, setFilterExtensions] = useState(
     props.dataType.filterExtensions,
   );
@@ -873,7 +873,7 @@ export const TextWidget: React.FunctionComponent<StringTypeProps> = (props) => {
 
 export interface DataEditorWidgetProps {
   parseData: (value: string) => any;
-  language: string;
+  language?: string;
   errorMessage: string;
   inDashboard?: boolean;
   socketsToUpdate: Socket[];

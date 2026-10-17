@@ -20,15 +20,18 @@ import { DashboardEditor } from './dashboard/DashboardEditor';
 import { getDashboardBackground, LeftDrawerView } from '../utils/constants';
 import { DrawerSide, IOverlay } from '../utils/interfaces';
 import { SHELL_CONSTANTS } from '../utils/constants';
-import { VISIBILITY_ACTION } from '../utils/constants_shared';
+import {
+  VISIBILITY_ACTION,
+  TVisibilityAction,
+} from '../utils/constants_shared';
 
 type ShellLayoutProps = {
   overlayState: IOverlay;
   updateOverlayState: (newState: Partial<IOverlay>) => void;
   isEditMode: boolean;
   appView: boolean;
-  toggleAppView: (action: VISIBILITY_ACTION) => void;
-  toggleMaximized: (action: VISIBILITY_ACTION) => void;
+  toggleAppView: (action: TVisibilityAction) => void;
+  toggleMaximized: (action: TVisibilityAction) => void;
   setDashboardWidthPercentage: (percentage: number) => void;
   setContextMenuPosition: React.Dispatch<React.SetStateAction<number[]>>;
   setIsGraphContextMenuOpen: React.Dispatch<React.SetStateAction<boolean>>;

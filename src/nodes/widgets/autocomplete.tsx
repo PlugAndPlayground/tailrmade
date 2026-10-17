@@ -136,7 +136,7 @@ abstract class WidgetAutocompleteBase extends WidgetSelectableBase {
     const node = props.node as WidgetAutocompleteBase;
 
     const options: string[] = [
-      ...new Set(props[optionsName].map(stringifyIfNeeded)),
+      ...new Set<string>(props[optionsName].map(stringifyIfNeeded)),
     ];
     const freeSolo = props[freeSoloName];
     const noOptionsText = props[noOptionsTextName];

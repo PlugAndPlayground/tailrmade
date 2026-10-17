@@ -187,7 +187,6 @@ export default class PPStorage {
     InterfaceController.showSnackBar('Created new empty app');
 
     // Clear all graph-loading URL parameters when creating a new graph
-    removeUrlParameter(constants.URL_PARAMETER_NAME.LOADLOCAL);
     removeUrlParameter(constants.URL_PARAMETER_NAME.LOADURLGRAPH);
     removeUrlParameter(constants.URL_PARAMETER_NAME.LOADGRAPH);
     removeUrlParameter(constants.URL_PARAMETER_NAME.LOADLOCALGRAPH);
@@ -198,7 +197,7 @@ export default class PPStorage {
     return graphId;
   }
 
-  applyGestureMode(viewport: Viewport, newGestureMode: string | undefined) {
+  applyGestureMode(viewport: Viewport, newGestureMode?: string) {
     PPStorage.viewport = viewport;
     this.db
       .transaction('rw', this.db.settings, async () => {
@@ -389,6 +388,7 @@ export default class PPStorage {
       void BackendGateway.getInstance().refreshGraphsMetadata();
       InterfaceController.showSnackBar(`${graph.name} was deleted`);
     }
+    return wasDeleted;
   }
 
   async loadGraphFromCloudReference(compactFormat: any): Promise<void> {
@@ -932,7 +932,9 @@ export default class PPStorage {
       PPGraph.currentGraph.getSerializedStoredGraph(),
       true,
     );
-    const URL = `https://tailrmade.app/#${constants.URL_PARAMETER_NAME.LOADURLGRAPH}=` + serialized;
+    const URL =
+      `https://tailrmade.app/#${constants.URL_PARAMETER_NAME.LOADURLGRAPH}=` +
+      serialized;
     writeDataToClipboard(URL, false);
     InterfaceController.showSnackBar('Copied graph URL to clipboard');
   }
