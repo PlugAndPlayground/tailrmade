@@ -410,6 +410,9 @@ export class TextEditor2 extends HybridNode2 {
       // satisfy any pending focus request.
       const unregisterEditable = editorRef.current.registerEditableListener(
         (editable: boolean) => {
+          if (!editable) {
+            setPauseUpdate(false);
+          }
           if (editable && shouldAutoFocusWidgetContent(props)) {
             applyPendingFocus();
           }
