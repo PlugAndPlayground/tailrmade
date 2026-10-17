@@ -23,6 +23,11 @@ import { DynamicEnumType } from '../datatypes/dynamicEnumType';
 import { BackendGateway } from '../../services/BackendGateway';
 
 export class Tailrmade extends PPNode {
+  // This node can invoke graph and application actions.
+  public getSeemsUnused(): boolean {
+    return false;
+  }
+
   public getName(): string {
     return 'Tailrmade';
   }

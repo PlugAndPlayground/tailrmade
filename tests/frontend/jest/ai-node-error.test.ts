@@ -1,3 +1,7 @@
+jest.mock('../../../src/classes/NodeClass', () => ({
+  __esModule: true,
+  default: class {},
+}));
 jest.mock('../../../src/classes/SocketClass', () => ({
   __esModule: true,
   default: class {},

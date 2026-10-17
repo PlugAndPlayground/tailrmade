@@ -132,6 +132,7 @@ export const DARK_HEX = 0x0c0c0c;
 export const COLOR_WHITE_TEXT = '#F4FAF9';
 export const COLOR_ERROR = '#FF0000';
 export const COLOR_WARNING = '#FF8A00';
+export const COLOR_UNUSED = '#8A94A6';
 
 export const MAIN_COLOR = '#3c54ab';
 const randomColor = TRgba.fromString(MAIN_COLOR);
@@ -242,6 +243,7 @@ export const ADD_TO_DASHBOARD_ICON_TEXTURE =
 export const CONFIRMATION_ICON_TEXTURE = '../assets/Icon_Confirmation.svg';
 export const STATUS_ERROR_ICON_TEXTURE = '../assets/Icon_Error.svg';
 export const STATUS_WARNING_ICON_TEXTURE = '../assets/Icon_Warning.svg';
+export const STATUS_UNUSED_ICON_TEXTURE = '../assets/Icon_Unused.svg';
 export const STATUS_COMMENT_ICON_TEXTURE = '../assets/Icon_Comment.svg';
 
 export const ALIGNLEFT_TEXTURE = '../assets/Icon_AlignLeft.svg';
@@ -316,9 +318,10 @@ export const NODE_SOURCE = {
 
 export enum STATUS_SEVERITY {
   SUCCESS = 1,
-  WARNING = 2,
-  ERROR = 3,
-  FATAL = 4,
+  UNUSED = 2,
+  WARNING = 3,
+  ERROR = 4,
+  FATAL = 5,
 }
 
 export const COMMENT_TEXTSTYLE = new TextStyle({

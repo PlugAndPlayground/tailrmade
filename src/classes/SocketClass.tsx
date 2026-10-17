@@ -400,6 +400,9 @@ export default class Socket
       // update defaultData only if socket is input
       // and does not have a link
     }
+    if (!this.isOutput()) {
+      this.getNode()?.refreshUnusedStatus();
+    }
   }
 
   // ugly with a separate function... but making the normal set data async would be too painful I thought (I need to be able to wait for possible execution caused by trigger data sockets executing their own chains, for when execution needs to be sequential)

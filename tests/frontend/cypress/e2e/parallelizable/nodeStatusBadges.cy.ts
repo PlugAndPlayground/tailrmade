@@ -43,6 +43,8 @@ describe('nodeStatusBadges', () => {
     closeBothDrawers();
     doWithTestController(async (testController) => {
       await testController.addNode('Add', NODE_ID);
+      await testController.addNode('Add', 'BadgeConsumer', 600, 0);
+      await testController.connectNodesByID(NODE_ID, 'BadgeConsumer');
     });
     doWithTestController((testController) => {
       testController.getNodeByID(NODE_ID).setComment(COMMENT);

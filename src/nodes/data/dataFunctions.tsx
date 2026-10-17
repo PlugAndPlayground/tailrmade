@@ -114,6 +114,11 @@ export class ParseArray extends PPNode {
 }
 
 export class ConsolePrint extends PPNode {
+  // Execution can have effects independent of the outputs.
+  public getSeemsUnused(): boolean {
+    return false;
+  }
+
   public getName(): string {
     return 'Console print';
   }
@@ -209,6 +214,11 @@ const MACRO_CALL_REGEX = /\bmacro\s*\(/;
 
 // customfunction does any number of inputs but only one output for simplicity
 export class CustomFunction extends PPNode {
+  // Main-thread code may act on the app without returning a consumed result.
+  public getSeemsUnused(): boolean {
+    return !this.getInputData(allowFullAccessName) && super.getSeemsUnused();
+  }
+
   previousUserInput = '';
   functionWithVariablesFromInputObject = '';
 

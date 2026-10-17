@@ -1,4 +1,5 @@
 import Socket from '../../classes/SocketClass';
+import PPNode from '../../classes/NodeClass';
 import UpdateBehaviourClass from '../../classes/UpdateBehaviourClass';
 import { NODE_TYPE_COLOR, SOCKET_TYPE } from '../../utils/constants';
 import { TRgba } from '../../utils/color';
@@ -32,6 +33,14 @@ export const AIConversationName = 'Conversation';
 export const responseName = 'Response';
 
 export class AINode extends HTTPNode {
+  public getSeemsUnused(): boolean {
+    // Retained conversations can be advanced even when this response is unused.
+    return (
+      !this.getInputData(AIPersistantConversationName) &&
+      PPNode.prototype.getSeemsUnused.call(this)
+    );
+  }
+
   protected getDefaultProvider(): AIProvider {
     return 'claude';
   }

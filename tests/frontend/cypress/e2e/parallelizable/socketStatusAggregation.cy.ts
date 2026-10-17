@@ -51,6 +51,8 @@ describe('socketStatusAggregation', () => {
     closeBothDrawers();
     doWithTestController(async (testController) => {
       await testController.addNode('Add', NODE_ID);
+      await testController.addNode('Add', 'WarningConsumer', 600, 0);
+      await testController.connectNodesByID(NODE_ID, 'WarningConsumer');
     });
     setAddends('not a number', 'also not a number');
 

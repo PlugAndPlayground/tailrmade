@@ -7,7 +7,13 @@ import type { FitMode } from 'object-fit-math/dist/types';
 import PPGraph from '../../classes/GraphClass';
 import { isImageDataURL, saveBase64AsImage } from '../../utils/utils';
 import {
-  DashboardIconProps, TNodeSource, WidgetProps, Layoutable, DashboardWidgetProps, WidgetContentProps } from '../../utils/interfaces';
+  DashboardIconProps,
+  TNodeSource,
+  WidgetProps,
+  Layoutable,
+  DashboardWidgetProps,
+  WidgetContentProps,
+} from '../../utils/interfaces';
 import {
   DEFAULT_IMAGE,
   NODE_TYPE_COLOR,
@@ -77,6 +83,11 @@ const defaultProps: WidgetProps = {
 };
 
 export class Image extends PPNode implements Layoutable {
+  // Images can be displayed without downstream consumers.
+  public getSeemsUnused(): boolean {
+    return false;
+  }
+
   sprite: PIXI.Sprite;
   texture: PIXI.Texture;
   maskRef: PIXI.Graphics;
