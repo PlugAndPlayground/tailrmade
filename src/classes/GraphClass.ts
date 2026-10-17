@@ -64,6 +64,7 @@ import { VISIBILITY_ACTION } from '../utils/constants_shared';
 import HybridNode2 from './HybridNode2';
 import {
   ActionHandler,
+  ActionSource,
   ACTIONS,
   AddNodeActionArgs,
   BakedAction,
@@ -1138,6 +1139,8 @@ export default class PPGraph {
     //add link to input
     input.links = [link];
 
+    output.getNode().refreshSocketStatus();
+
     input.data = output.data;
 
     this.connectionContainer.addChild(link);
@@ -1914,10 +1917,15 @@ export default class PPGraph {
   }
 
   async perform_action_DeleteSelectedNodes(): Promise<void> {
-    const nodesSerialized = this.selection.selectedNodes.map((node) =>
-      node.serialize(),
-    );
-    const linksSerialized = this.selection.selectedNodes
+    await this.perform_action_DeleteNodes(this.selection.selectedNodes);
+  }
+
+  async perform_action_DeleteNodes(
+    nodes: PPNode[],
+    source: ActionSource = 'human',
+  ): Promise<void> {
+    const nodesSerialized = nodes.map((node) => node.serialize());
+    const linksSerialized = nodes
       .map((node) =>
         node
           .getAllSockets()
@@ -1967,6 +1975,10 @@ export default class PPGraph {
     await ActionHandler.performRawAction(
       new BakedAction(
         new SerializableAction(action, undoAction, 'Delete node(s)'),
+        {},
+        {},
+        undefined,
+        source,
       ),
     );
   }

@@ -62,7 +62,7 @@ type StatusTag = { label: string; color: string; severity: STATUS_SEVERITY };
 type FilterTag = { label: string; color?: string };
 
 const getStatusTags = (node: PPNode): StatusTag[] =>
-  node.getWarningsAndErrors().reduce<StatusTag[]>((tags, status) => {
+  node.getVisibleStatuses().reduce<StatusTag[]>((tags, status) => {
     const label = status.getBucketName();
     if (!tags.some((tag) => tag.label === label)) {
       tags.push({
@@ -135,9 +135,9 @@ type NodeItemProps = {
 const NodeItem = memo(
   (props: NodeItemProps) => {
     const node = props.property;
-    const statuses = node.getWarningsAndErrors();
+    const statuses = node.getVisibleStatuses();
     const statusTags = getStatusTags(node);
-    const rowBackground = statuses.length
+    const rowBackground = statuses[0]?.isProblem()
       ? ROW_BACKGROUND.mix(statuses[0].getColor(), ROW_SEVERITY_TINT)
       : ROW_BACKGROUND;
     const isSelected = (label: string) =>
@@ -462,17 +462,16 @@ export const NodeArrayContainer: React.FunctionComponent<
           .includes(filter),
       ) ||
       item
-        .getWarningsAndErrors()
+        .getVisibleStatuses()
         .some((status) => status.message?.toLowerCase().includes(filter))
     );
   };
 
   const customSort = (a: PPNode, b: PPNode): number => {
     const order =
-      (b.status.node.getSeverity() - a.status.node.getSeverity()) * 1000 +
-        (b.getSocketStatus().getSeverity() -
-          a.getSocketStatus().getSeverity()) *
-          100 +
+      ((b.getWorstStatus()?.getSeverity() ?? STATUS_SEVERITY.SUCCESS) -
+        (a.getWorstStatus()?.getSeverity() ?? STATUS_SEVERITY.SUCCESS)) *
+        1000 +
         (+(b.type === 'Macro') - +(a.type === 'Macro')) * 10 ||
       a.name.localeCompare(b.name);
     return order;

@@ -70,6 +70,11 @@ const defaultProps: WidgetProps = {
 };
 
 export abstract class DRAW_Base extends PPNode implements Layoutable {
+  // Drawing nodes can render directly on the canvas.
+  public getSeemsUnused(): boolean {
+    return false;
+  }
+
   deferredGraphics: PIXI.Container;
   listenIDUp = '';
   listenIDMove = '';
@@ -128,6 +133,11 @@ export abstract class DRAW_Base extends PPNode implements Layoutable {
 
   getWidgetContent(props: WidgetContentProps): React.ReactNode {
     throw new Error('Method not implemented.');
+  }
+
+  // by default it redraws the node in its own PIXI app
+  getWidgetBody(props: DynamicWidgetContainerNodeProps): React.ReactNode {
+    return <DynamicWidgetPixiBody {...props} />;
   }
 
   getRelatedNode(): PPNode {
@@ -491,7 +501,7 @@ export abstract class DRAW_Interactive_Base extends DRAW_Base {
 
 const DynamicWidgetContainerDrawNode: React.FunctionComponent<
   Partial<DynamicWidgetContainerNodeProps> & {
-    property: PPNode;
+    property: DRAW_Base;
     isSurfacePreview?: boolean;
   }
 > = (props) => {
@@ -511,12 +521,12 @@ const DynamicWidgetContainerDrawNode: React.FunctionComponent<
         blockInteraction={props.blockInteraction}
         isSurfacePreview={props.isSurfacePreview}
       >
-        <DynamicWidgetPixiBody
-          property={props.property}
-          disabled={props.disabled}
-          width={props.width}
-          height={props.height}
-        />
+        {props.property.getWidgetBody({
+          property: props.property,
+          disabled: props.disabled,
+          width: props.width,
+          height: props.height,
+        })}
       </DashboardContentGate>
     </Box>
   );

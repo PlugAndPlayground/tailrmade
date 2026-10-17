@@ -18,6 +18,15 @@ export class WebSocketNode extends PPNode {
       ),
     ];
   }
+
+  // A configured, enabled connection can send messages without output consumers.
+  public getSeemsUnused(): boolean {
+    return (
+      (!this.getInputData('Enabled') || !this.getInputData('URL')?.trim()) &&
+      super.getSeemsUnused()
+    );
+  }
+
   private connection?: WebSocket;
   private connectionURL = '';
   private pendingMessages: (string | BufferSource | Blob)[] = [];

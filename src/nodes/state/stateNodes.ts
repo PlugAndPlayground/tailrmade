@@ -85,6 +85,13 @@ function trimArrayToMaxSize(values: any[], maxSize: number): void {
 }
 
 abstract class StateNode extends PPNode {
+  // A linked State input writes back to its source, even with unused outputs.
+  public getSeemsUnused(): boolean {
+    return (
+      !this.getInputSocketByName('State')?.hasLink() && super.getSeemsUnused()
+    );
+  }
+
   public getTags(): string[] {
     return ['State'].concat(super.getTags());
   }
@@ -303,6 +310,11 @@ export class NumberState extends StateNode {
 }
 
 export class StateWrite extends PPNode {
+  // State can be updated or consumed outside the output connections.
+  public getSeemsUnused(): boolean {
+    return false;
+  }
+
   getColor(): TRgba {
     return TRgba.fromString(NODE_TYPE_COLOR.OUTPUT);
   }

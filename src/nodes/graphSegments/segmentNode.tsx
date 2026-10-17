@@ -7,6 +7,11 @@ import { registerLocalSelection } from '../../services/nodePasteTrust';
 import * as PIXI from 'pixi.js';
 
 export abstract class SegmentNode extends PPNode {
+  // Adding a segment modifies the graph.
+  public getSeemsUnused(): boolean {
+    return false;
+  }
+
   getName() {
     return this.getSegment().getName();
   }

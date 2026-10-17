@@ -91,6 +91,12 @@ export class Image extends PPNode implements Layoutable {
       this.isRiskInputConnected(imageInputName),
     );
   }
+
+  // Images can be displayed without downstream consumers.
+  public getSeemsUnused(): boolean {
+    return false;
+  }
+
   sprite: PIXI.Sprite;
   texture: PIXI.Texture;
   maskRef: PIXI.Graphics;

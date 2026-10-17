@@ -6,11 +6,13 @@ import { ArrayWidget } from '../../widgets';
 import {
   AbstractType,
   Compatibility,
+  CompatibilityType,
   DataTypeProps,
   dataTypeWidgetDefaultProps,
 } from './abstractType';
 import { ArrayType } from './arrayType';
 import { AnyType } from './anyType';
+import { WorkbookType } from './workbookType';
 
 export class JSONArrayType extends ArrayType {
   constructor() {
@@ -41,6 +43,12 @@ export class JSONArrayType extends ArrayType {
     data: any,
     convertFrom: AbstractType = new AnyType(),
   ): Compatibility {
+    if (convertFrom instanceof WorkbookType) {
+      return new Compatibility(
+        CompatibilityType.Compatible,
+        'SpreadsheetToTable',
+      );
+    }
     return AbstractType.warningsToCompatibility(this.parse(data).warnings);
   }
 

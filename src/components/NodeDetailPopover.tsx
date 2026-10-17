@@ -89,8 +89,8 @@ export const NodeDetailPopover: React.FC = () => {
           ) {
             return current;
           }
-          return current.node.getWarningsAndErrors().length
-            ? current
+          return current.node.getVisibleStatuses().length
+            ? { ...current }
             : undefined;
         });
       }),
@@ -111,7 +111,7 @@ export const NodeDetailPopover: React.FC = () => {
   }
 
   const statuses =
-    state.kind === 'status' ? state.node.getWarningsAndErrors() : [];
+    state.kind === 'status' ? state.node.getVisibleStatuses() : [];
   const comment = state.kind === 'comment' ? state.node.comment : undefined;
   if (state.kind === 'status' ? !statuses.length : !comment) {
     return null;

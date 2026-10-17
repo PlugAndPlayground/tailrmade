@@ -20,6 +20,7 @@ import {
 import { inputResourceIdSocketName } from './nodes/draw/video';
 import { sqlQuerySocketName } from './nodes/utility/database';
 import { Table2, tableDataInputName } from './nodes/table/table2';
+import { readRawWorkbook } from './utils/rawSpreadsheet';
 import InterfaceController, { ListenEvent } from './InterfaceController';
 import { readParquetFile } from './utils/parquet';
 import {
@@ -147,14 +148,12 @@ export const handleFileDrop = async (
           break;
 
         case 'spreadsheet':
-          // todo enable new method
-          //if (extension === 'csv') {
-          //  data = [Table2.convertCSVToJSONArray(await response.text())];
-          //} else {
-          data = await Table2.convertArrayBufferToTableInput(
-            await response.arrayBuffer(),
-          );
-          //}
+          // Existing import callbacks consume table rows; canvas drops keep cells.
+          data = fileHandler
+            ? await Table2.convertArrayBufferToTableInput(
+                await response.arrayBuffer(),
+              )
+            : readRawWorkbook(await response.arrayBuffer());
           break;
 
         case 'parquet':
@@ -226,12 +225,12 @@ export const handleFileDrop = async (
             break;
 
           case 'spreadsheet':
-            await Table2.dataToTableCreation(
-              data,
+            newNode = await PPGraph.currentGraph.addNewNode('RawSpreadsheet', {
+              defaultArguments: { Workbook: data },
               nodePosX,
               nodePosY,
-              file.name.split('.')[0],
-            );
+            });
+            newNode.setNodeName(file.name);
             break;
 
           case 'parquet':

@@ -93,6 +93,7 @@ export default class PPLink extends PIXI.Container {
     this.getSource().removeLink(this);
     PPGraph.currentGraph.connectionContainer.removeChild(this);
     prevSource.getNode().outputUnplugged(prevSource);
+    prevSource.getNode().refreshSocketStatus();
     if (!skipNotifyInput && PPGraph.currentGraph.graphConfiguredAndReady) {
       prevTarget.getNode().inputUnplugged(prevTarget);
       const targetNode = this.getTarget().getNode();

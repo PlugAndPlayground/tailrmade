@@ -12,6 +12,7 @@ import {
 } from '../classes/Action';
 import PPGraph from '../classes/GraphClass';
 import PPNode from '../classes/NodeClass';
+import PPSelection from '../classes/selection/SelectionClass';
 import Socket from '../classes/SocketClass';
 import { PNPStatus } from '../classes/ErrorClass';
 import InterfaceController from '../InterfaceController';
@@ -90,6 +91,11 @@ type MCPToolName =
   | 'list_available_nodes'
   | 'describe_node'
   | 'add_node'
+  | 'remove_node'
+  | 'inspect_history'
+  | 'undo'
+  | 'redo'
+  | 'run_node'
   | 'connect_sockets'
   | 'disconnect_sockets'
   | 'set_socket_value'
@@ -102,10 +108,19 @@ type MCPToolName =
   | 'inspect_ui'
   | 'set_layout_value'
   | 'set_surface_layout'
-  | 'set_default_surface';
+  | 'set_default_surface'
+  | 'finish_section';
 
 interface AddNodeInput {
   node_type: string;
+  node_id: string;
+}
+
+interface RemoveNodeInput {
+  node_id: string;
+}
+
+interface RunNodeInput {
   node_id: string;
 }
 
@@ -161,6 +176,30 @@ interface InspectNodesInput {
   node_ids: string[];
 }
 
+interface InspectWarningsAndErrorsInput {
+  node_ids?: string[];
+}
+
+type SectionPlacement = 'right' | 'below';
+
+interface FinishSectionInput {
+  title: string;
+  node_ids: string[];
+  placement?: SectionPlacement;
+  restructure?: boolean;
+}
+
+interface SectionBounds {
+  minX: number;
+  minY: number;
+  maxX: number;
+  maxY: number;
+}
+
+// Space between two sections laid out by finish_section, wider than the gap
+// between layers inside one so the sections read as separate blocks.
+const SECTION_GAP = 240;
+
 interface DescribeNodeInput {
   node_type: string;
 }
@@ -215,31 +254,154 @@ export class TailrmadeMCPServer {
   // the turn's nodes into a consistent column
   private turnNodeAnchor: PIXI.Point | null = null;
 
+  // Nodes finish_section already laid out this turn. They leave
+  // turnCreatedNodeIds so the end-of-turn pass doesn't reshuffle them, but the
+  // final zoom still frames them.
+  private turnSectionNodeIds = new Set<string>();
+
+  // Where the previous section landed, and the left edge and bottom of the
+  // row it sits in, so the next section can go to its right or start a new
+  // row below.
+  private lastSectionBounds: SectionBounds | null = null;
+  private sectionRowStartX = 0;
+  private sectionRowBottom = 0;
+
   public beginAgentTurn(): void {
     this.turnCreatedNodeIds.clear();
     this.turnNodeAnchor = null;
+    this.turnSectionNodeIds.clear();
+    this.lastSectionBounds = null;
   }
 
   public async finishAgentTurn(): Promise<void> {
-    const nodes = Array.from(this.turnCreatedNodeIds)
+    const nodes = this.getExistingNodes(this.turnCreatedNodeIds);
+    const sectionNodes = this.getExistingNodes(this.turnSectionNodeIds);
+    this.turnCreatedNodeIds.clear();
+    this.turnSectionNodeIds.clear();
+    if (nodes.length >= 1 && this.lastSectionBounds) {
+      // leftovers outside any section become one last block after them
+      await this.layOutSection(nodes, 'right');
+    } else if (nodes.length >= 2) {
+      // A single node needs no pass: autoAlignNodes only lays out the nodes it
+      // is given and re-anchors the result to their original top-left, so with
+      // one node it's a geometric no-op (deOverlap at add time already placed
+      // it). Skip the pointless move animation.
+      await PPGraph.currentGraph.selection.autoAlignNodes(nodes);
+    }
+    this.lastSectionBounds = null;
+    const allNodes = sectionNodes.concat(nodes);
+    if (allNodes.length >= 1) {
+      zoomToFitNodes(allNodes);
+    }
+  }
+
+  private getExistingNodes(nodeIds: Iterable<string>): PPNode[] {
+    return Array.from(nodeIds)
       .map((id) => PPGraph.currentGraph.nodes[id])
       .filter((node): node is PPNode => node !== undefined);
-    this.turnCreatedNodeIds.clear();
-    // A single node needs no pass: autoAlignNodes only lays out the nodes it
-    // is given and re-anchors the result to their original top-left, so with
-    // one node it's a geometric no-op (deOverlap at add time already placed
-    // it). Skip the pointless move animation.
+  }
+
+  // Moves the block next to the previous section, auto-aligns it there and
+  // records where it landed, as one undoable move. Post-pass nodes (macros)
+  // are left to autoAlignNodes, which wraps them around their content
+  // afterwards. A restructure starts right of the whole graph so its sections
+  // never land on nodes still waiting to be sorted.
+  private async layOutSection(
+    nodes: PPNode[],
+    placement: SectionPlacement,
+    restructure = false,
+  ): Promise<SectionBounds> {
+    const contentNodes = nodes.filter((node) => !node.isPostPassForAutoAlign());
+    const previousPositions = nodes.map(
+      (node) => new PIXI.Point(node.x, node.y),
+    );
+    let previous = this.lastSectionBounds;
+    if (!previous && restructure) {
+      const graph = PPSelection.getNodesMinMax(
+        Object.values(PPGraph.currentGraph.nodes),
+      );
+      previous = graph;
+      this.sectionRowStartX = graph.maxX + SECTION_GAP;
+      this.sectionRowBottom = graph.minY - SECTION_GAP;
+    }
+    if (previous && contentNodes.length > 0) {
+      const { minX, minY } = PPSelection.getNodesMinMax(contentNodes);
+      const targetX =
+        placement === 'below'
+          ? this.sectionRowStartX
+          : previous.maxX + SECTION_GAP;
+      const targetY =
+        placement === 'below'
+          ? this.sectionRowBottom + SECTION_GAP
+          : previous.minY;
+      contentNodes.forEach((node) => {
+        node.setPosition(node.x + targetX - minX, node.y + targetY - minY);
+      });
+    }
     if (nodes.length >= 2) {
       await PPGraph.currentGraph.selection.autoAlignNodes(nodes);
     }
-    if (nodes.length >= 1) {
-      zoomToFitNodes(nodes);
+    const nodeIds = nodes.map((node) => node.id);
+    await PNPAction(
+      ACTIONS.MOVE_NODES,
+      {
+        Nodes: nodeIds,
+        Positions: nodes.map((node) => new PIXI.Point(node.x, node.y)),
+      },
+      { Nodes: nodeIds, Positions: previousPositions },
+      undefined,
+      'ai',
+    );
+
+    const bounds = PPSelection.getNodesMinMax(
+      contentNodes.length > 0 ? contentNodes : nodes,
+    );
+    if (!this.lastSectionBounds || placement === 'below') {
+      this.sectionRowStartX = bounds.minX;
+      this.sectionRowBottom = bounds.maxY;
+    } else {
+      this.sectionRowBottom = Math.max(this.sectionRowBottom, bounds.maxY);
     }
+    this.lastSectionBounds = bounds;
+    // the next section's nodes spawn where that section will most likely go
+    this.turnNodeAnchor = new PIXI.Point(
+      bounds.maxX + SECTION_GAP,
+      bounds.minY,
+    );
+    return bounds;
   }
 
   listTools(): MCPToolDefinition[] {
     const { highestNumber, nextId } = this.getAINodeIdSequence();
     return [
+      {
+        name: 'inspect_history',
+        description:
+          'Inspect the shared editor undo/redo history, including action names, human or AI source, and which actions are applied. Inspect before undoing or redoing to identify the affected action.',
+        input_schema: { type: 'object', properties: {} },
+      },
+      {
+        name: 'undo',
+        description:
+          'Undo the most recent applied editor history entry. This is one history step, not an entire AI request, and may undo a human edit. Returns the affected action and updated history. Node execution and external side effects are not reversible through editor history.',
+        input_schema: { type: 'object', properties: {} },
+      },
+      {
+        name: 'redo',
+        description:
+          'Redo the next undone editor history entry. New edits clear the redo history. Returns the affected action and updated history.',
+        input_schema: { type: 'object', properties: {} },
+      },
+      {
+        name: 'run_node',
+        description:
+          'Run a node by exact ID with its current inputs, then update downstream nodes according to their update settings, like the editor Run action. Returns the requested node with output values and status after execution. May trigger external side effects such as HTTP requests; execution is not undoable. Use inspect_warnings_and_errors to check downstream errors.',
+        input_schema: {
+          type: 'object',
+          properties: { node_id: { type: 'string' } },
+          required: ['node_id'],
+        },
+      },
       {
         name: 'inspect_graph',
         description:
@@ -280,10 +442,19 @@ export class TailrmadeMCPServer {
       {
         name: 'inspect_warnings_and_errors',
         description:
-          'List all node and socket warnings and errors in the graph.',
+          'List node and socket warnings and errors in the whole graph, or only on the given nodes.',
         input_schema: {
           type: 'object',
-          properties: {},
+          properties: {
+            node_ids: {
+              type: 'array',
+              description:
+                'Only report issues on these nodes, e.g. the section just built. Omit to check the whole graph.',
+              items: {
+                type: 'string',
+              },
+            },
+          },
         },
       },
       {
@@ -336,6 +507,18 @@ export class TailrmadeMCPServer {
             },
           },
           required: ['node_type', 'node_id'],
+        },
+      },
+      {
+        name: 'remove_node',
+        description:
+          'Delete one node by its exact ID and remove all its connections. Undo restores the node and its connections. Use inspect_graph or inspect_selected_nodes to find the ID. To only take a widget off a surface or unlink nodes while keeping them, use disconnect_sockets.',
+        input_schema: {
+          type: 'object',
+          properties: {
+            node_id: { type: 'string' },
+          },
+          required: ['node_id'],
         },
       },
       {
@@ -563,6 +746,39 @@ export class TailrmadeMCPServer {
           required: ['node_id'],
         },
       },
+      {
+        name: 'finish_section',
+        description:
+          'Mark nodes as one finished logical section of the app (e.g. "Fetch weather data", "City and date filter UI"): auto-aligns them as a block, places that block to the right of the previous section (or in a new row below), and shows it to the user. Only nodes added during this request and not already in a section are moved, unless restructure is set. Nodes added afterwards spawn next to the finished section.',
+        input_schema: {
+          type: 'object',
+          properties: {
+            title: {
+              type: 'string',
+              description: 'Short name of the section, shown to the user.',
+            },
+            node_ids: {
+              type: 'array',
+              description: 'The nodes that make up this section.',
+              items: {
+                type: 'string',
+              },
+            },
+            placement: {
+              type: 'string',
+              enum: ['right', 'below'],
+              description:
+                '"right" (default) continues the current row of sections; "below" starts a new row, e.g. for UI sections under the data sections.',
+            },
+            restructure: {
+              type: 'boolean',
+              description:
+                'Also move nodes that existed before this request. Only when the user asked to structure or tidy their app.',
+            },
+          },
+          required: ['title', 'node_ids'],
+        },
+      },
     ];
   }
 
@@ -590,6 +806,15 @@ export class TailrmadeMCPServer {
     try {
       const toolName = name as MCPToolName;
       switch (toolName) {
+        case 'inspect_history':
+          return {
+            content: JSON.stringify(ActionHandler.getHistorySnapshot()),
+          };
+        case 'undo':
+        case 'redo':
+          return await this.changeHistory(toolName);
+        case 'run_node':
+          return await this.runNode(input as unknown as RunNodeInput);
         case 'inspect_graph':
           return this.inspectGraph();
         case 'inspect_nodes':
@@ -597,13 +822,17 @@ export class TailrmadeMCPServer {
         case 'inspect_selected_nodes':
           return this.inspectSelectedNodes();
         case 'inspect_warnings_and_errors':
-          return this.inspectWarningsAndErrors();
+          return this.inspectWarningsAndErrors(
+            input as unknown as InspectWarningsAndErrorsInput,
+          );
         case 'list_available_nodes':
           return await this.listAvailableNodes(input);
         case 'describe_node':
           return this.describeNode(input as unknown as DescribeNodeInput);
         case 'add_node':
           return await this.addNode(input as unknown as AddNodeInput);
+        case 'remove_node':
+          return await this.removeNode(input as unknown as RemoveNodeInput);
         case 'connect_sockets':
           return await this.connectSockets(
             input as unknown as ConnectSocketsInput,
@@ -645,6 +874,10 @@ export class TailrmadeMCPServer {
         case 'set_default_surface':
           return this.setDefaultSurface(
             input as unknown as SetDefaultSurfaceInput,
+          );
+        case 'finish_section':
+          return await this.finishSection(
+            input as unknown as FinishSectionInput,
           );
         default:
           return {
@@ -780,8 +1013,14 @@ export class TailrmadeMCPServer {
     }
   }
 
-  private inspectWarningsAndErrors(): MCPToolResult {
-    const issues = Object.values(PPGraph.currentGraph.nodes).flatMap((node) => {
+  private inspectWarningsAndErrors(
+    input: InspectWarningsAndErrorsInput = {},
+  ): MCPToolResult {
+    const nodeIds = Array.isArray(input.node_ids) ? input.node_ids : undefined;
+    const nodes = nodeIds
+      ? this.getExistingNodes(new Set(nodeIds))
+      : Object.values(PPGraph.currentGraph.nodes);
+    const issues = nodes.flatMap((node) => {
       const nodeIssues = [
         this.statusToIssue(node, 'node', node.status.node),
         this.statusToIssue(node, 'socket_summary', node.getSocketStatus()),
@@ -804,6 +1043,77 @@ export class TailrmadeMCPServer {
         has_issues: issues.length > 0,
         issue_count: issues.length,
         issues,
+        missing_node_ids: nodeIds?.filter(
+          (nodeId) => !PPGraph.currentGraph.nodes[nodeId],
+        ),
+      }),
+    };
+  }
+
+  private async finishSection(
+    input: FinishSectionInput,
+  ): Promise<MCPToolResult> {
+    if (typeof input.title !== 'string' || input.title.trim() === '') {
+      throw new Error('finish_section requires a title');
+    }
+    if (!Array.isArray(input.node_ids) || input.node_ids.length === 0) {
+      throw new Error('finish_section requires at least one node_id');
+    }
+    if (
+      input.placement !== undefined &&
+      input.placement !== 'right' &&
+      input.placement !== 'below'
+    ) {
+      throw new Error('placement must be "right" or "below"');
+    }
+
+    const nodeIds = Array.from(new Set(input.node_ids));
+    const missingNodeIds = nodeIds.filter(
+      (nodeId) => !PPGraph.currentGraph.nodes[nodeId],
+    );
+    // Only this turn's not-yet-placed nodes may move, never an earlier
+    // section's, and the user's own only on a restructure.
+    const canMove = (nodeId: string) =>
+      input.restructure === true
+        ? !this.turnSectionNodeIds.has(nodeId)
+        : this.turnCreatedNodeIds.has(nodeId);
+    const skippedNodeIds = nodeIds.filter(
+      (nodeId) => PPGraph.currentGraph.nodes[nodeId] && !canMove(nodeId),
+    );
+    const sectionNodeIds = nodeIds.filter(
+      (nodeId) => PPGraph.currentGraph.nodes[nodeId] && canMove(nodeId),
+    );
+    const nodes = this.getExistingNodes(sectionNodeIds);
+    if (nodes.length === 0) {
+      return {
+        content: JSON.stringify({
+          error:
+            'None of these nodes can be placed: finish_section only moves nodes not already in a section, and nodes from before this request only with restructure.',
+          skipped_node_ids: skippedNodeIds,
+          missing_node_ids: missingNodeIds,
+        }),
+        is_error: true,
+      };
+    }
+
+    nodes.forEach((node) => {
+      this.turnCreatedNodeIds.delete(node.id);
+      this.turnSectionNodeIds.add(node.id);
+    });
+    await this.layOutSection(
+      nodes,
+      input.placement ?? 'right',
+      input.restructure === true,
+    );
+    zoomToFitNodes(nodes);
+
+    return {
+      content: JSON.stringify({
+        title: input.title,
+        placed_node_ids: nodes.map((node) => node.id),
+        skipped_node_ids: skippedNodeIds,
+        missing_node_ids: missingNodeIds,
+        nodes_not_in_a_section: Array.from(this.turnCreatedNodeIds),
       }),
     };
   }
@@ -918,6 +1228,69 @@ export class TailrmadeMCPServer {
           ),
         })),
       }),
+    };
+  }
+
+  private async changeHistory(
+    direction: 'undo' | 'redo',
+  ): Promise<MCPToolResult> {
+    const history = ActionHandler.getHistorySnapshot();
+    if (direction === 'undo' ? !history.canUndo : !history.canRedo) {
+      return { content: `Nothing to ${direction}.`, is_error: true };
+    }
+    const action =
+      history.entries[
+        direction === 'undo' ? history.appliedCount - 1 : history.appliedCount
+      ];
+    await ActionHandler[direction]();
+    return {
+      content: JSON.stringify({
+        status: direction === 'undo' ? 'undone' : 'redone',
+        action,
+        history: ActionHandler.getHistorySnapshot(),
+      }),
+    };
+  }
+
+  private requireNode(nodeId: string, toolName: MCPToolName): PPNode {
+    if (typeof nodeId !== 'string' || !nodeId.trim()) {
+      throw new Error(`${toolName} requires node_id`);
+    }
+    const graph = PPGraph.currentGraph;
+    const node = Object.hasOwn(graph.nodes, nodeId)
+      ? graph.nodes[nodeId]
+      : undefined;
+    if (!node) {
+      throw new Error(`Node not found: ${nodeId}`);
+    }
+    return node;
+  }
+
+  private async runNode(input: RunNodeInput): Promise<MCPToolResult> {
+    const node = this.requireNode(input.node_id, 'run_node');
+    if (node.isExecuting) {
+      throw new Error(`Node is already running: ${input.node_id}`);
+    }
+    await node.executeOptimizedChain();
+    const hasErrors = node
+      .getWarningsAndErrors()
+      .some((status) => status.isError());
+    return {
+      content: JSON.stringify({
+        status: hasErrors ? 'error' : 'executed',
+        node: this.nodeToSerializable(node),
+      }),
+      ...(hasErrors ? { is_error: true } : {}),
+    };
+  }
+
+  private async removeNode(input: RemoveNodeInput): Promise<MCPToolResult> {
+    const node = this.requireNode(input.node_id, 'remove_node');
+    const graph = PPGraph.currentGraph;
+    await graph.perform_action_DeleteNodes([node], 'ai');
+    this.turnCreatedNodeIds.delete(input.node_id);
+    return {
+      content: JSON.stringify({ node_id: input.node_id, status: 'removed' }),
     };
   }
 
