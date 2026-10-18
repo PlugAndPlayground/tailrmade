@@ -80,6 +80,25 @@ it('does not bind stored approval to generated migration node IDs', async () => 
   );
 });
 
+it('allows inferred output types to settle while retaining input configuration checks', () => {
+  const before = graph();
+  before.nodes[0].socketArray.push({
+    socketType: 'out',
+    name: 'Output',
+    dataType: 'JSONType',
+  });
+  const after = structuredClone(before);
+  after.nodes[0].socketArray[1].dataType = 'NumberType';
+  after.nodes[0].socketArray[1].data = 42;
+  expect(getAppReviewContent(after, risks)).toBe(
+    getAppReviewContent(before, risks),
+  );
+  after.nodes[0].socketArray[0].data = 'return 2';
+  expect(getAppReviewContent(after, risks)).not.toBe(
+    getAppReviewContent(before, risks),
+  );
+});
+
 it('requires review when hashing or storage is unavailable', async () => {
   Object.defineProperty(globalThis, 'crypto', {
     configurable: true,

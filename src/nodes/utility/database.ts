@@ -13,7 +13,7 @@ import {
 } from '../../classes/ErrorClass';
 import PPNode from '../../classes/NodeClass';
 import { NodeRisk, NetworkRisk } from '../../classes/NodeRisk';
-import { appExecutionAllowed } from '../../services/appExecution';
+import { isNodeExecutionAllowed } from '../../services/appExecution';
 import InterfaceController, { ListenEvent } from '../../InterfaceController';
 import { ArrayType } from '../datatypes/arrayType';
 import { FileType } from '../datatypes/fileType';
@@ -194,7 +194,7 @@ export class SqliteReader extends PPNode {
 
   // queue up a load
   openDatabase = (force = false): Promise<void> => {
-    if (!appExecutionAllowed.get()) return Promise.resolve();
+    if (!isNodeExecutionAllowed(this)) return Promise.resolve();
     const next = (this.pendingLoad ?? Promise.resolve())
       .catch(() => undefined)
       .then(() => this.openDatabaseNow(force));
@@ -203,7 +203,7 @@ export class SqliteReader extends PPNode {
   };
 
   private openDatabaseNow = async (force: boolean): Promise<void> => {
-    if (!appExecutionAllowed.get() || this.destroyed) return;
+    if (!isNodeExecutionAllowed(this) || this.destroyed) return;
     const sourceKey = this.getSourceKey();
     if (!sourceKey) {
       this.closeDatabase();

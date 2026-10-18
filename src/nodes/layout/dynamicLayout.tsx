@@ -2,7 +2,7 @@ import React, { useEffect, useState, useMemo } from 'react';
 import { Box } from '@mui/material';
 import InterfaceController, { ListenEvent } from '../../InterfaceController';
 import PPNode from '../../classes/NodeClass';
-import { appExecutionAllowed } from '../../services/appExecution';
+import { useNodeExecutionAllowed } from '../../services/appExecution';
 import UpdateBehaviourClass from '../../classes/UpdateBehaviourClass';
 import { HybridNodeErrorBoundary } from '../../components/HybridNodeErrorBoundary';
 import PPSocket from '../../classes/SocketClass';
@@ -77,7 +77,7 @@ type DynamicWidgetContainerNodeProps = DashboardWidgetProps & {
 export const DynamicWidgetContainerNode: React.FunctionComponent<
   DynamicWidgetContainerNodeProps
 > = (props) => {
-  const allowed = appExecutionAllowed.useStore();
+  const allowed = useNodeExecutionAllowed(props.property);
   const [showDashboard, setShowDashboard] = useState(true);
   const [_, setDummyExecutionVar] = useState(0);
 

@@ -73,6 +73,7 @@ import {
   SerializableActionHandler,
 } from './Action';
 import { StoredGraph } from '../utils/indexedDB';
+import { getGraphSource, GraphSource } from '../services/graphSource';
 import PPStorage, { DEFAULT_ACCESS, DEFAULT_LOCATION } from '../PPStorage';
 import { collectAppRisks, requiresAppRiskReview } from './NodeRisk';
 import {
@@ -80,7 +81,12 @@ import {
   reviewAppRisks,
   reviewNodePaste,
 } from '../components/AppRiskDialog';
-import { appExecutionAllowed, pendingAppRun } from '../services/appExecution';
+import {
+  appExecutionAllowed,
+  appRisksAccepted,
+  isNodeExecutionAllowed,
+  pendingAppRun,
+} from '../services/appExecution';
 import { PNPWorker } from '../nodes/data/worker/PNPWorker';
 import {
   getNodePasteSession,
@@ -1345,6 +1351,8 @@ export default class PPGraph {
 
   // teardown done before another app is loaded and not undoable
   async clear(): Promise<void> {
+    this.source = undefined;
+    FlowLogic.clearPausedExecutions();
     PNPWorker.resetSession();
     resetNodePasteTrust();
     pendingAppRun.set(null);
@@ -1379,7 +1387,10 @@ export default class PPGraph {
     this.updateEmptyCanvasVisibility();
 
     InterfaceController.spamToast('graph_cleared');
-    if (!this.isConfiguring) appExecutionAllowed.set(true);
+    if (!this.isConfiguring) {
+      appRisksAccepted.set(true);
+      appExecutionAllowed.set(true);
+    }
   }
 
   async duplicateSelection(
@@ -1605,22 +1616,30 @@ export default class PPGraph {
   }
 
   private isConfiguring = false;
+  public source: GraphSource | undefined;
 
   async configure(
     storedGraph: StoredGraph,
     approvalGraphData: SerializedGraph = storedGraph.graphData,
+    source = getGraphSource(storedGraph),
   ): Promise<boolean> {
     if (this.isConfiguring) return false;
+    FlowLogic.clearPausedExecutions();
     PNPWorker.resetSession();
     resetNodePasteTrust();
     this.isConfiguring = true;
     pendingAppRun.set(null);
     cancelAppRiskReview();
     appExecutionAllowed.set(false);
+    appRisksAccepted.set(false);
     FlowLogic.pendingExecution.clear();
     let configured = false;
     try {
-      configured = await this.configureGraph(storedGraph, approvalGraphData);
+      configured = await this.configureGraph(
+        storedGraph,
+        approvalGraphData,
+        source,
+      );
       return configured;
     } finally {
       try {
@@ -1631,6 +1650,7 @@ export default class PPGraph {
       } finally {
         InterfaceController.hideSpinner('Configuring graph');
         if (!configured) {
+          appRisksAccepted.set(Object.keys(this.nodes).length === 0);
           appExecutionAllowed.set(Object.keys(this.nodes).length === 0);
         }
         this.isConfiguring = false;
@@ -1641,6 +1661,7 @@ export default class PPGraph {
   private async configureGraph(
     storedGraph: StoredGraph,
     approvalGraphData: SerializedGraph,
+    source: GraphSource | undefined,
   ): Promise<boolean> {
     // Loading nodes can add defaults or generated values to their serialized data.
     const loadedGraphData = structuredClone(approvalGraphData);
@@ -1656,6 +1677,8 @@ export default class PPGraph {
       await this.clear();
     }
     this.graphConfiguredAndReady = false;
+
+    this.source = source;
 
     const data = storedGraph.graphData;
     const newX = data.graphSettings.viewportCenterPosition.x ?? 0;
@@ -1741,6 +1764,9 @@ export default class PPGraph {
       }
     }
 
+    appExecutionAllowed.set(true);
+    await this.executeAllSeedNodes(Object.values(this.nodes));
+
     InterfaceController.hideSpinner();
     document.body.style.cursor = 'default';
     const initialReviewContent = getAppReviewContent(
@@ -1760,8 +1786,10 @@ export default class PPGraph {
         if (pendingAppRun.get() !== pending) return;
         const needsReview =
           !isAppApproved(fingerprint) && requiresAppRiskReview(risks);
-        const approved =
-          !needsReview || (await reviewAppRisks(this.name, risks));
+        const approval = needsReview
+          ? reviewAppRisks(this.name, risks)
+          : Promise.resolve(true);
+        const approved = await approval;
         // A different app may have been opened while its risks were reviewed.
         if (!approved || pendingAppRun.get() !== pending) return;
         // Recheck synchronously so edits during hashing or review cannot inherit approval.
@@ -1787,8 +1815,9 @@ export default class PPGraph {
         // and prevents macro callbacks from queuing extra executions.
         this.graphConfiguredAndReady = false;
         appExecutionAllowed.set(true);
+        appRisksAccepted.set(true);
         try {
-          await this.executeAllSeedNodes(Object.values(this.nodes));
+          await FlowLogic.resumePausedExecutions();
           if (session !== getNodePasteSession()) return;
           if (needsReview && isStackLayout()) goToOpenedApp(this);
           InterfaceController.notifyListeners(ListenEvent.DashboardLoaded, {
@@ -1816,6 +1845,11 @@ export default class PPGraph {
     InterfaceController.hideSpinner(CONFIGURE_GRAPH_SPINNER_MESSAGE);
 
     InterfaceController.notifyListeners(ListenEvent.GraphConfigured, {
+      id: storedGraph.id,
+      name: storedGraph.name,
+    });
+
+    InterfaceController.notifyListeners(ListenEvent.DashboardLoaded, {
       id: storedGraph.id,
       name: storedGraph.name,
     });
@@ -1988,12 +2022,14 @@ export default class PPGraph {
   }
 
   async invokeMacro(name: string, args: any[]): Promise<any> {
-    if (!appExecutionAllowed.get()) return undefined;
     // in case the macro hasnt selected a macro yet return empty object
     if (name == EMPTY_DEFAULT_MACRO_NAME) {
       return {};
     }
-    return this.getMacroWithName(name).executeMacro(args);
+    const macro = this.getMacroWithName(name);
+    if (!macro) throw new Error(`Macro "${name}" not found`);
+    if (!isNodeExecutionAllowed(macro)) return undefined;
+    return macro.executeMacro(args);
   }
 
   static getCurrentGraph(): PPGraph {

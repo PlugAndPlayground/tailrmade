@@ -10,6 +10,11 @@ import {
 import { STRING_COLOR, StringType } from './datatypes/stringType';
 import { EnumType } from './datatypes/enumType';
 import { AbstractType } from './datatypes/abstractType';
+import {
+  resolveStaticInput,
+  StaticValue,
+  UNKNOWN_STATIC_VALUE,
+} from '../classes/StaticValue';
 
 const concatStringName = 'Concatenated';
 const inputName = 'Input';
@@ -114,6 +119,19 @@ abstract class StringDynamicInputNode extends SmallDynamicInputNode {
 }
 
 export class Concatenate extends StringDynamicInputNode {
+  public getStaticOutputData(name: string, visited: Set<Socket>): StaticValue {
+    if (name !== concatStringName) return UNKNOWN_STATIC_VALUE;
+    const inputs = this.getAllNonDefaultInputSockets().map((socket) =>
+      resolveStaticInput(socket, visited),
+    );
+    if (
+      inputs.some((input) => !input.known || typeof input.value !== 'string')
+    ) {
+      return UNKNOWN_STATIC_VALUE;
+    }
+    return { known: true, value: inputs.map((input) => input.value).join('') };
+  }
+
   public getName(): string {
     return 'Concatenate';
   }

@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   Box,
   Typography,
@@ -17,6 +17,7 @@ import PPGraph from '../classes/GraphClass';
 import { NodeArrayContainer } from './NodeArrayContainer';
 import { customTheme, RightDrawerView } from '../utils/constants';
 import { ThemeSettings } from '../components/dashboard/ThemePanel';
+import { AppRiskInspector } from '../components/AppRiskDialog';
 
 type RightSideContainerProps = {
   rightDrawerView: RightDrawerView;
@@ -37,6 +38,10 @@ const RightSideContainerInner: React.FC<RightSideContainerProps> = ({
   graphFilterText,
   setGraphFilterText,
 }) => {
+  const [graphTab, setGraphTab] = useState('nodes');
+  useEffect(() => {
+    if (selectedNodes.length) setGraphTab('nodes');
+  }, [selectedNodes]);
   const handleTabChange = (_, newValue) => {
     setRightDrawerView(newValue);
   };
@@ -82,7 +87,9 @@ const RightSideContainerInner: React.FC<RightSideContainerProps> = ({
   ]);
 
   const showsNodeList =
-    rightDrawerView === RightDrawerView.GRAPH && selectedNodes.length === 0;
+    rightDrawerView === RightDrawerView.GRAPH &&
+    graphTab === 'nodes' &&
+    selectedNodes.length === 0;
 
   const appInspectorComponent = useMemo(() => {
     return (
@@ -146,13 +153,50 @@ const RightSideContainerInner: React.FC<RightSideContainerProps> = ({
             data-cy="app-info-tab"
           />
         </Tabs>
+        {rightDrawerView === RightDrawerView.GRAPH && (
+          <Tabs
+            value={graphTab}
+            onChange={(_, value) => setGraphTab(value)}
+            variant="fullWidth"
+            aria-label="Graph inspector views"
+            sx={{ flexShrink: 0, borderBottom: 1, borderColor: 'divider' }}
+          >
+            <Tab
+              label="Nodes"
+              value="nodes"
+              id="graph-nodes-tab"
+              aria-controls="graph-inspector-panel"
+              data-cy="graph-nodes-tab"
+            />
+            <Tab
+              label="Risks"
+              value="risks"
+              id="graph-risks-tab"
+              aria-controls="graph-inspector-panel"
+              data-cy="graph-risks-tab"
+            />
+          </Tabs>
+        )}
         {/* The node list's search field is sticky, and a padded scroll
             container parks a sticky child below its padding - rows then
             scroll visibly through the strip above the field. So that view
             gets no top padding here and brings it along on the field
             itself, where it is part of what the field covers. */}
         <Box
-        data-cy="inspector-content"
+          data-cy="inspector-content"
+          id={
+            rightDrawerView === RightDrawerView.GRAPH
+              ? 'graph-inspector-panel'
+              : undefined
+          }
+          role={
+            rightDrawerView === RightDrawerView.GRAPH ? 'tabpanel' : undefined
+          }
+          aria-labelledby={
+            rightDrawerView === RightDrawerView.GRAPH
+              ? `graph-${graphTab}-tab`
+              : undefined
+          }
           sx={{
             flex: 1,
             overflow: 'auto',
@@ -165,7 +209,11 @@ const RightSideContainerInner: React.FC<RightSideContainerProps> = ({
           {rightDrawerView === RightDrawerView.INTERFACE ? (
             interfaceInspectorComponent
           ) : rightDrawerView === RightDrawerView.GRAPH ? (
-            graphInspectorComponent
+            graphTab === 'risks' ? (
+              <AppRiskInspector onInspect={() => setGraphTab('nodes')} />
+            ) : (
+              graphInspectorComponent
+            )
           ) : rightDrawerView === RightDrawerView.APP ? (
             appInspectorComponent
           ) : (

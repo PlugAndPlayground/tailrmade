@@ -18,7 +18,7 @@ export default function MyOnChangePlugin({
         ) {
           return;
         }
-        onChange(editorState);
+        onChange(editorState, tags);
       },
     );
   }, [editorRef.current, onChange]);

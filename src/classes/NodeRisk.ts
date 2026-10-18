@@ -9,7 +9,7 @@ export abstract class NodeRisk {
   constructor(public readonly target?: string) {}
 
   get id(): string {
-    return JSON.stringify([this.kind, this.target ?? null]);
+    return JSON.stringify([this.kind, this.target ?? null, this.severity]);
   }
 }
 
@@ -18,7 +18,7 @@ export class UnrestrictedCodeRisk extends NodeRisk {
   readonly severity = 'critical' as const;
   readonly title = 'Runs JavaScript with browser access';
   readonly description =
-    "Runs outside the code sandbox, which is useful for page interactions and browser libraries. Code can access the Tailrmade page and its saved browser data, and make network requests. Long-running code can make this tab unresponsive. Normal browser permissions still apply; this does not grant general access to your computer's files or other apps.";
+    "Runs outside the code sandbox to support page interactions and browser libraries. This gives code access to the Tailrmade page and your signed-in session, including reading, changing, or deleting Tailrmade data, using available API keys and Companion services, and making network requests. Access is broader than the individual capabilities listed here; paid services can incur charges. Long-running code may make this tab unresponsive. Normal browser permissions still apply, without general access to your computer's files or other apps.";
 }
 
 export class ApiKeyRisk extends NodeRisk {
@@ -29,6 +29,7 @@ export class ApiKeyRisk extends NodeRisk {
 }
 
 export class NetworkRisk extends NodeRisk {
+  readonly severity: RiskSeverity;
   readonly kind = 'network';
   readonly title = 'Connects to external services';
   readonly description =
@@ -37,6 +38,7 @@ export class NetworkRisk extends NodeRisk {
   constructor(
     url?: unknown,
     baseURL = typeof document === 'undefined' ? undefined : document.baseURI,
+    severity: RiskSeverity = 'warning',
   ) {
     let destination = 'Destination determined at runtime';
     if (typeof url === 'string') {
@@ -49,6 +51,19 @@ export class NetworkRisk extends NodeRisk {
       } catch {}
     }
     super(destination);
+    this.severity = severity;
+  }
+}
+
+export class ExternalHtmlRisk extends NodeRisk {
+  readonly kind = 'external-html';
+  readonly severity = 'info' as const;
+  readonly title = 'References external URLs';
+  readonly description =
+    'Sanitized HTML references this address. Loading resources or following links sends a request to that host. Addresses omit credentials, query strings, and fragments.';
+
+  constructor(url: string) {
+    super(new NetworkRisk(url).target);
   }
 }
 

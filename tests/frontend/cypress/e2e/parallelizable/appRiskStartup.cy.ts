@@ -54,6 +54,66 @@ describe('app startup after risk review', () => {
     });
   };
 
+  it('starts Portal after one acceptance without rewriting rendered Markdown', () => {
+    let markdown: string;
+    cy.fixture('Portal.ppgraph').then((raw) => {
+      doWithTestController(async (controller) => {
+        await controller.loadStringifiedGraph(raw.trim());
+        markdown = controller
+          .getNodeByID('good-liger-25')
+          .getInputData('Markdown');
+      });
+    });
+    cy.get('[data-cy="app-risk-dialog"]').should('be.visible');
+    cy.get('[data-cy="good-liger-25-dashboard"]').should('contain', 'Tobias');
+    doWithTestController((controller) => {
+      expect(
+        controller.getNodeByID('good-liger-25').getInputData('Markdown'),
+      ).to.equal(markdown);
+    });
+    cy.get('[data-cy="run-reviewed-app"]').click();
+    cy.get('[data-cy="app-risk-dialog"]').should('not.exist');
+    cy.get('[data-cy="app-not-running"]').should('not.exist');
+  });
+
+  it('accepts risks once when safe startup changes connected socket types', () => {
+    cy.then(() => {
+      stored.graphData.nodes.push(
+        {
+          ...serializedNode('customfunction', 'source', [
+            serializedSocket('Code', '() => "Ready"', 'CodeType'),
+            serializedSocket('Main Thread', false, 'BooleanType'),
+          ]),
+          version: 3,
+        },
+        serializedNode('constant', 'sink', []),
+      );
+      stored.graphData.links.push({
+        sourceNodeId: 'source',
+        sourceSocketName: 'OutData',
+        targetNodeId: 'sink',
+        targetSocketName: 'In',
+      });
+    });
+    load();
+    cy.get('[data-cy="app-risk-dialog"]').should('be.visible');
+    shouldWithTestController((controller) => {
+      expect(controller.getNodeByID('sink').getOutputData('Out')).to.equal(
+        'Ready',
+      );
+      expect(
+        controller.getNodeByID('startup-code').debug_timesExecuted,
+      ).to.equal(0);
+    });
+    cy.get('[data-cy="run-reviewed-app"]').click();
+    expectDashboard();
+    cy.get('[data-cy="app-risk-dialog"]').should('not.exist');
+    cy.get('[data-cy="app-not-running"]').should('not.exist');
+    load();
+    expectDashboard();
+    cy.get('[data-cy="app-risk-dialog"]').should('not.exist');
+  });
+
   ['visible', 'maximized', 'fullscreen', 'hidden'].forEach((mode) => {
     it(`restores the ${mode} dashboard after approval and on trusted reload`, () => {
       cy.then(() => {
@@ -127,10 +187,56 @@ describe('app startup after risk review', () => {
       expect(
         controller.getNodeByID('startup-code').debug_timesExecuted,
       ).to.equal(0);
+      expect(
+        controller.getNodeByID('startup-label').debug_timesExecuted,
+      ).to.be.greaterThan(0);
     });
     cy.get('[data-cy="start-app"]').click();
     cy.get('[data-cy="run-reviewed-app"]').click();
     expectDashboard();
+  });
+
+  it('stops propagation at risky nodes while allowing safe nodes to run directly', () => {
+    cy.then(() => {
+      stored.graphData.nodes.push(serializedNode('constant', 'dependent', []));
+      stored.graphData.links.push({
+        sourceNodeId: 'startup-code',
+        sourceSocketName: 'OutData',
+        targetNodeId: 'dependent',
+        targetSocketName: 'In',
+      });
+      stored.graphData.overlay.dashboard.visible = true;
+    });
+    load();
+    cy.get('[data-cy="app-risk-dialog"]').should('be.visible');
+    cy.get('[data-cy="widget of NODE_startup-label"]').should('exist');
+    shouldWithTestController((controller) => {
+      expect(
+        controller.getNodeByID('startup-label').debug_timesExecuted,
+      ).to.be.greaterThan(0);
+      expect(
+        controller.getNodeByID('startup-surface').debug_timesExecuted,
+      ).to.be.greaterThan(0);
+      expect(
+        controller.getNodeByID('startup-code').debug_timesExecuted,
+      ).to.equal(0);
+      expect(controller.getNodeByID('dependent').debug_timesExecuted).to.equal(
+        0,
+      );
+    });
+    doWithTestController(async (controller) => {
+      const executed = controller.getNodeByID('dependent').debug_timesExecuted;
+      await controller.getNodeByID('dependent').execute();
+      expect(controller.getNodeByID('dependent').debug_timesExecuted).to.equal(
+        executed + 1,
+      );
+    });
+    cy.get('[data-cy="run-reviewed-app"]').click();
+    shouldWithTestController((controller) => {
+      expect(controller.getNodeByID('dependent').getOutputData('Out')).to.equal(
+        7,
+      );
+    });
   });
 
   [1280, 390].forEach((width) => {

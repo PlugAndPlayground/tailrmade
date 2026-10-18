@@ -26,6 +26,7 @@ import { DASHBOARD_DEFAULT } from './utils/constants';
 import _ from 'lodash';
 import { BackendGateway } from './services/BackendGateway';
 import { collectAppRisks } from './classes/NodeRisk';
+import { getGraphSource } from './services/graphSource';
 import { getAppFingerprint, rememberAppApproval } from './services/appTrust';
 
 (window as any).__PIXI_INSPECTOR_GLOBAL_HOOK__ &&
@@ -440,6 +441,7 @@ export default class PPStorage {
         !(await PPGraph.currentGraph.configure(
           migratedFileData,
           approvalGraphData,
+          getGraphSource(fileData),
         ))
       ) {
         return undefined;

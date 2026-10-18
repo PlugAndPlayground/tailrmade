@@ -43,6 +43,8 @@ import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
 import SensorsIcon from '@mui/icons-material/Sensors';
 import { VISIBILITY_ACTION } from '../../utils/constants_shared';
 import { SubMenuItem } from './ContextMenus';
+import FactCheckOutlinedIcon from '@mui/icons-material/FactCheckOutlined';
+import { showCurrentAppRisks } from '../AppRiskDialog';
 
 const GestureModeMenuItem = (props) => {
   const GestureIcon = props.icon;
@@ -68,6 +70,16 @@ const GestureModeMenuItem = (props) => {
 
 function gestureModes(): any {
   return [
+    <MenuItem
+      key="Review risks"
+      data-cy="review-risks"
+      onClick={showCurrentAppRisks}
+    >
+      <ListItemIcon>
+        <FactCheckOutlinedIcon fontSize="small" />
+      </ListItemIcon>
+      <ListItemText>Review risks</ListItemText>
+    </MenuItem>,
     <GestureModeMenuItem
       icon={MouseIcon}
       key={GESTUREMODE.MOUSE}

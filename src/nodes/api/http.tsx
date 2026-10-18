@@ -49,31 +49,35 @@ export interface CompanionResponse {
 
 export class HTTPNode extends PPNode {
   public getRisks(): NodeRisk[] {
+    const inputs = this.inputSocketArray.map((socket) =>
+      this.getStaticInputData(socket.name),
+    );
+    const keys = findApiKeyReferences(inputs.map((input) => input.value));
+    const companion = this.getStaticInputData(sendThroughCompanionName);
+    const usesCompanion = !companion.known || Boolean(companion.value);
+    const informational =
+      !usesCompanion &&
+      this.getStaticInputData(methodName).value === 'Get' &&
+      inputs.every((input) => input.known) &&
+      keys.length === 0;
     const risks: NodeRisk[] = [
       new NetworkRisk(
-        this.isRiskInputConnected(urlInputName)
-          ? undefined
-          : this.getInputData(urlInputName),
+        this.getStaticInputData(urlInputName).value,
+        undefined,
+        informational ? 'info' : 'warning',
       ),
     ];
-    if (
-      this.isRiskInputConnected(sendThroughCompanionName) ||
-      this.getInputSocketByName(sendThroughCompanionName)?.data
-    ) {
+    if (usesCompanion) {
       risks.push(new CompanionRisk());
-      for (const key of findApiKeyReferences(
-        this.inputSocketArray.map((socket) => socket.data),
-      )) {
-        risks.push(new ApiKeyRisk(key));
-      }
       if (
-        [urlInputName, headersInputName, bodyInputName].some((name) =>
-          this.isRiskInputConnected(name),
+        [urlInputName, headersInputName, bodyInputName].some(
+          (name) => !this.getStaticInputData(name).known,
         )
       ) {
         risks.push(new ApiKeyRisk('Keys may be determined at runtime'));
       }
     }
+    for (const key of keys) risks.push(new ApiKeyRisk(key));
     return risks;
   }
 

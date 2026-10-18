@@ -140,7 +140,9 @@ describe('app risk review', () => {
       'Loads images from dynamic URLs',
     );
     shouldWithTestController((controller) => {
-      expect(controller.getNodeByID('source').debug_timesExecuted).to.equal(0);
+      expect(
+        controller.getNodeByID('source').debug_timesExecuted,
+      ).to.be.greaterThan(0);
       expect(controller.getNodeByID('image').debug_timesExecuted).to.equal(0);
     });
   });
@@ -458,9 +460,9 @@ describe('app risk review', () => {
       .click();
   });
 
-  it('blocks main-thread code, HTML scripts and HTTP until approval', () => {
+  it('blocks main-thread code, HTML scripts and HTTP writes until approval', () => {
     let requests = 0;
-    cy.intercept('GET', '**/risk-review-probe', (request) => {
+    cy.intercept('POST', '**/risk-review-probe', (request) => {
       requests++;
       request.reply({ body: { ok: true } });
     });
@@ -479,6 +481,7 @@ describe('app risk review', () => {
         serializedNode('httpnode', 'http', [
           serializedSocket('URL', '/risk-review-probe'),
           serializedSocket('Headers', {}, 'JSONType'),
+          serializedSocket('Method', 'Post', 'EnumType'),
         ]),
       ],
       [],
@@ -514,6 +517,157 @@ describe('app risk review', () => {
       expect(win.__riskHtmlRuns).to.be.greaterThan(0);
       expect(requests).to.equal(1);
     });
+  });
+
+  it('resolves constant concatenated HTTP URLs before approval and runs safe GETs', () => {
+    let requests = 0;
+    const origin = new URL(Cypress.env('pnpBaseUrl') || 'http://127.0.0.1:8080')
+      .origin;
+    cy.intercept('GET', '**/constant-risk-probe*', (request) => {
+      requests++;
+      request.reply({ body: { ok: true } });
+    });
+    beginLoad(
+      [
+        codeNode(),
+        serializedNode('constant_string', 'host', [
+          serializedSocket('String', origin),
+        ]),
+        serializedNode('constant_string', 'path', [
+          serializedSocket('String', '/constant-risk-probe?value='),
+        ]),
+        serializedNode('constant_number', 'query', [
+          serializedSocket('Number', 42, 'NumberType'),
+        ]),
+        serializedNode('concatenate', 'url', [
+          serializedSocket('host', ''),
+          serializedSocket('path', ''),
+          serializedSocket('query', ''),
+        ]),
+        serializedNode('httpnode', 'get', [
+          serializedSocket('Headers', {}, 'JSONType'),
+        ]),
+      ],
+      [
+        {
+          sourceNodeId: 'host',
+          sourceSocketName: 'String',
+          targetNodeId: 'url',
+          targetSocketName: 'host',
+        },
+        {
+          sourceNodeId: 'path',
+          sourceSocketName: 'String',
+          targetNodeId: 'url',
+          targetSocketName: 'path',
+        },
+        {
+          sourceNodeId: 'query',
+          sourceSocketName: 'Number',
+          targetNodeId: 'url',
+          targetSocketName: 'query',
+        },
+        {
+          sourceNodeId: 'url',
+          sourceSocketName: 'Concatenated',
+          targetNodeId: 'get',
+          targetSocketName: 'URL',
+        },
+      ],
+    );
+    cy.get('[data-cy="app-risk-dialog"]').should(
+      'contain',
+      `${origin}/constant-risk-probe`,
+    );
+    shouldWithTestController((controller) => {
+      expect(
+        controller
+          .getNodeByID('get')
+          .getRisks()
+          .map((risk) => risk.severity),
+      ).to.deep.equal(['info']);
+      expect(requests).to.equal(1);
+      expect(controller.getNodeByID('code').debug_timesExecuted).to.equal(0);
+    });
+  });
+
+  it('runs sanitized static HTML with informational external URLs', () => {
+    beginLoad([
+      serializedNode('htmlrenderer', 'static-html', [
+        serializedSocket(
+          'Html',
+          '<p>Safe HTML</p><a href="https://example.com/path?token=hidden">Link</a><img src="/assets/Tailrmade512.png">',
+          'HtmlType',
+        ),
+        serializedSocket('Sanitize input', true, 'BooleanType'),
+      ]),
+    ]);
+    cy.get('[data-cy="app-risk-dialog"]').should('not.exist');
+    shouldWithTestController((controller) => {
+      const node = controller.getNodeByID('static-html');
+      expect(node.debug_timesExecuted).to.be.greaterThan(0);
+      expect(
+        node
+          .getRisks()
+          .map((risk) => ({ target: risk.target, severity: risk.severity })),
+      ).to.deep.equal([
+        { target: 'https://example.com/path', severity: 'info' },
+      ]);
+    });
+  });
+
+  it('shows risks in a graph inspector tab without opening a review dialog', () => {
+    cy.viewport(1280, 900);
+    beginLoad([serializedNode('add', 'add', [])]);
+    cy.get('[data-cy="inspector-column"]').then(($column) => {
+      if ($column.width() === 0)
+        cy.get('[data-cy="right-drawer-toggle-btn"]').click();
+    });
+    cy.get('[data-cy="graph-inspector-tab"]').click();
+    cy.get('[data-cy="review-risks-button"]').should('not.exist');
+    cy.get('[data-cy="graph-risk-inspector"]').should('not.exist');
+    cy.get('[data-cy="graph-risks-tab"]')
+      .click()
+      .should('have.attr', 'aria-selected', 'true');
+    cy.get('[data-cy="graph-risk-inspector"]')
+      .should('contain', 'No risks found')
+      .and('contain', 'Required access 1/3')
+      .and('contain', 'Unknown source');
+    cy.get('[data-cy="app-risk-dialog"]').should('not.exist');
+    cy.get('[data-cy="run-reviewed-app"]').should('not.exist');
+    cy.get('[data-cy="graph-nodes-tab"]').click();
+    cy.get('[data-cy="graph-risk-inspector"]').should('not.exist');
+    beginLoad([codeNode()]);
+    cy.get('[data-cy="run-reviewed-app"]').click();
+    cy.get('[data-cy="app-risk-dialog"]').should('not.exist');
+    cy.get('[data-cy="graph-risks-tab"]').click();
+    cy.get('[data-cy="graph-risk-inspector"]')
+      .should('contain', 'Runs JavaScript with browser access')
+      .and('contain', 'Required access 3/3');
+    cy.get('[data-cy="app-risk-dialog"]').should('not.exist');
+    cy.get('[data-cy="run-reviewed-app"]').should('not.exist');
+    cy.screenshot('graph-risk-inspector', { capture: 'runner' });
+    cy.get(
+      '[data-cy="graph-risk-inspector"] [data-cy="go-to-risk-node"]',
+    ).click();
+    cy.get('[data-cy="graph-nodes-tab"]').should(
+      'have.attr',
+      'aria-selected',
+      'true',
+    );
+    cy.get('#inspector-container-node').should('be.visible');
+  });
+
+  it('does not verify an owner claimed by a graph file', () => {
+    doWithTestController(async (controller) => {
+      const stored = controller.getGraph().getSerializedStoredGraph();
+      stored.owner = 'publicUser';
+      stored.isRemote = true;
+      stored.graphData.nodes = [codeNode()];
+      await controller.loadStringifiedGraph(JSON.stringify(stored));
+    });
+    cy.get('[data-cy="app-risk-source"]').should('contain', 'Unknown source');
+    cy.get('[aria-label="Verified Tailrmade"]').should('not.exist');
   });
 
   it('keeps the app inspectable after declining and automatically runs harmless apps', () => {

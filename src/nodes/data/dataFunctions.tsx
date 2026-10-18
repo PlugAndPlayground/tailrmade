@@ -21,6 +21,7 @@ import { NodeConfigurationWarning, PNPSuccess } from '../../classes/ErrorClass';
 import { PNPWorker } from './worker/PNPWorker';
 import { NodeRisk, UnrestrictedCodeRisk } from '../../classes/NodeRisk';
 import { BackPropagation } from '../../interfaces';
+import { StaticValue, UNKNOWN_STATIC_VALUE } from '../../classes/StaticValue';
 
 export const arrayName = 'Array';
 const typeName = 'Type';
@@ -37,6 +38,12 @@ const constantOutName = 'Out';
 const constantDefaultData = 0;
 
 export class Constant extends PPNode {
+  public getStaticOutputData(name: string, visited: Set<Socket>): StaticValue {
+    return name === constantOutName
+      ? this.getStaticInputData(constantInName, visited)
+      : UNKNOWN_STATIC_VALUE;
+  }
+
   public getName(): string {
     return 'Constant';
   }

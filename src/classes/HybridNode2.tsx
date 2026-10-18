@@ -1,6 +1,6 @@
 import * as PIXI from 'pixi.js';
 import React, { useEffect, useState } from 'react';
-import { appExecutionAllowed } from '../services/appExecution';
+import { useNodeExecutionAllowed } from '../services/appExecution';
 import { TRgba } from '../utils/color';
 import { createRoot, Root } from 'react-dom/client';
 import { Box, ThemeProvider } from '@mui/material';
@@ -197,7 +197,7 @@ function startCanvasTouchPan(
 function CanvasHybridNodeContent<T extends HybridNode2>(
   props: CanvasHybridNodeContentProps<T>,
 ): React.ReactElement {
-  const allowed = appExecutionAllowed.useStore();
+  const allowed = useNodeExecutionAllowed(props.node);
   if (!allowed) return <PausedWidget name={props.node.getName()} />;
   return (
     <HybridNodeErrorBoundary node={props.node}>
@@ -812,7 +812,7 @@ function PausedWidget({ name }: { name: string }): React.ReactElement {
 const DynamicWidgetContainerHybridNodeInner: React.FunctionComponent<
   DynamicWidgetContainerHybridNodeProps
 > = (props) => {
-  const allowed = appExecutionAllowed.useStore();
+  const allowed = useNodeExecutionAllowed(props.property);
   const [showDashboard, setShowDashboard] = useState(true);
   const [_, setDummyExecutionVar] = useState(0);
 

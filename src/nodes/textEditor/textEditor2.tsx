@@ -26,6 +26,7 @@ import {
   $nodesOfType,
   BLUR_COMMAND,
   COMMAND_PRIORITY_NORMAL,
+  EditorState,
   FOCUS_COMMAND,
   LexicalEditor,
 } from 'lexical';
@@ -92,6 +93,7 @@ export const textEditorAutoHeightName = 'Auto height';
 const plainOutputSocketName = 'Plain';
 const markdownOutputSocketName = 'Markdown';
 const htmlOutputSocketName = 'HTML';
+const inputSyncTag = 'text-editor-input-sync';
 const backgroundColor = TRgba.fromString(COLOR_WHITE);
 
 type PendingFocus = boolean;
@@ -328,7 +330,7 @@ export class TextEditor2 extends HybridNode2 {
 
       // Trust Lexical's own state for the initial gate; the per-frame loop
       // below waits for the DOM attribute to actually reconcile.
-      if (!editorRef.current?.isEditable?.()) {
+      if (!editorRef.current.isEditable()) {
         node.pendingFocus = request;
         return;
       }
@@ -359,7 +361,6 @@ export class TextEditor2 extends HybridNode2 {
 
         const selection = window.getSelection();
         const hasSelectionInEditor =
-          selection !== null &&
           selection.rangeCount > 0 &&
           editorElement.contains(selection.anchorNode) &&
           editorElement.contains(selection.focusNode);
@@ -371,16 +372,14 @@ export class TextEditor2 extends HybridNode2 {
         range.selectNodeContents(editorElement);
         range.collapse(false);
 
-        selection?.removeAllRanges();
-        selection?.addRange(range);
+        selection.removeAllRanges();
+        selection.addRange(range);
       };
 
       requestAnimationFrame(() => attemptFocus(0));
     }, [node, props.dataCyId]);
 
     useEffect(() => {
-      if (!editorRef.current) return;
-
       const unregisterFocus = editorRef.current.registerCommand(
         FOCUS_COMMAND,
         () => {
@@ -453,7 +452,7 @@ export class TextEditor2 extends HybridNode2 {
       // If the editor was already editable, the editable listener won't fire a
       // fresh `true`, so satisfy any pending focus directly here. (Whichever of
       // the two paths consumes the request first wins; the other no-ops.)
-      if (editorRef.current?.isEditable()) {
+      if (editorRef.current.isEditable()) {
         applyPendingFocus();
       }
     }, [
@@ -475,7 +474,7 @@ export class TextEditor2 extends HybridNode2 {
     const updateOutputsAndEditorHeight = () => {
       node.updateOutputs(editorRef.current!, tokenInputs);
       const target = document.querySelector(`[data-cy='${props.dataCyId}']`);
-      if (target?.scrollHeight) {
+      if (target.scrollHeight) {
         setContentHeight(target.scrollHeight);
       }
     };
@@ -485,23 +484,28 @@ export class TextEditor2 extends HybridNode2 {
     useEffect(() => {
       const editor = editorRef.current;
       const markdown = props[textEditorMarkdownName];
-      if (pauseUpdate || markdown == null || !editor) return;
+      if (pauseUpdate) return;
       editor.setEditorState(
         editor.parseEditorState(markdownToLexicalState(markdown, true)),
+        { tag: inputSyncTag },
       );
     }, [props[textEditorMarkdownName], pauseUpdate]);
 
     // token values arrive with every execution, so outputs follow each render
     useEffect(() => {
-      if (editorRef.current) {
-        updateOutputsAndEditorHeight();
-      }
+      updateOutputsAndEditorHeight();
     });
 
-    const onChangeByInternal = () => {
+    const onChangeByInternal = (
+      editorState: EditorState,
+      tags: Set<string>,
+    ) => {
+      if (tags.has(inputSyncTag)) {
+        updateOutputsAndEditorHeight();
+        return;
+      }
       // EditorRefPlugin is a child, so its effect has set the ref by now
       const editor = editorRef.current!;
-      const editorState = editor.getEditorState();
       node.setInputData(
         textEditorMarkdownName,
         lexicalStateToMarkdown(editorState.toJSON()),

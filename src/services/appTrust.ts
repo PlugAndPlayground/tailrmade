@@ -14,7 +14,14 @@ export function getAppReviewContent(
     {
       version: graph.version,
       settings,
-      nodes: graph.nodes.map(({ x, y, width, height, ...node }) => node),
+      nodes: graph.nodes.map(({ x, y, width, height, ...node }) => ({
+        ...node,
+        socketArray: node.socketArray.map((socket) => {
+          if (socket.socketType !== 'out') return socket;
+          const { dataType, data, ...output } = socket;
+          return output;
+        }),
+      })),
       links: graph.links,
       risks,
     },

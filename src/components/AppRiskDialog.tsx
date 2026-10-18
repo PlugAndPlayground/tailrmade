@@ -4,6 +4,7 @@ import {
   Alert,
   Box,
   Button,
+  Chip,
   Dialog,
   DialogActions,
   DialogContent,
@@ -27,17 +28,29 @@ import StorageIcon from '@mui/icons-material/Storage';
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import ImageOutlinedIcon from '@mui/icons-material/ImageOutlined';
-import { AppRisk, NodeRisk, requiresAppRiskReview } from '../classes/NodeRisk';
+import VerifiedIcon from '@mui/icons-material/Verified';
+import {
+  AppRisk,
+  NodeRisk,
+  RiskSeverity,
+  collectAppRisks,
+  requiresAppRiskReview,
+} from '../classes/NodeRisk';
 import PPGraph from '../classes/GraphClass';
 import { createStore } from './createStore';
 import { pendingAppRun } from '../services/appExecution';
-import InterfaceController from '../InterfaceController';
-import { getNodesBounds, smoothMoveViewport } from '../pixi/utils-pixi';
+import InterfaceController, { ListenEvent } from '../InterfaceController';
+import {
+  ensureVisible,
+  getNodesBounds,
+  smoothMoveViewport,
+} from '../pixi/utils-pixi';
 import { VISIBILITY_ACTION } from '../utils/constants_shared';
 import { setStackView, useIsStackLayout } from '../utils/layoutModel';
 
 type Review = {
   paste?: boolean;
+  inspectionOnly?: boolean;
   name: string;
   risks: AppRisk[];
   resolve: (approved: boolean) => void;
@@ -45,47 +58,50 @@ type Review = {
 const reviewStore = createStore<Review | null>(null);
 export const APP_RISK_PANEL_WIDTH = 380;
 
-const capabilityStyles: Record<
-  string,
-  { Icon: typeof CodeIcon; color: string; background: string }
+const capabilityIcons: Record<string, typeof InfoOutlinedIcon> = {
+  'unrestricted-code': CodeIcon,
+  'api-key': KeyIcon,
+  network: PublicIcon,
+  'external-image': ImageOutlinedIcon,
+  'dynamic-image': ImageOutlinedIcon,
+  navigation: OpenInNewIcon,
+  companion: ComputerIcon,
+  storage: StorageIcon,
+  'ai-usage': AutoAwesomeIcon,
+};
+
+const severityStyles: Record<
+  RiskSeverity,
+  { color: string; background: string; score: number; label: string }
 > = {
-  'unrestricted-code': {
-    Icon: CodeIcon,
-    color: '#a4e4dc',
-    background: '#193b39',
+  critical: {
+    color: '#e4c28c',
+    background: '#3d3426',
+    score: 3,
+    label: 'Broad access',
   },
-  'api-key': { Icon: KeyIcon, color: '#ffd48a', background: '#443316' },
-  network: { Icon: PublicIcon, color: '#a9dfff', background: '#173b50' },
-  'external-image': {
-    Icon: ImageOutlinedIcon,
+  warning: {
+    color: '#d5cfbd',
+    background: '#34332f',
+    score: 2,
+    label: 'Specific access',
+  },
+  info: {
     color: '#a9dfff',
     background: '#173b50',
-  },
-  'dynamic-image': {
-    Icon: ImageOutlinedIcon,
-    color: '#ffd48a',
-    background: '#443316',
-  },
-  navigation: { Icon: OpenInNewIcon, color: '#a9dfff', background: '#173b50' },
-  companion: { Icon: ComputerIcon, color: '#ffd48a', background: '#443316' },
-  storage: { Icon: StorageIcon, color: '#a4e4dc', background: '#193b39' },
-  'ai-usage': {
-    Icon: AutoAwesomeIcon,
-    color: '#e3c2ff',
-    background: '#392747',
+    score: 1,
+    label: 'Basic access',
   },
 };
 
 function NodeCapability({ risk }: { risk: NodeRisk }): React.ReactElement {
-  const { Icon, color, background } = capabilityStyles[risk.kind] ?? {
-    Icon: InfoOutlinedIcon,
-    color: '#a9dfff',
-    background: '#173b50',
-  };
+  const Icon = capabilityIcons[risk.kind] ?? InfoOutlinedIcon;
+  const { color, background, score, label } = severityStyles[risk.severity];
   return (
     <Box
       data-cy="node-capability"
       data-risk-kind={risk.kind}
+      data-risk-severity={risk.severity}
       sx={{ display: 'flex', alignItems: 'flex-start', gap: 1, mt: 0.75 }}
     >
       <Box
@@ -102,7 +118,15 @@ function NodeCapability({ risk }: { risk: NodeRisk }): React.ReactElement {
         <Icon sx={{ fontSize: 16 }} />
       </Box>
       <Box sx={{ minWidth: 0 }}>
-        <Typography variant="body2">{risk.title}</Typography>
+        <Typography variant="caption" sx={{ color }}>
+          {score}/3 · {label}
+        </Typography>
+        <Typography
+          variant="body2"
+          sx={risk.severity === 'critical' ? { fontWeight: 600 } : {}}
+        >
+          {risk.title}
+        </Typography>
         {risk.target && (
           <Typography
             variant="caption"
@@ -149,14 +173,74 @@ export function reviewAppRisks(
   return new Promise((resolve) => reviewStore.set({ name, risks, resolve }));
 }
 
+export function showCurrentAppRisks(): void {
+  const pending = pendingAppRun.get();
+  if (pending) {
+    void pending.run().catch((error) => {
+      InterfaceController.showSnackBar(`Reviewing app failed: ${error}`, {
+        variant: 'error',
+      });
+    });
+    return;
+  }
+  cancelAppRiskReview();
+  const graph = PPGraph.currentGraph;
+  reviewStore.set({
+    name: graph.name,
+    risks: collectAppRisks(Object.values(graph.nodes)),
+    inspectionOnly: true,
+    resolve: () => {},
+  });
+}
+
+export function AppRiskInspector({
+  onInspect,
+}: {
+  onInspect: () => void;
+}): React.ReactElement {
+  const readReview = (): Review => {
+    const graph = PPGraph.currentGraph;
+    return {
+      name: graph.name,
+      risks: collectAppRisks(Object.values(graph.nodes)),
+      inspectionOnly: true,
+      resolve: () => {},
+    };
+  };
+  const [review, setReview] = useState(readReview);
+  useEffect(() => {
+    const listener = InterfaceController.addListeners(
+      [
+        ListenEvent.GraphChanged,
+        ListenEvent.GraphConfigured,
+        ListenEvent.UnsavedChanges,
+      ],
+      () => setReview(readReview()),
+    );
+    return () => InterfaceController.removeListener(listener);
+  }, []);
+  return (
+    <AppRiskDialog
+      dashboardVisible={false}
+      inspectorReview={review}
+      onInspect={onInspect}
+    />
+  );
+}
+
 export function AppRiskDialog({
   canvasElement,
   dashboardVisible,
+  inspectorReview,
+  onInspect,
 }: {
   canvasElement?: HTMLDivElement | null;
   dashboardVisible: boolean;
+  inspectorReview?: Review;
+  onInspect?: () => void;
 }): React.ReactElement | null {
-  const review = reviewStore.useStore();
+  const storedReview = reviewStore.useStore();
+  const review = inspectorReview ?? storedReview;
   const pending = pendingAppRun.useStore();
   const [starting, setStarting] = useState(false);
   const [search, setSearch] = useState('');
@@ -191,15 +275,15 @@ export function AppRiskDialog({
     setInspection(nodes.map((node) => node.id));
   }, [review, nodes]);
   useEffect(() => {
-    if (review && !review.paste && !dashboardVisible) {
+    if (review && !review.paste && !dashboardVisible && !inspectorReview) {
       InterfaceController.toggleLeftSideDrawer(VISIBILITY_ACTION.CLOSE);
     }
-  }, [review, dashboardVisible]);
+  }, [review, dashboardVisible, inspectorReview]);
   useEffect(() => {
     if (!review || review.paste || dashboardVisible || !panelElement) return;
     const frameSelection = () => {
       const graph = PPGraph.currentGraph;
-      const targets = inspection.map((id) => graph.nodes[id]).filter(Boolean);
+      const targets = inspection.map((id) => graph.nodes[id]);
       if (!targets.length) return;
       const panel = panelElement.getBoundingClientRect();
       const canvas = canvasElement?.getBoundingClientRect();
@@ -274,7 +358,7 @@ export function AppRiskDialog({
           variant="body2"
           sx={{ minWidth: 0, overflowWrap: 'anywhere' }}
         >
-          {pending.name} - Not running
+          {pending.name} - Risky nodes paused
         </Typography>
         <Button
           variant="contained"
@@ -296,7 +380,7 @@ export function AppRiskDialog({
             }
           }}
         >
-          Review app
+          Review risks
         </Button>
       </Box>
     );
@@ -308,24 +392,83 @@ export function AppRiskDialog({
   const query = search.trim().toLowerCase();
   const matchingNodes = nodes.filter((node) => node.searchText.includes(query));
   const inspectNodes = (ids: string[]): void => {
-    const targets = ids
-      .map((id) => PPGraph.currentGraph.nodes[id])
-      .filter(Boolean);
+    const targets = ids.map((id) => PPGraph.currentGraph.nodes[id]);
     if (!targets.length) return;
     InterfaceController.toggleAppView(VISIBILITY_ACTION.CLOSE);
     InterfaceController.toggleShowDashboard(VISIBILITY_ACTION.CLOSE);
     setStackView('graph');
     PPGraph.currentGraph.selection.selectNodes(targets, false);
     setInspection(ids);
+    if (inspectorReview) {
+      void ensureVisible(targets);
+      onInspect?.();
+    }
   };
+  const requiredAccess = review.risks.reduce(
+    (highest, { risk }) =>
+      severityStyles[risk.severity].score > highest.score
+        ? severityStyles[risk.severity]
+        : highest,
+    severityStyles.info,
+  );
   const content = (
     <>
       <DialogTitle component="div" sx={{ overflowWrap: 'anywhere' }}>
-        <Typography id="app-risk-title" component="h2" variant="h6">
+        {!review.paste && (
+          <Box data-cy="required-access-score" sx={{ mb: 1 }}>
+            <Typography
+              variant="subtitle2"
+              sx={{ color: requiredAccess.color }}
+            >
+              Required access {requiredAccess.score}/3 · {requiredAccess.label}
+            </Typography>
+            <Typography variant="caption" color="text.secondary">
+              1 Basic · 2 Specific · 3 Broad
+            </Typography>
+          </Box>
+        )}
+        <Typography
+          id={inspectorReview ? 'inspector-risk-title' : 'app-risk-title'}
+          component="h2"
+          variant="h6"
+        >
           {review.paste
             ? `Paste ${review.name}?`
-            : `Before running ${review.name}`}
+            : review.inspectionOnly
+              ? `Risks in ${review.name}`
+              : `Before running ${review.name}`}
         </Typography>
+        {!review.paste && (
+          <Box data-cy="app-risk-source" sx={{ mt: 1 }}>
+            {PPGraph.currentGraph.source ? (
+              <>
+                {PPGraph.currentGraph.source.ownerId === 'publicUser' ? (
+                  <Chip
+                    icon={<VerifiedIcon />}
+                    label="Tailrmade"
+                    aria-label="Verified Tailrmade"
+                    color="primary"
+                    size="small"
+                  />
+                ) : (
+                  <Typography variant="body2">
+                    {PPGraph.currentGraph.source.owner.name ||
+                      PPGraph.currentGraph.source.ownerId}
+                  </Typography>
+                )}
+                {PPGraph.currentGraph.source.owner.email && (
+                  <Typography variant="caption" color="text.secondary">
+                    {PPGraph.currentGraph.source.owner.email}
+                  </Typography>
+                )}
+              </>
+            ) : (
+              <Typography variant="body2" color="text.secondary">
+                Unknown source
+              </Typography>
+            )}
+          </Box>
+        )}
         {!review.paste && (
           <Box
             sx={{
@@ -363,9 +506,14 @@ export function AppRiskDialog({
         {!review.paste && (
           <Box sx={{ borderBottom: 1, borderColor: 'divider', pb: 2, mb: 2 }}>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-              Many apps use these capabilities as part of normal operation.
-              Seeing this review does not mean a problem was found. Check that
-              the access below matches what you expect the app to do.
+              These capabilities are common in interactive apps. Review the
+              access below and check that it matches what you expect from this
+              app and its source.
+              {' The score reflects the broadest access required by the app.'}
+              {review.risks.some(
+                ({ risk }) => risk.kind === 'unrestricted-code',
+              ) &&
+                ' Browser access includes the ability to use keys, access data, and contact services beyond those listed here.'}
             </Typography>
             <Typography variant="subtitle2" sx={{ mb: 1 }}>
               Nodes to review ({nodes.length})
@@ -382,7 +530,7 @@ export function AppRiskDialog({
                 <ListItemButton
                   key={node.id}
                   aria-label={`Go to node ${node.name}`}
-                  aria-describedby={`risk-capabilities-${node.id}`}
+                  aria-describedby={`${inspectorReview ? 'inspector-' : ''}risk-capabilities-${node.id}`}
                   data-cy="go-to-risk-node"
                   data-node-id={node.id}
                   onClick={() => inspectNodes([node.id])}
@@ -407,7 +555,9 @@ export function AppRiskDialog({
                     <Typography variant="caption" color="text.secondary">
                       {node.id}
                     </Typography>
-                    <Box id={`risk-capabilities-${node.id}`}>
+                    <Box
+                      id={`${inspectorReview ? 'inspector-' : ''}risk-capabilities-${node.id}`}
+                    >
                       {node.risks.map((risk) => (
                         <NodeCapability key={risk.id} risk={risk} />
                       ))}
@@ -421,7 +571,7 @@ export function AppRiskDialog({
                   color="text.secondary"
                   sx={{ p: 1 }}
                 >
-                  No matching nodes
+                  {nodes.length ? 'No matching nodes' : 'No risks found'}
                 </Typography>
               )}
             </List>
@@ -438,14 +588,34 @@ export function AppRiskDialog({
             sx={{ mb: 2, '&:last-child': { mb: 0 }, overflowWrap: 'anywhere' }}
           >
             <Alert
-              severity="info"
+              severity={
+                risk.severity === 'critical' ? 'warning' : risk.severity
+              }
               role="note"
+              data-cy="risk-details"
+              data-risk-kind={risk.kind}
+              data-risk-severity={risk.severity}
               icon={React.createElement(
-                capabilityStyles[risk.kind]?.Icon ?? InfoOutlinedIcon,
+                capabilityIcons[risk.kind] ?? InfoOutlinedIcon,
                 { fontSize: 'inherit' },
               )}
-              sx={{ bgcolor: 'action.hover', color: 'text.primary' }}
+              sx={{
+                bgcolor: 'action.hover',
+                color: 'text.primary',
+                borderLeft: risk.severity === 'critical' ? 3 : 0,
+                borderColor: severityStyles[risk.severity].color,
+                '& .MuiAlert-icon': {
+                  color: severityStyles[risk.severity].color,
+                },
+              }}
             >
+              <Typography
+                variant="caption"
+                sx={{ color: severityStyles[risk.severity].color }}
+              >
+                {severityStyles[risk.severity].score}/3 ·{' '}
+                {severityStyles[risk.severity].label}
+              </Typography>
               <Typography sx={{ fontWeight: 600 }}>{risk.title}</Typography>
               {risk.target && (
                 <Typography variant="body2" sx={{ fontWeight: 600 }}>
@@ -467,28 +637,50 @@ export function AppRiskDialog({
           </Box>
         ))}
       </DialogContent>
-      <DialogActions sx={{ flexShrink: 0, flexWrap: 'wrap' }}>
-        <Button
-          color="inherit"
-          onClick={() => {
-            if (!review.paste) inspectNodes(nodes.map((node) => node.id));
-            finish(false);
-          }}
-          autoFocus
-        >
-          {review.paste ? 'Cancel' : 'Keep inspecting'}
-        </Button>
-        <Button
-          variant="contained"
-          startIcon={<PlayArrowIcon />}
-          onClick={() => finish(true)}
-          data-cy={review.paste ? 'confirm-node-paste' : 'run-reviewed-app'}
-        >
-          {review.paste ? 'Paste nodes' : 'Run app'}
-        </Button>
-      </DialogActions>
+      {!inspectorReview && (
+        <DialogActions sx={{ flexShrink: 0, flexWrap: 'wrap' }}>
+          <Button
+            color="inherit"
+            onClick={() => {
+              if (!review.paste && !review.inspectionOnly)
+                inspectNodes(nodes.map((node) => node.id));
+              finish(false);
+            }}
+            autoFocus
+          >
+            {review.paste
+              ? 'Cancel'
+              : review.inspectionOnly
+                ? 'Close'
+                : 'Keep inspecting'}
+          </Button>
+          {!review.inspectionOnly && (
+            <Button
+              variant="contained"
+              startIcon={<PlayArrowIcon />}
+              onClick={() => finish(true)}
+              data-cy={review.paste ? 'confirm-node-paste' : 'run-reviewed-app'}
+            >
+              {review.paste ? 'Paste nodes' : 'Run app'}
+            </Button>
+          )}
+        </DialogActions>
+      )}
     </>
   );
+  if (inspectorReview) {
+    return (
+      <Box
+        data-cy="graph-risk-inspector"
+        sx={{
+          '& .MuiDialogTitle-root': { p: 0, pb: 2 },
+          '& .MuiDialogContent-root': { p: 0, border: 0, overflow: 'visible' },
+        }}
+      >
+        {content}
+      </Box>
+    );
+  }
   if (!review.paste && !dashboardVisible) {
     return (
       <Paper

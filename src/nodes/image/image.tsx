@@ -1,5 +1,5 @@
 import React from 'react';
-import { appExecutionAllowed } from '../../services/appExecution';
+import { isNodeExecutionAllowed } from '../../services/appExecution';
 import { NodeRisk, getImageSourceRisks } from '../../classes/NodeRisk';
 import * as PIXI from 'pixi.js';
 import DOMPurify from 'dompurify';
@@ -187,7 +187,7 @@ export class Image extends PPNode implements Layoutable {
     this._ForegroundRef.addChild(this.maskRef);
     this.sprite.mask = this.maskRef;
 
-    if (!appExecutionAllowed.get()) {
+    if (!isNodeExecutionAllowed(this)) {
       this.maskRef.rect(0, 0, this.nodeWidth, this.nodeHeight).fill(0xffffff);
       this.maskRef.x = NODE_MARGIN;
       return;
