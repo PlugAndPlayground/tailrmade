@@ -72,33 +72,99 @@ const capabilityIcons: Record<string, typeof InfoOutlinedIcon> = {
   'ai-usage': AutoAwesomeIcon,
 };
 
-const severityStyles: Record<
-  RiskSeverity,
-  { color: string; background: string; score: number; label: string }
-> = {
+type AccessStyle = {
+  color: string;
+  background: string;
+  score: number;
+  label: string;
+  description: string;
+};
+
+const severityStyles: Record<RiskSeverity, AccessStyle> = {
   critical: {
     color: '#e4c28c',
     background: '#3d3426',
     score: 3,
     label: 'Broad access',
+    description: 'Can do anything you can do in this tab',
   },
   warning: {
     color: '#d5cfbd',
     background: '#34332f',
     score: 2,
     label: 'Specific access',
+    description: 'Uses the services, keys or data listed below',
   },
   info: {
     color: '#a9dfff',
     background: '#173b50',
     score: 1,
     label: 'Basic access',
+    description: 'Shows content from other sites',
   },
 };
 
+// Three bars instead of "n/3", which read like a test score where 3/3 is best.
+function AccessLevel({
+  level,
+  variant = 'caption',
+}: {
+  level: AccessStyle;
+  variant?: 'caption' | 'subtitle2';
+}): React.ReactElement {
+  return (
+    <Box
+      component="span"
+      data-access-level={level.score}
+      sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.75 }}
+    >
+      <Box component="span" aria-hidden sx={{ display: 'flex', gap: '2px' }}>
+        {[1, 2, 3].map((bar) => (
+          <Box
+            key={bar}
+            component="span"
+            sx={{
+              width: 4,
+              height: 10,
+              borderRadius: '1px',
+              bgcolor: bar <= level.score ? level.color : 'action.disabled',
+            }}
+          />
+        ))}
+      </Box>
+      <Typography variant={variant} sx={{ color: level.color }}>
+        {level.label}
+      </Typography>
+    </Box>
+  );
+}
+
+function RequiredAccess({ level }: { level: AccessStyle }): React.ReactElement {
+  return (
+    <Box data-cy="required-access-score">
+      <Typography
+        variant="caption"
+        color="text.secondary"
+        sx={{ display: 'block' }}
+      >
+        Required access
+      </Typography>
+      <AccessLevel level={level} variant="subtitle2" />
+      <Typography
+        variant="caption"
+        color="text.secondary"
+        sx={{ display: 'block' }}
+      >
+        {level.description}
+      </Typography>
+    </Box>
+  );
+}
+
 function NodeCapability({ risk }: { risk: NodeRisk }): React.ReactElement {
   const Icon = capabilityIcons[risk.kind] ?? InfoOutlinedIcon;
-  const { color, background, score, label } = severityStyles[risk.severity];
+  const level = severityStyles[risk.severity];
+  const { color, background } = level;
   return (
     <Box
       data-cy="node-capability"
@@ -120,9 +186,7 @@ function NodeCapability({ risk }: { risk: NodeRisk }): React.ReactElement {
         <Icon sx={{ fontSize: 16 }} />
       </Box>
       <Box sx={{ minWidth: 0 }}>
-        <Typography variant="caption" sx={{ color }}>
-          {score}/3 · {label}
-        </Typography>
+        <AccessLevel level={level} />
         <Typography
           variant="body2"
           sx={risk.severity === 'critical' ? { fontWeight: 600 } : {}}
@@ -264,13 +328,7 @@ export function AppRiskSummary(): React.ReactElement {
     <Box data-cy="app-risk-summary" sx={{ bgcolor: 'background.paper' }}>
       <Box sx={{ px: 2, py: 1, color: 'text.primary' }}>Risks</Box>
       <Box sx={{ p: 2, bgcolor: 'background.default' }}>
-        <Typography
-          variant="subtitle2"
-          data-cy="required-access-score"
-          sx={{ color: access.color }}
-        >
-          Required access {access.score}/3 · {access.label}
-        </Typography>
+        <RequiredAccess level={access} />
         <Box data-cy="app-risk-source" sx={{ mt: 1 }}>
           <AppSource />
         </Box>
@@ -466,13 +524,8 @@ export function AppRiskDialog({
     <>
       <DialogTitle component="div" sx={{ overflowWrap: 'anywhere' }}>
         {!review.paste && (
-          <Box data-cy="required-access-score" sx={{ mb: 1 }}>
-            <Typography variant="subtitle2" sx={{ color: access.color }}>
-              Required access {access.score}/3 · {access.label}
-            </Typography>
-            <Typography variant="caption" color="text.secondary">
-              1 Basic · 2 Specific · 3 Broad
-            </Typography>
+          <Box sx={{ mb: 1 }}>
+            <RequiredAccess level={access} />
           </Box>
         )}
         <Typography id="app-risk-title" component="h2" variant="h6">
@@ -527,7 +580,7 @@ export function AppRiskDialog({
               These capabilities are common in interactive apps. Review the
               access below and check that it matches what you expect from this
               app and its source.
-              {' The score reflects the broadest access required by the app.'}
+              {' The required access is the broadest any node needs.'}
               {review.risks.some(
                 ({ risk }) => risk.kind === 'unrestricted-code',
               ) &&
@@ -625,13 +678,7 @@ export function AppRiskDialog({
                 },
               }}
             >
-              <Typography
-                variant="caption"
-                sx={{ color: severityStyles[risk.severity].color }}
-              >
-                {severityStyles[risk.severity].score}/3 ·{' '}
-                {severityStyles[risk.severity].label}
-              </Typography>
+              <AccessLevel level={severityStyles[risk.severity]} />
               <Typography sx={{ fontWeight: 600 }}>{risk.title}</Typography>
               {risk.target && (
                 <Typography variant="body2" sx={{ fontWeight: 600 }}>

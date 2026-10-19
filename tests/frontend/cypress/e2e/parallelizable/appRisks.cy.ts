@@ -626,7 +626,7 @@ describe('app risk review', () => {
     cy.get('[data-cy="app-info-tab"]').click();
     cy.get('[data-cy="app-risk-summary"]')
       .should('contain', 'No risks found')
-      .and('contain', 'Required access 1/3')
+      .and('contain', 'Basic access')
       .and('contain', 'Unknown source');
     cy.get('[data-cy="app-risk-dialog"]').should('not.exist');
     beginLoad([codeNode()]);
@@ -634,7 +634,7 @@ describe('app risk review', () => {
     cy.get('[data-cy="app-risk-dialog"]').should('not.exist');
     cy.get('[data-cy="app-risk-summary"]')
       .should('contain', '1 node to review')
-      .and('contain', 'Required access 3/3');
+      .and('contain', 'Broad access');
     cy.get('[data-cy="open-risk-review"]').click();
     cy.get('[data-cy="app-risk-dialog"]')
       .should('contain', 'Runs JavaScript with browser access')
