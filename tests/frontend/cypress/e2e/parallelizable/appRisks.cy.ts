@@ -616,46 +616,36 @@ describe('app risk review', () => {
     });
   });
 
-  it('shows risks in a graph inspector tab without opening a review dialog', () => {
+  it('summarizes risks in the app inspector and reviews them in the side panel', () => {
     cy.viewport(1280, 900);
     beginLoad([serializedNode('add', 'add', [])]);
     cy.get('[data-cy="inspector-column"]').then(($column) => {
       if ($column.width() === 0)
         cy.get('[data-cy="right-drawer-toggle-btn"]').click();
     });
-    cy.get('[data-cy="graph-inspector-tab"]').click();
-    cy.get('[data-cy="review-risks-button"]').should('not.exist');
-    cy.get('[data-cy="graph-risk-inspector"]').should('not.exist');
-    cy.get('[data-cy="graph-risks-tab"]')
-      .click()
-      .should('have.attr', 'aria-selected', 'true');
-    cy.get('[data-cy="graph-risk-inspector"]')
+    cy.get('[data-cy="app-info-tab"]').click();
+    cy.get('[data-cy="app-risk-summary"]')
       .should('contain', 'No risks found')
       .and('contain', 'Required access 1/3')
       .and('contain', 'Unknown source');
     cy.get('[data-cy="app-risk-dialog"]').should('not.exist');
-    cy.get('[data-cy="run-reviewed-app"]').should('not.exist');
-    cy.get('[data-cy="graph-nodes-tab"]').click();
-    cy.get('[data-cy="graph-risk-inspector"]').should('not.exist');
     beginLoad([codeNode()]);
     cy.get('[data-cy="run-reviewed-app"]').click();
     cy.get('[data-cy="app-risk-dialog"]').should('not.exist');
-    cy.get('[data-cy="graph-risks-tab"]').click();
-    cy.get('[data-cy="graph-risk-inspector"]')
-      .should('contain', 'Runs JavaScript with browser access')
+    cy.get('[data-cy="app-risk-summary"]')
+      .should('contain', '1 node to review')
       .and('contain', 'Required access 3/3');
-    cy.get('[data-cy="app-risk-dialog"]').should('not.exist');
+    cy.get('[data-cy="open-risk-review"]').click();
+    cy.get('[data-cy="app-risk-dialog"]')
+      .should('contain', 'Runs JavaScript with browser access')
+      .and('contain', 'Risks in');
     cy.get('[data-cy="run-reviewed-app"]').should('not.exist');
-    cy.screenshot('graph-risk-inspector', { capture: 'runner' });
-    cy.get(
-      '[data-cy="graph-risk-inspector"] [data-cy="go-to-risk-node"]',
-    ).click();
-    cy.get('[data-cy="graph-nodes-tab"]').should(
-      'have.attr',
-      'aria-selected',
-      'true',
-    );
+    cy.screenshot('app-risk-summary', { capture: 'runner' });
+    cy.get('[data-cy="go-to-risk-node"]').click();
+    // the list stays open beside the node inspector
     cy.get('#inspector-container-node').should('be.visible');
+    cy.get('[data-cy="app-risk-dialog"]').contains('button', 'Close').click();
+    cy.get('[data-cy="app-risk-dialog"]').should('not.exist');
   });
 
   it('does not verify an owner claimed by a graph file', () => {

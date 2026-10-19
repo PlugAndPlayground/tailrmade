@@ -41,11 +41,11 @@ import { createStore } from './createStore';
 import { pendingAppRun } from '../services/appExecution';
 import InterfaceController, { ListenEvent } from '../InterfaceController';
 import {
-  ensureVisible,
   getNodesBounds,
   smoothMoveViewport,
 } from '../pixi/utils-pixi';
 import { VISIBILITY_ACTION } from '../utils/constants_shared';
+import { RightDrawerView } from '../utils/constants';
 import { setStackView, useIsStackLayout } from '../utils/layoutModel';
 
 type Review = {
@@ -193,21 +193,56 @@ export function showCurrentAppRisks(): void {
   });
 }
 
-export function AppRiskInspector({
-  onInspect,
-}: {
-  onInspect: () => void;
-}): React.ReactElement {
-  const readReview = (): Review => {
-    const graph = PPGraph.currentGraph;
-    return {
-      name: graph.name,
-      risks: collectAppRisks(Object.values(graph.nodes)),
-      inspectionOnly: true,
-      resolve: () => {},
-    };
-  };
-  const [review, setReview] = useState(readReview);
+function requiredAccess(risks: AppRisk[]) {
+  return risks.reduce(
+    (highest, { risk }) =>
+      severityStyles[risk.severity].score > highest.score
+        ? severityStyles[risk.severity]
+        : highest,
+    severityStyles.info,
+  );
+}
+
+function AppSource(): React.ReactElement {
+  const source = PPGraph.currentGraph.source;
+  if (!source) {
+    return (
+      <Typography variant="body2" color="text.secondary">
+        Unknown source
+      </Typography>
+    );
+  }
+  return (
+    <>
+      {source.ownerId === 'publicUser' ? (
+        <Chip
+          icon={<VerifiedIcon />}
+          label="Tailrmade"
+          aria-label="Verified Tailrmade"
+          color="primary"
+          size="small"
+        />
+      ) : (
+        <Typography variant="body2">
+          {source.owner.name || source.ownerId}
+        </Typography>
+      )}
+      {source.owner.email && (
+        <Typography variant="caption" color="text.secondary">
+          {source.owner.email}
+        </Typography>
+      )}
+    </>
+  );
+}
+
+const readCurrentRisks = (): AppRisk[] =>
+  collectAppRisks(Object.values(PPGraph.currentGraph.nodes));
+
+// Summary for the App inspector. The full review opens in the left panel so
+// its list stays put while the right inspector shows the selected node.
+export function AppRiskSummary(): React.ReactElement {
+  const [risks, setRisks] = useState(readCurrentRisks);
   useEffect(() => {
     const listener = InterfaceController.addListeners(
       [
@@ -215,32 +250,55 @@ export function AppRiskInspector({
         ListenEvent.GraphConfigured,
         ListenEvent.UnsavedChanges,
       ],
-      () => setReview(readReview()),
+      () => setRisks(readCurrentRisks()),
     );
     return () => InterfaceController.removeListener(listener);
   }, []);
+  const access = requiredAccess(risks);
+  const nodeCount = new Set(
+    risks.flatMap(({ nodes }) => nodes.map((node) => node.id)),
+  ).size;
   return (
-    <AppRiskDialog
-      dashboardVisible={false}
-      inspectorReview={review}
-      onInspect={onInspect}
-    />
+    <Box data-cy="app-risk-summary" sx={{ bgcolor: 'background.paper' }}>
+      <Box sx={{ px: 2, py: 1, color: 'text.primary' }}>Risks</Box>
+      <Box sx={{ p: 2, bgcolor: 'background.default' }}>
+        <Typography
+          variant="subtitle2"
+          data-cy="required-access-score"
+          sx={{ color: access.color }}
+        >
+          Required access {access.score}/3 · {access.label}
+        </Typography>
+        <Box data-cy="app-risk-source" sx={{ mt: 1 }}>
+          <AppSource />
+        </Box>
+        <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+          {nodeCount
+            ? `${nodeCount} ${nodeCount === 1 ? 'node' : 'nodes'} to review`
+            : 'No risks found'}
+        </Typography>
+        <Button
+          variant="outlined"
+          startIcon={<FactCheckOutlinedIcon />}
+          data-cy="open-risk-review"
+          onClick={showCurrentAppRisks}
+          sx={{ mt: 1.5 }}
+        >
+          Review risks
+        </Button>
+      </Box>
+    </Box>
   );
 }
 
 export function AppRiskDialog({
   canvasElement,
   dashboardVisible,
-  inspectorReview,
-  onInspect,
 }: {
   canvasElement?: HTMLDivElement | null;
   dashboardVisible: boolean;
-  inspectorReview?: Review;
-  onInspect?: () => void;
 }): React.ReactElement | null {
-  const storedReview = reviewStore.useStore();
-  const review = inspectorReview ?? storedReview;
+  const review = reviewStore.useStore();
   const pending = pendingAppRun.useStore();
   const [starting, setStarting] = useState(false);
   const [search, setSearch] = useState('');
@@ -275,10 +333,10 @@ export function AppRiskDialog({
     setInspection(nodes.map((node) => node.id));
   }, [review, nodes]);
   useEffect(() => {
-    if (review && !review.paste && !dashboardVisible && !inspectorReview) {
+    if (review && !review.paste && !dashboardVisible) {
       InterfaceController.toggleLeftSideDrawer(VISIBILITY_ACTION.CLOSE);
     }
-  }, [review, dashboardVisible, inspectorReview]);
+  }, [review, dashboardVisible]);
   useEffect(() => {
     if (!review || review.paste || dashboardVisible || !panelElement) return;
     const frameSelection = () => {
@@ -397,20 +455,11 @@ export function AppRiskDialog({
     InterfaceController.toggleAppView(VISIBILITY_ACTION.CLOSE);
     InterfaceController.toggleShowDashboard(VISIBILITY_ACTION.CLOSE);
     setStackView('graph');
+    InterfaceController.setRightDrawerView(RightDrawerView.GRAPH);
     PPGraph.currentGraph.selection.selectNodes(targets, false);
     setInspection(ids);
-    if (inspectorReview) {
-      void ensureVisible(targets);
-      onInspect?.();
-    }
   };
-  const requiredAccess = review.risks.reduce(
-    (highest, { risk }) =>
-      severityStyles[risk.severity].score > highest.score
-        ? severityStyles[risk.severity]
-        : highest,
-    severityStyles.info,
-  );
+  const access = requiredAccess(review.risks);
   const content = (
     <>
       <DialogTitle component="div" sx={{ overflowWrap: 'anywhere' }}>
@@ -418,9 +467,9 @@ export function AppRiskDialog({
           <Box data-cy="required-access-score" sx={{ mb: 1 }}>
             <Typography
               variant="subtitle2"
-              sx={{ color: requiredAccess.color }}
+              sx={{ color: access.color }}
             >
-              Required access {requiredAccess.score}/3 · {requiredAccess.label}
+              Required access {access.score}/3 · {access.label}
             </Typography>
             <Typography variant="caption" color="text.secondary">
               1 Basic · 2 Specific · 3 Broad
@@ -428,7 +477,7 @@ export function AppRiskDialog({
           </Box>
         )}
         <Typography
-          id={inspectorReview ? 'inspector-risk-title' : 'app-risk-title'}
+          id="app-risk-title"
           component="h2"
           variant="h6"
         >
@@ -440,33 +489,7 @@ export function AppRiskDialog({
         </Typography>
         {!review.paste && (
           <Box data-cy="app-risk-source" sx={{ mt: 1 }}>
-            {PPGraph.currentGraph.source ? (
-              <>
-                {PPGraph.currentGraph.source.ownerId === 'publicUser' ? (
-                  <Chip
-                    icon={<VerifiedIcon />}
-                    label="Tailrmade"
-                    aria-label="Verified Tailrmade"
-                    color="primary"
-                    size="small"
-                  />
-                ) : (
-                  <Typography variant="body2">
-                    {PPGraph.currentGraph.source.owner.name ||
-                      PPGraph.currentGraph.source.ownerId}
-                  </Typography>
-                )}
-                {PPGraph.currentGraph.source.owner.email && (
-                  <Typography variant="caption" color="text.secondary">
-                    {PPGraph.currentGraph.source.owner.email}
-                  </Typography>
-                )}
-              </>
-            ) : (
-              <Typography variant="body2" color="text.secondary">
-                Unknown source
-              </Typography>
-            )}
+            <AppSource />
           </Box>
         )}
         {!review.paste && (
@@ -530,7 +553,7 @@ export function AppRiskDialog({
                 <ListItemButton
                   key={node.id}
                   aria-label={`Go to node ${node.name}`}
-                  aria-describedby={`${inspectorReview ? 'inspector-' : ''}risk-capabilities-${node.id}`}
+                  aria-describedby={`risk-capabilities-${node.id}`}
                   data-cy="go-to-risk-node"
                   data-node-id={node.id}
                   onClick={() => inspectNodes([node.id])}
@@ -556,7 +579,7 @@ export function AppRiskDialog({
                       {node.id}
                     </Typography>
                     <Box
-                      id={`${inspectorReview ? 'inspector-' : ''}risk-capabilities-${node.id}`}
+                      id={`risk-capabilities-${node.id}`}
                     >
                       {node.risks.map((risk) => (
                         <NodeCapability key={risk.id} risk={risk} />
@@ -637,50 +660,35 @@ export function AppRiskDialog({
           </Box>
         ))}
       </DialogContent>
-      {!inspectorReview && (
-        <DialogActions sx={{ flexShrink: 0, flexWrap: 'wrap' }}>
+      <DialogActions sx={{ flexShrink: 0, flexWrap: 'wrap' }}>
+        <Button
+          color="inherit"
+          onClick={() => {
+            if (!review.paste && !review.inspectionOnly)
+              inspectNodes(nodes.map((node) => node.id));
+            finish(false);
+          }}
+          autoFocus
+        >
+          {review.paste
+            ? 'Cancel'
+            : review.inspectionOnly
+              ? 'Close'
+              : 'Keep inspecting'}
+        </Button>
+        {!review.inspectionOnly && (
           <Button
-            color="inherit"
-            onClick={() => {
-              if (!review.paste && !review.inspectionOnly)
-                inspectNodes(nodes.map((node) => node.id));
-              finish(false);
-            }}
-            autoFocus
+            variant="contained"
+            startIcon={<PlayArrowIcon />}
+            onClick={() => finish(true)}
+            data-cy={review.paste ? 'confirm-node-paste' : 'run-reviewed-app'}
           >
-            {review.paste
-              ? 'Cancel'
-              : review.inspectionOnly
-                ? 'Close'
-                : 'Keep inspecting'}
+            {review.paste ? 'Paste nodes' : 'Run app'}
           </Button>
-          {!review.inspectionOnly && (
-            <Button
-              variant="contained"
-              startIcon={<PlayArrowIcon />}
-              onClick={() => finish(true)}
-              data-cy={review.paste ? 'confirm-node-paste' : 'run-reviewed-app'}
-            >
-              {review.paste ? 'Paste nodes' : 'Run app'}
-            </Button>
-          )}
-        </DialogActions>
-      )}
+        )}
+      </DialogActions>
     </>
   );
-  if (inspectorReview) {
-    return (
-      <Box
-        data-cy="graph-risk-inspector"
-        sx={{
-          '& .MuiDialogTitle-root': { p: 0, pb: 2 },
-          '& .MuiDialogContent-root': { p: 0, border: 0, overflow: 'visible' },
-        }}
-      >
-        {content}
-      </Box>
-    );
-  }
   if (!review.paste && !dashboardVisible) {
     return (
       <Paper
