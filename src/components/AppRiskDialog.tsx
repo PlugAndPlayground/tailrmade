@@ -10,8 +10,6 @@ import {
   DialogContent,
   DialogTitle,
   List,
-  ListItemButton,
-  ListItemIcon,
   Paper,
   ThemeProvider,
   TextField,
@@ -39,6 +37,8 @@ import {
 } from '../classes/NodeRisk';
 import PPGraph from '../classes/GraphClass';
 import { createStore } from './createStore';
+import { NodeRow } from './NodeRow';
+import { TagChip } from './TagChip';
 import { pendingAppRun } from '../services/appExecution';
 import InterfaceController, { ListenEvent } from '../InterfaceController';
 import { getNodesBounds, smoothMoveViewport } from '../pixi/utils-pixi';
@@ -74,7 +74,6 @@ const capabilityIcons: Record<string, typeof InfoOutlinedIcon> = {
 
 type AccessStyle = {
   color: string;
-  background: string;
   score: number;
   label: string;
   description: string;
@@ -83,21 +82,18 @@ type AccessStyle = {
 const severityStyles: Record<RiskSeverity, AccessStyle> = {
   critical: {
     color: '#e4c28c',
-    background: '#3d3426',
     score: 3,
     label: 'Broad access',
     description: 'Can do anything you can do in this tab',
   },
   warning: {
     color: '#d5cfbd',
-    background: '#34332f',
     score: 2,
     label: 'Specific access',
     description: 'Uses the services, keys or data listed below',
   },
   info: {
     color: '#a9dfff',
-    background: '#173b50',
     score: 1,
     label: 'Basic access',
     description: 'Shows content from other sites',
@@ -161,52 +157,6 @@ function RequiredAccess({ level }: { level: AccessStyle }): React.ReactElement {
   );
 }
 
-function NodeCapability({ risk }: { risk: NodeRisk }): React.ReactElement {
-  const Icon = capabilityIcons[risk.kind] ?? InfoOutlinedIcon;
-  const level = severityStyles[risk.severity];
-  const { color, background } = level;
-  return (
-    <Box
-      data-cy="node-capability"
-      data-risk-kind={risk.kind}
-      data-risk-severity={risk.severity}
-      sx={{ display: 'flex', alignItems: 'flex-start', gap: 1, mt: 0.75 }}
-    >
-      <Box
-        component="span"
-        sx={{
-          display: 'inline-flex',
-          flexShrink: 0,
-          p: 0.25,
-          borderRadius: 0.5,
-          color,
-          bgcolor: background,
-        }}
-      >
-        <Icon sx={{ fontSize: 16 }} />
-      </Box>
-      <Box sx={{ minWidth: 0 }}>
-        <AccessLevel level={level} />
-        <Typography
-          variant="body2"
-          sx={risk.severity === 'critical' ? { fontWeight: 600 } : {}}
-        >
-          {risk.title}
-        </Typography>
-        {risk.target && (
-          <Typography
-            variant="caption"
-            color="text.secondary"
-            sx={{ display: 'block' }}
-          >
-            {risk.target}
-          </Typography>
-        )}
-      </Box>
-    </Box>
-  );
-}
-
 export function useAppRiskReviewOpen(): boolean {
   const review = reviewStore.useStore();
   return !!review && !review.paste;
@@ -259,15 +209,18 @@ export function showCurrentAppRisks(): void {
   });
 }
 
-function requiredAccess(risks: AppRisk[]) {
+function highestAccess(risks: NodeRisk[]): AccessStyle {
   return risks.reduce(
-    (highest, { risk }) =>
+    (highest, risk) =>
       severityStyles[risk.severity].score > highest.score
         ? severityStyles[risk.severity]
         : highest,
     severityStyles.info,
   );
 }
+
+const requiredAccess = (risks: AppRisk[]): AccessStyle =>
+  highestAccess(risks.map(({ risk }) => risk));
 
 function AppSource(): React.ReactElement {
   const source = PPGraph.currentGraph.source;
@@ -597,43 +550,44 @@ export function AppRiskDialog({
               onChange={(event) => setSearch(event.target.value)}
             />
             <List dense sx={{ maxHeight: 320, overflowY: 'auto', mt: 1 }}>
-              {matchingNodes.map((node) => (
-                <ListItemButton
-                  key={node.id}
-                  aria-label={`Go to node ${node.name}`}
-                  aria-describedby={`risk-capabilities-${node.id}`}
-                  data-cy="go-to-risk-node"
-                  data-node-id={node.id}
-                  onClick={() => inspectNodes([node.id])}
-                  sx={{
-                    minHeight: 44,
-                    overflowWrap: 'anywhere',
-                    alignItems: 'flex-start',
-                    px: 1,
-                    py: 1.5,
-                    borderBottom: 1,
-                    borderColor: 'divider',
-                    '&:last-child': { borderBottom: 0 },
-                  }}
-                >
-                  <ListItemIcon sx={{ minWidth: 28, mt: 0.25 }}>
-                    <MyLocationIcon fontSize="small" />
-                  </ListItemIcon>
-                  <Box sx={{ minWidth: 0, flex: 1 }}>
-                    <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                      {node.name}
-                    </Typography>
-                    <Typography variant="caption" color="text.secondary">
-                      {node.id}
-                    </Typography>
-                    <Box id={`risk-capabilities-${node.id}`}>
-                      {node.risks.map((risk) => (
-                        <NodeCapability key={risk.id} risk={risk} />
-                      ))}
-                    </Box>
-                  </Box>
-                </ListItemButton>
-              ))}
+              {matchingNodes.map((node) => {
+                const graphNode = PPGraph.currentGraph.nodes[node.id];
+                if (!graphNode) return null;
+                const level = highestAccess(node.risks);
+                return (
+                  <NodeRow
+                    key={node.id}
+                    node={graphNode}
+                    aria-label={`Go to node ${node.name}`}
+                    aria-describedby={`risk-capabilities-${node.id}`}
+                    data-cy="go-to-risk-node"
+                    data-node-id={node.id}
+                    onClick={() => inspectNodes([node.id])}
+                    tags={
+                      <TagChip
+                        label={level.label}
+                        color={level.color}
+                        data-cy="node-access-level"
+                      />
+                    }
+                    subtitle={
+                      <Box id={`risk-capabilities-${node.id}`}>
+                        {node.risks.map((risk) => (
+                          <Box
+                            key={risk.id}
+                            data-cy="node-capability"
+                            data-risk-kind={risk.kind}
+                            data-risk-severity={risk.severity}
+                          >
+                            {risk.title}
+                            {risk.target && ` · ${risk.target}`}
+                          </Box>
+                        ))}
+                      </Box>
+                    }
+                  />
+                );
+              })}
               {!matchingNodes.length && (
                 <Typography
                   variant="body2"
