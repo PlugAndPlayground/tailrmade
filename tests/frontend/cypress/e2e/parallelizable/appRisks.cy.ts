@@ -103,11 +103,13 @@ describe('app risk review', () => {
   it('shows fixed external images as information alongside blocking risks', () => {
     cy.viewport(1280, 900);
     beginLoad([codeNode(), { ...imageNode(externalImageURL), x: 400 }]);
+    cy.get('[data-cy="risk-nodes-tab"]').click();
     cy.get('[data-cy="go-to-risk-node"][data-node-id="image"]')
       .should('contain', 'Loads external images')
       .and('not.contain', 'Connects to external services')
       .and('not.contain', 'hidden-secret');
-    cy.get('[data-cy="app-risk-dialog"] .MuiAlert-colorInfo').should(
+    cy.get('[data-cy="risk-capabilities-tab"]').click();
+    cy.get('[data-cy="risk-details"][data-risk-severity="info"]').should(
       'contain',
       'Loads external images',
     );
@@ -211,6 +213,7 @@ describe('app risk review', () => {
       cy.get(
         '[aria-label="Center review"], [aria-label="Inspect alongside graph"]',
       ).should('not.exist');
+      cy.get('[data-cy="risk-nodes-tab"]').click();
       cy.get('[data-cy="go-to-risk-node"]').should('have.length', 2);
       cy.get('[data-cy="go-to-risk-node"][data-node-id="second-code"]').click();
       cy.get('[data-cy="app-risk-dialog"]')
@@ -265,6 +268,7 @@ describe('app risk review', () => {
   it('searches a large node list and inspects every affected node at once', () => {
     const ids = Array.from({ length: 30 }, (_, index) => `code-${index}`);
     beginLoad(ids.map((id, index) => ({ ...codeNode(), id, x: index * 300 })));
+    cy.get('[data-cy="risk-nodes-tab"]').click();
     cy.get('[data-cy="go-to-risk-node"]').should('have.length', 30);
     cy.get('[data-cy="app-risk-dialog"]').find('input').type('code-29');
     cy.get('[data-cy="go-to-risk-node"]')
@@ -308,6 +312,7 @@ describe('app risk review', () => {
     it(`keeps the inspector beside the review at ${width}px, including after resizing`, () => {
       cy.viewport(width, 900);
       beginLoad([codeNode()]);
+cy.get('[data-cy="risk-nodes-tab"]').click();
       cy.get('[data-cy="go-to-risk-node"]').click();
       cy.get('[data-cy="inspector-column"]').then(($column) => {
         if ($column.width() === 0)
@@ -371,6 +376,7 @@ describe('app risk review', () => {
       'have.length.greaterThan',
       1,
     );
+cy.get('[data-cy="risk-nodes-tab"]').click();
     cy.get('[data-cy="go-to-risk-node"]').should('have.length', 1);
     cy.get('[data-cy="go-to-risk-node"]')
       .should('contain', 'Connects to external services')
@@ -392,6 +398,7 @@ describe('app risk review', () => {
     cy.viewport(390, 900);
     cy.get('[data-cy="go-to-risk-node"]').scrollIntoView();
     cy.screenshot('node-capabilities-mobile', { capture: 'runner' });
+    cy.get('[data-cy="risk-capabilities-tab"]').click();
     cy.get('[data-cy="inspect-risk-group"]').first().click();
     shouldWithTestController((controller) => {
       expect(
@@ -641,6 +648,7 @@ describe('app risk review', () => {
       .and('contain', 'Risks in');
     cy.get('[data-cy="run-reviewed-app"]').should('not.exist');
     cy.screenshot('app-risk-summary', { capture: 'runner' });
+cy.get('[data-cy="risk-nodes-tab"]').click();
     cy.get('[data-cy="go-to-risk-node"]').click();
     // the list stays open beside the node inspector
     cy.get('#inspector-container-node').should('be.visible');

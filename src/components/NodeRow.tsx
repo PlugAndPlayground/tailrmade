@@ -20,6 +20,7 @@ type NodeRowProps = Omit<ListItemButtonProps, 'onClick' | 'title'> & {
   node: PPNode;
   onClick: (event: React.MouseEvent<HTMLLIElement>) => void;
   title?: string;
+  label?: React.ReactNode;
   background?: TRgba;
   tags?: React.ReactNode;
   aside?: React.ReactNode;
@@ -34,6 +35,7 @@ export const NodeRow: React.FC<NodeRowProps> = ({
   node,
   onClick,
   title,
+  label = node.name,
   background = ROW_BACKGROUND,
   tags,
   aside,
@@ -77,7 +79,7 @@ export const NodeRow: React.FC<NodeRowProps> = ({
               whiteSpace: 'nowrap',
             }}
           >
-            {node.name}
+            {label}
           </Box>
           {tags && (
             <Box
