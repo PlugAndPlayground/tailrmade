@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { flushSync } from 'react-dom';
 import { Point } from 'pixi.js';
 import {
   Alert,
@@ -167,14 +168,20 @@ function AccessChip({ level }: { level: AccessStyle }): React.ReactElement {
       label={level.label}
       color={level.color}
       data-cy="node-access-level"
+      // Chip styles its icon through a class it clones in, so the bars need
+      // an element that takes className
       icon={
-        <AccessBars
-          level={level}
-          color={TRgba.fromString(level.color).getContrastTextColor().hex()}
-          height={8}
-        />
+        <Box component="span">
+          <AccessBars
+            level={level}
+            color={TRgba.fromString(level.color).getContrastTextColor().hex()}
+            height={8}
+          />
+        </Box>
       }
-      sx={{ '& .MuiChip-icon': { ml: '6px', mr: '-2px' } }}
+      sx={{
+        '& .MuiChip-icon': { display: 'inline-flex', ml: '8px', mr: '-2px' },
+      }}
     />
   );
 }
@@ -453,14 +460,17 @@ function NodeTypeRows({
         <NodeRow
           key={typeNodes[0].type}
           node={typeNodes[0]}
-          label={typeNodes[0].getName()}
+          compact
+          label={
+            typeNodes.length === 1 ? typeNodes[0].name : typeNodes[0].getName()
+          }
           title={typeNodes.map((node) => node.id).join('\n')}
           data-cy="risk-node-type"
           onClick={() => onInspect(typeNodes.map((node) => node.id))}
-          subtitle={
-            typeNodes.length === 1
-              ? typeNodes[0].id
-              : `${typeNodes[0].id} + ${typeNodes.length - 1} more`
+          tags={
+            typeNodes.length > 1 && (
+              <TagChip label={`${typeNodes.length} nodes`} />
+            )
           }
         />
       ))}
@@ -485,7 +495,10 @@ function CapabilityGroup({
       data-cy="risk-details"
       data-risk-kind={risk.kind}
       data-risk-severity={risk.severity}
+      tabIndex={-1}
       sx={{
+        outline: 'none',
+        scrollMarginTop: 8,
         mb: 1.5,
         borderRadius: 1,
         bgcolor: 'action.hover',
@@ -721,6 +734,25 @@ export function AppRiskDialog({
   const matchingCapabilities = capabilities.filter((group) =>
     group.searchText.includes(query),
   );
+  const showCapability = (risk: NodeRisk): void => {
+    // render the capabilities tab now so the card exists to scroll to
+    flushSync(() => {
+      setSearch('');
+      setTab('capabilities');
+    });
+    const card = document.querySelector<HTMLElement>(
+      `[data-cy="risk-details"][data-risk-kind="${risk.kind}"][data-risk-severity="${risk.severity}"]`,
+    )!;
+    card.scrollIntoView({ block: 'start', behavior: 'smooth' });
+    card.focus({ preventScroll: true });
+    card.animate(
+      [
+        { boxShadow: `0 0 0 2px ${severityStyles[risk.severity].color}` },
+        { boxShadow: '0 0 0 2px transparent' },
+      ],
+      { duration: 1500, easing: 'ease-in' },
+    );
+  };
   const inspectNodes = (ids: string[]): void => {
     const targets = ids.map((id) => PPGraph.currentGraph.nodes[id]);
     if (!targets.length) return;
@@ -734,12 +766,17 @@ export function AppRiskDialog({
   const content = (
     <>
       <DialogTitle component="div" sx={{ overflowWrap: 'anywhere' }}>
+        {!review.paste && (
+          <Typography
+            variant="overline"
+            color="text.secondary"
+            sx={{ display: 'block', lineHeight: 1.5 }}
+          >
+            {review.inspectionOnly ? 'Risk review' : 'Review before running'}
+          </Typography>
+        )}
         <Typography id="app-risk-title" component="h2" variant="h6">
-          {review.paste
-            ? `Paste ${review.name}?`
-            : review.inspectionOnly
-              ? `Risks in ${review.name}`
-              : `Before running ${review.name}`}
+          {review.paste ? `Paste ${review.name}?` : review.name}
         </Typography>
         {!review.paste && (
           <Box data-cy="app-risk-source" sx={{ mt: 0.5 }}>
@@ -832,9 +869,36 @@ export function AppRiskDialog({
                           {node.risks.map((risk) => (
                             <Box
                               key={risk.id}
+                              component="span"
+                              role="link"
+                              tabIndex={0}
+                              title="Show this capability"
                               data-cy="node-capability"
                               data-risk-kind={risk.kind}
                               data-risk-severity={risk.severity}
+                              // the row behind it inspects the node instead
+                              onMouseDown={(event) => event.stopPropagation()}
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                showCapability(risk);
+                              }}
+                              onKeyDown={(event) => {
+                                if (event.key !== 'Enter') return;
+                                event.stopPropagation();
+                                showCapability(risk);
+                              }}
+                              sx={{
+                                display: 'block',
+                                width: 'fit-content',
+                                cursor: 'pointer',
+                                textDecoration: 'underline dotted',
+                                textUnderlineOffset: 3,
+                                '&:hover, &:focus-visible': {
+                                  opacity: 1,
+                                  color: 'text.primary',
+                                  textDecorationStyle: 'solid',
+                                },
+                              }}
                             >
                               {risk.title}
                               {risk.target && ` · ${risk.target}`}

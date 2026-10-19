@@ -312,7 +312,7 @@ describe('app risk review', () => {
     it(`keeps the inspector beside the review at ${width}px, including after resizing`, () => {
       cy.viewport(width, 900);
       beginLoad([codeNode()]);
-cy.get('[data-cy="risk-nodes-tab"]').click();
+      cy.get('[data-cy="risk-nodes-tab"]').click();
       cy.get('[data-cy="go-to-risk-node"]').click();
       cy.get('[data-cy="inspector-column"]').then(($column) => {
         if ($column.width() === 0)
@@ -376,7 +376,7 @@ cy.get('[data-cy="risk-nodes-tab"]').click();
       'have.length.greaterThan',
       1,
     );
-cy.get('[data-cy="risk-nodes-tab"]').click();
+    cy.get('[data-cy="risk-nodes-tab"]').click();
     cy.get('[data-cy="go-to-risk-node"]').should('have.length', 1);
     cy.get('[data-cy="go-to-risk-node"]')
       .should('contain', 'Connects to external services')
@@ -645,10 +645,20 @@ cy.get('[data-cy="risk-nodes-tab"]').click();
     cy.get('[data-cy="open-risk-review"]').click();
     cy.get('[data-cy="app-risk-dialog"]')
       .should('contain', 'Runs JavaScript with browser access')
-      .and('contain', 'Risks in');
+      .and('contain', 'Risk review');
     cy.get('[data-cy="run-reviewed-app"]').should('not.exist');
     cy.screenshot('app-risk-summary', { capture: 'runner' });
-cy.get('[data-cy="risk-nodes-tab"]').click();
+    cy.get('[data-cy="risk-nodes-tab"]').click();
+    cy.get('[data-cy="node-capability"]').click();
+    cy.get('[data-cy="risk-capabilities-tab"]').should(
+      'have.attr',
+      'aria-selected',
+      'true',
+    );
+    cy.focused()
+      .should('have.attr', 'data-cy', 'risk-details')
+      .and('have.attr', 'data-risk-kind', 'unrestricted-code');
+    cy.get('[data-cy="risk-nodes-tab"]').click();
     cy.get('[data-cy="go-to-risk-node"]').click();
     // the list stays open beside the node inspector
     cy.get('#inspector-container-node').should('be.visible');

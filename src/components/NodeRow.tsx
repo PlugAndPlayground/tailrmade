@@ -27,6 +27,7 @@ type NodeRowProps = Omit<ListItemButtonProps, 'onClick' | 'title'> & {
   subtitle?: React.ReactNode;
   details?: React.ReactNode;
   expanded?: boolean;
+  compact?: boolean;
 };
 
 // One node as a list row: node colour bar, name, tags on the right and a
@@ -42,6 +43,7 @@ export const NodeRow: React.FC<NodeRowProps> = ({
   subtitle,
   details,
   expanded = false,
+  compact = false,
   ...buttonProps
 }) => (
   <ListItem
@@ -66,7 +68,7 @@ export const NodeRow: React.FC<NodeRowProps> = ({
       onClick(event);
     }}
   >
-    <ListItemButton {...buttonProps} sx={{ p: 1 }}>
+    <ListItemButton {...buttonProps} sx={{ px: 1, py: compact ? 0.25 : 1 }}>
       <Stack sx={{ width: '100%' }}>
         <Box sx={{ display: 'flex', alignItems: 'flex-start' }}>
           <Box
