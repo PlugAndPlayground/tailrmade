@@ -13,6 +13,7 @@ import {
   ListItemButton,
   ListItemIcon,
   Paper,
+  ThemeProvider,
   TextField,
   Typography,
 } from '@mui/material';
@@ -40,12 +41,13 @@ import PPGraph from '../classes/GraphClass';
 import { createStore } from './createStore';
 import { pendingAppRun } from '../services/appExecution';
 import InterfaceController, { ListenEvent } from '../InterfaceController';
-import {
-  getNodesBounds,
-  smoothMoveViewport,
-} from '../pixi/utils-pixi';
+import { getNodesBounds, smoothMoveViewport } from '../pixi/utils-pixi';
 import { VISIBILITY_ACTION } from '../utils/constants_shared';
-import { RightDrawerView } from '../utils/constants';
+import {
+  customTheme,
+  getDrawerBackground,
+  RightDrawerView,
+} from '../utils/constants';
 import { setStackView, useIsStackLayout } from '../utils/layoutModel';
 
 type Review = {
@@ -465,10 +467,7 @@ export function AppRiskDialog({
       <DialogTitle component="div" sx={{ overflowWrap: 'anywhere' }}>
         {!review.paste && (
           <Box data-cy="required-access-score" sx={{ mb: 1 }}>
-            <Typography
-              variant="subtitle2"
-              sx={{ color: access.color }}
-            >
+            <Typography variant="subtitle2" sx={{ color: access.color }}>
               Required access {access.score}/3 · {access.label}
             </Typography>
             <Typography variant="caption" color="text.secondary">
@@ -476,11 +475,7 @@ export function AppRiskDialog({
             </Typography>
           </Box>
         )}
-        <Typography
-          id="app-risk-title"
-          component="h2"
-          variant="h6"
-        >
+        <Typography id="app-risk-title" component="h2" variant="h6">
           {review.paste
             ? `Paste ${review.name}?`
             : review.inspectionOnly
@@ -578,9 +573,7 @@ export function AppRiskDialog({
                     <Typography variant="caption" color="text.secondary">
                       {node.id}
                     </Typography>
-                    <Box
-                      id={`risk-capabilities-${node.id}`}
-                    >
+                    <Box id={`risk-capabilities-${node.id}`}>
                       {node.risks.map((risk) => (
                         <NodeCapability key={risk.id} risk={risk} />
                       ))}
@@ -691,52 +684,64 @@ export function AppRiskDialog({
   );
   if (!review.paste && !dashboardVisible) {
     return (
-      <Paper
-        ref={setPanelElement}
-        role="dialog"
-        aria-modal={false}
-        aria-labelledby="app-risk-title"
-        data-cy="app-risk-dialog"
-        elevation={8}
-        sx={{
-          position: stacked ? 'fixed' : 'relative',
-          zIndex: stacked ? 20 : 'auto',
-          pointerEvents: 'auto',
-          flex: `0 0 ${APP_RISK_PANEL_WIDTH}px`,
-          display: 'flex',
-          flexDirection: 'column',
-          ...(stacked
-            ? { left: 8, bottom: 64, top: '52%' }
-            : { height: '100dvh' }),
-          width: stacked ? 'calc(100% - 16px)' : APP_RISK_PANEL_WIDTH,
-          overflow: 'hidden',
-          border: 1,
-          borderColor: 'divider',
-          '& .MuiDialogTitle-root': { px: 2, py: 1 },
-          '& .MuiDialogContent-root': { px: 2 },
-        }}
-      >
-        {content}
-      </Paper>
+      <ThemeProvider theme={customTheme}>
+        <Paper
+          ref={setPanelElement}
+          role="dialog"
+          aria-modal={false}
+          aria-labelledby="app-risk-title"
+          data-cy="app-risk-dialog"
+          elevation={0}
+          sx={{
+            bgcolor: getDrawerBackground().hex(),
+            position: stacked ? 'fixed' : 'relative',
+            zIndex: stacked ? 20 : 'auto',
+            pointerEvents: 'auto',
+            flex: `0 0 ${APP_RISK_PANEL_WIDTH}px`,
+            display: 'flex',
+            flexDirection: 'column',
+            ...(stacked
+              ? { left: 8, bottom: 64, top: '52%' }
+              : { height: '100dvh' }),
+            width: stacked ? 'calc(100% - 16px)' : APP_RISK_PANEL_WIDTH,
+            overflow: 'hidden',
+            border: 1,
+            borderColor: 'divider',
+            // a pending run gets the accent, browsing risks later does not
+            ...(!review.inspectionOnly && {
+              borderTop: 3,
+              borderTopColor: access.color,
+            }),
+            '& .MuiDialogTitle-root': { px: 2, py: 1 },
+            '& .MuiDialogContent-root': { px: 2 },
+          }}
+        >
+          {content}
+        </Paper>
+      </ThemeProvider>
     );
   }
   return (
-    <Dialog
-      open
-      onClose={() => finish(false)}
-      fullWidth
-      maxWidth="sm"
-      aria-labelledby="app-risk-title"
-      data-cy={review.paste ? 'node-paste-dialog' : 'app-risk-dialog'}
-      sx={{
-        zIndex: 1500,
-        '& .MuiDialog-paper': {
-          m: { xs: 2, sm: 4 },
-          width: { xs: 'calc(100% - 32px)', sm: 'calc(100% - 64px)' },
-        },
-      }}
-    >
-      {content}
-    </Dialog>
+    <ThemeProvider theme={customTheme}>
+      <Dialog
+        open
+        onClose={() => finish(false)}
+        fullWidth
+        maxWidth="sm"
+        aria-labelledby="app-risk-title"
+        data-cy={review.paste ? 'node-paste-dialog' : 'app-risk-dialog'}
+        sx={{
+          zIndex: 1500,
+          '& .MuiDialog-paper': {
+            bgcolor: getDrawerBackground().hex(),
+            backgroundImage: 'none',
+            m: { xs: 2, sm: 4 },
+            width: { xs: 'calc(100% - 32px)', sm: 'calc(100% - 64px)' },
+          },
+        }}
+      >
+        {content}
+      </Dialog>
+    </ThemeProvider>
   );
 }
