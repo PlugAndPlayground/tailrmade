@@ -94,15 +94,22 @@ const severityStyles: Record<RiskSeverity, AccessStyle> = {
   warning: {
     color: '#d5cfbd',
     score: 2,
-    label: 'Specific access',
-    description: 'Uses the services, keys or data listed below',
+    label: 'Limited access',
+    description: 'Uses specific services, keys or data',
   },
   info: {
     color: '#a9dfff',
     score: 1,
-    label: 'Basic access',
-    description: 'Shows content from other sites',
+    label: 'Minimal access',
+    description: 'Loads content from other sites',
   },
+};
+
+const noAccess: AccessStyle = {
+  color: '#9e9e9e',
+  score: 0,
+  label: 'No special access',
+  description: "Doesn't use keys, saved data or other sites",
 };
 
 // Three bars instead of "n/3", which read like a test score where 3/3 is best.
@@ -244,7 +251,7 @@ function highestAccess(risks: NodeRisk[]): AccessStyle {
       severityStyles[risk.severity].score > highest.score
         ? severityStyles[risk.severity]
         : highest,
-    severityStyles.info,
+    noAccess,
   );
 }
 
@@ -308,7 +315,7 @@ export function AppRiskSummary(): React.ReactElement {
   ).size;
   return (
     <Box data-cy="app-risk-summary" sx={{ bgcolor: 'background.paper' }}>
-      <Box sx={{ px: 2, py: 1, color: 'text.primary' }}>Risks</Box>
+      <Box sx={{ px: 2, py: 1, color: 'text.primary' }}>Access</Box>
       <Box sx={{ p: 2, bgcolor: 'background.default' }}>
         <Box
           data-cy="required-access-score"
@@ -320,11 +327,11 @@ export function AppRiskSummary(): React.ReactElement {
           }}
         >
           <AccessLevel level={access} variant="subtitle2" />
-          <Typography variant="caption" color="text.secondary">
-            {nodeCount
-              ? `${nodeCount} ${nodeCount === 1 ? 'node' : 'nodes'} to review`
-              : 'No risks found'}
-          </Typography>
+          {nodeCount > 0 && (
+            <Typography variant="caption" color="text.secondary">
+              {`${nodeCount} ${nodeCount === 1 ? 'node' : 'nodes'} to review`}
+            </Typography>
+          )}
         </Box>
         <Typography variant="caption" color="text.secondary">
           {access.description}
@@ -339,7 +346,7 @@ export function AppRiskSummary(): React.ReactElement {
           onClick={showCurrentAppRisks}
           sx={{ mt: 1.5 }}
         >
-          Review risks
+          Review access
         </Button>
       </Box>
     </Box>
@@ -412,15 +419,17 @@ function AccessOverview({
             );
           })}
         </Box>
-        <Button
-          size="small"
-          color="inherit"
-          startIcon={<MyLocationIcon />}
-          data-cy="inspect-all-risk-nodes"
-          onClick={onInspectAll}
-        >
-          Inspect all {nodes.length}
-        </Button>
+        {nodes.length > 0 && (
+          <Button
+            size="small"
+            color="inherit"
+            startIcon={<MyLocationIcon />}
+            data-cy="inspect-all-risk-nodes"
+            onClick={onInspectAll}
+          >
+            Inspect all {nodes.length}
+          </Button>
+        )}
       </Box>
     </Box>
   );
@@ -698,7 +707,7 @@ export function AppRiskDialog({
           variant="body2"
           sx={{ minWidth: 0, overflowWrap: 'anywhere' }}
         >
-          {pending.name} - Risky nodes paused
+          {pending.name}: some nodes are paused until you review them
         </Typography>
         <Button
           variant="contained"
@@ -720,7 +729,7 @@ export function AppRiskDialog({
             }
           }}
         >
-          Review risks
+          Review access
         </Button>
       </Box>
     );
@@ -772,7 +781,7 @@ export function AppRiskDialog({
             color="text.secondary"
             sx={{ display: 'block', lineHeight: 1.5 }}
           >
-            {review.inspectionOnly ? 'Risk review' : 'Review before running'}
+            {review.inspectionOnly ? 'Access review' : 'Review before running'}
           </Typography>
         )}
         <Typography id="app-risk-title" component="h2" variant="h6">
@@ -787,10 +796,9 @@ export function AppRiskDialog({
       <DialogContent dividers>
         {review.paste ? (
           <Alert severity="info" role="note">
-            Depending on their configuration, pasted nodes can run code, use
-            saved Tailrmade data, and connect to services. They may run
-            immediately if this app is running. Check that their source and
-            behavior match what you expect before pasting.
+            Pasted nodes can run code, use your saved data and contact other
+            sites. They may run right away if this app is running. Only paste
+            from sources you trust.
           </Alert>
         ) : (
           <>
@@ -804,7 +812,7 @@ export function AppRiskDialog({
               {review.risks.some(
                 ({ risk }) => risk.kind === 'unrestricted-code',
               ) &&
-                ' Browser access includes the ability to use keys, access data, and contact services beyond those listed here.'}
+                " Broad access can't be checked here, so only run this if you trust its source."}
             </Typography>
             <Tabs
               value={tab}
@@ -845,7 +853,7 @@ export function AppRiskDialog({
                   <Typography variant="body2" color="text.secondary">
                     {capabilities.length
                       ? 'No matching capabilities'
-                      : 'No risks found'}
+                      : 'Nothing to review'}
                   </Typography>
                 )}
               </>
@@ -911,7 +919,7 @@ export function AppRiskDialog({
                 })}
                 {!matchingNodes.length && (
                   <Typography variant="body2" color="text.secondary">
-                    {nodes.length ? 'No matching nodes' : 'No risks found'}
+                    {nodes.length ? 'No matching nodes' : 'Nothing to review'}
                   </Typography>
                 )}
               </List>

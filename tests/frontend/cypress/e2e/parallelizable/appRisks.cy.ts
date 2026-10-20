@@ -105,13 +105,13 @@ describe('app risk review', () => {
     beginLoad([codeNode(), { ...imageNode(externalImageURL), x: 400 }]);
     cy.get('[data-cy="risk-nodes-tab"]').click();
     cy.get('[data-cy="go-to-risk-node"][data-node-id="image"]')
-      .should('contain', 'Loads external images')
-      .and('not.contain', 'Connects to external services')
+      .should('contain', 'Loads images from other sites')
+      .and('not.contain', 'Connects to other sites')
       .and('not.contain', 'hidden-secret');
     cy.get('[data-cy="risk-capabilities-tab"]').click();
     cy.get('[data-cy="risk-details"][data-risk-severity="info"]').should(
       'contain',
-      'Loads external images',
+      'Loads images from other sites',
     );
     shouldWithTestController((controller) => {
       expect(controller.getNodeByID('code').debug_timesExecuted).to.equal(0);
@@ -139,7 +139,7 @@ describe('app risk review', () => {
     );
     cy.get('[data-cy="app-risk-dialog"]').should(
       'contain',
-      'Loads images from dynamic URLs',
+      'Loads images from changing addresses',
     );
     shouldWithTestController((controller) => {
       expect(
@@ -379,7 +379,7 @@ describe('app risk review', () => {
     cy.get('[data-cy="risk-nodes-tab"]').click();
     cy.get('[data-cy="go-to-risk-node"]').should('have.length', 1);
     cy.get('[data-cy="go-to-risk-node"]')
-      .should('contain', 'Connects to external services')
+      .should('contain', 'Connects to other sites')
       .and('contain', 'Uses API keys')
       .and('contain', 'Uses your Companion')
       .and('contain', 'https://example.com/api')
@@ -390,7 +390,7 @@ describe('app risk review', () => {
     cy.get('[data-cy="app-risk-dialog"]')
       .find('input')
       .clear()
-      .type('external services');
+      .type('other sites');
     cy.get('[data-cy="go-to-risk-node"]').should('have.length', 1);
     cy.viewport(1280, 900);
     cy.get('[data-cy="go-to-risk-node"]').scrollIntoView();
@@ -502,7 +502,7 @@ describe('app risk review', () => {
     });
     cy.get('[data-cy="app-risk-dialog"]')
       .should('be.visible')
-      .and('contain', 'Runs JavaScript with browser access');
+      .and('contain', 'Runs code with full browser access');
     doWithTestController(async (controller) => {
       await controller.getNodeByID('code').execute();
       expect(controller.getNodeByID('code').debug_timesExecuted).to.equal(0);
@@ -632,8 +632,8 @@ describe('app risk review', () => {
     });
     cy.get('[data-cy="app-info-tab"]').click();
     cy.get('[data-cy="app-risk-summary"]')
-      .should('contain', 'No risks found')
-      .and('contain', 'Basic access')
+      .should('contain', 'No special access')
+      .and('not.contain', 'to review')
       .and('contain', 'Unknown source');
     cy.get('[data-cy="app-risk-dialog"]').should('not.exist');
     beginLoad([codeNode()]);
@@ -644,8 +644,8 @@ describe('app risk review', () => {
       .and('contain', 'Broad access');
     cy.get('[data-cy="open-risk-review"]').click();
     cy.get('[data-cy="app-risk-dialog"]')
-      .should('contain', 'Runs JavaScript with browser access')
-      .and('contain', 'Risk review');
+      .should('contain', 'Runs code with full browser access')
+      .and('contain', 'Access review');
     cy.get('[data-cy="run-reviewed-app"]').should('not.exist');
     cy.screenshot('app-risk-summary', { capture: 'runner' });
     cy.get('[data-cy="risk-nodes-tab"]').click();
@@ -703,7 +703,7 @@ describe('app risk review', () => {
     beginLoad([codeNode(2)]);
     cy.get('[data-cy="app-risk-dialog"]').should(
       'contain',
-      'Runs JavaScript with browser access',
+      'Runs code with full browser access',
     );
     cy.window().then((win: any) => expect(win.__riskCodeRuns).to.be.undefined);
     cy.get('[data-cy="run-reviewed-app"]').click();
@@ -735,7 +735,7 @@ describe('app risk review', () => {
     );
     cy.get('[data-cy="app-risk-dialog"]').should(
       'contain',
-      'Runs JavaScript with browser access',
+      'Runs code with full browser access',
     );
     cy.window().then((win: any) => expect(win.__riskCodeRuns).to.be.undefined);
     cy.get('[data-cy="app-risk-dialog"]')

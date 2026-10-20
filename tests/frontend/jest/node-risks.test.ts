@@ -116,7 +116,7 @@ describe('app risk disclosure', () => {
         'https://user:secret@example.com/private?key=secret#secret',
       ).target,
     ).toBe('https://example.com/private');
-    expect(new NetworkRisk().target).toBe('Destination determined at runtime');
+    expect(new NetworkRisk().target).toBe('Address chosen while the app runs');
   });
 
   it('resolves relative destinations against the page base URL', () => {
@@ -144,7 +144,7 @@ describe('app risk disclosure', () => {
       'http://[',
     ]) {
       expect(new NetworkRisk(url).target).toBe(
-        'Destination determined at runtime',
+        'Address chosen while the app runs',
       );
     }
   });
