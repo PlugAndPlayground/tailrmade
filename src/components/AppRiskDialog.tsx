@@ -346,7 +346,7 @@ export function AppRiskSummary(): React.ReactElement {
           onClick={showCurrentAppRisks}
           sx={{ mt: 1.5 }}
         >
-          Review access
+          Review risks
         </Button>
       </Box>
     </Box>
@@ -632,7 +632,8 @@ export function AppRiskDialog({
     if (!review || review.paste || dashboardVisible || !panelElement) return;
     const frameSelection = () => {
       const graph = PPGraph.currentGraph;
-      const targets = inspection.map((id) => graph.nodes[id]);
+      // inspected nodes may have been deleted since
+      const targets = inspection.map((id) => graph.nodes[id]).filter(Boolean);
       if (!targets.length) return;
       const panel = panelElement.getBoundingClientRect();
       const canvas = canvasElement?.getBoundingClientRect();
@@ -729,7 +730,7 @@ export function AppRiskDialog({
             }
           }}
         >
-          Review access
+          Review risks
         </Button>
       </Box>
     );
@@ -763,7 +764,9 @@ export function AppRiskDialog({
     );
   };
   const inspectNodes = (ids: string[]): void => {
-    const targets = ids.map((id) => PPGraph.currentGraph.nodes[id]);
+    const targets = ids
+      .map((id) => PPGraph.currentGraph.nodes[id])
+      .filter(Boolean);
     if (!targets.length) return;
     InterfaceController.toggleAppView(VISIBILITY_ACTION.CLOSE);
     InterfaceController.toggleShowDashboard(VISIBILITY_ACTION.CLOSE);
@@ -781,7 +784,7 @@ export function AppRiskDialog({
             color="text.secondary"
             sx={{ display: 'block', lineHeight: 1.5 }}
           >
-            {review.inspectionOnly ? 'Access review' : 'Review before running'}
+            {review.inspectionOnly ? 'Risk review' : 'Review before running'}
           </Typography>
         )}
         <Typography id="app-risk-title" component="h2" variant="h6">

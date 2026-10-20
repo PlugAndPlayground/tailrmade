@@ -645,7 +645,7 @@ describe('app risk review', () => {
     cy.get('[data-cy="open-risk-review"]').click();
     cy.get('[data-cy="app-risk-dialog"]')
       .should('contain', 'Runs code with full browser access')
-      .and('contain', 'Access review');
+      .and('contain', 'Risk review');
     cy.get('[data-cy="run-reviewed-app"]').should('not.exist');
     cy.screenshot('app-risk-summary', { capture: 'runner' });
     cy.get('[data-cy="risk-nodes-tab"]').click();
@@ -662,6 +662,18 @@ describe('app risk review', () => {
     cy.get('[data-cy="go-to-risk-node"]').click();
     // the list stays open beside the node inspector
     cy.get('#inspector-container-node').should('be.visible');
+    // the inspected node is gone when the open review is refreshed
+    doWithTestController((controller) => controller.removeNode('code'));
+    cy.get('[data-cy="app-info-tab"]').click();
+    cy.get('[data-cy="app-risk-summary"]').should(
+      'contain',
+      'No special access',
+    );
+    cy.get('[data-cy="open-risk-review"]').click();
+    cy.get('[data-cy="app-risk-dialog"]').should(
+      'contain',
+      'No special access',
+    );
     cy.get('[data-cy="app-risk-dialog"]').contains('button', 'Close').click();
     cy.get('[data-cy="app-risk-dialog"]').should('not.exist');
   });

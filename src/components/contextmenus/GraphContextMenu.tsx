@@ -71,14 +71,14 @@ const GestureModeMenuItem = (props) => {
 function gestureModes(): any {
   return [
     <MenuItem
-      key="Review access"
+      key="Review risks"
       data-cy="review-risks"
       onClick={showCurrentAppRisks}
     >
       <ListItemIcon>
         <FactCheckOutlinedIcon fontSize="small" />
       </ListItemIcon>
-      <ListItemText>Review access</ListItemText>
+      <ListItemText>Review risks</ListItemText>
     </MenuItem>,
     <GestureModeMenuItem
       icon={MouseIcon}
