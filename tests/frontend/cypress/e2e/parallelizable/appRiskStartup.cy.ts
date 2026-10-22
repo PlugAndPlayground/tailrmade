@@ -142,6 +142,7 @@ describe('app startup after risk review', () => {
           'true',
         );
       }
+cy.get('[data-cy="risk-nodes-tab"]').click();
       cy.get(
         '[data-cy="go-to-risk-node"][data-node-id="startup-code"]',
       ).click();
