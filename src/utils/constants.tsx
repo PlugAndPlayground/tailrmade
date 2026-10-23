@@ -242,6 +242,7 @@ export const ADD_TO_DASHBOARD_ICON_TEXTURE =
   '../assets/Icon_AddToDashboard.svg';
 export const CONFIRMATION_ICON_TEXTURE = '../assets/Icon_Confirmation.svg';
 export const STATUS_ERROR_ICON_TEXTURE = '../assets/Icon_Error.svg';
+export const COLORIZE_ICON_TEXTURE = '../assets/Icon_Colorize.svg';
 export const STATUS_WARNING_ICON_TEXTURE = '../assets/Icon_Warning.svg';
 export const STATUS_UNUSED_ICON_TEXTURE = '../assets/Icon_Unused.svg';
 export const STATUS_COMMENT_ICON_TEXTURE = '../assets/Icon_Comment.svg';

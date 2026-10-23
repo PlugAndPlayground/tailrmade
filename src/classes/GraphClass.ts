@@ -636,7 +636,7 @@ export default class PPGraph {
     Object.values(this.nodes).forEach((node) =>
       node.refreshZoomInvariantVisuals(),
     );
-    this.groupLayer.refreshZoomInvariantVisuals();
+    this.groupLayer.drawAll();
   }
 
   get showExecutionVisualisation(): boolean {

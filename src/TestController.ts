@@ -377,6 +377,17 @@ export default class TestController {
     return this.getGraph().groupLayer.groups;
   }
 
+  getGroupColorIconCenter(groupId: string): [number, number] {
+    const icon = this.getGraph()
+      .groupLayer.getGroup(groupId)
+      .getColorIconRect();
+    const point = this.getGraph().viewport.toScreen(
+      icon.x + icon.width / 2,
+      icon.y + icon.height / 2,
+    );
+    return [point.x, point.y];
+  }
+
   getGroupHeaderCenter(groupId: string): [number, number] {
     const header = this.getGraph().groupLayer.getGroup(groupId).getHeader();
     const point = this.getGraph().viewport.toScreen(

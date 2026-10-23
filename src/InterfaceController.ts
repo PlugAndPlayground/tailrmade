@@ -56,6 +56,7 @@ export enum ListenEvent {
   GraphConfigured, // data = {id,name}
   ToggleTooltipInspector, // data = {event: PIXI.FederatedPointerEvent | KeyboardEvent, open?: boolean} => void: called when tooltip inspector is toggled
   EscapeKeyUsed,
+  GroupColorPickerRequested, // data = { groupId: string; x: number; y: number }
   UnsavedChanges, // data = Boolean
   ResourceUpdated, // data = {id}
   OverlayStateChanged, // data = IOverlay

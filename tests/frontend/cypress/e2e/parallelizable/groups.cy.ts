@@ -3,6 +3,7 @@ import {
   doWithTestController,
   dragFromAtoB,
   getNodeCenterById,
+  getStableScreenCoordinates,
   openExistingGraph,
   openNewGraph,
   saveGraph,
@@ -252,9 +253,9 @@ describe('node groups', () => {
     cy.get('#group-title-input').type('{esc}');
 
     doWithTestController((tc) => {
-      setZoom(tc, 0.1);
+      setZoom(tc, 0.05);
       const header = tc.getGraph().groupLayer.getGroup(groupId).getHeader();
-      expect(header.height, 'stops growing below 25% zoom').to.eq(32 * 4);
+      expect(header.height, 'stops growing below 10% zoom').to.eq(32 * 10);
     });
 
     doWithTestController((tc) => {
@@ -262,6 +263,52 @@ describe('node groups', () => {
       const header = tc.getGraph().groupLayer.getGroup(groupId).getHeader();
       expect(header.height, 'zoomed in, it scales with the content').to.eq(32);
       setZoom(tc, 1);
+    });
+  });
+
+  it('picks a colour from the icon in the selected group header', () => {
+    let colorBefore = '';
+    let positionsBefore;
+    doWithTestController((tc) => {
+      tc.zoomToFitNodesById(['A', 'B'], 0.8);
+      tc.selectNodesById([]);
+      const group = tc.getGraph().groupLayer.getGroup(groupId);
+      colorBefore = group.color;
+      positionsBefore = getPositions(tc, ['A', 'B']);
+      const [x, y] = tc.getGroupColorIconCenter(groupId);
+      const point = tc.getGraph().viewport.toWorld(x, y);
+      expect(group.isOnColorIcon(point.x, point.y), 'hidden').to.eq(false);
+    });
+
+    getStableScreenCoordinates((tc) => tc.getGroupHeaderCenter(groupId)).then(
+      ([x, y]) => {
+        cy.get('#pixi-container').realClick({ x, y });
+      },
+    );
+    doWithTestController((tc) => tc.getGroupColorIconCenter(groupId)).then(
+      ([x, y]) => {
+        cy.get('#pixi-container').realClick({ x, y });
+      },
+    );
+    cy.get('#group-color-picker').should('be.visible');
+    shouldWithTestController((tc) => {
+      expect(getPositions(tc, ['A', 'B'])).to.deep.eq(positionsBefore);
+    });
+
+    cy.get('#group-color-picker [title="#B0683A"]').click();
+    shouldWithTestController((tc) => {
+      expect(
+        tc.getGraph().groupLayer.getGroup(groupId).color.toLowerCase(),
+      ).to.eq('#b0683a');
+    });
+
+    cy.get('body').type('{esc}');
+    cy.get('#group-color-picker').should('not.exist');
+    cy.get('body').type(`${controlOrMetaKey()}z`);
+    shouldWithTestController((tc) => {
+      expect(tc.getGraph().groupLayer.getGroup(groupId).color).to.eq(
+        colorBefore,
+      );
     });
   });
 });

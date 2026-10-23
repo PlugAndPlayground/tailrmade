@@ -1,5 +1,6 @@
 import * as PIXI from 'pixi.js';
 import PPNode from '../NodeClass';
+import InterfaceController, { ListenEvent } from '../../InterfaceController';
 import { SerializedGroup } from '../../utils/interfaces';
 import PPGroup, { GROUP_COLORS } from './GroupClass';
 
@@ -15,6 +16,10 @@ export default class GroupLayer extends PIXI.Container<PPGroup> {
   constructor() {
     super();
     this.label = 'groupLayer';
+    // the colour icon shows on selected groups only; lives as long as the graph
+    InterfaceController.addListener(ListenEvent.SelectionChanged, () =>
+      this.drawAll(),
+    );
   }
 
   get groups(): PPGroup[] {
@@ -85,7 +90,7 @@ export default class GroupLayer extends PIXI.Container<PPGroup> {
       .map((group) => group.serialize());
   }
 
-  refreshZoomInvariantVisuals(): void {
+  drawAll(): void {
     this.children.forEach((group) => group.draw());
   }
 

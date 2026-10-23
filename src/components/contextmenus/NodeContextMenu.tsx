@@ -1,5 +1,4 @@
 import {
-  Box,
   Paper,
   MenuList,
   MenuItem,
@@ -43,14 +42,11 @@ import AddIcon from '@mui/icons-material/Add';
 import GroupWorkIcon from '@mui/icons-material/GroupWork';
 import LayersClearIcon from '@mui/icons-material/LayersClear';
 import EditIcon from '@mui/icons-material/Edit';
-import { Sketch } from '@uiw/react-color';
 import {
   extractSelectionToMacro,
   groupSelection,
   ungroupSelection,
 } from '../../actions/graphActions';
-import { GROUP_COLORS } from '../../classes/groups/GroupClass';
-import { updateGroup } from '../../classes/groups/groupActions';
 
 const AlignOptionMenuItem = (props) => {
   return (
@@ -248,23 +244,6 @@ export const NodeContextMenu = (props) => {
             </ListItemIcon>
             <ListItemText>Rename group</ListItemText>
           </MenuItem>
-        )}
-        {singleSelectedGroup && (
-          <SubMenuItem autoFocus={false} label="Group color">
-            {/* keep the menu open while picking */}
-            <Box onClick={(event) => event.stopPropagation()}>
-              <Sketch
-                color={singleSelectedGroup.color}
-                presetColors={GROUP_COLORS}
-                disableAlpha
-                onChange={(color) =>
-                  void updateGroup(singleSelectedGroup.id, {
-                    color: color.hex,
-                  })
-                }
-              />
-            </Box>
-          </SubMenuItem>
         )}
         <MenuItem
           onClick={() => {
