@@ -11,16 +11,24 @@ import { isCanvasExploreOnly } from '../../utils/stackLayout';
 import { updateGroup } from './groupActions';
 
 // Muted enough that a tinted background stays calm behind nodes, saturated
-// enough that a white title reads on the full-colour header
+// enough that a white title reads on the full-colour header. Ordered so
+// neighbours contrast, as new groups take them in turn.
 export const GROUP_COLORS = [
   '#3E54A3',
-  '#4092A4',
+  '#B0683A',
   '#40A577',
-  '#7BA442',
-  '#A58E43',
-  '#A45140',
   '#A43F6C',
+  '#4092A4',
+  '#A58E43',
   '#5F3EA3',
+  '#4E9A4C',
+  '#A45140',
+  '#3C7DB0',
+  '#7BA442',
+  '#8B45A0',
+  '#2E7D6B',
+  '#A8394A',
+  '#7A604C',
   '#5A6372',
 ];
 
@@ -31,6 +39,9 @@ const GROUP_BORDER_HIT_WIDTH = 8;
 const GROUP_CORNER_RADIUS = 0;
 const GROUP_BACKGROUND_ALPHA = 0.12;
 const GROUP_TITLE_FONT_SIZE = 15;
+// below this zoom the header shrinks with the content again, so it never
+// grows into the space above the group by more than the gap between sections
+const GROUP_HEADER_MIN_ZOOM = 0.10;
 const GROUP_TITLE_MARGIN = 12;
 
 export default class PPGroup extends PIXI.Container {
@@ -41,12 +52,13 @@ export default class PPGroup extends PIXI.Container {
 
   private graphics = new PIXI.Graphics();
   private titleText = new PIXI.Text({
-    style: { fontSize: GROUP_TITLE_FONT_SIZE, fontWeight: 'bold' },
+    style: { fontSize: GROUP_TITLE_FONT_SIZE },
     resolution: TEXT_RESOLUTION,
   });
   // what was last drawn, so hit testing does not recompute member bounds on
   // every pointer move
   private frame = new PIXI.Rectangle();
+  private header = new PIXI.Rectangle();
 
   constructor(data: SerializedGroup) {
     super();
@@ -84,6 +96,8 @@ export default class PPGroup extends PIXI.Container {
     return this.nodeIds.map((id) => PPGraph.currentGraph.nodes[id]);
   }
 
+  // The frame layout works with. Its header part has a fixed size, so layouts
+  // do not depend on the current zoom.
   getFrame(): PIXI.Rectangle {
     const { minX, minY, maxX, maxY } = PPSelection.getNodesMinMax(
       this.getMembers(),
@@ -96,16 +110,53 @@ export default class PPGroup extends PIXI.Container {
     );
   }
 
+  // The header keeps its 100% size on screen while zooming out to
+  // GROUP_HEADER_MIN_ZOOM, so titles stay readable as labels for an overview of
+  // an app. It grows upwards and widens to fit the title.
+  getHeader(): PIXI.Rectangle {
+    return this.header;
+  }
+
+  private getHeaderScale(): number {
+    const zoom = PPGraph.currentGraph.viewportScaleX;
+    return 1 / Math.min(Math.max(zoom, GROUP_HEADER_MIN_ZOOM), 1);
+  }
+
   draw(): void {
     this.frame = this.getFrame();
     const { x, y, width, height } = this.frame;
+    const headerScale = this.getHeaderScale();
     const color = TRgba.fromString(this.color);
+
+    this.titleText.text = this.name;
+    this.titleText.style.fill = color.getContrastTextColor().hexNumber();
+    this.titleText.scale.set(headerScale);
+
+    const headerHeight = GROUP_HEADER_HEIGHT * headerScale;
+    this.header = new PIXI.Rectangle(
+      x,
+      y + GROUP_HEADER_HEIGHT - headerHeight,
+      Math.max(
+        width,
+        this.titleText.width + GROUP_TITLE_MARGIN * headerScale * 2,
+      ),
+      headerHeight,
+    );
+    this.titleText.x = x + GROUP_TITLE_MARGIN * headerScale;
+    this.titleText.y = this.header.y + headerHeight / 2;
+
     this.graphics
       .clear()
       .roundRect(x, y, width, height, GROUP_CORNER_RADIUS)
       .fill({ color: color.hexNumber(), alpha: GROUP_BACKGROUND_ALPHA })
       // .stroke({ width: 2, color: color.hexNumber() })
-      .roundRect(x, y, width, GROUP_HEADER_HEIGHT, GROUP_CORNER_RADIUS)
+      .roundRect(
+        this.header.x,
+        this.header.y,
+        this.header.width,
+        headerHeight,
+        GROUP_CORNER_RADIUS,
+      )
       // square off the header's bottom corners
       .rect(
         x,
@@ -114,18 +165,10 @@ export default class PPGroup extends PIXI.Container {
         GROUP_CORNER_RADIUS,
       )
       .fill(color.hexNumber());
-
-    this.titleText.text = this.name;
-    this.titleText.style.fill = color.getContrastTextColor().hexNumber();
-    this.titleText.x = x + GROUP_TITLE_MARGIN;
-    this.titleText.y = y + GROUP_HEADER_HEIGHT / 2;
   }
 
   isOnHeader(x: number, y: number): boolean {
-    const { left, right, top } = this.frame;
-    return (
-      x >= left && x <= right && y >= top && y <= top + GROUP_HEADER_HEIGHT
-    );
+    return this.header.contains(x, y);
   }
 
   private isOnHeaderOrBorder(x: number, y: number): boolean {
@@ -168,8 +211,9 @@ export default class PPGroup extends PIXI.Container {
   editTitle(): void {
     const graph = PPGraph.currentGraph;
     const scale = graph.viewportScaleX;
+    const screenScale = scale * this.getHeaderScale();
     const canvasRect = graph.app.canvas.getBoundingClientRect();
-    const topLeft = graph.viewport.toScreen(this.frame.x, this.frame.y);
+    const topLeft = graph.viewport.toScreen(this.header.x, this.header.y);
     const color = TRgba.fromString(this.color);
 
     const input = document.createElement('input');
@@ -179,11 +223,11 @@ export default class PPGroup extends PIXI.Container {
       position: 'fixed',
       left: `${canvasRect.left + topLeft.x}px`,
       top: `${canvasRect.top + topLeft.y}px`,
-      width: `${this.frame.width * scale}px`,
-      height: `${GROUP_HEADER_HEIGHT * scale}px`,
-      padding: `0 ${GROUP_TITLE_MARGIN * scale}px`,
+      width: `${this.header.width * scale}px`,
+      height: `${this.header.height * scale}px`,
+      padding: `0 ${GROUP_TITLE_MARGIN * screenScale}px`,
       boxSizing: 'border-box',
-      font: `bold ${GROUP_TITLE_FONT_SIZE * scale}px sans-serif`,
+      font: `bold ${GROUP_TITLE_FONT_SIZE * screenScale}px sans-serif`,
       color: color.getContrastTextColor().hex(),
       background: color.hex(),
       border: 'none',

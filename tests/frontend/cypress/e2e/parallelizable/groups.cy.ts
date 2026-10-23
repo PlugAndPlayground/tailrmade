@@ -217,4 +217,51 @@ describe('node groups', () => {
       expect(tc.getGraph().groupLayer.getGroup(aiGroupId)).to.eq(undefined);
     });
   });
+
+  it('keeps the header readable when zoomed out', () => {
+    const setZoom = (tc, zoom: number) => {
+      const viewport = tc.getGraph().viewport;
+      viewport.setZoom(zoom, true);
+      viewport.emit('moved', { viewport, type: 'pinch' });
+    };
+    let beforeDrag: { x: number; y: number };
+    doWithTestController((tc) => {
+      setZoom(tc, 0.25);
+      const header = tc.getGraph().groupLayer.getGroup(groupId).getHeader();
+      expect(header.height * 0.25, 'on-screen header height').to.be.closeTo(
+        32,
+        0.5,
+      );
+      tc.selectNodesById([]);
+      beforeDrag = getPositions(tc, ['A']).A;
+    });
+
+    getGroupHeaderCenter(groupId).then(([x, y]) => {
+      dragFromAtoB(x, y, x + 50, y);
+    });
+    shouldWithTestController((tc) => {
+      expect(getPositions(tc, ['A']).A.x).to.be.closeTo(beforeDrag.x + 200, 1);
+    });
+
+    getGroupHeaderCenter(groupId).then(([x, y]) => {
+      cy.get('#pixi-container').dblclick(x, y);
+    });
+    cy.get('#group-title-input')
+      .invoke('outerHeight')
+      .should('be.closeTo', 32, 1);
+    cy.get('#group-title-input').type('{esc}');
+
+    doWithTestController((tc) => {
+      setZoom(tc, 0.1);
+      const header = tc.getGraph().groupLayer.getGroup(groupId).getHeader();
+      expect(header.height, 'stops growing below 25% zoom').to.eq(32 * 4);
+    });
+
+    doWithTestController((tc) => {
+      setZoom(tc, 2);
+      const header = tc.getGraph().groupLayer.getGroup(groupId).getHeader();
+      expect(header.height, 'zoomed in, it scales with the content').to.eq(32);
+      setZoom(tc, 1);
+    });
+  });
 });

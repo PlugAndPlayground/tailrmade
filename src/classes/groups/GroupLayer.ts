@@ -85,6 +85,10 @@ export default class GroupLayer extends PIXI.Container<PPGroup> {
       .map((group) => group.serialize());
   }
 
+  refreshZoomInvariantVisuals(): void {
+    this.children.forEach((group) => group.draw());
+  }
+
   onNodeChanged(nodeId: string): void {
     this.getGroupOfNode(nodeId)?.draw();
   }

@@ -623,8 +623,8 @@ export default class PPGraph {
     return this.viewport.scale.x;
   }
 
-  // The error outline and the status badge are sized in screen pixels, so they
-  // have to be re-applied whenever the viewport scale changes.
+  // The error outline, the status badge and group headers are sized in screen
+  // pixels, so they have to be re-applied whenever the viewport scale changes.
   private lastZoomInvariantScale = 0;
 
   private refreshZoomInvariantNodeVisuals(): void {
@@ -636,6 +636,7 @@ export default class PPGraph {
     Object.values(this.nodes).forEach((node) =>
       node.refreshZoomInvariantVisuals(),
     );
+    this.groupLayer.refreshZoomInvariantVisuals();
   }
 
   get showExecutionVisualisation(): boolean {

@@ -12,6 +12,11 @@ const boxesOverlap = (
   a.y < b.y + b.nodeHeight &&
   a.y + a.nodeHeight > b.y;
 
+const getPositions = (tc, ids: string[]) =>
+  Object.fromEntries(
+    ids.map((id) => [id, { x: tc.getNodeByID(id).x, y: tc.getNodeByID(id).y }]),
+  );
+
 // The AI supplies unique ids so later calls in the same ordered tool batch can
 // refer to new nodes without a model round trip. Placement remains automatic:
 // nodes start at the viewport center (getDefaultNewNodeLocation) and
