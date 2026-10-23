@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Box, Tab, Tabs } from '@mui/material';
 import {
   WidgetSelectionBase,
@@ -122,6 +122,15 @@ export class WidgetTabs extends WidgetSelectionBase {
       0,
       Math.min(options.length - 1, props[selectedTabIndex]),
     );
+    const [optimisticSelectedIndex, setOptimisticSelectedIndex] = useState<
+      number | null
+    >(null);
+
+    useEffect(() => {
+      setOptimisticSelectedIndex(null);
+    }, [selectedIndex]);
+
+    const displayedSelectedIndex = optimisticSelectedIndex ?? selectedIndex;
 
     const scrollable = props[scrollableName];
     const size = useWidgetSize(props[sizeName]);
@@ -143,8 +152,11 @@ export class WidgetTabs extends WidgetSelectionBase {
         >
           <Tabs
             data-cy={`${props.dataCyId}-tabs`}
-            value={selectedIndex}
-            onChange={node.handleOnChange}
+            value={displayedSelectedIndex}
+            onChange={(event, newValue) => {
+              setOptimisticSelectedIndex(newValue);
+              void node.handleOnChange(event, newValue);
+            }}
             variant={scrollable ? 'scrollable' : 'standard'}
             scrollButtons={scrollable ? 'auto' : false}
             centered={!scrollable}
