@@ -194,6 +194,14 @@ describe('AI node placement (no overlap, scoped auto-alignment)', () => {
       expect(first[0].x + first[0].nodeWidth).to.be.lessThan(first[1].x);
       expect(second[0].x + second[0].nodeWidth).to.be.lessThan(second[1].x);
 
+      expect(
+        tc.getGroups().map((group) => [group.name, group.nodeIds]),
+        'each section is framed as a group named after it',
+      ).to.deep.eq([
+        ['First', ['ai-node-20', 'ai-node-21']],
+        ['Second', ['ai-node-22', 'ai-node-23']],
+      ]);
+
       const preExisting = tc.getNodeByID('pre-existing-node');
       expect(preExisting.x, 'pre-existing node x unchanged').to.eq(
         preExistingBefore.x,
@@ -234,12 +242,44 @@ describe('AI node placement (no overlap, scoped auto-alignment)', () => {
         before[0].x + a.nodeWidth,
       );
       expect(a.x + a.nodeWidth).to.be.lessThan(b.x);
+      expect(tc.getGroups().map((group) => group.name)).to.deep.eq(['Data']);
 
       await tc.undo();
       ['existing-a', 'existing-b'].forEach((id, i) => {
         expect(tc.getNodeByID(id).x, `${id} x restored`).to.eq(before[i].x);
         expect(tc.getNodeByID(id).y, `${id} y restored`).to.eq(before[i].y);
       });
+      expect(tc.getGroups(), 'the same undo removes the group').to.have.length(
+        0,
+      );
+    });
+  });
+  it('leaves nodes that are already grouped in their group', () => {
+    doWithTestController(async (tc) => {
+      await tc.addNode('Constant', 'grouped-a', 0, 0);
+      await tc.addNode('Constant', 'grouped-b', 0, 400);
+      await tc.callMCPTool('group_nodes', {
+        node_ids: ['grouped-a'],
+        name: 'Mine',
+      });
+      tc.beginAIAgentTurn();
+
+      const result = await tc.callMCPTool('finish_section', {
+        title: 'Theirs',
+        node_ids: ['grouped-a', 'grouped-b'],
+        restructure: true,
+      });
+      await tc.finishAIAgentTurn();
+
+      const content = JSON.parse(result.content);
+      expect(content.group_id).to.eq(undefined);
+      expect(content.not_grouped_reason).to.be.a('string');
+      const mine = tc.getGroups().filter((group) => group.name === 'Mine');
+      expect(mine).to.have.length(1);
+      expect(mine[0].nodeIds).to.deep.eq(['grouped-a']);
+      expect(tc.getGroups().some((group) => group.name === 'Theirs')).to.eq(
+        false,
+      );
     });
   });
 });

@@ -16,6 +16,20 @@ import {
 import { perform_action_connectNodeToSocket } from '../utils/utils';
 import { getNodesBounds } from '../pixi/utils-pixi';
 import * as PIXI from 'pixi.js';
+import { groupNodes, ungroupNodes } from '../classes/groups/groupActions';
+
+export async function groupSelection(): Promise<void> {
+  try {
+    await groupNodes(PPGraph.currentGraph.selection.selectedNodes);
+  } catch (error) {
+    InterfaceController.showSnackBar((error as Error).message);
+  }
+}
+
+export async function ungroupSelection(): Promise<void> {
+  await ungroupNodes(PPGraph.currentGraph.selection.selectedNodes);
+}
+
 interface PreviousConnection {
   sourceNodeId: string;
   sourceSocketName: string;

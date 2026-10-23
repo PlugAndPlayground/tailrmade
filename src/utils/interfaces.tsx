@@ -83,12 +83,23 @@ export type SerializedGraph = {
   overlay: IDashboardState;
   nodes: SerializedNode[];
   links: SerializedLink[];
+  groups: SerializedGroup[];
+};
+
+// The group's rectangle is not stored, it is always derived from its members
+export type SerializedGroup = {
+  id: string;
+  name: string;
+  color: string;
+  nodeIds: string[];
 };
 
 export type SerializedSelection = {
   version: number;
   nodes: SerializedNode[];
   links: SerializedLink[];
+  // absent on clipboard data and segments from before groups existed
+  groups?: SerializedGroup[];
 };
 
 export type AccessType = 'private' | 'public' | 'organization';

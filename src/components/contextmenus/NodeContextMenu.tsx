@@ -1,4 +1,5 @@
 import {
+  Box,
   Paper,
   MenuList,
   MenuItem,
@@ -39,7 +40,17 @@ import * as styles from '../../utils/style.module.css';
 import { SubMenuItem } from './ContextMenus';
 import DeleteIcon from '@mui/icons-material/Delete';
 import AddIcon from '@mui/icons-material/Add';
-import { extractSelectionToMacro } from '../../actions/graphActions';
+import GroupWorkIcon from '@mui/icons-material/GroupWork';
+import LayersClearIcon from '@mui/icons-material/LayersClear';
+import EditIcon from '@mui/icons-material/Edit';
+import { Sketch } from '@uiw/react-color';
+import {
+  extractSelectionToMacro,
+  groupSelection,
+  ungroupSelection,
+} from '../../actions/graphActions';
+import { GROUP_COLORS } from '../../classes/groups/GroupClass';
+import { updateGroup } from '../../classes/groups/groupActions';
 
 const AlignOptionMenuItem = (props) => {
   return (
@@ -116,6 +127,11 @@ export const NodeContextMenu = (props) => {
     PPGraph.currentGraph.selection.selectedNodes.some((node) =>
       node.isLayoutable(),
     );
+  const selectedGroups = PPGraph.currentGraph.groupLayer.groups.filter(
+    (group) => selectedNodes.some((node) => group.nodeIds.includes(node.id)),
+  );
+  const singleSelectedGroup =
+    selectedGroups.length === 1 ? selectedGroups[0] : undefined;
 
   useEffect(() => {
     window.addEventListener('contextmenu', handleContextMenu);
@@ -204,6 +220,52 @@ export const NodeContextMenu = (props) => {
               {alignOptions()}
             </SubMenuItem>
           ))}
+        {selectedGroups.length === 0 ? (
+          <MenuItem onClick={() => void groupSelection()}>
+            <ListItemIcon>
+              <GroupWorkIcon fontSize="small" />
+            </ListItemIcon>
+            <ListItemText>Group</ListItemText>
+            <Typography variant="body2" color="text.secondary">
+              {`${props.controlOrMetaKey}+G`}
+            </Typography>
+          </MenuItem>
+        ) : (
+          <MenuItem onClick={() => void ungroupSelection()}>
+            <ListItemIcon>
+              <LayersClearIcon fontSize="small" />
+            </ListItemIcon>
+            <ListItemText>Ungroup</ListItemText>
+            <Typography variant="body2" color="text.secondary">
+              {`${props.controlOrMetaKey}+Shift+G`}
+            </Typography>
+          </MenuItem>
+        )}
+        {singleSelectedGroup && (
+          <MenuItem onClick={() => singleSelectedGroup.editTitle()}>
+            <ListItemIcon>
+              <EditIcon fontSize="small" />
+            </ListItemIcon>
+            <ListItemText>Rename group</ListItemText>
+          </MenuItem>
+        )}
+        {singleSelectedGroup && (
+          <SubMenuItem autoFocus={false} label="Group color">
+            {/* keep the menu open while picking */}
+            <Box onClick={(event) => event.stopPropagation()}>
+              <Sketch
+                color={singleSelectedGroup.color}
+                presetColors={GROUP_COLORS}
+                disableAlpha
+                onChange={(color) =>
+                  void updateGroup(singleSelectedGroup.id, {
+                    color: color.hex,
+                  })
+                }
+              />
+            </Box>
+          </SubMenuItem>
+        )}
         <MenuItem
           onClick={() => {
             void PPGraph.currentGraph.duplicateSelection();

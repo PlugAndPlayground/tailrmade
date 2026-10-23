@@ -5,6 +5,8 @@ import {
   AddNodeActionArgs,
   ConnectSocketsActionArgs,
   PNPAction,
+  SerializableAction,
+  SerializableActionHandler,
   SetCommentActionArgs,
   SetSocketValueActionArgs,
   SetUISurfaceLayoutActionArgs,
@@ -13,6 +15,13 @@ import {
 import PPGraph from '../classes/GraphClass';
 import PPNode from '../classes/NodeClass';
 import PPSelection from '../classes/selection/SelectionClass';
+import {
+  createGroupData,
+  groupNodes,
+  ungroupNodes,
+  updateGroup,
+} from '../classes/groups/groupActions';
+import { GROUP_COLORS } from '../classes/groups/GroupClass';
 import Socket from '../classes/SocketClass';
 import { PNPStatus } from '../classes/ErrorClass';
 import InterfaceController from '../InterfaceController';
@@ -47,7 +56,7 @@ import {
   wouldCreateSurfaceEmbeddingLoop,
 } from '../nodes/layout/surfaceSync';
 import { getLayoutableElement } from '../utils/utils';
-import { isLayoutableNode } from '../utils/interfaces';
+import { isLayoutableNode, SerializedGroup } from '../utils/interfaces';
 import type { UISurfaceNode } from '../nodes/layout/uiSurface';
 import { cloneAndTruncateContext } from './contextTruncation';
 import { DeferredReactType } from '../nodes/datatypes/deferredHtmlType';
@@ -109,7 +118,10 @@ type MCPToolName =
   | 'set_layout_value'
   | 'set_surface_layout'
   | 'set_default_surface'
-  | 'finish_section';
+  | 'finish_section'
+  | 'group_nodes'
+  | 'ungroup'
+  | 'update_group';
 
 interface AddNodeInput {
   node_type: string;
@@ -118,6 +130,22 @@ interface AddNodeInput {
 
 interface RemoveNodeInput {
   node_id: string;
+}
+
+interface GroupNodesInput {
+  node_ids: string[];
+  name: string;
+  color?: string;
+}
+
+interface UngroupInput {
+  group_id: string;
+}
+
+interface UpdateGroupInput {
+  group_id: string;
+  name?: string;
+  color?: string;
 }
 
 interface RunNodeInput {
@@ -195,6 +223,33 @@ interface SectionBounds {
   maxX: number;
   maxY: number;
 }
+
+type FinishSectionArgs = {
+  Nodes: string[];
+  Positions: PIXI.Point[];
+  group?: SerializedGroup;
+};
+
+// Placing a section and framing it as a group is one undo step
+const FINISH_SECTION_ACTION = 'FinishSectionAction';
+SerializableActionHandler.getInstance().registerAction(
+  FINISH_SECTION_ACTION,
+  new SerializableAction(
+    async (args: FinishSectionArgs) => {
+      await ACTIONS.MoveNodes().action(args);
+      if (args.group) {
+        PPGraph.currentGraph.groupLayer.addGroup(args.group);
+      }
+    },
+    async (args: FinishSectionArgs) => {
+      if (args.group) {
+        PPGraph.currentGraph.groupLayer.removeGroup(args.group.id);
+      }
+      await ACTIONS.MoveNodes().action(args);
+    },
+    'Finish section',
+  ),
+);
 
 // Space between two sections laid out by finish_section, wider than the gap
 // between layers inside one so the sections read as separate blocks.
@@ -310,9 +365,12 @@ export class TailrmadeMCPServer {
     nodes: PPNode[],
     placement: SectionPlacement,
     restructure = false,
+    group?: SerializedGroup,
   ): Promise<SectionBounds> {
     const contentNodes = nodes.filter((node) => !node.isPostPassForAutoAlign());
-    const previousPositions = nodes.map(
+    // aligning can also move the rest of a group the section touches
+    const movedNodes = PPSelection.getNodesMovedByAlign(nodes);
+    const previousPositions = movedNodes.map(
       (node) => new PIXI.Point(node.x, node.y),
     );
     let previous = this.lastSectionBounds;
@@ -341,14 +399,15 @@ export class TailrmadeMCPServer {
     if (nodes.length >= 2) {
       await PPGraph.currentGraph.selection.autoAlignNodes(nodes);
     }
-    const nodeIds = nodes.map((node) => node.id);
+    const nodeIds = movedNodes.map((node) => node.id);
     await PNPAction(
-      ACTIONS.MOVE_NODES,
+      FINISH_SECTION_ACTION,
       {
         Nodes: nodeIds,
-        Positions: nodes.map((node) => new PIXI.Point(node.x, node.y)),
+        Positions: movedNodes.map((node) => new PIXI.Point(node.x, node.y)),
+        group,
       },
-      { Nodes: nodeIds, Positions: previousPositions },
+      { Nodes: nodeIds, Positions: previousPositions, group },
       undefined,
       'ai',
     );
@@ -749,7 +808,7 @@ export class TailrmadeMCPServer {
       {
         name: 'finish_section',
         description:
-          'Mark nodes as one finished logical section of the app (e.g. "Fetch weather data", "City and date filter UI"): auto-aligns them as a block, places that block to the right of the previous section (or in a new row below), and shows it to the user. Only nodes added during this request and not already in a section are moved, unless restructure is set. Nodes added afterwards spawn next to the finished section.',
+          'Mark nodes as one finished logical section of the app (e.g. "Fetch weather data", "City and date filter UI"): auto-aligns them as a block, places that block to the right of the previous section (or in a new row below), frames it as a group named after the title, and shows it to the user. Nodes already in a group are not regrouped. Only nodes added during this request and not already in a section are moved, unless restructure is set. Nodes added afterwards spawn next to the finished section.',
         input_schema: {
           type: 'object',
           properties: {
@@ -777,6 +836,49 @@ export class TailrmadeMCPServer {
             },
           },
           required: ['title', 'node_ids'],
+        },
+      },
+      {
+        name: 'group_nodes',
+        description:
+          'Draw a named, coloured frame around nodes that belong together, so people exploring the app can see its logical parts (e.g. "Fetch weather data", "Results UI"). The group moves as a unit. A node can be in only one group; ungroup first to regroup. Groups do not change behaviour.',
+        input_schema: {
+          type: 'object',
+          properties: {
+            node_ids: { type: 'array', items: { type: 'string' } },
+            name: {
+              type: 'string',
+              description: 'Short title shown in the group header.',
+            },
+            color: {
+              type: 'string',
+              description: `Optional hex colour. Defaults cycle through ${GROUP_COLORS.join(', ')}.`,
+            },
+          },
+          required: ['node_ids', 'name'],
+        },
+      },
+      {
+        name: 'ungroup',
+        description:
+          'Remove a group frame. Its nodes stay where they are, unchanged.',
+        input_schema: {
+          type: 'object',
+          properties: { group_id: { type: 'string' } },
+          required: ['group_id'],
+        },
+      },
+      {
+        name: 'update_group',
+        description: 'Rename a group or change its colour (hex).',
+        input_schema: {
+          type: 'object',
+          properties: {
+            group_id: { type: 'string' },
+            name: { type: 'string' },
+            color: { type: 'string' },
+          },
+          required: ['group_id'],
         },
       },
     ];
@@ -879,6 +981,12 @@ export class TailrmadeMCPServer {
           return await this.finishSection(
             input as unknown as FinishSectionInput,
           );
+        case 'group_nodes':
+          return await this.groupNodes(input as unknown as GroupNodesInput);
+        case 'ungroup':
+          return await this.ungroup(input as unknown as UngroupInput);
+        case 'update_group':
+          return await this.updateGroup(input as unknown as UpdateGroupInput);
         default:
           return {
             content: `Unknown MCP tool: ${name}`,
@@ -912,10 +1020,74 @@ export class TailrmadeMCPServer {
       outputs: node.outputSocketArray.map((socket) => socket.name),
     }));
 
+    const groups = graph.groupLayer.groups.map((group) => ({
+      id: group.id,
+      name: group.name,
+      color: group.color,
+      node_ids: group.nodeIds,
+    }));
+
     return {
       content: JSON.stringify({
         node_count: nodes.length,
         nodes,
+        groups,
+      }),
+    };
+  }
+
+  private async groupNodes(input: GroupNodesInput): Promise<MCPToolResult> {
+    const nodeIds = Array.from(new Set(input.node_ids));
+    const missingNodeIds = nodeIds.filter(
+      (nodeId) => !PPGraph.currentGraph.nodes[nodeId],
+    );
+    if (missingNodeIds.length > 0) {
+      return {
+        content: `Nodes not found: ${missingNodeIds.join(', ')}`,
+        is_error: true,
+      };
+    }
+    const name = String(input.name ?? '').trim();
+    if (!name) {
+      return { content: 'name must not be empty', is_error: true };
+    }
+    const groupId = await groupNodes(
+      this.getExistingNodes(nodeIds),
+      { name, color: input.color },
+      'ai',
+    );
+    return {
+      content: JSON.stringify({ status: 'grouped', group_id: groupId }),
+    };
+  }
+
+  private async ungroup(input: UngroupInput): Promise<MCPToolResult> {
+    const group = PPGraph.currentGraph.groupLayer.getGroup(input.group_id);
+    if (!group) {
+      return { content: `Group not found: ${input.group_id}`, is_error: true };
+    }
+    await ungroupNodes(group.getMembers(), 'ai');
+    return {
+      content: JSON.stringify({
+        status: 'ungrouped',
+        group_id: input.group_id,
+      }),
+    };
+  }
+
+  private async updateGroup(input: UpdateGroupInput): Promise<MCPToolResult> {
+    if (!PPGraph.currentGraph.groupLayer.getGroup(input.group_id)) {
+      return { content: `Group not found: ${input.group_id}`, is_error: true };
+    }
+    const name = input.name?.trim();
+    if (name === '') {
+      return { content: 'name must not be empty', is_error: true };
+    }
+    await updateGroup(input.group_id, { name, color: input.color }, 'ai');
+    return {
+      content: JSON.stringify({
+        status: 'group_updated',
+        group_id: input.group_id,
       }),
     };
   }
@@ -1100,16 +1272,28 @@ export class TailrmadeMCPServer {
       this.turnCreatedNodeIds.delete(node.id);
       this.turnSectionNodeIds.add(node.id);
     });
+    // never break up an existing group, e.g. one the user made
+    const isAlreadyGrouped = nodes.some((node) =>
+      PPGraph.currentGraph.groupLayer.getGroupOfNode(node.id),
+    );
+    const group = isAlreadyGrouped
+      ? undefined
+      : createGroupData(nodes, { name: input.title.trim() });
     await this.layOutSection(
       nodes,
       input.placement ?? 'right',
       input.restructure === true,
+      group,
     );
     zoomToFitNodes(nodes);
 
     return {
       content: JSON.stringify({
         title: input.title,
+        group_id: group?.id,
+        not_grouped_reason: isAlreadyGrouped
+          ? 'Some of these nodes are already in a group. Use ungroup and group_nodes to change it.'
+          : undefined,
         placed_node_ids: nodes.map((node) => node.id),
         skipped_node_ids: skippedNodeIds,
         missing_node_ids: missingNodeIds,

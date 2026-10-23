@@ -38,6 +38,7 @@ import {
   RightDrawerView,
 } from './utils/constants';
 import { findEmbeddingsOf } from './nodes/layout/surfaceSync';
+import { groupSelection, ungroupSelection } from './actions/graphActions';
 import type { UISurfaceNode } from './nodes/layout/uiSurface';
 
 export enum ListenEvent {
@@ -446,11 +447,19 @@ export default class InterfaceController {
               zoomInOutViewport(false);
               e.preventDefault();
               break;
+            case 'g':
+              void groupSelection();
+              e.preventDefault();
+              break;
           }
         } else if (e.shiftKey) {
           switch (e.key.toLowerCase()) {
             case 'a':
               PPGraph.currentGraph.selection.deselectAllNodes();
+              e.preventDefault();
+              break;
+            case 'g':
+              void ungroupSelection();
               e.preventDefault();
               break;
             case 'y':

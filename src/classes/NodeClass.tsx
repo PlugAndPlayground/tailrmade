@@ -726,6 +726,7 @@ export default class PPNode extends PIXI.Container implements IWarningHandler {
     }
 
     this.updateConnectionPosition();
+    PPGraph.currentGraph.groupLayer.onNodeChanged(this.id);
 
     this.onViewportMove();
   }
@@ -779,6 +780,7 @@ export default class PPNode extends PIXI.Container implements IWarningHandler {
     this.nodeSelectionHeader.x = NODE_MARGIN + this.nodeWidth - 86;
 
     this.onNodeResize(this.nodeWidth, this.nodeHeight);
+    PPGraph.currentGraph.groupLayer.onNodeChanged(this.id);
 
     if (this.selected) {
       PPGraph.currentGraph.selection.drawRectanglesFromSelection();

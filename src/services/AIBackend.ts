@@ -61,7 +61,12 @@ const MUTATION_TOOL_NAMES = new Set([
 
 // MCP tools that only make sense while editing, but don't change the graph's
 // behaviour or what the app renders (so they don't trigger an auto-capture).
-const LAYOUT_TOOL_NAMES = new Set(['finish_section']);
+const LAYOUT_TOOL_NAMES = new Set([
+  'finish_section',
+  'group_nodes',
+  'ungroup',
+  'update_group',
+]);
 
 // How many times one run may show itself the app without being asked to.
 const MAX_AUTO_CAPTURES_PER_RUN = 4;

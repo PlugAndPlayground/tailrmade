@@ -31,6 +31,7 @@ import {
 } from './services/TailrmadeMCPServer';
 import { AIBackend } from './services/AIBackend';
 import { createTokenInput } from './text/nodeInputs';
+import PPGroup, { GROUP_HEADER_HEIGHT } from './classes/groups/GroupClass';
 
 export default class TestController {
   identify(): string {
@@ -370,6 +371,19 @@ export default class TestController {
     const nodes = nodeIDs.map((id) => this.getNodeByID(id));
     this.getGraph().selection.selectNodes(nodes, false);
     return nodes;
+  }
+
+  getGroups(): PPGroup[] {
+    return this.getGraph().groupLayer.groups;
+  }
+
+  getGroupHeaderCenter(groupId: string): [number, number] {
+    const frame = this.getGraph().groupLayer.getGroup(groupId).getFrame();
+    const point = this.getGraph().viewport.toScreen(
+      frame.x + frame.width / 2,
+      frame.y + GROUP_HEADER_HEIGHT / 2,
+    );
+    return [point.x, point.y];
   }
 
   doesNodeHaveError(nodeID: string): boolean {

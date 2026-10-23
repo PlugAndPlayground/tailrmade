@@ -34,6 +34,7 @@ import GraphContextMenu from './components/contextmenus/GraphContextMenu';
 import { AuthDialogHost } from './components/AuthDialog';
 import { isCanvasExploreOnly } from './utils/stackLayout';
 import NodeContextMenu from './components/contextmenus/NodeContextMenu';
+import PPGroup from './classes/groups/GroupClass';
 import SocketContextMenu from './components/contextmenus/SocketContextMenu';
 import SpinnerContainer from './containers/SpinnerContainer';
 import { CLOUD_MODE } from './services/shared-types';
@@ -211,6 +212,14 @@ const App = (): JSX.Element => {
             PPGraph.currentGraph.selection.selectNodes([target], false);
           }
           setContextMenuPosition([contextMenuPosX, contextMenuPosY(220)]);
+          setIsNodeContextMenuOpen(true);
+          break;
+        case target instanceof PPGroup:
+          PPGraph.currentGraph.selection.selectNodes(
+            target.getMembers(),
+            false,
+          );
+          setContextMenuPosition([contextMenuPosX, contextMenuPosY(432)]);
           setIsNodeContextMenuOpen(true);
           break;
         case target instanceof Viewport:
