@@ -1064,6 +1064,10 @@ abstract class LegacyStorageScaffold extends AbstractStorageNode {
     delete PPGraph.currentGraph.nodes[replacementId];
     replacementNode.id = previousNodeId;
     PPGraph.currentGraph.nodes[previousNodeId] = replacementNode;
+    PPGraph.currentGraph.groupLayer.onNodeReplaced(
+      replacementId,
+      previousNodeId,
+    );
 
     this.setInputSocketValue(
       replacementNode,

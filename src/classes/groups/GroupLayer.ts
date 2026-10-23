@@ -106,6 +106,7 @@ export default class GroupLayer extends PIXI.Container<PPGroup> {
     const group = this.getGroupOfNode(oldId);
     if (group) {
       group.nodeIds = group.nodeIds.map((id) => (id === oldId ? newId : id));
+      group.draw();
     }
   }
 

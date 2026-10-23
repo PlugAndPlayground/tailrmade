@@ -516,11 +516,15 @@ export default class PPSelection extends PIXI.Container {
     );
   }
 
-  // the selection plus the other members of any group it lays out as a block
-  static getNodesMovedByAlign(nodes: PPNode[]): PPNode[] {
-    return PPGraph.currentGraph.groupLayer
-      .getAlignUnits(nodes)
-      .flatMap((unit) => unit.nodes);
+  static getNodesWithGroupMembers(nodes: PPNode[]): PPNode[] {
+    const movedNodes = new Set<PPNode>();
+    nodes.forEach((node) => {
+      const group = PPGraph.currentGraph.groupLayer.getGroupOfNode(node.id);
+      (group?.getMembers() ?? [node]).forEach((member) =>
+        movedNodes.add(member),
+      );
+    });
+    return Array.from(movedNodes);
   }
 
   async autoAlignNodes(nodes: PPNode[]): Promise<void> {

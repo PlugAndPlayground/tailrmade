@@ -28,7 +28,7 @@ export const GROUP_COLORS = [
 export const GROUP_PADDING = 8;
 export const GROUP_HEADER_HEIGHT = 32;
 const GROUP_BORDER_HIT_WIDTH = 8;
-const GROUP_CORNER_RADIUS = 8;
+const GROUP_CORNER_RADIUS = 0;
 const GROUP_BACKGROUND_ALPHA = 0.12;
 const GROUP_TITLE_FONT_SIZE = 15;
 const GROUP_TITLE_MARGIN = 12;
@@ -104,7 +104,7 @@ export default class PPGroup extends PIXI.Container {
       .clear()
       .roundRect(x, y, width, height, GROUP_CORNER_RADIUS)
       .fill({ color: color.hexNumber(), alpha: GROUP_BACKGROUND_ALPHA })
-      .stroke({ width: 2, color: color.hexNumber() })
+      // .stroke({ width: 2, color: color.hexNumber() })
       .roundRect(x, y, width, GROUP_HEADER_HEIGHT, GROUP_CORNER_RADIUS)
       // square off the header's bottom corners
       .rect(

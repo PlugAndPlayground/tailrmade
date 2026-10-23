@@ -254,19 +254,20 @@ describe('AI node placement (no overlap, scoped auto-alignment)', () => {
       );
     });
   });
-  it('leaves nodes that are already grouped in their group', () => {
+  it('moves an existing group as one block when placing one member', () => {
     doWithTestController(async (tc) => {
       await tc.addNode('Constant', 'grouped-a', 0, 0);
       await tc.addNode('Constant', 'grouped-b', 0, 400);
       await tc.callMCPTool('group_nodes', {
-        node_ids: ['grouped-a'],
+        node_ids: ['grouped-a', 'grouped-b'],
         name: 'Mine',
       });
+      const before = getPositions(tc, ['grouped-a', 'grouped-b']);
       tc.beginAIAgentTurn();
 
       const result = await tc.callMCPTool('finish_section', {
         title: 'Theirs',
-        node_ids: ['grouped-a', 'grouped-b'],
+        node_ids: ['grouped-a'],
         restructure: true,
       });
       await tc.finishAIAgentTurn();
@@ -276,7 +277,16 @@ describe('AI node placement (no overlap, scoped auto-alignment)', () => {
       expect(content.not_grouped_reason).to.be.a('string');
       const mine = tc.getGroups().filter((group) => group.name === 'Mine');
       expect(mine).to.have.length(1);
-      expect(mine[0].nodeIds).to.deep.eq(['grouped-a']);
+      expect(mine[0].nodeIds).to.deep.eq(['grouped-a', 'grouped-b']);
+      const after = getPositions(tc, ['grouped-a', 'grouped-b']);
+      expect(after['grouped-a'].x - before['grouped-a'].x).to.be.closeTo(
+        after['grouped-b'].x - before['grouped-b'].x,
+        0.5,
+      );
+      expect(after['grouped-a'].y - before['grouped-a'].y).to.be.closeTo(
+        after['grouped-b'].y - before['grouped-b'].y,
+        0.5,
+      );
       expect(tc.getGroups().some((group) => group.name === 'Theirs')).to.eq(
         false,
       );

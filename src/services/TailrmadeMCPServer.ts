@@ -367,9 +367,14 @@ export class TailrmadeMCPServer {
     restructure = false,
     group?: SerializedGroup,
   ): Promise<SectionBounds> {
-    const contentNodes = nodes.filter((node) => !node.isPostPassForAutoAlign());
-    // aligning can also move the rest of a group the section touches
-    const movedNodes = PPSelection.getNodesMovedByAlign(nodes);
+    // Moving a section also moves every member of a group it touches, so a
+    // partial section cannot pull nodes out of an existing visual block.
+    const movedNodes = PPSelection.getNodesWithGroupMembers(nodes);
+    const movedContentNodes = movedNodes.filter(
+      (node) => !node.isPostPassForAutoAlign(),
+    );
+    const placementNodes =
+      movedContentNodes.length > 0 ? movedContentNodes : movedNodes;
     const previousPositions = movedNodes.map(
       (node) => new PIXI.Point(node.x, node.y),
     );
@@ -382,8 +387,8 @@ export class TailrmadeMCPServer {
       this.sectionRowStartX = graph.maxX + SECTION_GAP;
       this.sectionRowBottom = graph.minY - SECTION_GAP;
     }
-    if (previous && contentNodes.length > 0) {
-      const { minX, minY } = PPSelection.getNodesMinMax(contentNodes);
+    if (previous && placementNodes.length > 0) {
+      const { minX, minY } = PPSelection.getNodesMinMax(placementNodes);
       const targetX =
         placement === 'below'
           ? this.sectionRowStartX
@@ -392,7 +397,7 @@ export class TailrmadeMCPServer {
         placement === 'below'
           ? this.sectionRowBottom + SECTION_GAP
           : previous.minY;
-      contentNodes.forEach((node) => {
+      movedNodes.forEach((node) => {
         node.setPosition(node.x + targetX - minX, node.y + targetY - minY);
       });
     }
@@ -412,9 +417,7 @@ export class TailrmadeMCPServer {
       'ai',
     );
 
-    const bounds = PPSelection.getNodesMinMax(
-      contentNodes.length > 0 ? contentNodes : nodes,
-    );
+    const bounds = PPSelection.getNodesMinMax(placementNodes);
     if (!this.lastSectionBounds || placement === 'below') {
       this.sectionRowStartX = bounds.minX;
       this.sectionRowBottom = bounds.maxY;
