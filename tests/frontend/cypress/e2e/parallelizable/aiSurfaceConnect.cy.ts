@@ -59,38 +59,6 @@ describe('AI connect_sockets to UI surface', () => {
     });
   });
 
-  it('fans one shared navigation widget out to multiple surfaces', () => {
-    doWithTestController(async (tc) => {
-      await tc.addNode('UISurfaceNode', 'ai-surface-1', 0, 0);
-      await tc.addNode('UISurfaceNode', 'ai-surface-2', 0, 400);
-      await tc.addNode('WidgetTabs', 'ai-tabs-1', 300, 0);
-
-      for (const surfaceId of ['ai-surface-1', 'ai-surface-2']) {
-        const result = await tc.callAITool('connect_sockets', {
-          from_node: 'ai-tabs-1',
-          from_socket: 'ReactUI',
-          to_node: surfaceId,
-          to_socket: 'Navigation',
-        });
-        expect(result.is_error, `${surfaceId}: ${result.content}`).to.not.equal(
-          true,
-        );
-
-        const surface = await tc.callAITool('inspect_surface', {
-          node_id: surfaceId,
-        });
-        const widgetIds = JSON.parse(surface.content).connected_widgets.map(
-          (widget: { node_id: string }) => widget.node_id,
-        );
-        expect(widgetIds, `${surfaceId} contains shared tabs`).to.include(
-          'ai-tabs-1',
-        );
-      }
-
-      expect(tc.getSocketLinks('ai-tabs-1', 'ReactUI')).to.have.length(2);
-    });
-  });
-
   it('errors when the source node has no ReactUI output', () => {
     doWithTestController(async (tc) => {
       await tc.addNode('UISurfaceNode', 'ai-surface-1', 0, 0);

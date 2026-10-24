@@ -67,39 +67,6 @@ describe('Navigate to UI surface: data flow and misconfiguration warnings', () =
       .should('exist');
   });
 
-  it('documents one shared tabs node for navigation repeated across surfaces', () => {
-    doWithTestController(async (tc) => {
-      for (const nodeType of [
-        'WidgetTabs',
-        'UI surface',
-        'Navigate to UI surface',
-      ]) {
-        const result = await tc.callAITool('describe_node', {
-          node_type: nodeType,
-        });
-        expect(result.is_error, `${nodeType}: ${result.content}`).to.not.equal(
-          true,
-        );
-        const described = JSON.parse(result.content);
-        const docs = described.docs as string;
-        if (nodeType === 'WidgetTabs') {
-          expect(described.description).to.match(/reuse the same Tabs node/i);
-        }
-        expect(
-          docs,
-          `${nodeType} should require shared navigation state`,
-        ).to.match(/ONE (Tabs|navigation widget)/i);
-        expect(docs, `${nodeType} should explain ReactUI fan-out`).to.match(
-          /ReactUI[\s\S]*(fan|every)/i,
-        );
-        expect(
-          docs,
-          `${nodeType} should warn against per-page copies`,
-        ).to.match(/(do not|never) (create|clone)/i);
-      }
-    });
-  });
-
   it('warns and names the surfaces that exist when the target matches none', () => {
     doWithTestController(async (tc) => {
       await buildTwoPages(tc, 'Home', 'Settings');

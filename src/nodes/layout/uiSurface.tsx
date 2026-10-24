@@ -201,9 +201,6 @@ Two patterns:
 1. Separate pages: create ONE navigation widget node whose options are the
 surface NODE names. Connect the SAME widget's ReactUI output to every top-level
 surface and wire its selection output into one "Navigate to UI surface" node.
-Do not clone the navigation widget per page: each clone has independent state,
-so the destination page can display the previously selected option after a
-successful navigation.
 2. Nav shell with embedded pages: connect each child surface's ReactUI output
 into one main surface that holds the navigation, with a shared non-empty
 "Radio Group" so navigating shows one child and hides the rest. Children

@@ -480,8 +480,7 @@ drive it directly. Nothing happens on graph load - the default surface wins.
   names and connect its "Out" to "Surface".
 - If that navigation appears on several separate top-level surfaces, create
   ONE Tabs/dropdown node and fan its SAME "ReactUI" output out to every
-  surface. Do not create one navigation widget per page: their independent
-  selection states make the destination copy appear one click behind.
+  surface.
 - One button per destination: set "Surface" to the fixed target and connect the
   button's "Out" to "Execute".
 

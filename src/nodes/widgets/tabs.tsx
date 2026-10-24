@@ -58,11 +58,6 @@ outputs may fan out to multiple surfaces. Because every rendered copy comes
 from one Tabs node, they share "Selected Tab" and stay visually synchronized
 when navigation replaces one surface with another.
 
-Do NOT create a separate Tabs node on each destination surface. Separate nodes
-have independent selection state: the click can navigate correctly, but the
-new surface's Tabs copy still shows its old selection, making navigation appear
-to require a second click.
-
 ${AGENT_DOCS_HEADING}
 For shared page navigation, reuse one WidgetTabs node and one NavigateToPage
 node. Fan the Tabs node's ReactUI output out to every top-level surface where
