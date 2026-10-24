@@ -161,7 +161,9 @@ Connect any "ReactUI" output (widgets, charts, or other surfaces) to place it
 on the surface. This creates an element socket and two control sockets:
 "<name> visible" (boolean) and "<name> layout" (layout object). Self-embedding
 loops are rejected. Disconnecting a widget takes it back off, so moving one to
-another page is a disconnect plus a connect.
+another page is a disconnect plus a connect. A ReactUI output can also fan out
+to several surfaces when the SAME widget and its state should be shared, such
+as one navigation Tabs node shown on every top-level page.
 
 Arrange the surface in the dashboard editor. If "Layout JSON" is linked, the
 graph owns the layout and it can no longer be arranged by hand.
@@ -196,8 +198,9 @@ Switch surfaces with "Navigate to UI surface", which resolves a surface by its
 NODE name or route slug. The first surface is the default.
 
 Two patterns:
-1. Separate pages: several top-level surfaces share one navigation widget
-whose options are those surface NODE names, wired into "Navigate to UI surface".
+1. Separate pages: create ONE navigation widget node whose options are the
+surface NODE names. Connect the SAME widget's ReactUI output to every top-level
+surface and wire its selection output into one "Navigate to UI surface" node.
 2. Nav shell with embedded pages: connect each child surface's ReactUI output
 into one main surface that holds the navigation, with a shared non-empty
 "Radio Group" so navigating shows one child and hides the rest. Children
