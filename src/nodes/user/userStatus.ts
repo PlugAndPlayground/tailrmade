@@ -6,8 +6,6 @@ import { SOCKET_TYPE } from '../../utils/constants';
 import {
   AccountTier,
   STORAGE_QUOTA_LIMITS,
-  TOKEN_LIMITS,
-  getEffectiveDailyUsage,
 } from '../../services/shared-types';
 import { BooleanType } from '../datatypes/booleanType';
 import { NumberType } from '../datatypes/numberType';
@@ -20,6 +18,8 @@ const storageUsed = 'Storage Used';
 const storageLimit = 'Storage Limit';
 const AIUsage = 'AI Usage';
 const AILimit = 'AI Limit';
+const AIMonthlyUsage = 'AI Monthly Usage';
+const AIMonthlyLimit = 'AI Monthly Limit';
 
 export class UserStatus extends PPNode {
   public getName() {
@@ -35,6 +35,8 @@ export class UserStatus extends PPNode {
       new Socket(SOCKET_TYPE.OUT, storageLimit, new NumberType()),
       new Socket(SOCKET_TYPE.OUT, AIUsage, new NumberType()),
       new Socket(SOCKET_TYPE.OUT, AILimit, new NumberType()),
+      new Socket(SOCKET_TYPE.OUT, AIMonthlyUsage, new NumberType()),
+      new Socket(SOCKET_TYPE.OUT, AIMonthlyLimit, new NumberType()),
     ];
   }
 
@@ -50,6 +52,8 @@ export class UserStatus extends PPNode {
       output[storageLimit] = 0;
       output[AIUsage] = 0;
       output[AILimit] = 0;
+      output[AIMonthlyUsage] = 0;
+      output[AIMonthlyLimit] = 0;
     } else {
       // Get user data from backend (same as UserProfile component)
       const userData = await handler.refreshCurrentUserData();
@@ -70,11 +74,12 @@ export class UserStatus extends PPNode {
       output[accountTierName] = tier;
       output[storageUsed] = quota!.currentUsage;
       output[storageLimit] = STORAGE_QUOTA_LIMITS[tier] ?? 0;
-      output[AIUsage] = getEffectiveDailyUsage(
-        userData!.aiUsage.tokensUsedLastDay,
-        userData!.aiUsage.tokensLastDayUsed,
-      );
-      output[AILimit] = TOKEN_LIMITS[tier] ?? 0;
+      const ai = userData!.allowances?.ai;
+      output[AIUsage] = ai?.daily.used ?? 0;
+      output[AILimit] = ai?.daily.limit ?? 0;
+      // no monthly cap (limit null) reads as 0, like a missing limit
+      output[AIMonthlyUsage] = ai?.monthly.used ?? 0;
+      output[AIMonthlyLimit] = ai?.monthly.limit ?? 0;
     }
   }
 
