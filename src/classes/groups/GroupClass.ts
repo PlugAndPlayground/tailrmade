@@ -53,7 +53,7 @@ export const GROUP_COLORS = [
   '#BBC5D4',
   '#CFC2B4',
   '#C3C2D3',
-  '#C9C4B3'
+  '#C9C4B3',
 ];
 
 // on top of the margin node selection bounds already include
@@ -68,12 +68,15 @@ const GROUP_TITLE_FONT_SIZE = 15;
 const GROUP_HEADER_MIN_ZOOM = 0.1;
 const GROUP_TITLE_MARGIN = 12;
 const GROUP_COLOR_ICON_SIZE = 18;
+const GROUP_DROP_TARGET_STROKE = 4;
 
 export default class PPGroup extends PIXI.Container {
   id: string;
   name: string;
   color: string;
   nodeIds: string[];
+  // nodes dragged over it would join it on drop
+  isDropTarget = false;
 
   private graphics = new PIXI.Graphics();
   private titleText = new PIXI.Text({
@@ -204,8 +207,14 @@ export default class PPGroup extends PIXI.Container {
     this.graphics
       .clear()
       .roundRect(x, y, width, height, GROUP_CORNER_RADIUS)
-      .fill({ color: color.hexNumber(), alpha: GROUP_BACKGROUND_ALPHA })
-      // .stroke({ width: 2, color: color.hexNumber() })
+      .fill({ color: color.hexNumber(), alpha: GROUP_BACKGROUND_ALPHA });
+    if (this.isDropTarget) {
+      this.graphics.stroke({
+        width: GROUP_DROP_TARGET_STROKE * headerScale,
+        color: color.hexNumber(),
+      });
+    }
+    this.graphics
       .roundRect(
         this.header.x,
         this.header.y,

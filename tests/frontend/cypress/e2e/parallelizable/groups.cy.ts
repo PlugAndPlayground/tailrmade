@@ -214,6 +214,26 @@ describe('node groups', () => {
         graph.groups.find((group) => group.id === aiGroupId).node_ids,
       ).to.deep.eq(['C']);
 
+      const fromOtherGroup = await tc.callMCPTool('add_to_group', {
+        group_id: aiGroupId,
+        node_ids: ['A'],
+      });
+      expect(fromOtherGroup.is_error).to.eq(true);
+      await tc.callMCPTool('remove_from_group', { node_ids: ['A'] });
+      await tc.callMCPTool('add_to_group', {
+        group_id: aiGroupId,
+        node_ids: ['A'],
+      });
+      expect(aiGroup.nodeIds).to.deep.eq(['C', 'A']);
+      expect(tc.getGraph().groupLayer.getGroup(groupId).nodeIds).to.deep.eq([
+        'B',
+      ]);
+      await tc.callMCPTool('remove_from_group', { node_ids: ['A'] });
+      await tc.callMCPTool('add_to_group', {
+        group_id: groupId,
+        node_ids: ['A'],
+      });
+
       await tc.callMCPTool('ungroup', { group_id: aiGroupId });
       expect(tc.getGraph().groupLayer.getGroup(aiGroupId)).to.eq(undefined);
     });
@@ -295,11 +315,11 @@ describe('node groups', () => {
       expect(getPositions(tc, ['A', 'B'])).to.deep.eq(positionsBefore);
     });
 
-    cy.get('#group-color-picker [title="#B0683A"]').click();
+    cy.get('#group-color-picker [title="#FFAE6B"]').click();
     shouldWithTestController((tc) => {
       expect(
         tc.getGraph().groupLayer.getGroup(groupId).color.toLowerCase(),
-      ).to.eq('#b0683a');
+      ).to.eq('#ffae6b');
     });
 
     cy.get('body').type('{esc}');
@@ -309,6 +329,78 @@ describe('node groups', () => {
       expect(tc.getGraph().groupLayer.getGroup(groupId).color).to.eq(
         colorBefore,
       );
+    });
+  });
+
+  it('removes part of a group from the context menu', () => {
+    doWithTestController((tc) => {
+      tc.zoomToFitNodesById(['A', 'B', 'C'], 0.8);
+      tc.selectNodesById(['A', 'B']);
+    });
+    getNodeCenterById('A').then(([x, y]) => {
+      cy.get('#pixi-container').rightclick(x, y);
+    });
+    cy.get('#node-contextmenu')
+      .should('contain', 'Ungroup')
+      .and('not.contain', 'Remove from group')
+      .and('not.contain', 'Rename group');
+    // its top padding is no menu item, so this only closes it
+    cy.get('#node-contextmenu').click('top');
+
+    doWithTestController((tc) => tc.selectNodesById(['B']));
+    getNodeCenterById('B').then(([x, y]) => {
+      cy.get('#pixi-container').rightclick(x, y);
+    });
+    cy.get('#node-contextmenu').contains('Remove from group').click();
+    shouldWithTestController((tc) => {
+      expect(tc.getGraph().groupLayer.getGroup(groupId).nodeIds).to.deep.eq([
+        'A',
+      ]);
+    });
+
+    cy.get('body').type(`${controlOrMetaKey()}z`);
+    shouldWithTestController((tc) => {
+      expect(
+        tc.getGraph().groupLayer.getGroup(groupId).nodeIds,
+      ).to.have.members(['A', 'B']);
+    });
+  });
+
+  it('adds an ungrouped node dropped inside the frame', () => {
+    let positionBefore;
+    doWithTestController((tc) => {
+      tc.selectNodesById([]);
+      positionBefore = getPositions(tc, ['C']).C;
+    });
+    getNodeCenterById('C').then(([x, y]) => {
+      doWithTestController((tc) => {
+        const frame = tc.getGraph().groupLayer.getGroup(groupId).getFrame();
+        // the padding at the bottom left, clear of the members
+        return tc
+          .getGraph()
+          .viewport.toScreen(frame.left + 4, frame.bottom - 4);
+      }).then((target) => {
+        dragFromAtoB(x, y, target.x, target.y);
+      });
+    });
+    shouldWithTestController((tc) => {
+      const group = tc.getGraph().groupLayer.getGroup(groupId);
+      expect(group.nodeIds).to.have.members(['A', 'B', 'C']);
+      expect(group.isDropTarget).to.eq(false);
+    });
+
+    cy.get('body').type(`${controlOrMetaKey()}z`);
+    shouldWithTestController((tc) => {
+      expect(
+        tc.getGraph().groupLayer.getGroup(groupId).nodeIds,
+      ).to.have.members(['A', 'B']);
+    });
+    cy.get('body').type(`${controlOrMetaKey()}z`);
+    shouldWithTestController((tc) => {
+      // undoing a drag of an unselected node is a fraction of a unit off on main too
+      const positionAfter = getPositions(tc, ['C']).C;
+      expect(positionAfter.x).to.be.closeTo(positionBefore.x, 1);
+      expect(positionAfter.y).to.be.closeTo(positionBefore.y, 1);
     });
   });
 });

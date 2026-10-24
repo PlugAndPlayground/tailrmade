@@ -34,6 +34,19 @@ export default class GroupLayer extends PIXI.Container<PPGroup> {
     return this.children.find((group) => group.nodeIds.includes(nodeId));
   }
 
+  getGroupAt(x: number, y: number): PPGroup | undefined {
+    return this.children.find((group) => group.getFrame().contains(x, y));
+  }
+
+  setDropTarget(target: PPGroup | undefined): void {
+    this.children.forEach((group) => {
+      if (group.isDropTarget !== (group === target)) {
+        group.isDropTarget = group === target;
+        group.draw();
+      }
+    });
+  }
+
   getNextColor(): string {
     return GROUP_COLORS[this.children.length % GROUP_COLORS.length];
   }

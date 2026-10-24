@@ -16,8 +16,10 @@ import PPGraph from '../classes/GraphClass';
 import PPNode from '../classes/NodeClass';
 import PPSelection from '../classes/selection/SelectionClass';
 import {
+  addNodesToGroup,
   createGroupData,
   groupNodes,
+  removeNodesFromGroups,
   ungroupNodes,
   updateGroup,
 } from '../classes/groups/groupActions';
@@ -121,7 +123,9 @@ type MCPToolName =
   | 'finish_section'
   | 'group_nodes'
   | 'ungroup'
-  | 'update_group';
+  | 'update_group'
+  | 'add_to_group'
+  | 'remove_from_group';
 
 interface AddNodeInput {
   node_type: string;
@@ -146,6 +150,15 @@ interface UpdateGroupInput {
   group_id: string;
   name?: string;
   color?: string;
+}
+
+interface AddToGroupInput {
+  group_id: string;
+  node_ids: string[];
+}
+
+interface RemoveFromGroupInput {
+  node_ids: string[];
 }
 
 interface RunNodeInput {
@@ -215,6 +228,7 @@ interface FinishSectionInput {
   node_ids: string[];
   placement?: SectionPlacement;
   restructure?: boolean;
+  color?: string;
 }
 
 interface SectionBounds {
@@ -837,6 +851,11 @@ export class TailrmadeMCPServer {
               description:
                 'Also move nodes that existed before this request. Only when the user asked to structure or tidy their app.',
             },
+            color: {
+              type: 'string',
+              description:
+                'Optional hex colour of the group, e.g. one colour for all UI sections. Defaults cycle like group_nodes.',
+            },
           },
           required: ['title', 'node_ids'],
         },
@@ -882,6 +901,31 @@ export class TailrmadeMCPServer {
             color: { type: 'string' },
           },
           required: ['group_id'],
+        },
+      },
+      {
+        name: 'add_to_group',
+        description:
+          'Add nodes to an existing group. Nodes in another group must be removed from it first. Nodes are not moved; the frame grows to include them.',
+        input_schema: {
+          type: 'object',
+          properties: {
+            group_id: { type: 'string' },
+            node_ids: { type: 'array', items: { type: 'string' } },
+          },
+          required: ['group_id', 'node_ids'],
+        },
+      },
+      {
+        name: 'remove_from_group',
+        description:
+          'Take nodes out of whatever group they are in, keeping the rest of the group. A group left empty is removed. Nodes are not moved.',
+        input_schema: {
+          type: 'object',
+          properties: {
+            node_ids: { type: 'array', items: { type: 'string' } },
+          },
+          required: ['node_ids'],
         },
       },
     ];
@@ -990,6 +1034,12 @@ export class TailrmadeMCPServer {
           return await this.ungroup(input as unknown as UngroupInput);
         case 'update_group':
           return await this.updateGroup(input as unknown as UpdateGroupInput);
+        case 'add_to_group':
+          return await this.addToGroup(input as unknown as AddToGroupInput);
+        case 'remove_from_group':
+          return await this.removeFromGroup(
+            input as unknown as RemoveFromGroupInput,
+          );
         default:
           return {
             content: `Unknown MCP tool: ${name}`,
@@ -1039,8 +1089,7 @@ export class TailrmadeMCPServer {
     };
   }
 
-  private async groupNodes(input: GroupNodesInput): Promise<MCPToolResult> {
-    const nodeIds = Array.from(new Set(input.node_ids));
+  private getMissingNodesError(nodeIds: string[]): MCPToolResult | undefined {
     const missingNodeIds = nodeIds.filter(
       (nodeId) => !PPGraph.currentGraph.nodes[nodeId],
     );
@@ -1049,6 +1098,14 @@ export class TailrmadeMCPServer {
         content: `Nodes not found: ${missingNodeIds.join(', ')}`,
         is_error: true,
       };
+    }
+  }
+
+  private async groupNodes(input: GroupNodesInput): Promise<MCPToolResult> {
+    const nodeIds = Array.from(new Set(input.node_ids));
+    const missingNodesError = this.getMissingNodesError(nodeIds);
+    if (missingNodesError) {
+      return missingNodesError;
     }
     const name = String(input.name ?? '').trim();
     if (!name) {
@@ -1091,6 +1148,45 @@ export class TailrmadeMCPServer {
       content: JSON.stringify({
         status: 'group_updated',
         group_id: input.group_id,
+      }),
+    };
+  }
+
+  private async addToGroup(input: AddToGroupInput): Promise<MCPToolResult> {
+    const group = PPGraph.currentGraph.groupLayer.getGroup(input.group_id);
+    if (!group) {
+      return { content: `Group not found: ${input.group_id}`, is_error: true };
+    }
+    const nodeIds = Array.from(new Set(input.node_ids)).filter(
+      (nodeId) => !group.nodeIds.includes(nodeId),
+    );
+    const missingNodesError = this.getMissingNodesError(nodeIds);
+    if (missingNodesError) {
+      return missingNodesError;
+    }
+    await addNodesToGroup(group.id, this.getExistingNodes(nodeIds), 'ai');
+    return {
+      content: JSON.stringify({
+        status: 'added_to_group',
+        group_id: group.id,
+        node_ids: group.nodeIds,
+      }),
+    };
+  }
+
+  private async removeFromGroup(
+    input: RemoveFromGroupInput,
+  ): Promise<MCPToolResult> {
+    const nodeIds = Array.from(new Set(input.node_ids));
+    const missingNodesError = this.getMissingNodesError(nodeIds);
+    if (missingNodesError) {
+      return missingNodesError;
+    }
+    await removeNodesFromGroups(this.getExistingNodes(nodeIds), 'ai');
+    return {
+      content: JSON.stringify({
+        status: 'removed_from_group',
+        node_ids: nodeIds,
       }),
     };
   }
@@ -1281,7 +1377,10 @@ export class TailrmadeMCPServer {
     );
     const group = isAlreadyGrouped
       ? undefined
-      : createGroupData(nodes, { name: input.title.trim() });
+      : createGroupData(nodes, {
+          name: input.title.trim(),
+          color: input.color,
+        });
     await this.layOutSection(
       nodes,
       input.placement ?? 'right',
@@ -1295,7 +1394,7 @@ export class TailrmadeMCPServer {
         title: input.title,
         group_id: group?.id,
         not_grouped_reason: isAlreadyGrouped
-          ? 'Some of these nodes are already in a group. Use ungroup and group_nodes to change it.'
+          ? 'Some of these nodes are already in a group. Use add_to_group for the others, or remove_from_group and group_nodes to change it.'
           : undefined,
         placed_node_ids: nodes.map((node) => node.id),
         skipped_node_ids: skippedNodeIds,

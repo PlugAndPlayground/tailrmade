@@ -13,6 +13,7 @@ export const GROUP_ACTIONS = {
   create: 'CreateGroupAction',
   ungroup: 'UngroupAction',
   update: 'UpdateGroupAction',
+  setMembers: 'SetGroupMembersAction',
 };
 
 export const DEFAULT_GROUP_NAME = 'Group';
@@ -52,6 +53,17 @@ function registerGroupActions(): void {
   handler.registerAction(
     GROUP_ACTIONS.update,
     new SerializableAction(applyProperties, applyProperties, 'Edit group'),
+  );
+  // a group left without members is removed, and comes back on undo
+  const applyMembers = async (groups: SerializedGroup[]) =>
+    groups.forEach((group) =>
+      group.nodeIds.length > 0
+        ? groupLayer().restoreGroup(group)
+        : groupLayer().removeGroup(group.id),
+    );
+  handler.registerAction(
+    GROUP_ACTIONS.setMembers,
+    new SerializableAction(applyMembers, applyMembers, 'Edit group members'),
   );
 }
 
@@ -101,6 +113,46 @@ export async function ungroupNodes(
   if (groups.length > 0) {
     await PNPAction(GROUP_ACTIONS.ungroup, groups, groups, undefined, source);
   }
+}
+
+export async function addNodesToGroup(
+  id: string,
+  nodes: PPNode[],
+  source: ActionSource = 'human',
+): Promise<void> {
+  if (nodes.some((node) => groupLayer().getGroupOfNode(node.id))) {
+    throw new Error(
+      'Some of these nodes are already in a group. Remove them from it first.',
+    );
+  }
+  const previous = groupLayer().getGroup(id).serialize();
+  const next: SerializedGroup = {
+    ...previous,
+    nodeIds: previous.nodeIds.concat(nodes.map((node) => node.id)),
+  };
+  await PNPAction(
+    GROUP_ACTIONS.setMembers,
+    [next],
+    [previous],
+    undefined,
+    source,
+  );
+}
+
+export async function removeNodesFromGroups(
+  nodes: PPNode[],
+  source: ActionSource = 'human',
+): Promise<void> {
+  const nodeIds = nodes.map((node) => node.id);
+  const previous = groupLayer().serializeTouching(nodeIds);
+  if (previous.length === 0) {
+    return;
+  }
+  const next = previous.map((group) => ({
+    ...group,
+    nodeIds: group.nodeIds.filter((id) => !nodeIds.includes(id)),
+  }));
+  await PNPAction(GROUP_ACTIONS.setMembers, next, previous, undefined, source);
 }
 
 export async function updateGroup(

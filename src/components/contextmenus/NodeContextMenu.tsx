@@ -41,12 +41,13 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import AddIcon from '@mui/icons-material/Add';
 import GroupWorkIcon from '@mui/icons-material/GroupWork';
 import LayersClearIcon from '@mui/icons-material/LayersClear';
-import EditIcon from '@mui/icons-material/Edit';
+import PlaylistRemoveIcon from '@mui/icons-material/PlaylistRemove';
 import {
   extractSelectionToMacro,
   groupSelection,
   ungroupSelection,
 } from '../../actions/graphActions';
+import { removeNodesFromGroups } from '../../classes/groups/groupActions';
 
 const AlignOptionMenuItem = (props) => {
   return (
@@ -126,8 +127,10 @@ export const NodeContextMenu = (props) => {
   const selectedGroups = PPGraph.currentGraph.groupLayer.groups.filter(
     (group) => selectedNodes.some((node) => group.nodeIds.includes(node.id)),
   );
-  const singleSelectedGroup =
-    selectedGroups.length === 1 ? selectedGroups[0] : undefined;
+  // with a whole group selected, removing its nodes would just be ungrouping
+  const isPartOfGroupSelected = selectedGroups.some((group) =>
+    group.nodeIds.some((id) => !selectedNodes.some((node) => node.id === id)),
+  );
 
   useEffect(() => {
     window.addEventListener('contextmenu', handleContextMenu);
@@ -237,12 +240,12 @@ export const NodeContextMenu = (props) => {
             </Typography>
           </MenuItem>
         )}
-        {singleSelectedGroup && (
-          <MenuItem onClick={() => singleSelectedGroup.editTitle()}>
+        {isPartOfGroupSelected && (
+          <MenuItem onClick={() => void removeNodesFromGroups(selectedNodes)}>
             <ListItemIcon>
-              <EditIcon fontSize="small" />
+              <PlaylistRemoveIcon fontSize="small" />
             </ListItemIcon>
-            <ListItemText>Rename group</ListItemText>
+            <ListItemText>Remove from group</ListItemText>
           </MenuItem>
         )}
         <MenuItem

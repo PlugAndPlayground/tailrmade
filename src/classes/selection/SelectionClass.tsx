@@ -39,6 +39,8 @@ import {
   LayoutNodeInput,
 } from './layeredLayout';
 import { AlignUnit } from '../groups/GroupLayer';
+import PPGroup from '../groups/GroupClass';
+import { addNodesToGroup } from '../groups/groupActions';
 
 export enum Interaction {
   Passive,
@@ -226,15 +228,15 @@ export default class PPSelection extends PIXI.Container {
         upPosition.y - pendingClick.downPosition.y,
       ) > NODE_CLICK_DRAG_THRESHOLD_PX;
 
+    // after a drag, stopDragAction clears it, as it still needs the dragged node
     if (!wasDragged) {
       this.selectNodes([node], pendingClick.isShiftClick);
       onResolved({
         event,
         wasOnlySelectedAtPointerDown: pendingClick.wasOnlySelectedAtPointerDown,
       });
+      this.clearPendingClick();
     }
-
-    this.clearPendingClick();
     return true;
   }
 
@@ -304,8 +306,39 @@ export default class PPSelection extends PIXI.Container {
   }
 
   public stopDragAction(event) {
+    const groupToJoin = this.getGroupToJoin();
+    const draggedNodes = this.getDraggedNodes();
+    PPGraph.currentGraph.groupLayer.setDropTarget(undefined);
     this.setInteraction(Interaction.Passive);
     this.clearPendingClick();
+    if (groupToJoin) {
+      void addNodesToGroup(groupToJoin.id, draggedNodes);
+    }
+  }
+
+  // Ungrouped nodes dropped inside a group's frame join it. Members do not
+  // change groups this way, as their own frame follows them.
+  private getGroupToJoin(): PPGroup | undefined {
+    const groupLayer = PPGraph.currentGraph.groupLayer;
+    if (
+      this.interaction !== Interaction.Dragging ||
+      this.lastPointMovedTo.equals(this.sourcePoint) ||
+      this.getDraggedNodes().some((node) => groupLayer.getGroupOfNode(node.id))
+    ) {
+      return undefined;
+    }
+    return groupLayer.getGroupAt(
+      this.lastPointMovedTo.x,
+      this.lastPointMovedTo.y,
+    );
+  }
+
+  // the pending click node joins the drag even if it is not selected yet
+  private getDraggedNodes(): PPNode[] {
+    const pendingNode = this.pendingClick?.node;
+    return pendingNode && !this.selectedNodes.includes(pendingNode)
+      ? [...this.selectedNodes, pendingNode]
+      : this.selectedNodes;
   }
 
   async onPointerDown(event: PIXI.FederatedPointerEvent): Promise<void> {
@@ -425,18 +458,14 @@ export default class PPSelection extends PIXI.Container {
         this.lastPointMovedTo = targetPoint;
         void this.moveSelection(deltaX, deltaY);
         this.drawRectanglesFromSelection(); // Update visual border during drag
+        PPGraph.currentGraph.groupLayer.setDropTarget(this.getGroupToJoin());
         break;
       }
     }
   }
 
   async moveSelection(deltaX: number, deltaY: number): Promise<void> {
-    // Include pending click node in the drag (if not already selected)
-    const pendingNode = this.pendingClick?.node;
-    const nodesToMove =
-      pendingNode && !this.selectedNodes.includes(pendingNode)
-        ? [...this.selectedNodes, pendingNode]
-        : this.selectedNodes;
+    const nodesToMove = this.getDraggedNodes();
 
     const prevPositions = nodesToMove.map(
       (node) => new PIXI.Point(node.position.x, node.position.y),

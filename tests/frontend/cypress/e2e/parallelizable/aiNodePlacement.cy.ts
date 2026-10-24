@@ -237,6 +237,7 @@ describe('AI node placement (no overlap, scoped auto-alignment)', () => {
         title: 'Data',
         node_ids: ['existing-a', 'existing-b'],
         restructure: true,
+        color: '#A45140',
       });
       expect(result.is_error, result.content).to.not.eq(true);
       await tc.finishAIAgentTurn();
@@ -248,6 +249,7 @@ describe('AI node placement (no overlap, scoped auto-alignment)', () => {
       );
       expect(a.x + a.nodeWidth).to.be.lessThan(b.x);
       expect(tc.getGroups().map((group) => group.name)).to.deep.eq(['Data']);
+      expect(tc.getGroups()[0].color).to.eq('#A45140');
 
       await tc.undo();
       ['existing-a', 'existing-b'].forEach((id, i) => {
