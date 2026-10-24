@@ -523,7 +523,8 @@ export class TailrmadeMCPServer {
       },
       {
         name: 'connect_sockets',
-        description: 'Connect an output socket to an input socket.',
+        description:
+          "Connect an output socket to an input socket. When placing a shared widget such as page navigation on several UI surfaces, connect the SAME node's ReactUI output to each surface; ReactUI outputs support fan-out, so do not duplicate the widget node and its state per surface.",
         input_schema: {
           type: 'object',
           properties: {

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import { Box, Tab, Tabs } from '@mui/material';
 import {
   WidgetSelectionBase,
@@ -27,6 +27,7 @@ import {
   SerializableAction,
   SerializableActionHandler,
 } from '../../classes/Action';
+import { AGENT_DOCS_HEADING } from '../../utils/nodeDocs';
 
 const tabsOptionsName = 'Tab Options';
 const selectedTabIndex = 'Selected Tab';
@@ -40,7 +41,34 @@ export class WidgetTabs extends WidgetSelectionBase {
   }
 
   public getDescription(): string {
-    return 'Adds a group of tabs for navigation or selection';
+    return 'Selectable tabs for one view or shared navigation; reuse the same Tabs node across surfaces so selection stays in sync.';
+  }
+
+  public getDocs(): string {
+    return `Shows one option at a time. "Selected Tab" is the zero-based selected
+index; "Out" emits the selected option and "Index" emits that index.
+
+## Navigation across UI surfaces
+Set "Tab Options" to the exact NODE names or route slugs of the destination
+surfaces, then connect "Out" to one "Navigate to UI surface" node.
+
+For navigation that appears on several top-level surfaces, create ONE Tabs
+node and connect that same node's "ReactUI" output to every surface. ReactUI
+outputs may fan out to multiple surfaces. Because every rendered copy comes
+from one Tabs node, they share "Selected Tab" and stay visually synchronized
+when navigation replaces one surface with another.
+
+Do NOT create a separate Tabs node on each destination surface. Separate nodes
+have independent selection state: the click can navigate correctly, but the
+new surface's Tabs copy still shows its old selection, making navigation appear
+to require a second click.
+
+${AGENT_DOCS_HEADING}
+For shared page navigation, reuse one WidgetTabs node and one NavigateToPage
+node. Fan the Tabs node's ReactUI output out to every top-level surface where
+the navigation must appear; connect its Out output to the NavigateToPage
+Surface input. Never clone a Tabs node per destination unless the selections
+are intentionally independent.`;
   }
 
   protected getDefaultIO(): Socket[] {
@@ -122,15 +150,6 @@ export class WidgetTabs extends WidgetSelectionBase {
       0,
       Math.min(options.length - 1, props[selectedTabIndex]),
     );
-    const [optimisticSelectedIndex, setOptimisticSelectedIndex] = useState<
-      number | null
-    >(null);
-
-    useEffect(() => {
-      setOptimisticSelectedIndex(null);
-    }, [selectedIndex]);
-
-    const displayedSelectedIndex = optimisticSelectedIndex ?? selectedIndex;
 
     const scrollable = props[scrollableName];
     const size = useWidgetSize(props[sizeName]);
@@ -152,11 +171,8 @@ export class WidgetTabs extends WidgetSelectionBase {
         >
           <Tabs
             data-cy={`${props.dataCyId}-tabs`}
-            value={displayedSelectedIndex}
-            onChange={(event, newValue) => {
-              setOptimisticSelectedIndex(newValue);
-              void node.handleOnChange(event, newValue);
-            }}
+            value={selectedIndex}
+            onChange={node.handleOnChange}
             variant={scrollable ? 'scrollable' : 'standard'}
             scrollButtons={scrollable ? 'auto' : false}
             centered={!scrollable}

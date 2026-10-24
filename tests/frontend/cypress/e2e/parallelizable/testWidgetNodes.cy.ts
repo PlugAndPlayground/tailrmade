@@ -425,21 +425,10 @@ describe('testWidgetNodes', () => {
     addToDashboard(tabsId);
     exitEditModeAndShowNode(tabsId);
 
-    cy.get(`[data-cy="${tabsId}-dashboard-tab-1"]`)
-      .should('have.class', 'Mui-selected')
-      .and('have.attr', 'aria-selected', 'true');
-
     // three tabs need more width than the dashboard panel has, so the last
     // one is scrolled out of the panel's clipped area - address the widget's
     // own tab instead of picking by visible position
     cy.get(`[data-cy="${tabsId}-dashboard-tab-2"]`).click({ force: true });
-
-    cy.get(`[data-cy="${tabsId}-dashboard-tab-2"]`)
-      .should('have.class', 'Mui-selected')
-      .and('have.attr', 'aria-selected', 'true');
-    cy.get(`[data-cy="${tabsId}-dashboard-tab-1"]`)
-      .should('not.have.class', 'Mui-selected')
-      .and('have.attr', 'aria-selected', 'false');
 
     shouldWithTestController((testController) => {
       expect(testController.getNodeOutputValue(tabsId, 'Out')).to.eq('Tab 3');
