@@ -177,22 +177,25 @@ const GraphOverlay: React.FunctionComponent<GraphOverlayProps> = (props) => {
         return;
       }
 
-      const drawer = overlayState[side];
-
-      updateOverlayState({
-        [side]: {
-          ...drawer,
-          visible: nextDrawerVisibility({
-            action,
-            isVisible: drawer.visible,
-            requestedView: content,
-            activeView: drawer.activeView,
-          }),
-          ...(content != null && { activeView: content }),
-        },
+      // functional update so back-to-back drawer calls in one event compose
+      setOverlayState((state) => {
+        const drawer = state[side];
+        return {
+          ...state,
+          [side]: {
+            ...drawer,
+            visible: nextDrawerVisibility({
+              action,
+              isVisible: drawer.visible,
+              requestedView: content,
+              activeView: drawer.activeView,
+            }),
+            ...(content != null && { activeView: content }),
+          },
+        };
       });
     },
-    [overlayState, updateOverlayState],
+    [],
   );
 
   const toggleLeftSideDrawer = useCallback(
@@ -210,11 +213,12 @@ const GraphOverlay: React.FunctionComponent<GraphOverlayProps> = (props) => {
   // Set the active right drawer tab without changing the drawer's visibility
   const setRightDrawerView = useCallback(
     (view: RightDrawerView) => {
-      updateOverlayState({
-        rightSide: { ...overlayState.rightSide, activeView: view },
-      });
+      setOverlayState((state) => ({
+        ...state,
+        rightSide: { ...state.rightSide, activeView: view },
+      }));
     },
-    [overlayState.rightSide, updateOverlayState],
+    [],
   );
 
   const toggleDashboard = useCallback((action: VISIBILITY_ACTION) => {
