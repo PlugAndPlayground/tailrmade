@@ -194,7 +194,7 @@ function AccessLevel({
       <AccessBars level={level} size={variant === 'h6' ? 'headline' : 'row'} />
       <Typography
         variant={variant}
-        sx={{ color: accessStyles[level].color, lineHeight: 1.3 }}
+        sx={{ color: accessStyles[level].color, lineHeight: 1 }}
       >
         {accessStyles[level].label}
       </Typography>
@@ -211,7 +211,12 @@ function AccessChip({ level }: { level: RiskLevel }): React.ReactElement {
     <Chip
       size="small"
       label={shortLabel ?? label}
-      icon={<AccessBars level={level} size="chip" />}
+      icon={
+        <AccessBars
+          level={level}
+          size="chip"
+        />
+      }
       data-cy="node-access-level"
       data-access-level={level}
       sx={{
@@ -219,7 +224,9 @@ function AccessChip({ level }: { level: RiskLevel }): React.ReactElement {
         color,
         bgcolor: 'transparent',
         border: `1px solid ${color}`,
+        pl: 1,
         '& .MuiChip-icon': { ml: '6px', mr: '-3px' },
+        '& .MuiChip-label': { pl: 0.5 },
       }}
     />
   );
@@ -435,7 +442,12 @@ function AccessOverview({
                   }}
                 >
                   <AccessBars level={level} />
-                  <Typography variant="caption">{count}</Typography>
+                  <Typography
+                    variant="caption"
+                    sx={{ lineHeight: 1 }}
+                  >
+                    {count}
+                  </Typography>
                 </Box>
               )
             );
