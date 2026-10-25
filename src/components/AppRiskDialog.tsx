@@ -6,6 +6,7 @@ import {
   Box,
   Button,
   Chip,
+  Collapse,
   Dialog,
   DialogActions,
   DialogContent,
@@ -30,6 +31,7 @@ import StorageIcon from '@mui/icons-material/Storage';
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import ImageOutlinedIcon from '@mui/icons-material/ImageOutlined';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import EditNoteIcon from '@mui/icons-material/EditNote';
 import HelpOutlineIcon from '@mui/icons-material/HelpOutlineOutlined';
 import VerifiedIcon from '@mui/icons-material/Verified';
@@ -142,6 +144,11 @@ const BAR_METRICS = {
   headline: { width: 5, height: 16, gap: '2.5px' },
 };
 
+// Only the headline level gets its description in full, so everywhere else a
+// level is named it carries the same sentence as hover text.
+const accessTitle = (level: RiskLevel): string =>
+  `${accessStyles[level].label}: ${accessStyles[level].description}`;
+
 // Filled towards how little there is to go on, so the level that can't be
 // judged at all carries the heaviest mark. The two Static levels fill the same
 // one slot: they sit at the same place on the scale and differ by what is at
@@ -182,13 +189,17 @@ function AccessBars({
 function AccessLevel({
   level,
   variant = 'caption',
+  describe = true,
 }: {
   level: RiskLevel;
   variant?: 'caption' | 'subtitle2' | 'h6';
+  // The headline prints the description underneath, so it does not repeat it.
+  describe?: boolean;
 }): React.ReactElement {
   return (
     <Box
       component="span"
+      title={describe ? accessTitle(level) : undefined}
       sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.75 }}
     >
       <AccessBars level={level} size={variant === 'h6' ? 'headline' : 'row'} />
@@ -211,12 +222,8 @@ function AccessChip({ level }: { level: RiskLevel }): React.ReactElement {
     <Chip
       size="small"
       label={shortLabel ?? label}
-      icon={
-        <AccessBars
-          level={level}
-          size="chip"
-        />
-      }
+      icon={<AccessBars level={level} size="chip" />}
+      title={accessTitle(level)}
       data-cy="node-access-level"
       data-access-level={level}
       sx={{
@@ -386,6 +393,88 @@ type ReviewNode = { id: string; name: string; risks: NodeRisk[] };
 
 // The app-wide verdict at the top of the review: how much access the app
 // needs and how its nodes spread over the levels.
+// The headline explains its own level and nothing explains the other four, so
+// every level is defined here in one place. A disclosure rather than hover
+// text: the panel has a touch layout, where `title` never fires.
+function AccessLegend({
+  open,
+  onToggle,
+}: {
+  open: boolean;
+  onToggle: () => void;
+}): React.ReactElement {
+  return (
+    <>
+      <Button
+        size="small"
+        color="inherit"
+        disableRipple
+        aria-expanded={open}
+        aria-controls="access-legend"
+        data-cy="toggle-access-legend"
+        onClick={onToggle}
+        endIcon={
+          <ExpandMoreIcon
+            sx={{
+              fontSize: 16,
+              transform: open ? 'rotate(180deg)' : 'none',
+              transition: 'transform 150ms',
+            }}
+          />
+        }
+        sx={{
+          px: 0,
+          minWidth: 0,
+          fontWeight: 400,
+          color: 'text.secondary',
+          '&:hover': { bgcolor: 'transparent', color: 'text.primary' },
+        }}
+      >
+        What do these mean?
+      </Button>
+      <Collapse in={open} unmountOnExit>
+        <Box
+          id="access-legend"
+          data-cy="access-legend"
+          sx={{ display: 'grid', gap: 1, pt: 0.5, pb: 0.5 }}
+        >
+          {[...RISK_LEVEL_ORDER].reverse().map((level) => (
+            <Box
+              key={level}
+              data-cy="access-legend-row"
+              data-access-level={level}
+              sx={{ display: 'flex', gap: 1 }}
+            >
+              <Box sx={{ pt: '2px' }}>
+                <AccessBars level={level} />
+              </Box>
+              <Box sx={{ minWidth: 0 }}>
+                <Typography
+                  variant="caption"
+                  sx={{
+                    display: 'block',
+                    lineHeight: 1.4,
+                    color: accessStyles[level].color,
+                  }}
+                >
+                  {accessStyles[level].label}
+                </Typography>
+                <Typography
+                  variant="caption"
+                  color="text.secondary"
+                  sx={{ display: 'block', lineHeight: 1.4 }}
+                >
+                  {accessStyles[level].description}
+                </Typography>
+              </Box>
+            </Box>
+          ))}
+        </Box>
+      </Collapse>
+    </>
+  );
+}
+
 function AccessOverview({
   nodes,
   onInspectAll,
@@ -395,6 +484,7 @@ function AccessOverview({
 }): React.ReactElement {
   const levels = nodes.map((node) => highestRiskLevel(node.risks));
   const access = highestRiskLevel(nodes.flatMap((node) => node.risks));
+  const [legendOpen, setLegendOpen] = useState(false);
   return (
     <Box
       data-cy="required-access-score"
@@ -410,11 +500,15 @@ function AccessOverview({
         Required access
       </Typography>
       <Box>
-        <AccessLevel level={access} variant="h6" />
+        <AccessLevel level={access} variant="h6" describe={false} />
       </Box>
       <Typography variant="body2" color="text.secondary">
         {accessStyles[access].description}
       </Typography>
+      <AccessLegend
+        open={legendOpen}
+        onToggle={() => setLegendOpen((shown) => !shown)}
+      />
       <Box
         sx={{
           display: 'flex',
@@ -434,18 +528,26 @@ function AccessOverview({
               count > 0 && (
                 <Box
                   key={level}
-                  title={`${count} ${count === 1 ? 'node' : 'nodes'}: ${accessStyles[level].label.toLowerCase()}`}
+                  component="button"
+                  type="button"
+                  aria-expanded={legendOpen}
+                  aria-controls="access-legend"
+                  onClick={() => setLegendOpen((shown) => !shown)}
+                  title={`${count} ${count === 1 ? 'node' : 'nodes'} \u2014 ${accessTitle(level)}`}
                   sx={{
                     display: 'inline-flex',
                     alignItems: 'center',
                     gap: 0.5,
+                    p: 0,
+                    border: 0,
+                    bgcolor: 'transparent',
+                    color: 'inherit',
+                    font: 'inherit',
+                    cursor: 'pointer',
                   }}
                 >
                   <AccessBars level={level} />
-                  <Typography
-                    variant="caption"
-                    sx={{ lineHeight: 1 }}
-                  >
+                  <Typography variant="caption" sx={{ lineHeight: 1 }}>
                     {count}
                   </Typography>
                 </Box>
