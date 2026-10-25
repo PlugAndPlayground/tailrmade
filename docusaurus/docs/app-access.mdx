@@ -1,0 +1,170 @@
+# App access and capabilities
+
+Apps in _tailrmade_ are graphs, and a graph can do real things: call APIs, spend
+your AI allowance, read and write your saved data, reach your computer through
+the Companion. Before an app you did not build runs, _tailrmade_ reads its nodes
+and shows you what it is going to need.
+
+That list is the **Access** panel. This page explains what is in it and how it is
+worked out.
+
+## The one distinction that matters
+
+Most of what an app does **can be worked out in advance**. If a node calls an
+API, _tailrmade_ can tell you which address. If a node uses a saved key, it can
+name the key. You can read the list and decide.
+
+Two things get in the way of that.
+
+A value can be **set while running** — a URL that arrives from another node
+rather than being typed in. The capability is still known (it makes a request),
+but the address is not, so there is nothing to show you.
+
+And some code **cannot be described at all**. A custom function set to _Main
+Thread_, or an HTML, IFrame, Embed or Slideshow node with **Sanitize input**
+switched off, runs as ordinary JavaScript in the page. It decides what to do as
+it goes.
+
+The levels are named after how well you can judge an app, because that is the
+only part of this that forms a scale:
+
+| Level                   | Meaning                                                           |
+| ----------------------- | ----------------------------------------------------------------- |
+| **Unrestricted**        | Not sandboxed. Its capabilities cannot be determined.             |
+| **Dynamic**             | Its capabilities are known, but its values can change while running. |
+| **Static**              | Its capabilities are known and its values are constant.           |
+| **Static · loads only** | The same, and it only loads content from known sites.              |
+| **No access**           | Doesn't require any access.                                        |
+
+An app's headline level is the **highest level any single node reaches** — not an
+average. One unsandboxed node makes the whole app _Unrestricted_, even if
+everything else is tame. The counts beside the headline show how the app's nodes
+spread across the levels, so you can see whether that node is the exception or
+the rule.
+
+Note what the scale does **not** tell you: how much is at stake. A _Static_ app
+can still spend your API credits and rewrite your saved data — you can simply
+see exactly that it will. That part is carried by the **impact tags** on each
+capability, not by the level.
+
+## What "Unrestricted" can and cannot do
+
+Unsandboxed code runs with the same reach as _tailrmade_ itself. It can:
+
+- read, change or delete data you have saved in _tailrmade_;
+- use your saved API keys, and anything they pay for;
+- send requests through your Companion, including to your local network;
+- contact any site.
+
+It cannot:
+
+- read files on your computer or touch other applications;
+- use your camera, microphone or location, unless you have already granted
+  _tailrmade_ that permission in your browser.
+
+This is why the panel stops being useful at this level and trust takes over.
+Check who the app came from — the source is shown at the top of the panel, with a
+**Tailrmade** badge when the app was published by us.
+
+## Capabilities
+
+Each capability is one thing a node can do. Cards carry **impact tags** ("Costs
+money", "Sends your data out") so you do not have to infer the cost from the
+description. Impact is a set, not a ranking: money, your saved data, your
+computer and your privacy are different things, not degrees of one thing.
+
+| Capability                           | Level        | What it means                                                       |
+| ------------------------------------ | ------------ | ------------------------------------------------------------------- |
+| Runs code that is not sandboxed      | Unrestricted | Arbitrary JavaScript in the page; cannot be described in advance    |
+| Connects to other sites              | Static / Dynamic | Sends and receives data from the listed addresses               |
+| Uses API keys                        | Static / Dynamic | Sends your saved keys with its requests; the service may charge you |
+| Uses your Companion                  | Static       | Requests go through the Companion, which reaches your computer      |
+| Changes Tailrmade data               | Static       | Adds, changes or removes data saved in _tailrmade_                   |
+| Reads Tailrmade data                 | Static       | Reads data saved in _tailrmade_ by you or by other apps             |
+| Uses AI services                     | Static       | Sends app data to your AI provider; uses your allowance or credits   |
+| Opens web pages                      | Static / Dynamic | Opens a new tab; anything in the address reaches that site       |
+| Loads images from changing addresses | Dynamic      | Another node picks the address, so app data can travel inside it    |
+| Loads data from other sites          | Static · loads only | A plain GET to the listed addresses, with nothing of yours attached |
+| Links to other sites                 | Static · loads only | Content links to or loads from the listed sites               |
+| Loads images from other sites        | Static · loads only | The site hosting each image can see when it loads             |
+
+The capabilities marked _Static / Dynamic_ land on whichever applies: _Static_
+when the address or key name is constant, _Dynamic_ when it arrives from another
+node.
+
+Each card lists the **destinations** it applies to and the nodes that need it.
+Where a destination cannot be worked out ahead of time, it reads _"Chosen while
+the app runs"_ and the capability counts as _Dynamic_.
+
+## How it is worked out
+
+_tailrmade_ resolves input values **without executing the graph**. Constants and
+string concatenation are followed, so a URL assembled from fixed parts is shown
+as a real address. An input fed by something it cannot resolve is treated as
+dynamic, and the destination stays unknown.
+
+Addresses are shown without credentials, query strings or fragments, so a key in
+a URL is not displayed back to you.
+
+## What runs while you are still reading
+
+What is allowed to run is decided by **impact, not by level**. A node whose only
+impact is _Reveals you visited_ keeps running — it was already safe. Everything
+with money, your data or your computer at stake is paused, however easy or hard
+it is to judge. So a fully _Static_ storage write waits for you, and a _Static ·
+loads only_ image does not. Execution stops a branch when it reaches a
+paused node; other branches carry on. Approving the app resumes the stopped
+chains where they stopped, without rerunning what already finished.
+
+Approval is remembered per app version. Editing the app's nodes or wiring
+produces a new version, so it is reviewed again.
+
+## Lowering your own app's level
+
+If you publish apps, every level above _Self-contained_ is something you are
+asking your users to accept. Most _Unrestricted_ apps do not need to be:
+
+- **Leave Sanitize input on** for HTML, IFrame and Slideshow nodes. You only need
+  it off for intermediate template nodes whose output feeds another node, or for
+  markup that genuinely needs `<style>` blocks or inline handlers.
+- **Keep custom functions on Worker Thread**, the default. The QuickJS sandbox has
+  no network and no browser APIs, so a worker function reports no capability at
+  all. See [Create custom nodes](custom-nodes.mdx).
+- **Use real nodes instead of code.** An HTTP node reports its address; the same
+  request made with `fetch` inside a main-thread function reports nothing and
+  forces the whole app to _Unrestricted_.
+- **Keep addresses static** where you can. A URL built from constants is shown to
+  your users and reports as _Static_; one that arrives from another node reports
+  as _Dynamic_ and shows them nothing.
+
+## Reading access from inside an app
+
+The **Tailrmade** node has an **Output app access** trigger that returns the same
+data as the Access panel:
+
+```js
+{
+  app: 'My app',
+  source: { ownerId: '…', owner: { name: '…', email: '…' }, verified: false },
+  requiredLevel: 'static',
+  capabilities: [
+    {
+      kind: 'api-key',
+      title: 'Uses API keys',
+      description: 'Sends your saved keys with its requests. …',
+      level: 'static',
+      impact: ['Costs money', 'Sends your data out'],
+      target: 'OPENAI',
+      resolved: true,
+      nodes: [{ id: '…', name: 'HTTP' }],
+    },
+  ],
+}
+```
+
+`level` and `requiredLevel` are one of `unrestricted`, `dynamic`, `static`,
+`loads-only` or `none`. `resolved` is `false` when the value is only chosen while
+the app runs, which is what puts a capability at `dynamic`.
+
+Use it to show your own users what the app needs, or to assert in a test that an
+app has not quietly picked up a new capability.

@@ -124,6 +124,11 @@ const sidebars: SidebarsConfig = {
         },
         {
           type: 'doc',
+          id: 'app-access',
+          label: 'App access and capabilities',
+        },
+        {
+          type: 'doc',
           id: 'self-hosting',
           label: 'Self-host tailrmade',
         },
