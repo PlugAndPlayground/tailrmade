@@ -183,11 +183,12 @@ export class DynamicImageRisk extends NodeRisk {
 
 export function getImageSourceRisks(
   source: unknown,
-  connected: boolean,
+  dynamic: boolean,
   baseURL = typeof document === 'undefined' ? undefined : document.baseURI,
 ): NodeRisk[] {
-  // A saved input value cannot predict what its connection will produce.
-  if (connected) return [new DynamicImageRisk()];
+  // Only when the address cannot be worked out ahead of time. A connection
+  // that resolves to a constant is reported as that constant.
+  if (dynamic) return [new DynamicImageRisk()];
   if (typeof source !== 'string' || !source.trim()) return [];
   try {
     const url = new URL(source, baseURL);

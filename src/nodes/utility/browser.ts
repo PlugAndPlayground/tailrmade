@@ -12,13 +12,7 @@ const URLName = 'url';
 
 export class OpenURL extends PPNode {
   public getRisks(): NodeRisk[] {
-    return [
-      new NavigationRisk(
-        this.isRiskInputConnected(URLName)
-          ? undefined
-          : this.getInputData(URLName),
-      ),
-    ];
+    return [new NavigationRisk(this.getStaticInputData(URLName).value)];
   }
 
   // Opening a URL is an external effect.

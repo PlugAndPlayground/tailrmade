@@ -12,11 +12,7 @@ import { TriggerType } from '../datatypes/triggerType';
 
 export class WebSocketNode extends PPNode {
   public getRisks(): NodeRisk[] {
-    return [
-      new NetworkRisk(
-        this.isRiskInputConnected('URL') ? undefined : this.getInputData('URL'),
-      ),
-    ];
+    return [new NetworkRisk(this.getStaticInputData('URL').value)];
   }
 
   // A configured, enabled connection can send messages without output consumers.

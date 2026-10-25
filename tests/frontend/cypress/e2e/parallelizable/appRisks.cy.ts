@@ -665,15 +665,9 @@ describe('app risk review', () => {
     // the inspected node is gone when the open review is refreshed
     doWithTestController((controller) => controller.removeNode('code'));
     cy.get('[data-cy="app-info-tab"]').click();
-    cy.get('[data-cy="app-risk-summary"]').should(
-      'contain',
-      'No access',
-    );
+    cy.get('[data-cy="app-risk-summary"]').should('contain', 'No access');
     cy.get('[data-cy="open-risk-review"]').click();
-    cy.get('[data-cy="app-risk-dialog"]').should(
-      'contain',
-      'No access',
-    );
+    cy.get('[data-cy="app-risk-dialog"]').should('contain', 'No access');
     cy.get('[data-cy="app-risk-dialog"]').contains('button', 'Close').click();
     cy.get('[data-cy="app-risk-dialog"]').should('not.exist');
   });
@@ -708,6 +702,75 @@ describe('app risk review', () => {
       expect(
         controller.getNodeByID('add').debug_timesExecuted,
       ).to.be.greaterThan(0),
+    );
+  });
+
+  // A wired-up input used to count as dynamic without anyone looking at what
+  // was wired up, so these pin that the whole chain is followed.
+  const openURLNode = () => serializedNode('openurl', 'open', []);
+  const linkTo = (
+    sourceNodeId: string,
+    sourceSocketName: string,
+    targetNodeId: string,
+    targetSocketName: string,
+  ) => ({ sourceNodeId, sourceSocketName, targetNodeId, targetSocketName });
+  it('resolves a constant wired into Open URL instead of calling it dynamic', () => {
+    beginLoad(
+      [
+        openURLNode(),
+        serializedNode('constant_string', 'address', [
+          serializedSocket('String', 'https://example.com/docs?token=secret'),
+        ]),
+      ],
+      [linkTo('address', 'String', 'open', 'url')],
+    );
+    shouldWithTestController((controller) => {
+      const risk = controller.getNodeByID('open').getRisks()[0];
+      expect(risk.resolved).to.equal(true);
+      expect(risk.target).to.equal('https://example.com/docs');
+    });
+    cy.get('[data-cy="app-risk-dialog"]').should(
+      'contain',
+      'https://example.com/docs',
+    );
+  });
+
+  it('follows the chain through a constant whose own input is connected', () => {
+    beginLoad(
+      [
+        openURLNode(),
+        serializedNode('constant_string', 'address', [
+          serializedSocket('String', 'https://example.com/chained'),
+        ]),
+        serializedNode('constant', 'relay', [
+          serializedSocket('In', '', 'StringType'),
+        ]),
+      ],
+      [
+        linkTo('address', 'String', 'relay', 'In'),
+        linkTo('relay', 'Out', 'open', 'url'),
+      ],
+    );
+    shouldWithTestController((controller) => {
+      const risk = controller.getNodeByID('open').getRisks()[0];
+      expect(risk.resolved).to.equal(true);
+      expect(risk.target).to.equal('https://example.com/chained');
+    });
+  });
+
+  it('stays dynamic when the chain reaches something it cannot work out', () => {
+    beginLoad(
+      [openURLNode(), codeNode()],
+      [linkTo('code', 'OutData', 'open', 'url')],
+    );
+    shouldWithTestController((controller) => {
+      const risk = controller.getNodeByID('open').getRisks()[0];
+      expect(risk.resolved).to.equal(false);
+      expect(risk.target).to.equal(undefined);
+    });
+    cy.get('[data-cy="app-risk-dialog"]').should(
+      'contain',
+      'Chosen while the app runs',
     );
   });
 

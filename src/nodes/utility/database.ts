@@ -58,16 +58,9 @@ const getSqlite3 = async () => {
 
 export class SqliteReader extends PPNode {
   public getRisks(): NodeRisk[] {
-    return this.isRiskInputConnected(inputResourceURLSocketName) ||
-      this.getInputData(inputResourceURLSocketName)
-      ? [
-          new NetworkRisk(
-            this.isRiskInputConnected(inputResourceURLSocketName)
-              ? undefined
-              : this.getInputData(inputResourceURLSocketName),
-          ),
-        ]
-      : [];
+    const url = this.getStaticInputData(inputResourceURLSocketName);
+    if (url.known && !url.value) return [];
+    return [new NetworkRisk(url.value)];
   }
   sqlite3;
   db;
