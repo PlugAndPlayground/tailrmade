@@ -727,11 +727,11 @@ describe('app risk review', () => {
     shouldWithTestController((controller) => {
       const risk = controller.getNodeByID('open').getRisks()[0];
       expect(risk.resolved).to.equal(true);
-      expect(risk.target).to.equal('https://example.com/docs');
+      expect(risk.target).to.equal('https://example.com/docs?token=…');
     });
     cy.get('[data-cy="app-risk-dialog"]').should(
       'contain',
-      'https://example.com/docs',
+      'https://example.com/docs?token=…',
     );
   });
 

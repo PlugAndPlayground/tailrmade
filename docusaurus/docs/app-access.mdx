@@ -98,13 +98,18 @@ the app runs"_ and the capability counts as _Dynamic_.
 
 ## How it is worked out
 
-_tailrmade_ resolves input values **without executing the graph**. Constants and
-string concatenation are followed, so a URL assembled from fixed parts is shown
-as a real address. An input fed by something it cannot resolve is treated as
-dynamic, and the destination stays unknown.
+_tailrmade_ resolves input values **without executing the graph**. Constants,
+labels and string concatenation are followed, so a URL assembled from fixed
+parts is shown as a real address. An input fed by something it cannot resolve —
+a widget, a value read out of JSON, a custom function — is treated as dynamic,
+and the destination stays unknown.
 
-Addresses are shown without credentials, query strings or fragments, so a key in
-a URL is not displayed back to you.
+Addresses are shown without credentials or fragments. Query **parameter names
+are shown and their values are masked**, as in
+`https://example.com/search?q=…&key=…`: the query is part of what reaches the
+site, so hiding it entirely would have made the review quieter than the truth,
+while the values stay out so a secret typed into an address is never printed
+back at you.
 
 ## What runs while you are still reading
 

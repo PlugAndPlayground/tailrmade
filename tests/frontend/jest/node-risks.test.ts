@@ -35,7 +35,7 @@ describe('app risk disclosure', () => {
     ).toBe(true);
   });
 
-  it('classifies fixed image sources and hides URL secrets', () => {
+  it('classifies fixed image sources and masks URL secrets', () => {
     const baseURL = 'https://app.example.com/editor';
     for (const source of [
       'https://user:secret@images.example.com/photo.png?key=secret#secret',
@@ -45,7 +45,9 @@ describe('app risk disclosure', () => {
       expect(risks).toHaveLength(1);
       expect(risks[0]).toBeInstanceOf(ExternalImageRisk);
       expect(risks[0].severity).toBe('info');
-      expect(risks[0].target).toBe('https://images.example.com/photo.png');
+      expect(risks[0].target).toBe(
+        'https://images.example.com/photo.png?key=…',
+      );
     }
     for (const source of [
       undefined,
@@ -122,10 +124,27 @@ describe('app risk disclosure', () => {
       new NetworkRisk(
         'https://user:secret@example.com/private?key=secret#secret',
       ).target,
-    ).toBe('https://example.com/private');
+    ).toBe('https://example.com/private?key=…');
     // An address the review cannot work out carries no prose in the model.
     expect(new NetworkRisk().target).toBeUndefined();
     expect(new NetworkRisk().resolved).toBe(false);
+  });
+
+  it('names query parameters without printing their values', () => {
+    expect(new NetworkRisk('https://example.com/p?a=1&b=2&c=3').target).toBe(
+      'https://example.com/p?a=…&b=…&c=…',
+    );
+    // An empty value has nothing to hide, so it is not masked into one.
+    expect(new NetworkRisk('https://example.com/p?flag=&x=1').target).toBe(
+      'https://example.com/p?flag&x=…',
+    );
+    expect(new NetworkRisk('https://example.com/p?').target).toBe(
+      'https://example.com/p',
+    );
+    // The fragment never reaches the server, so it stays out entirely.
+    expect(new NetworkRisk('https://example.com/p#secret').target).toBe(
+      'https://example.com/p',
+    );
   });
 
   it('resolves relative destinations against the page base URL', () => {
@@ -134,7 +153,7 @@ describe('app risk disclosure', () => {
         '../api/items?token=secret',
         'https://example.com/apps/one',
       ).target,
-    ).toBe('https://example.com/api/items');
+    ).toBe('https://example.com/api/items?token=…');
     expect(
       new NetworkRisk(
         '//user:secret@api.example.com/items',
@@ -146,7 +165,7 @@ describe('app risk disclosure', () => {
   it('supports websocket endpoints and does not expose non-network URL payloads', () => {
     expect(
       new NetworkRisk('wss://example.com:8443/events?key=secret').target,
-    ).toBe('wss://example.com:8443/events');
+    ).toBe('wss://example.com:8443/events?key=…');
     for (const url of [
       'data:text/plain,secret',
       'invalid://secret',

@@ -64,8 +64,8 @@ export function highestRiskLevel(risks: NodeRisk[]): RiskLevel {
   );
 }
 
-// Strips credentials and query/fragment secrets. Returns undefined when the
-// address cannot be worked out without running the graph.
+// Drops credentials and the fragment, and masks every query value. Returns
+// undefined when the address cannot be worked out without running the graph.
 export function resolveDestination(
   url: unknown,
   baseURL = typeof document === 'undefined' ? undefined : document.baseURI,
@@ -73,9 +73,16 @@ export function resolveDestination(
   if (typeof url !== 'string') return undefined;
   try {
     const parsed = new URL(url, baseURL);
-    if (['http:', 'https:', 'ws:', 'wss:'].includes(parsed.protocol)) {
-      return parsed.origin + parsed.pathname;
+    if (!['http:', 'https:', 'ws:', 'wss:'].includes(parsed.protocol)) {
+      return undefined;
     }
+    // The query is part of what reaches the site, so hiding it entirely left
+    // the review quieter than the truth. Names say what kinds of data travel;
+    // values stay masked, so a secret typed into an address is never printed.
+    const query = [...parsed.searchParams]
+      .map(([name, value]) => (value === '' ? name : `${name}=\u2026`))
+      .join('&');
+    return parsed.origin + parsed.pathname + (query ? `?${query}` : '');
   } catch {}
   return undefined;
 }
