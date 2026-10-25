@@ -192,7 +192,7 @@ function ToolbarPlugin({
   profile: TextHostProfile;
   // lets the host re-derive its outputs after a toolbar undo/redo
   onHistoryChange?: () => void;
-}): JSX.Element {
+}): React.JSX.Element {
   const [editor] = useLexicalComposerContext();
   const toolbarRef = useRef(null);
   const [activeEditor, setActiveEditor] = useState(editor);

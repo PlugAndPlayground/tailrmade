@@ -417,14 +417,14 @@ export class Table2 extends HybridNode2 {
     newOrder: number,
     data: any[],
   ) {
-    const dataPost = [];
+    const dataPost: Record<string, unknown>[] = [];
     if (data.length > 0) {
       const columns = Object.keys(data[0]);
       const otherColumns = columns.filter((column) => column !== columnName);
 
       data.forEach((oldObject) => {
         let otherColumnsIndex = 0;
-        const newObject = {};
+        const newObject: Record<string, unknown> = {};
         for (; otherColumnsIndex < newOrder; otherColumnsIndex++) {
           newObject[otherColumns[otherColumnsIndex]] =
             oldObject[otherColumns[otherColumnsIndex]];
@@ -684,13 +684,13 @@ export class Table2 extends HybridNode2 {
       const columns = Object.keys(JSONArray[0]);
       const toReturn: any[][] = [];
 
-      const columnsArray = [];
+      const columnsArray: string[] = [];
       for (let j = 0; j < columns.length; j++) {
         columnsArray.push(columns[j]);
       }
       toReturn.push(columnsArray);
       for (let i = 0; i < JSONArray.length; i++) {
-        const newArray = [];
+        const newArray: unknown[] = [];
         for (let j = 0; j < columns.length; j++) {
           newArray.push(JSONArray[i][columns[j]]);
         }
@@ -702,12 +702,12 @@ export class Table2 extends HybridNode2 {
   }
 
   public static flipArrayOfArrays(arrayOfArrays: any[][]) {
-    const newArrayOfArrays = [];
+    const newArrayOfArrays: unknown[][] = [];
     if (arrayOfArrays.length > 0) {
       const lenX = arrayOfArrays.length;
       const lenY = arrayOfArrays[0].length;
       for (let i = 0; i < lenY; i++) {
-        const newArray = [];
+        const newArray: unknown[] = [];
         for (let j = 0; j < lenX; j++) {
           newArray.push(arrayOfArrays[j][i]);
         }
@@ -722,9 +722,9 @@ export class Table2 extends HybridNode2 {
       return {};
     } else {
       const columns = arrayOfArrays[0];
-      const toReturn = [];
+      const toReturn: Record<string, unknown>[] = [];
       for (let i = 1; i < arrayOfArrays.length; i++) {
-        const newObject = {};
+        const newObject: Record<string, unknown> = {};
         for (let j = 0; j < columns.length; j++) {
           newObject[columns[j]] = arrayOfArrays[i][j];
         }
@@ -850,7 +850,6 @@ export class Table2 extends HybridNode2 {
       nodeID: formatMapNodeID,
       socketType: SOCKET_TYPE.IN,
       socketName: 'Format ' + name,
-      oldValue: { Enabled: false, Alias: '' },
       newValue: { Enabled: true, Alias: '' },
     };
     const args2: AddNodeActionArgs = {
@@ -1318,7 +1317,7 @@ export class Table2 extends HybridNode2 {
               <Divider />
               <MenuItem
                 onClick={() => {
-                  handleOpenRenameModal(tableColumns[colMenu.col]);
+                  handleOpenRenameModal(tableColumns[colMenu!.col]);
                 }}
               >
                 <ListItemIcon>
@@ -1330,7 +1329,7 @@ export class Table2 extends HybridNode2 {
               <MenuItem
                 onClick={() => {
                   // TODO ACTIONIZE
-                  void node.perform_action_addColumn(Math.max(colMenu.col, 0));
+                  void node.perform_action_addColumn(Math.max(colMenu!.col, 0));
                 }}
               >
                 <ListItemIcon>
@@ -1341,7 +1340,7 @@ export class Table2 extends HybridNode2 {
               <MenuItem
                 onClick={() => {
                   // TODO ACTIONIZE
-                  void node.perform_action_addColumn(colMenu.col + 1);
+                  void node.perform_action_addColumn(colMenu!.col + 1);
                 }}
               >
                 <ListItemIcon>
@@ -1351,7 +1350,7 @@ export class Table2 extends HybridNode2 {
               </MenuItem>
               <MenuItem
                 onClick={async () => {
-                  const name = colMenu.col;
+                  const name = colMenu!.col;
                   await node.perform_action_removeColumn(tableColumns[name]);
                 }}
               >
@@ -1365,7 +1364,7 @@ export class Table2 extends HybridNode2 {
                 onClick={() => {
                   void node.perform_action_onSort(
                     tableColumns,
-                    colMenu.col,
+                    colMenu!.col,
                     false,
                   );
                   setColMenu(undefined);
@@ -1380,7 +1379,7 @@ export class Table2 extends HybridNode2 {
                 onClick={() => {
                   void node.perform_action_onSort(
                     tableColumns,
-                    colMenu.col,
+                    colMenu!.col,
                     true,
                   );
                   setColMenu(undefined);
@@ -1428,7 +1427,7 @@ export class Table2 extends HybridNode2 {
                 onClick={() => {
                   const rowsNum = tableData.length;
                   void node.addRow(node.createNewRow(tableColumns));
-                  void node.onRowMoved(rowsNum, rowMenu.cell[1], tableData);
+                  void node.onRowMoved(rowsNum, rowMenu!.cell[1], tableData);
                 }}
               >
                 <ListItemIcon>
@@ -1442,7 +1441,7 @@ export class Table2 extends HybridNode2 {
                   await node.addRow(node.createNewRow(tableColumns));
                   await node.onRowMoved(
                     rowsNum,
-                    rowMenu.cell[1] + 1,
+                    rowMenu!.cell[1] + 1,
                     tableData,
                   );
                 }}
@@ -1455,7 +1454,7 @@ export class Table2 extends HybridNode2 {
               <Divider />
               <MenuItem
                 onClick={async () => {
-                  tableData.splice(Math.max(rowMenu.cell[1], 0), 1);
+                  tableData.splice(Math.max(rowMenu!.cell[1], 0), 1);
                   node.setInputData(tableDataInputName, tableData);
                   setRowMenu(undefined);
                   await node.executeChildren();
@@ -1484,8 +1483,7 @@ export class Table2 extends HybridNode2 {
                 nodeID: arrayGetID,
                 socketType: SOCKET_TYPE.IN,
                 socketName: 'Index',
-                oldValue: 0,
-                newValue: rowMenu.cell[1],
+                newValue: rowMenu!.cell[1],
               };
               await PNPAction(ACTIONS.ADD_NODE, args, args);
               await PNPAction(

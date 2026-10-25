@@ -126,7 +126,7 @@ export class AbstractType {
 
   getComment(data: any): string {
     if (data !== undefined) {
-      return inspect(data, null, 1);
+      return inspect(data, undefined, 1);
     }
     return 'null';
   }

@@ -211,7 +211,9 @@ export class TextEditor2 extends HybridNode2 {
     return super.getNewSocketName('Input');
   }
 
-  public getSocketForNewConnection = (socket: PPSocket): PPSocket => {
+  public getSocketForNewConnection = (
+    socket: PPSocket,
+  ): PPSocket | undefined => {
     if (!socket.isInput()) {
       return DynamicInputNodeFunctions.getSocketForNewConnection(
         socket,
@@ -288,7 +290,7 @@ export class TextEditor2 extends HybridNode2 {
     const node = props.node as TextEditor2;
     const editorRef = useRef<LexicalEditor>(null);
     const [contentHeight, setContentHeight] = useState(0);
-    const [contrastColor, setContrastColor] = useState();
+    const [contrastColor, setContrastColor] = useState<TRgba>();
     const [pauseUpdate, setPauseUpdate] = useState(false);
     const [isDashboardFocused, setIsDashboardFocused] = useState(false);
     const [isLinkEditMode, setIsLinkEditMode] = useState<boolean>(false);
@@ -309,8 +311,8 @@ export class TextEditor2 extends HybridNode2 {
 
     const makeEditorEditable = useCallback(
       (state) => {
-        editorRef.current.update(() => {
-          editorRef.current.setEditable(state);
+        editorRef.current?.update(() => {
+          editorRef.current?.setEditable(state);
         });
       },
       [editorRef],

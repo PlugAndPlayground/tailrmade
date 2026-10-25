@@ -12,7 +12,7 @@ export default class PPLink extends PIXI.Container {
   source: Socket;
   target: Socket;
   _connectionRef: PIXI.Graphics;
-  executionFilter = undefined;
+  executionFilter: GlowFilter;
   // _data: any;
 
   lineThickness = 2;
@@ -33,7 +33,7 @@ export default class PPLink extends PIXI.Container {
     this._drawConnection(connection);
   }
 
-  serialize(): SerializedLink {
+  serialize(): SerializedLink | undefined {
     // create serialization object
     // this prevents being blocked from saving when having orphaned links
     if (this.source.getNode() && this.target.getNode()) {
@@ -44,6 +44,7 @@ export default class PPLink extends PIXI.Container {
         targetSocketName: this.target.name,
       };
     }
+    return undefined;
   }
 
   public nodeHoveredOver() {

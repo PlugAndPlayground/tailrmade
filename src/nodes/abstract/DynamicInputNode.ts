@@ -10,7 +10,7 @@ import PPGraph from '../../classes/GraphClass';
 import { hri } from 'human-readable-ids';
 import { GhostType } from '../datatypes/ghostType';
 export class DynamicInputNode extends PPNode {
-  ghostSocket: DynamicInputDummySocket | undefined;
+  ghostSocket: DynamicInputDummySocket;
 
   constructor(type: string, customArgs?: CustomArgs) {
     super(type, customArgs);
@@ -26,7 +26,7 @@ export class DynamicInputNode extends PPNode {
   }
 
   addInputButton: PIXI.Container | undefined;
-  public getSocketForNewConnection = (socket: Socket): Socket =>
+  public getSocketForNewConnection = (socket: Socket): Socket | undefined =>
     DynamicInputNodeFunctions.getSocketForNewConnection(
       socket,
       this,
@@ -128,7 +128,7 @@ export class DynamicInputNodeFunctions {
     node: PPNode,
     alwaysNewSocket = false,
     preferredDataType: AbstractType = new AnyType(),
-  ): Socket {
+  ): Socket | undefined {
     if (socket.isInput()) {
       return node.getSocketForNewConnection(socket);
     } else {

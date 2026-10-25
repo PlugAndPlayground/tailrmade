@@ -101,7 +101,7 @@ export class Reroute extends PPNode {
   }
 
   protected async onExecute(
-    inputObject: unknown,
+    inputObject: Record<string, any>,
     outputObject: Record<string, unknown>,
   ): Promise<void> {
     outputObject['Out'] = inputObject['In'];
@@ -144,7 +144,8 @@ export class JumpToNode extends WidgetButton {
     const nodeId = getNodeArrayOptions()().find(
       (option) => option.text === this.getInputData(selectNodeName),
     )?.value;
-    const nodeToJumpTo = PPGraph.currentGraph.nodes[nodeId];
+    const nodeToJumpTo =
+      nodeId !== undefined ? PPGraph.currentGraph.nodes[nodeId] : undefined;
     if (nodeToJumpTo) {
       void ensureVisible([nodeToJumpTo]);
       setTimeout(() => {
@@ -159,7 +160,7 @@ export class JumpToNode extends WidgetButton {
       new Socket(
         SOCKET_TYPE.IN,
         selectNodeName,
-        new DynamicEnumType(getNodeArrayOptions, () => {}),
+        new DynamicEnumType(getNodeArrayOptions(), () => {}),
         undefined,
         false,
       ),

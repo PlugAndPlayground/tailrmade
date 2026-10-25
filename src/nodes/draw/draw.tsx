@@ -422,7 +422,6 @@ export class DRAW_COMBINE_ARRAY extends DRAW_Interactive_Base {
             inputObject[spacingXName],
             inputObject[spacingYName],
             new PIXI.Point(0, 0),
-            this.id,
             {},
           )
         : new PIXI.Rectangle(
@@ -677,10 +676,9 @@ export class Extract_Image_From_Graphics extends PPNode {
 
   private async setupContainer(
     drawFunction: DeferredPixiTypeInterface,
-    id: string,
   ): Promise<PIXI.Container> {
     const container = new PIXI.Container();
-    await drawFunction.drawFunction(container, new PIXI.Point(0, 0), id, {});
+    await drawFunction.drawFunction(container, new PIXI.Point(0, 0), {});
     return container;
   }
 
@@ -740,10 +738,7 @@ export class Extract_Image_From_Graphics extends PPNode {
     inputObject: any,
     outputObject: Record<string, unknown>,
   ): Promise<void> {
-    const container = await this.setupContainer(
-      inputObject[outputPixiName],
-      this.id,
-    );
+    const container = await this.setupContainer(inputObject[outputPixiName]);
     this.addChild(container);
 
     try {
@@ -767,7 +762,6 @@ export class Extract_Image_From_Graphics extends PPNode {
   saveImage = async (): Promise<void> => {
     const container = await this.setupContainer(
       this.getInputData(outputPixiName),
-      this.id,
     );
     this.addChild(container);
 
@@ -796,7 +790,7 @@ export class Extract_Image_From_Graphics extends PPNode {
 }
 
 const getSize = (input: any): number => {
-  return SIMPLE_SIZE_OPTIONS.find((option) => option.text === input).value;
+  return SIMPLE_SIZE_OPTIONS.find((option) => option.text === input)!.value;
 };
 
 export class Extract_PixelArray_From_Graphics extends PPNode {
@@ -835,12 +829,7 @@ export class Extract_PixelArray_From_Graphics extends PPNode {
     const newContainer = new PIXI.Graphics();
     const drawingFunction: DeferredPixiTypeInterface =
       inputObject[outputPixiName];
-    await drawingFunction.drawFunction(
-      newContainer,
-      new PIXI.Point(0, 0),
-      this.id,
-      {},
-    );
+    await drawingFunction.drawFunction(newContainer, new PIXI.Point(0, 0), {});
     this.addChild(newContainer);
 
     const imageWidth = Math.floor(newContainer.width);
@@ -848,19 +837,20 @@ export class Extract_PixelArray_From_Graphics extends PPNode {
 
     const size = SIMPLE_SIZE_OPTIONS.find(
       (option) => option.text === inputObject[simpleSizeSocketName],
-    ).value;
+    )!.value;
     PPGraph.currentGraph.app.renderer.resolution = size;
     const rgbaArray =
       PPGraph.currentGraph.app.renderer.extract.pixels(newContainer); // returns double the size
     PPGraph.currentGraph.app.renderer.resolution = 2;
 
-    const pixelArray = [];
-    for (let i = 0; i < rgbaArray.pixels.length; i += 4) {
+    const { pixels } = rgbaArray;
+    const pixelArray: { r: number; g: number; b: number; a: number }[] = [];
+    for (let i = 0; i < pixels.length; i += 4) {
       const rgbaObject = {
-        r: rgbaArray[i],
-        g: rgbaArray[i + 1],
-        b: rgbaArray[i + 2],
-        a: rgbaArray[i + 3] / 255.0,
+        r: pixels[i],
+        g: pixels[i + 1],
+        b: pixels[i + 2],
+        a: pixels[i + 3] / 255.0,
       };
       pixelArray.push(rgbaObject);
     }

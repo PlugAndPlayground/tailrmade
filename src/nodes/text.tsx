@@ -32,6 +32,7 @@ import { shouldAutoFocusWidgetContent } from '../utils/nodeInteractivity';
 import PPSocket from '../classes/SocketClass';
 import { TRgba } from '../utils/color';
 import { TNodeSource } from '../utils/interfaces';
+import { BackPropagation } from '../interfaces';
 import * as PIXI from 'pixi.js';
 import PPGraph from '../classes/GraphClass';
 import InterfaceController, { ListenEvent } from '../InterfaceController';
@@ -387,7 +388,7 @@ export class Label extends PPNode implements Layoutable {
     this.HTMLTextComponent.focus();
 
     // select all content
-    window.getSelection().selectAllChildren(this.HTMLTextComponent);
+    window.getSelection()?.selectAllChildren(this.HTMLTextComponent);
   }
 
   public PIXIVisible() {
@@ -404,8 +405,8 @@ export class Label extends PPNode implements Layoutable {
 
   private getTextParameters(): {
     textColor: TRgba;
-    textAlign: string;
-    fontWeight: string;
+    textAlign: PIXI.TextStyleAlign;
+    fontWeight: PIXI.TextStyleFontWeight;
   } {
     const textColor = this.getInputData(textColorSocketName);
     const textAlign = getEnumValue(
@@ -869,7 +870,9 @@ Connecting an output to this node adds an input named after that output.
   }
 
   // a new link into the node becomes a token input named after its source
-  public getSocketForNewConnection = (socket: PPSocket): PPSocket =>
+  public getSocketForNewConnection = (
+    socket: PPSocket,
+  ): PPSocket | undefined =>
     socket.isInput()
       ? this.getOutputSocketByName(TEXT_NODE_SOCKETS.output)
       : DynamicInputNodeFunctions.getSocketForNewConnection(socket, this, true);

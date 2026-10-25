@@ -261,7 +261,7 @@ export class GRAPH_PIE extends DRAW_Base {
           averageDirection.x * distance,
           averageDirection.y * distance,
         );
-        const textToUse = pieSlice.Name;
+        const textToUse = pieSlice.Name ?? '';
         textDraws.push((drawGraphics: PIXI.Graphics) => {
           drawGraphics.addChild(
             this.getValueText(textToUse, valuePosition, fontSize),

@@ -181,7 +181,7 @@ function replacePlaceholderWithActualWidget(
   actions.delete(dashboardItemId);
   actions.addNodeTree(nodeToAdd, parent, index);
   safeSelectNode(actions, query, dashboardItemId);
-  scrollWidgetIntoView(dashboardItemId, query, 150);
+  scrollWidgetIntoView(dashboardItemId, query);
 }
 function convertWidgetToPlaceholder(
   dashboardItem,
@@ -313,7 +313,7 @@ export function addNodeWithPlacement(
   requestAnimationFrame(() => {
     // Ensure DOM is ready
     safeSelectNode(actions, query, dashboardItemId);
-    scrollWidgetIntoView(dashboardItemId, query, 150);
+    scrollWidgetIntoView(dashboardItemId, query);
   });
 }
 

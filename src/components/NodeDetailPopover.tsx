@@ -34,7 +34,7 @@ const isOnStatusBadge = (event: MouseEvent | TouchEvent): boolean => {
     if (target.name === STATUS_BADGE_CONTAINER_NAME) {
       return true;
     }
-    target = target.parent;
+    target = target.parent ?? undefined;
   }
   return false;
 };
@@ -119,7 +119,7 @@ export const NodeDetailPopover: React.FC = () => {
 
   const copyText =
     state.kind === 'comment'
-      ? comment
+      ? (comment ?? '')
       : statuses
           .map((status) => `${status.getName()}: ${status.message}`)
           .join('\n\n');

@@ -11,7 +11,7 @@ export interface FileTypeProps extends DataTypeProps {
 
 export class FileType extends AbstractType {
   filterExtensions: string[];
-  constructor(filterExtensions = []) {
+  constructor(filterExtensions: string[] = []) {
     super();
     this.filterExtensions = filterExtensions;
   }

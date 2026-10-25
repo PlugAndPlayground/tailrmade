@@ -1,4 +1,4 @@
-import { useNode, useEditor } from '@craftjs/core';
+import { useNode, useEditor, Node, NodeTree } from '@craftjs/core';
 import React, { useEffect, useState } from 'react';
 import { Box, IconButton, styled, Popper } from '@mui/material';
 import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
@@ -189,7 +189,7 @@ export const RenderNode = ({ render }) => {
     };
 
     InterfaceController.unselectDashboardItems = () => {
-      actions.selectNode(null);
+      actions.selectNode();
     };
 
     window.addEventListener('keydown', handleKeyDown, true);
@@ -275,6 +275,8 @@ export const RenderNode = ({ render }) => {
     e.stopPropagation();
     e.preventDefault();
 
+    if (!parent) return;
+
     try {
       const parentNode = query.node(parent).get();
       if (!parentNode) {
@@ -335,7 +337,7 @@ export const RenderNode = ({ render }) => {
       let index = childrenArray.indexOf(src.id);
 
       const srcNode = query.node(src.id).toNodeTree();
-      const srcTreeCopy = { rootNodeId: '', nodes: {} };
+      const srcTreeCopy: NodeTree = { rootNodeId: '', nodes: {} };
 
       const copyTree = (curId) => {
         if (!curId) {
@@ -345,7 +347,7 @@ export const RenderNode = ({ render }) => {
         const linkedNodes = srcNode.nodes[curId].data.linkedNodes;
         let freshNode = {
           data: { ...srcNode.nodes[curId].data },
-        };
+        } as Node;
         freshNode.data.nodes = [];
         freshNode.data.linkedNodes = {};
 
@@ -377,7 +379,7 @@ export const RenderNode = ({ render }) => {
 
       try {
         const newNode = copyTree(srcNode.rootNodeId);
-        actions.addNodeTree(srcTreeCopy, trg, index + 1);
+        actions.addNodeTree(srcTreeCopy, trg ?? undefined, index + 1);
 
         // Select the new node after duplication
         requestAnimationFrame(() => {

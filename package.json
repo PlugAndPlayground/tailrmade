@@ -33,6 +33,7 @@
     "test:jest": "jest tests/frontend/jest",
     "test-editor": "yarn cypress open --config-file tests/frontend/cypress/cypress.config.ts",
     "test:throttled": "cross-env CYPRESS_cpuThrottleRate=15 CYPRESS_forceSoftwareGL=true yarn test",
+    "typecheck": "tsc --noEmit",
     "verify:client-bundle": "node scripts/verify-client-bundle.js",
     "webpack": "ts-node -P tsconfig.webpack.json node_modules/webpack/bin/webpack.js"
   },

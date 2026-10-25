@@ -45,7 +45,7 @@ export default class UpdateBehaviourClass {
     this._update = newUpdate;
     this._interval = newInterval;
     this._intervalFrequency = newIntervalFrequency;
-    this.graphics.redrawAnythingChanging();
+    this.graphics?.redrawAnythingChanging();
   }
 
   // GETTERS & SETTERS
@@ -56,7 +56,7 @@ export default class UpdateBehaviourClass {
 
   set load(newLoad: boolean) {
     this._load = newLoad;
-    this.graphics.redrawAnythingChanging();
+    this.graphics?.redrawAnythingChanging();
   }
 
   get update(): boolean {
@@ -65,7 +65,7 @@ export default class UpdateBehaviourClass {
 
   set update(newUpdate: boolean) {
     this._update = newUpdate;
-    this.graphics.redrawAnythingChanging();
+    this.graphics?.redrawAnythingChanging();
   }
 
   get interval(): boolean {
@@ -74,7 +74,7 @@ export default class UpdateBehaviourClass {
 
   set interval(newInterval: boolean) {
     this._interval = newInterval;
-    this.graphics.redrawAnythingChanging();
+    this.graphics?.redrawAnythingChanging();
   }
 
   get intervalFrequency(): number {
@@ -83,7 +83,7 @@ export default class UpdateBehaviourClass {
 
   set intervalFrequency(frequency: number) {
     this._intervalFrequency = frequency;
-    this.graphics.redrawAnythingChanging();
+    this.graphics?.redrawAnythingChanging();
   }
 
   // METHODS

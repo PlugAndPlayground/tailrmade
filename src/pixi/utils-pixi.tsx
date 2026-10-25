@@ -36,7 +36,7 @@ export const getTextWithLineBreaks = (node: any): string => {
   // our Range object form which we'll get the characters positions
   const range = document.createRange();
   // here we'll store all our lines
-  const lines = [];
+  const lines: string[] = [];
   // begin at the first char
   range.setStart(node, 0);
   // initial position
@@ -181,7 +181,7 @@ export const calculateOverlayOffsets = (scale?: number): number => {
 
 export const zoomToFitNodes = (
   nodes?: PPNode[],
-  initZoomOutFactor = undefined,
+  initZoomOutFactor?: number,
 ): void => {
   const currentGraph = PPGraph.currentGraph;
   let boundsToZoomTo: PIXI.Rectangle;
@@ -358,7 +358,7 @@ Memory (heap, total, used in MB): ${(jsHeapSizeLimit / 1048576).toFixed(2)}, ${(
 Frame rate: ${fps}`;
 };
 
-let lastDeltas = [];
+let lastDeltas: number[] = [];
 // set mouse position and update debug text
 export const setMousePosition = (mouseMoveEvent, mousePosition) => {
   mousePosition.x = mouseMoveEvent?.pageX ?? 0;

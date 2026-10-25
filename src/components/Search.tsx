@@ -611,7 +611,7 @@ export interface NodeSearchProps {
   setIsNodeSearchVisible: (visible: boolean) => void;
   selectedTags: string[];
   setSelectedTags: (tags: string[]) => void;
-  nodeSearchInput: React.RefObject<HTMLInputElement>;
+  nodeSearchInput: React.RefObject<HTMLInputElement | null>;
   nodeSearchCountRef: React.MutableRefObject<number>;
   nodeSearchActiveItem: INodeSearch[];
   theme: any;
@@ -833,7 +833,7 @@ export const NodeSearch: React.FC<NodeSearchProps> = ({
       }
 
       if (event.key === 'ArrowLeft') {
-        const input = event.target;
+        const input = event.target as HTMLInputElement;
         // Only prevent if cursor is at the beginning
         if (input.selectionStart === 0) {
           console.log('ArrowLeft pressed', input);
@@ -847,7 +847,7 @@ export const NodeSearch: React.FC<NodeSearchProps> = ({
 
   const renderOptionHandler = useCallback(
     (
-      props: React.HTMLAttributes<HTMLLIElement>,
+      props: React.HTMLAttributes<HTMLLIElement> & { key: React.Key },
       option: INodeSearchExtended | string,
       state: AutocompleteRenderOptionState,
     ) => {
@@ -922,7 +922,7 @@ export const NodeSearch: React.FC<NodeSearchProps> = ({
         top: `${position[1]}px`,
       }}
     >
-      <Autocomplete
+      <Autocomplete<INodeSearchExtended, true, false, true>
         id="node-search"
         open={isVisible}
         slotProps={{
@@ -987,7 +987,8 @@ export const NodeSearch: React.FC<NodeSearchProps> = ({
         groupBy={(option) =>
           typeof option === 'string' ? 'Tags' : option.group
         }
-        options={getSortedOptions()}
+        // filterOptions adds optionType/tags; plain node entries leave them unset
+        options={getSortedOptions() as INodeSearchExtended[]}
         renderOption={renderOptionHandler}
         renderInput={(params) => (
           <NodeSearchInput {...params} inputRef={nodeSearchInput} />

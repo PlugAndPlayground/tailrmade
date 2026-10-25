@@ -58,7 +58,7 @@ async function quantizeData(
   inputObject: any,
   outputObject: Record<string, unknown>,
 ): Promise<void> {
-  const grouped = [];
+  const grouped: { Name: string; Entries: unknown[]; Length?: number }[] = [];
   const array = inputObject[arrayName];
   const property = inputObject[inputPropertyName];
   const range = inputObject[rangeName];
