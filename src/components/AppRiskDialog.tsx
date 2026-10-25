@@ -86,6 +86,10 @@ const capabilityIcons: Record<string, typeof InfoOutlinedIcon> = {
 type AccessStyle = {
   color: string;
   label: string;
+  // Shown instead of `label` where a row has no width for it.
+  shortLabel?: string;
+  // Filled slots out of BAR_SLOTS. The two Static levels share a count.
+  bars: number;
   description: string;
 };
 
@@ -94,61 +98,84 @@ type AccessStyle = {
 // what is allowed to run; it is not shown as a scale of its own.
 const accessStyles: Record<RiskLevel, AccessStyle> = {
   unrestricted: {
-    color: '#e4c28c',
+    color: '#fd6a52',
     label: 'Unrestricted',
+    bars: 3,
     description: 'Not sandboxed. Its capabilities cannot be determined.',
   },
   dynamic: {
-    color: '#d9c7a0',
+    color: '#ffc247',
     label: 'Dynamic',
+    bars: 2,
     description:
       'Its capabilities are known, but its values can change while running.',
   },
   static: {
-    color: '#d5cfbd',
+    color: '#8cb8f7',
     label: 'Static',
+    bars: 1,
     description: 'Its capabilities are known and its values are constant.',
   },
+  // White rather than a lighter blue: it steps off the red-amber-blue ramp
+  // instead of extending it, so it tells this apart from `static` without
+  // placing it a step above.
   'loads-only': {
-    color: '#a9dfff',
-    label: 'Static \u00b7 loads only',
+    color: '#ffffff',
+    label: 'Static - loads only',
+    shortLabel: 'loads only',
+    bars: 1,
     description: 'The same, and it only loads content from known sites.',
   },
   none: {
-    color: '#9e9e9e',
+    color: '#8d96ab',
     label: 'No access',
+    bars: 0,
     description: "Doesn't require any access.",
   },
 };
 
-// A dot, not a meter: the two Static levels sit at the same place on the scale
-// and differ by what is at stake, so filled bars would have to lie about one
-// of them.
-function AccessDot({
+const BAR_SLOTS = 3;
+
+const BAR_METRICS = {
+  chip: { width: 3, height: 8, gap: '1.5px' },
+  row: { width: 4, height: 12, gap: '2px' },
+  headline: { width: 5, height: 16, gap: '2.5px' },
+};
+
+// Filled towards how little there is to go on, so the level that can't be
+// judged at all carries the heaviest mark. The two Static levels fill the same
+// one slot: they sit at the same place on the scale and differ by what is at
+// stake, which is the colour's job here, not the count's. Empty slots stay
+// drawn so every level takes the same width in a row of them.
+function AccessBars({
   level,
-  size = 10,
+  size = 'row',
 }: {
   level: RiskLevel;
-  size?: number;
+  size?: keyof typeof BAR_METRICS;
 }): React.ReactElement {
+  const { color, bars } = accessStyles[level];
+  const { width, height, gap } = BAR_METRICS[size];
   return (
     <Box
       component="span"
       aria-hidden
       data-access-level={level}
-      sx={{
-        flexShrink: 0,
-        width: size,
-        height: size,
-        borderRadius: '50%',
-        bgcolor: accessStyles[level].color,
-        // the safe end of the scale reads as an outline rather than a mark
-        ...(level === 'none' && {
-          bgcolor: 'transparent',
-          border: `1.5px solid ${accessStyles.none.color}`,
-        }),
-      }}
-    />
+      sx={{ display: 'inline-flex', flexShrink: 0, gap }}
+    >
+      {Array.from({ length: BAR_SLOTS }, (_, slot) => (
+        <Box
+          key={slot}
+          component="span"
+          sx={{
+            width,
+            height,
+            borderRadius: '1px',
+            bgcolor: slot < bars ? color : 'rgba(255, 255, 255, 0.15)',
+          }}
+        />
+      ))}
+    </Box>
   );
 }
 
@@ -164,7 +191,7 @@ function AccessLevel({
       component="span"
       sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.75 }}
     >
-      <AccessDot level={level} size={variant === 'h6' ? 12 : 9} />
+      <AccessBars level={level} size={variant === 'h6' ? 'headline' : 'row'} />
       <Typography
         variant={variant}
         sx={{ color: accessStyles[level].color, lineHeight: 1.3 }}
@@ -175,13 +202,25 @@ function AccessLevel({
   );
 }
 
+// An outline, not a fill: two levels that share a place on the scale are close
+// in colour on purpose, and a filled chip turns that into two near-identical
+// blocks at the smallest size in the panel.
 function AccessChip({ level }: { level: RiskLevel }): React.ReactElement {
+  const { color, label, shortLabel } = accessStyles[level];
   return (
-    <TagChip
-      label={accessStyles[level].label}
-      color={accessStyles[level].color}
+    <Chip
+      size="small"
+      label={shortLabel ?? label}
+      icon={<AccessBars level={level} size="chip" />}
       data-cy="node-access-level"
       data-access-level={level}
+      sx={{
+        fontSize: '10px',
+        color,
+        bgcolor: 'transparent',
+        border: `1px solid ${color}`,
+        '& .MuiChip-icon': { ml: '6px', mr: '-3px' },
+      }}
     />
   );
 }
@@ -395,7 +434,7 @@ function AccessOverview({
                     gap: 0.5,
                   }}
                 >
-                  <AccessDot level={level} />
+                  <AccessBars level={level} />
                   <Typography variant="caption">{count}</Typography>
                 </Box>
               )
