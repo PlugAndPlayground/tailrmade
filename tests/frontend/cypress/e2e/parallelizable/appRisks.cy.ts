@@ -758,6 +758,29 @@ describe('app risk review', () => {
     });
   });
 
+  it('follows a constant through a label into Open URL', () => {
+    beginLoad(
+      [
+        openURLNode(),
+        serializedNode('constant_string', 'address', [
+          serializedSocket('String', 'https://example.com/via-label'),
+        ]),
+        serializedNode('label', 'caption', [
+          serializedSocket('Input', '', 'StringType'),
+        ]),
+      ],
+      [
+        linkTo('address', 'String', 'caption', 'Input'),
+        linkTo('caption', 'Output', 'open', 'url'),
+      ],
+    );
+    shouldWithTestController((controller) => {
+      const risk = controller.getNodeByID('open').getRisks()[0];
+      expect(risk.resolved).to.equal(true);
+      expect(risk.target).to.equal('https://example.com/via-label');
+    });
+  });
+
   it('stays dynamic when the chain reaches something it cannot work out', () => {
     beginLoad(
       [openURLNode(), codeNode()],
