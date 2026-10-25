@@ -1,5 +1,8 @@
 import {
+  AIUsageRisk,
   ApiKeyRisk,
+  CONSEQUENCE,
+  CompanionRisk,
   NetworkRisk,
   ExternalImageRisk,
   DynamicImageRisk,
@@ -9,6 +12,8 @@ import {
   collectAppRisks,
   findApiKeyReferences,
   getImageSourceRisks,
+  getRiskLevel,
+  highestRiskLevel,
   requiresAppRiskReview,
 } from '../../../src/classes/NodeRisk';
 
@@ -118,7 +123,9 @@ describe('app risk disclosure', () => {
         'https://user:secret@example.com/private?key=secret#secret',
       ).target,
     ).toBe('https://example.com/private');
-    expect(new NetworkRisk().target).toBe('Address chosen while the app runs');
+    // An address the review cannot work out carries no prose in the model.
+    expect(new NetworkRisk().target).toBeUndefined();
+    expect(new NetworkRisk().resolved).toBe(false);
   });
 
   it('resolves relative destinations against the page base URL', () => {
@@ -145,10 +152,45 @@ describe('app risk disclosure', () => {
       'invalid://secret',
       'http://[',
     ]) {
-      expect(new NetworkRisk(url).target).toBe(
-        'Address chosen while the app runs',
-      );
+      expect(new NetworkRisk(url).target).toBeUndefined();
+      expect(new NetworkRisk(url).resolved).toBe(false);
     }
+  });
+
+  it('ranks how well each capability can be judged', () => {
+    expect(getRiskLevel(new UnrestrictedCodeRisk())).toBe('unrestricted');
+    // Same capability, but the destination is only picked while running.
+    expect(getRiskLevel(new NetworkRisk('https://example.com'))).toBe('static');
+    expect(getRiskLevel(new NetworkRisk())).toBe('dynamic');
+    expect(getRiskLevel(new DynamicImageRisk())).toBe('dynamic');
+    expect(getRiskLevel(new ApiKeyRisk('OPENAI'))).toBe('static');
+    expect(getRiskLevel(new ApiKeyRisk())).toBe('dynamic');
+    expect(
+      getRiskLevel(new NetworkRisk('https://example.com', undefined, 'info')),
+    ).toBe('loads-only');
+    expect(highestRiskLevel([])).toBe('none');
+    expect(
+      highestRiskLevel([
+        new ExternalImageRisk('https://example.com/a.png'),
+        new StorageWriteRisk(),
+      ]),
+    ).toBe('static');
+    expect(highestRiskLevel([new StorageWriteRisk(), new NetworkRisk()])).toBe(
+      'dynamic',
+    );
+  });
+
+  it('keeps gating on what is at stake, not on how judgeable it is', () => {
+    // A dynamic destination is harder to judge but still blocks, and a fully
+    // static storage write blocks too, so the gate cannot read the scale.
+    for (const risk of [new NetworkRisk(), new StorageWriteRisk()]) {
+      expect(requiresAppRiskReview([{ risk, nodes: [] }])).toBe(true);
+    }
+    expect(
+      requiresAppRiskReview([
+        { risk: new ExternalImageRisk('https://example.com/a.png'), nodes: [] },
+      ]),
+    ).toBe(false);
   });
 
   it('separates reading saved data from changing it', () => {
@@ -170,7 +212,28 @@ describe('app risk disclosure', () => {
     ]);
     // Neither description has to hedge about the other direction.
     expect(new StorageReadRisk().description).not.toContain('remove');
-    expect(new StorageWriteRisk().description).not.toContain('Reads');
+    expect(new StorageWriteRisk().consequences).toEqual([
+      CONSEQUENCE.changesYourData,
+    ]);
+  });
+
+  it('tags every capability that costs money or leaves the browser', () => {
+    for (const risk of [new ApiKeyRisk('OPENAI'), new AIUsageRisk()]) {
+      expect(risk.consequences).toContain(CONSEQUENCE.costsMoney);
+    }
+    expect(new CompanionRisk().consequences).toContain(
+      CONSEQUENCE.reachesYourComputer,
+    );
+    // A plain GET only reveals that the request happened.
+    expect(
+      new NetworkRisk('https://example.com', undefined, 'info').consequences,
+    ).toEqual([CONSEQUENCE.revealsYouVisited]);
+    expect(new NetworkRisk('https://example.com').consequences).toEqual([
+      CONSEQUENCE.sendsDataOut,
+    ]);
+    expect(new UnrestrictedCodeRisk().consequences).toContain(
+      CONSEQUENCE.notSandboxed,
+    );
   });
 
   it('keeps different endpoints on the same host separate in the review', () => {

@@ -31,17 +31,20 @@ import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import ImageOutlinedIcon from '@mui/icons-material/ImageOutlined';
 import EditNoteIcon from '@mui/icons-material/EditNote';
+import HelpOutlineIcon from '@mui/icons-material/HelpOutlineOutlined';
 import VerifiedIcon from '@mui/icons-material/Verified';
 import {
   AppRisk,
   NodeRisk,
-  RiskSeverity,
+  RISK_LEVEL_ORDER,
+  RiskLevel,
   collectAppRisks,
+  getRiskLevel,
+  highestRiskLevel,
   requiresAppRiskReview,
 } from '../classes/NodeRisk';
 import PPGraph from '../classes/GraphClass';
 import PPNode from '../classes/NodeClass';
-import { TRgba } from '../utils/color';
 import { createStore } from './createStore';
 import { NodeRow } from './NodeRow';
 import { TagChip } from './TagChip';
@@ -52,6 +55,7 @@ import { VISIBILITY_ACTION } from '../utils/constants_shared';
 import {
   customTheme,
   getDrawerBackground,
+  HELP_URL_APP_ACCESS,
   RightDrawerView,
 } from '../utils/constants';
 import { setStackView, useIsStackLayout } from '../utils/layoutModel';
@@ -81,70 +85,70 @@ const capabilityIcons: Record<string, typeof InfoOutlinedIcon> = {
 
 type AccessStyle = {
   color: string;
-  score: number;
   label: string;
   description: string;
 };
 
-const severityStyles: Record<RiskSeverity, AccessStyle> = {
-  critical: {
+// The one ordered scale in the panel: how well a person can judge this, from
+// "nothing to judge" up to "cannot be judged at all". `severity` still decides
+// what is allowed to run; it is not shown as a scale of its own.
+const accessStyles: Record<RiskLevel, AccessStyle> = {
+  unrestricted: {
     color: '#e4c28c',
-    score: 3,
-    label: 'Broad access',
-    description: 'Can do anything you can do in this tab',
+    label: 'Unrestricted',
+    description: 'Not sandboxed. Its capabilities cannot be determined.',
   },
-  warning: {
+  dynamic: {
+    color: '#d9c7a0',
+    label: 'Dynamic',
+    description:
+      'Its capabilities are known, but its values can change while running.',
+  },
+  static: {
     color: '#d5cfbd',
-    score: 2,
-    label: 'Limited access',
-    description: 'Uses specific services, keys or data',
+    label: 'Static',
+    description: 'Its capabilities are known and its values are constant.',
   },
-  info: {
+  'loads-only': {
     color: '#a9dfff',
-    score: 1,
-    label: 'Minimal access',
-    description: 'Loads content from other sites',
+    label: 'Static \u00b7 loads only',
+    description: 'The same, and it only loads content from known sites.',
+  },
+  none: {
+    color: '#9e9e9e',
+    label: 'No access',
+    description: "Doesn't require any access.",
   },
 };
 
-const noAccess: AccessStyle = {
-  color: '#9e9e9e',
-  score: 0,
-  label: 'No special access',
-  description: "Doesn't use keys, saved data or other sites",
-};
-
-// Three bars instead of "n/3", which read like a test score where 3/3 is best.
-function AccessBars({
+// A dot, not a meter: the two Static levels sit at the same place on the scale
+// and differ by what is at stake, so filled bars would have to lie about one
+// of them.
+function AccessDot({
   level,
-  color = level.color,
-  height = 10,
+  size = 10,
 }: {
-  level: AccessStyle;
-  color?: string;
-  height?: number;
+  level: RiskLevel;
+  size?: number;
 }): React.ReactElement {
   return (
     <Box
       component="span"
       aria-hidden
-      data-access-level={level.score}
-      sx={{ display: 'inline-flex', gap: '2px', flexShrink: 0 }}
-    >
-      {[1, 2, 3].map((bar) => (
-        <Box
-          key={bar}
-          component="span"
-          sx={{
-            width: height * 0.4,
-            height,
-            borderRadius: '1px',
-            bgcolor: color,
-            opacity: bar <= level.score ? 1 : 0.3,
-          }}
-        />
-      ))}
-    </Box>
+      data-access-level={level}
+      sx={{
+        flexShrink: 0,
+        width: size,
+        height: size,
+        borderRadius: '50%',
+        bgcolor: accessStyles[level].color,
+        // the safe end of the scale reads as an outline rather than a mark
+        ...(level === 'none' && {
+          bgcolor: 'transparent',
+          border: `1.5px solid ${accessStyles.none.color}`,
+        }),
+      }}
+    />
   );
 }
 
@@ -152,7 +156,7 @@ function AccessLevel({
   level,
   variant = 'caption',
 }: {
-  level: AccessStyle;
+  level: RiskLevel;
   variant?: 'caption' | 'subtitle2' | 'h6';
 }): React.ReactElement {
   return (
@@ -160,37 +164,24 @@ function AccessLevel({
       component="span"
       sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.75 }}
     >
-      <AccessBars level={level} height={variant === 'h6' ? 16 : 10} />
+      <AccessDot level={level} size={variant === 'h6' ? 12 : 9} />
       <Typography
         variant={variant}
-        sx={{ color: level.color, lineHeight: 1.3 }}
+        sx={{ color: accessStyles[level].color, lineHeight: 1.3 }}
       >
-        {level.label}
+        {accessStyles[level].label}
       </Typography>
     </Box>
   );
 }
 
-function AccessChip({ level }: { level: AccessStyle }): React.ReactElement {
+function AccessChip({ level }: { level: RiskLevel }): React.ReactElement {
   return (
     <TagChip
-      label={level.label}
-      color={level.color}
+      label={accessStyles[level].label}
+      color={accessStyles[level].color}
       data-cy="node-access-level"
-      // Chip styles its icon through a class it clones in, so the bars need
-      // an element that takes className
-      icon={
-        <Box component="span">
-          <AccessBars
-            level={level}
-            color={TRgba.fromString(level.color).getContrastTextColor().hex()}
-            height={8}
-          />
-        </Box>
-      }
-      sx={{
-        '& .MuiChip-icon': { display: 'inline-flex', ml: '8px', mr: '-2px' },
-      }}
+      data-access-level={level}
     />
   );
 }
@@ -247,18 +238,8 @@ export function showCurrentAppRisks(): void {
   });
 }
 
-function highestAccess(risks: NodeRisk[]): AccessStyle {
-  return risks.reduce(
-    (highest, risk) =>
-      severityStyles[risk.severity].score > highest.score
-        ? severityStyles[risk.severity]
-        : highest,
-    noAccess,
-  );
-}
-
-const requiredAccess = (risks: AppRisk[]): AccessStyle =>
-  highestAccess(risks.map(({ risk }) => risk));
+const requiredAccess = (risks: AppRisk[]): RiskLevel =>
+  highestRiskLevel(risks.map(({ risk }) => risk));
 
 function AppSource(): React.ReactElement {
   const source = PPGraph.currentGraph.source;
@@ -336,7 +317,7 @@ export function AppRiskSummary(): React.ReactElement {
           )}
         </Box>
         <Typography variant="caption" color="text.secondary">
-          {access.description}
+          {accessStyles[access].description}
         </Typography>
         <Box data-cy="app-risk-source" sx={{ mt: 1 }}>
           <AppSource />
@@ -366,17 +347,17 @@ function AccessOverview({
   nodes: ReviewNode[];
   onInspectAll: () => void;
 }): React.ReactElement {
-  const levels = nodes.map((node) => highestAccess(node.risks));
-  const access = highestAccess(nodes.flatMap((node) => node.risks));
+  const levels = nodes.map((node) => highestRiskLevel(node.risks));
+  const access = highestRiskLevel(nodes.flatMap((node) => node.risks));
   return (
     <Box
       data-cy="required-access-score"
       sx={{
         p: 1.5,
-        borderRadius: 1,
+        borderRadius: 0,
         bgcolor: 'action.hover',
         borderLeft: 3,
-        borderColor: access.color,
+        borderColor: accessStyles[access].color,
       }}
     >
       <Typography variant="overline" color="text.secondary">
@@ -386,7 +367,7 @@ function AccessOverview({
         <AccessLevel level={access} variant="h6" />
       </Box>
       <Typography variant="body2" color="text.secondary">
-        {access.description}
+        {accessStyles[access].description}
       </Typography>
       <Box
         sx={{
@@ -401,20 +382,20 @@ function AccessOverview({
         }}
       >
         <Box sx={{ display: 'flex', gap: 1.5 }}>
-          {Object.values(severityStyles).map((level) => {
+          {[...RISK_LEVEL_ORDER].reverse().map((level) => {
             const count = levels.filter((item) => item === level).length;
             return (
               count > 0 && (
                 <Box
-                  key={level.label}
-                  title={`${count} ${count === 1 ? 'node needs' : 'nodes need'} ${level.label.toLowerCase()}`}
+                  key={level}
+                  title={`${count} ${count === 1 ? 'node' : 'nodes'}: ${accessStyles[level].label.toLowerCase()}`}
                   sx={{
                     display: 'inline-flex',
                     alignItems: 'center',
                     gap: 0.5,
                   }}
                 >
-                  <AccessBars level={level} />
+                  <AccessDot level={level} />
                   <Typography variant="caption">{count}</Typography>
                 </Box>
               )
@@ -494,7 +475,7 @@ function CapabilityGroup({
   destinations,
   onInspect,
 }: Capability & { onInspect: (ids: string[]) => void }): React.ReactElement {
-  const level = severityStyles[risk.severity];
+  const level = getRiskLevel(risk);
   const Icon = capabilityIcons[risk.kind] ?? InfoOutlinedIcon;
   const ids = [
     ...new Set(destinations.flatMap(({ nodes }) => nodes.map((n) => n.id))),
@@ -511,10 +492,10 @@ function CapabilityGroup({
         outline: 'none',
         scrollMarginTop: 8,
         mb: 1.5,
-        borderRadius: 1,
+        borderRadius: 0,
         bgcolor: 'action.hover',
         borderLeft: 3,
-        borderColor: level.color,
+        borderColor: accessStyles[level].color,
         overflowWrap: 'anywhere',
       }}
     >
@@ -528,7 +509,7 @@ function CapabilityGroup({
           }}
         >
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <Icon sx={{ fontSize: 16, color: level.color }} />
+            <Icon sx={{ fontSize: 16, color: accessStyles[level].color }} />
             <AccessLevel level={level} />
           </Box>
           <Button
@@ -542,6 +523,20 @@ function CapabilityGroup({
           </Button>
         </Box>
         <Typography sx={{ fontWeight: 600 }}>{risk.title}</Typography>
+        {risk.consequences.length > 0 && (
+          <Box
+            data-cy="risk-consequences"
+            sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mt: 0.75 }}
+          >
+            {risk.consequences.map((consequence) => (
+              <TagChip
+                key={consequence}
+                label={consequence}
+                data-cy="risk-consequence"
+              />
+            ))}
+          </Box>
+        )}
         <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
           {risk.description}
         </Typography>
@@ -549,12 +544,23 @@ function CapabilityGroup({
       <Box sx={{ px: 1, pb: 1 }}>
         {destinations.map(({ risk: destination, nodes }) => (
           <Box key={destination.id} data-cy="risk-destination">
-            {destination.target && (
+            {(destination.target || !destination.resolved) && (
               <Typography
                 variant="body2"
-                sx={{ fontWeight: 600, px: 0.5, pt: 1, pb: 0.5 }}
+                data-cy="risk-destination-label"
+                sx={{
+                  fontWeight: 600,
+                  px: 0.5,
+                  pt: 1,
+                  pb: 0.5,
+                  ...(!destination.resolved && {
+                    fontWeight: 400,
+                    fontStyle: 'italic',
+                    color: 'text.secondary',
+                  }),
+                }}
               >
-                {destination.target}
+                {destination.target ?? 'Chosen while the app runs'}
               </Typography>
             )}
             <NodeTypeRows nodes={nodes} onInspect={onInspect} />
@@ -702,7 +708,7 @@ export function AppRiskDialog({
           bgcolor: 'background.paper',
           border: 1,
           borderColor: 'divider',
-          borderRadius: 1,
+          borderRadius: 0,
           boxShadow: 2,
         }}
       >
@@ -759,7 +765,7 @@ export function AppRiskDialog({
     card.focus({ preventScroll: true });
     card.animate(
       [
-        { boxShadow: `0 0 0 2px ${severityStyles[risk.severity].color}` },
+        { boxShadow: `0 0 0 2px ${accessStyles[getRiskLevel(risk)].color}` },
         { boxShadow: '0 0 0 2px transparent' },
       ],
       { duration: 1500, easing: 'ease-in' },
@@ -812,12 +818,31 @@ export function AppRiskDialog({
               onInspectAll={() => inspectNodes(nodes.map((node) => node.id))}
             />
             <Typography variant="body2" color="text.secondary" sx={{ mt: 1.5 }}>
-              These capabilities are common in interactive apps. Check that they
-              match what you expect from this app and its source.
+              Everything below is declared by this app&apos;s own nodes. Check
+              it matches what the app is supposed to do.
               {review.risks.some(
                 ({ risk }) => risk.kind === 'unrestricted-code',
               ) &&
-                " Broad access can't be checked here, so only run this if you trust its source."}
+                ' Some nodes also run code that is not sandboxed. Their capabilities cannot be determined, so this list is not complete for them — that part comes down to the source above.'}{' '}
+              <Box
+                component="a"
+                href={HELP_URL_APP_ACCESS}
+                target="_blank"
+                rel="noopener noreferrer"
+                data-cy="risk-help-link"
+                sx={{
+                  color: 'inherit',
+                  whiteSpace: 'nowrap',
+                  textDecoration: 'underline dotted',
+                  textUnderlineOffset: 3,
+                  '&:hover': { color: 'text.primary' },
+                }}
+              >
+                <HelpOutlineIcon
+                  sx={{ fontSize: 13, verticalAlign: '-2px', mr: '2px' }}
+                />
+                How access is decided
+              </Box>
             </Typography>
             <Tabs
               value={tab}
@@ -876,7 +901,7 @@ export function AppRiskDialog({
                       data-cy="go-to-risk-node"
                       data-node-id={node.id}
                       onClick={() => inspectNodes([node.id])}
-                      tags={<AccessChip level={highestAccess(node.risks)} />}
+                      tags={<AccessChip level={highestRiskLevel(node.risks)} />}
                       subtitle={
                         <Box id={`risk-capabilities-${node.id}`}>
                           {node.risks.map((risk) => (
@@ -989,7 +1014,7 @@ export function AppRiskDialog({
             // a pending run gets the accent, browsing risks later does not
             ...(!review.inspectionOnly && {
               borderTop: 3,
-              borderTopColor: requiredAccess(review.risks).color,
+              borderTopColor: accessStyles[requiredAccess(review.risks)].color,
             }),
             '& .MuiDialogTitle-root': { px: 2, py: 1 },
             '& .MuiDialogContent-root': { px: 2 },

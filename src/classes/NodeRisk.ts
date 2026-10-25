@@ -1,10 +1,29 @@
 export type RiskSeverity = 'critical' | 'warning' | 'info';
 
+// Short "so what?" labels shown next to each capability. A title says what a
+// node does, a consequence says what it costs you if the app misbehaves.
+export const CONSEQUENCE = {
+  costsMoney: 'Costs money',
+  sendsDataOut: 'Sends your data out',
+  readsYourData: 'Reads your saved data',
+  changesYourData: 'Can change your data',
+  reachesYourComputer: 'Reaches your computer',
+  revealsYouVisited: 'Reveals you visited',
+  notSandboxed: 'Not sandboxed',
+} as const;
+
+export type Consequence = (typeof CONSEQUENCE)[keyof typeof CONSEQUENCE];
+
 export abstract class NodeRisk {
   abstract readonly kind: string;
   abstract readonly title: string;
   abstract readonly description: string;
   readonly severity: RiskSeverity = 'warning';
+  readonly consequences: readonly Consequence[] = [];
+  // False when a value is only chosen once the app runs, so the review cannot
+  // show what it will be. The review has no prose here: it decides how to say
+  // that at render time.
+  readonly resolved: boolean = true;
 
   constructor(public readonly target?: string) {}
 
@@ -13,12 +32,67 @@ export abstract class NodeRisk {
   }
 }
 
+// What the review shows. `severity` says how much is at stake and still drives
+// execution gating; this says how well a person can judge it, which is the one
+// ordered scale in the panel.
+export type RiskLevel =
+  'unrestricted' | 'dynamic' | 'static' | 'loads-only' | 'none';
+
+// Lowest to highest, so a single max() gives an app its headline.
+export const RISK_LEVEL_ORDER: readonly RiskLevel[] = [
+  'none',
+  'loads-only',
+  'static',
+  'dynamic',
+  'unrestricted',
+];
+
+export function getRiskLevel(risk: NodeRisk): RiskLevel {
+  if (risk.severity === 'critical') return 'unrestricted';
+  if (!risk.resolved) return 'dynamic';
+  return risk.severity === 'info' ? 'loads-only' : 'static';
+}
+
+export function highestRiskLevel(risks: NodeRisk[]): RiskLevel {
+  return risks.reduce<RiskLevel>(
+    (highest, risk) =>
+      RISK_LEVEL_ORDER.indexOf(getRiskLevel(risk)) >
+      RISK_LEVEL_ORDER.indexOf(highest)
+        ? getRiskLevel(risk)
+        : highest,
+    'none',
+  );
+}
+
+// Strips credentials and query/fragment secrets. Returns undefined when the
+// address cannot be worked out without running the graph.
+export function resolveDestination(
+  url: unknown,
+  baseURL = typeof document === 'undefined' ? undefined : document.baseURI,
+): string | undefined {
+  if (typeof url !== 'string') return undefined;
+  try {
+    const parsed = new URL(url, baseURL);
+    if (['http:', 'https:', 'ws:', 'wss:'].includes(parsed.protocol)) {
+      return parsed.origin + parsed.pathname;
+    }
+  } catch {}
+  return undefined;
+}
+
 export class UnrestrictedCodeRisk extends NodeRisk {
   readonly kind = 'unrestricted-code';
   readonly severity = 'critical' as const;
-  readonly title = 'Runs code with full browser access';
+  readonly title = 'Runs code that is not sandboxed';
+  readonly resolved = false;
   readonly description =
-    "Acts as you in this tab: it can read, change or delete your Tailrmade data, use your API keys and Companion, and contact any site. Paid services may charge you. It can't reach your computer's files or other apps, or use your camera, microphone or location unless you've allowed Tailrmade to.";
+    'Its capabilities cannot be determined, because this code is not sandboxed. It can use anything Tailrmade can: your saved data, your API keys, your Companion, and any site. It cannot reach your files or other apps, or use your camera, microphone or location unless you have allowed Tailrmade to.';
+  readonly consequences = [
+    CONSEQUENCE.notSandboxed,
+    CONSEQUENCE.changesYourData,
+    CONSEQUENCE.sendsDataOut,
+    CONSEQUENCE.costsMoney,
+  ] as const;
 }
 
 export class ApiKeyRisk extends NodeRisk {
@@ -26,6 +100,17 @@ export class ApiKeyRisk extends NodeRisk {
   readonly title = 'Uses API keys';
   readonly description =
     'Sends your saved keys with its requests. The service may charge you.';
+  readonly consequences = [
+    CONSEQUENCE.costsMoney,
+    CONSEQUENCE.sendsDataOut,
+  ] as const;
+  readonly resolved: boolean;
+
+  // Without a key name the review can only say one gets picked while running.
+  constructor(key?: string) {
+    super(key);
+    this.resolved = key !== undefined;
+  }
 }
 
 export class NetworkRisk extends NodeRisk {
@@ -33,23 +118,17 @@ export class NetworkRisk extends NodeRisk {
   readonly kind = 'network';
   readonly title: string;
   readonly description: string;
+  readonly consequences: readonly Consequence[];
+  readonly resolved: boolean;
 
   constructor(
     url?: unknown,
     baseURL = typeof document === 'undefined' ? undefined : document.baseURI,
     severity: RiskSeverity = 'warning',
   ) {
-    let destination = 'Address chosen while the app runs';
-    if (typeof url === 'string') {
-      try {
-        const parsed = new URL(url, baseURL);
-        if (['http:', 'https:', 'ws:', 'wss:'].includes(parsed.protocol)) {
-          // Show the endpoint without credentials or query/fragment secrets.
-          destination = parsed.origin + parsed.pathname;
-        }
-      } catch {}
-    }
+    const destination = resolveDestination(url, baseURL);
     super(destination);
+    this.resolved = destination !== undefined;
     this.severity = severity;
     // Info only loads data, so it gets its own card instead of a second
     // card with the same title
@@ -61,6 +140,10 @@ export class NetworkRisk extends NodeRisk {
       severity === 'info'
         ? 'Loads data from the sites below. Each site can see the request.'
         : 'Sends and receives data from the sites below.';
+    this.consequences =
+      severity === 'info'
+        ? [CONSEQUENCE.revealsYouVisited]
+        : [CONSEQUENCE.sendsDataOut];
   }
 }
 
@@ -70,9 +153,10 @@ export class ExternalHtmlRisk extends NodeRisk {
   readonly title = 'Links to other sites';
   readonly description =
     "Content links to or loads from the sites below. They can see when it's loaded or followed.";
+  readonly consequences = [CONSEQUENCE.revealsYouVisited] as const;
 
   constructor(url: string) {
-    super(new NetworkRisk(url).target);
+    super(resolveDestination(url));
   }
 }
 
@@ -81,9 +165,10 @@ export class ExternalImageRisk extends NodeRisk {
   readonly severity = 'info' as const;
   readonly title = 'Loads images from other sites';
   readonly description = 'The site hosting each image can see when it loads.';
+  readonly consequences = [CONSEQUENCE.revealsYouVisited] as const;
 
   constructor(url: string) {
-    super(new NetworkRisk(url).target);
+    super(resolveDestination(url));
   }
 }
 
@@ -92,6 +177,8 @@ export class DynamicImageRisk extends NodeRisk {
   readonly title = 'Loads images from changing addresses';
   readonly description =
     'Other nodes choose which images to load, so app data in an address is sent to that site.';
+  readonly consequences = [CONSEQUENCE.sendsDataOut] as const;
+  readonly resolved = false;
 }
 
 export function getImageSourceRisks(
@@ -119,9 +206,13 @@ export class NavigationRisk extends NodeRisk {
   readonly title = 'Opens web pages';
   readonly description =
     'Opens pages in a new tab. Anything in the address is sent to that site.';
+  readonly consequences = [CONSEQUENCE.sendsDataOut] as const;
+  readonly resolved: boolean;
 
   constructor(url?: unknown) {
-    super(new NetworkRisk(url).target);
+    const destination = resolveDestination(url);
+    super(destination);
+    this.resolved = destination !== undefined;
   }
 }
 
@@ -130,6 +221,10 @@ export class CompanionRisk extends NodeRisk {
   readonly title = 'Uses your Companion';
   readonly description =
     'Sends requests through your Companion, which can reach your computer and local network.';
+  readonly consequences = [
+    CONSEQUENCE.reachesYourComputer,
+    CONSEQUENCE.sendsDataOut,
+  ] as const;
 }
 
 export class StorageReadRisk extends NodeRisk {
@@ -137,6 +232,7 @@ export class StorageReadRisk extends NodeRisk {
   readonly title = 'Reads Tailrmade data';
   readonly description =
     'Reads data saved in Tailrmade by you or by other apps. Nothing outside Tailrmade storage.';
+  readonly consequences = [CONSEQUENCE.readsYourData] as const;
 }
 
 export class StorageWriteRisk extends NodeRisk {
@@ -144,6 +240,7 @@ export class StorageWriteRisk extends NodeRisk {
   readonly title = 'Changes Tailrmade data';
   readonly description =
     'Adds, changes or removes data saved in Tailrmade. Nothing outside Tailrmade storage.';
+  readonly consequences = [CONSEQUENCE.changesYourData] as const;
 }
 
 export class AIUsageRisk extends NodeRisk {
@@ -151,6 +248,10 @@ export class AIUsageRisk extends NodeRisk {
   readonly title = 'Uses AI services';
   readonly description =
     'Sends app data to your AI provider. Counts toward your AI allowance and may use paid credits.';
+  readonly consequences = [
+    CONSEQUENCE.costsMoney,
+    CONSEQUENCE.sendsDataOut,
+  ] as const;
 }
 
 export interface RiskSource {

@@ -502,7 +502,7 @@ describe('app risk review', () => {
     });
     cy.get('[data-cy="app-risk-dialog"]')
       .should('be.visible')
-      .and('contain', 'Runs code with full browser access');
+      .and('contain', 'Runs code that is not sandboxed');
     doWithTestController(async (controller) => {
       await controller.getNodeByID('code').execute();
       expect(controller.getNodeByID('code').debug_timesExecuted).to.equal(0);
@@ -632,7 +632,7 @@ describe('app risk review', () => {
     });
     cy.get('[data-cy="app-info-tab"]').click();
     cy.get('[data-cy="app-risk-summary"]')
-      .should('contain', 'No special access')
+      .should('contain', 'No access')
       .and('not.contain', 'to review')
       .and('contain', 'Unknown source');
     cy.get('[data-cy="app-risk-dialog"]').should('not.exist');
@@ -641,10 +641,10 @@ describe('app risk review', () => {
     cy.get('[data-cy="app-risk-dialog"]').should('not.exist');
     cy.get('[data-cy="app-risk-summary"]')
       .should('contain', '1 node to review')
-      .and('contain', 'Broad access');
+      .and('contain', 'Unrestricted');
     cy.get('[data-cy="open-risk-review"]').click();
     cy.get('[data-cy="app-risk-dialog"]')
-      .should('contain', 'Runs code with full browser access')
+      .should('contain', 'Runs code that is not sandboxed')
       .and('contain', 'Risk review');
     cy.get('[data-cy="run-reviewed-app"]').should('not.exist');
     cy.screenshot('app-risk-summary', { capture: 'runner' });
@@ -667,12 +667,12 @@ describe('app risk review', () => {
     cy.get('[data-cy="app-info-tab"]').click();
     cy.get('[data-cy="app-risk-summary"]').should(
       'contain',
-      'No special access',
+      'No access',
     );
     cy.get('[data-cy="open-risk-review"]').click();
     cy.get('[data-cy="app-risk-dialog"]').should(
       'contain',
-      'No special access',
+      'No access',
     );
     cy.get('[data-cy="app-risk-dialog"]').contains('button', 'Close').click();
     cy.get('[data-cy="app-risk-dialog"]').should('not.exist');
@@ -715,7 +715,7 @@ describe('app risk review', () => {
     beginLoad([codeNode(2)]);
     cy.get('[data-cy="app-risk-dialog"]').should(
       'contain',
-      'Runs code with full browser access',
+      'Runs code that is not sandboxed',
     );
     cy.window().then((win: any) => expect(win.__riskCodeRuns).to.be.undefined);
     cy.get('[data-cy="run-reviewed-app"]').click();
@@ -747,7 +747,7 @@ describe('app risk review', () => {
     );
     cy.get('[data-cy="app-risk-dialog"]').should(
       'contain',
-      'Runs code with full browser access',
+      'Runs code that is not sandboxed',
     );
     cy.window().then((win: any) => expect(win.__riskCodeRuns).to.be.undefined);
     cy.get('[data-cy="app-risk-dialog"]')

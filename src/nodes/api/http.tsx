@@ -74,7 +74,7 @@ export class HTTPNode extends PPNode {
           (name) => !this.getStaticInputData(name).known,
         )
       ) {
-        risks.push(new ApiKeyRisk('Key chosen while the app runs'));
+        risks.push(new ApiKeyRisk());
       }
     }
     for (const key of keys) risks.push(new ApiKeyRisk(key));
