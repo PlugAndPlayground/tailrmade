@@ -132,11 +132,18 @@ export class CompanionRisk extends NodeRisk {
     'Sends requests through your Companion, which can reach your computer and local network.';
 }
 
-export class StorageRisk extends NodeRisk {
-  readonly kind = 'storage';
-  readonly title = 'Accesses Tailrmade data';
+export class StorageReadRisk extends NodeRisk {
+  readonly kind = 'storage-read';
+  readonly title = 'Reads Tailrmade data';
   readonly description =
-    'Reads data saved in Tailrmade. Write and delete nodes can also change or remove it. Nothing outside Tailrmade storage.';
+    'Reads data saved in Tailrmade by you or by other apps. Nothing outside Tailrmade storage.';
+}
+
+export class StorageWriteRisk extends NodeRisk {
+  readonly kind = 'storage-write';
+  readonly title = 'Changes Tailrmade data';
+  readonly description =
+    'Adds, changes or removes data saved in Tailrmade. Nothing outside Tailrmade storage.';
 }
 
 export class AIUsageRisk extends NodeRisk {

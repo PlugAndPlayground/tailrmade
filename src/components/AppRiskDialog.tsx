@@ -30,6 +30,7 @@ import StorageIcon from '@mui/icons-material/Storage';
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import ImageOutlinedIcon from '@mui/icons-material/ImageOutlined';
+import EditNoteIcon from '@mui/icons-material/EditNote';
 import VerifiedIcon from '@mui/icons-material/Verified';
 import {
   AppRisk,
@@ -73,7 +74,8 @@ const capabilityIcons: Record<string, typeof InfoOutlinedIcon> = {
   'dynamic-image': ImageOutlinedIcon,
   navigation: OpenInNewIcon,
   companion: ComputerIcon,
-  storage: StorageIcon,
+  'storage-read': StorageIcon,
+  'storage-write': EditNoteIcon,
   'ai-usage': AutoAwesomeIcon,
 };
 

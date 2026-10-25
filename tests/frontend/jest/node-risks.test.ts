@@ -3,6 +3,8 @@ import {
   NetworkRisk,
   ExternalImageRisk,
   DynamicImageRisk,
+  StorageReadRisk,
+  StorageWriteRisk,
   UnrestrictedCodeRisk,
   collectAppRisks,
   findApiKeyReferences,
@@ -147,6 +149,28 @@ describe('app risk disclosure', () => {
         'Address chosen while the app runs',
       );
     }
+  });
+
+  it('separates reading saved data from changing it', () => {
+    const risks = collectAppRisks([
+      {
+        id: 'read',
+        nodeName: 'Storage read',
+        getRisks: () => [new StorageReadRisk()],
+      },
+      {
+        id: 'write',
+        nodeName: 'Storage write',
+        getRisks: () => [new StorageWriteRisk()],
+      },
+    ]);
+    expect(risks.map(({ risk }) => risk.kind).sort()).toEqual([
+      'storage-read',
+      'storage-write',
+    ]);
+    // Neither description has to hedge about the other direction.
+    expect(new StorageReadRisk().description).not.toContain('remove');
+    expect(new StorageWriteRisk().description).not.toContain('Reads');
   });
 
   it('keeps different endpoints on the same host separate in the review', () => {
