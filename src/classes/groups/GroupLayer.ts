@@ -59,7 +59,7 @@ export default class GroupLayer extends PIXI.Container<PPGroup> {
   }
 
   removeGroup(id: string): void {
-    this.getGroup(id).destroy({ children: true });
+    this.getGroup(id)!.destroy({ children: true });
   }
 
   // puts a group back exactly as it was serialized, e.g. when undoing a delete

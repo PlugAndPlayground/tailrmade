@@ -46,7 +46,7 @@ function registerGroupActions(): void {
     ),
   );
   const applyProperties = async ({ id, ...properties }: UpdateGroupArgs) => {
-    const group = groupLayer().getGroup(id);
+    const group = groupLayer().getGroup(id)!;
     Object.assign(group, properties);
     group.draw();
   };
@@ -125,7 +125,7 @@ export async function addNodesToGroup(
       'Some of these nodes are already in a group. Remove them from it first.',
     );
   }
-  const previous = groupLayer().getGroup(id).serialize();
+  const previous = groupLayer().getGroup(id)!.serialize();
   const next: SerializedGroup = {
     ...previous,
     nodeIds: previous.nodeIds.concat(nodes.map((node) => node.id)),
@@ -160,7 +160,7 @@ export async function updateGroup(
   properties: GroupProperties,
   source: ActionSource = 'human',
 ): Promise<void> {
-  const group = groupLayer().getGroup(id);
+  const group = groupLayer().getGroup(id)!;
   const previous: UpdateGroupArgs = {
     id,
     name: group.name,
