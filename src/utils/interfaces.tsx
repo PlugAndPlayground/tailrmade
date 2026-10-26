@@ -83,7 +83,8 @@ export type SerializedGraph = {
   overlay: IDashboardState;
   nodes: SerializedNode[];
   links: SerializedLink[];
-  groups: SerializedGroup[];
+  // absent on graphs saved before groups existed
+  groups?: SerializedGroup[];
 };
 
 // The group's rectangle is not stored, it is always derived from its members

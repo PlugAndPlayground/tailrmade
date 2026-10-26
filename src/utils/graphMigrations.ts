@@ -36,7 +36,7 @@ import { migrateLegacyMentions } from '../text/tokens';
 import { migrateStaticTextItemsInTree } from '../text/migrations';
 import { migrateLegacyTextNodes } from '../text/nodeMigrations';
 
-export const GRAPH_DATA_VERSION = 8;
+export const GRAPH_DATA_VERSION = 7;
 const LEGACY_GRAPH_DATA_VERSION = 0.1;
 
 type GraphMigration = {
@@ -989,10 +989,6 @@ function migrateSurfaceDefaultsV6ToV7(
   );
 }
 
-function migrateAddGroupsV7ToV8(graphData: SerializedGraph): SerializedGraph {
-  return { ...graphData, version: 8, groups: [] };
-}
-
 const GRAPH_MIGRATIONS: GraphMigration[] = [
   {
     fromVersion: LEGACY_GRAPH_DATA_VERSION,
@@ -1023,11 +1019,6 @@ const GRAPH_MIGRATIONS: GraphMigration[] = [
     fromVersion: 6,
     toVersion: 7,
     migrate: migrateSurfaceDefaultsV6ToV7,
-  },
-  {
-    fromVersion: 7,
-    toVersion: 8,
-    migrate: migrateAddGroupsV7ToV8,
   },
 ];
 

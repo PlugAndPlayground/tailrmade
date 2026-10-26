@@ -73,18 +73,16 @@ export const GroupColorPicker: React.FC = () => {
             position: 'absolute',
             zIndex: 5,
             touchAction: 'none',
-            // below the icon, right-aligned with it like the header's end
+            // right of the icon, so the group's header and background stay
+            // visible while the colour changes
             left: Math.max(
               MARGIN,
               Math.min(
                 window.innerWidth - PICKER_WIDTH - MARGIN,
-                state.x - PICKER_WIDTH + 16,
+                state.x + MARGIN,
               ),
             ),
-            top: Math.max(
-              MARGIN,
-              Math.min(window.innerHeight - 320, state.y + 16),
-            ),
+            top: Math.max(MARGIN, Math.min(window.innerHeight - 320, state.y)),
           }}
         >
           <Sketch

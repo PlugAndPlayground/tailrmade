@@ -23,6 +23,9 @@ import {
   CONTEXTMENU_WIDTH,
   DISTRIBUTEHORIZONTAL_TEXTURE,
   DISTRIBUTEVERTICAL_TEXTURE,
+  GROUP_ICON_TEXTURE,
+  REMOVE_FROM_GROUP_ICON_TEXTURE,
+  UNGROUP_ICON_TEXTURE,
 } from '../../utils/constants';
 import {
   useIsSmallScreen,
@@ -39,9 +42,6 @@ import * as styles from '../../utils/style.module.css';
 import { SubMenuItem } from './ContextMenus';
 import DeleteIcon from '@mui/icons-material/Delete';
 import AddIcon from '@mui/icons-material/Add';
-import GroupWorkIcon from '@mui/icons-material/GroupWork';
-import LayersClearIcon from '@mui/icons-material/LayersClear';
-import PlaylistRemoveIcon from '@mui/icons-material/PlaylistRemove';
 import {
   extractSelectionToMacro,
   groupSelection,
@@ -222,7 +222,7 @@ export const NodeContextMenu = (props) => {
         {selectedGroups.length === 0 ? (
           <MenuItem onClick={() => void groupSelection()}>
             <ListItemIcon>
-              <GroupWorkIcon fontSize="small" />
+              <img src={GROUP_ICON_TEXTURE} />
             </ListItemIcon>
             <ListItemText>Group</ListItemText>
             <Typography variant="body2" color="text.secondary">
@@ -232,7 +232,7 @@ export const NodeContextMenu = (props) => {
         ) : (
           <MenuItem onClick={() => void ungroupSelection()}>
             <ListItemIcon>
-              <LayersClearIcon fontSize="small" />
+              <img src={UNGROUP_ICON_TEXTURE} />
             </ListItemIcon>
             <ListItemText>Ungroup</ListItemText>
             <Typography variant="body2" color="text.secondary">
@@ -243,7 +243,7 @@ export const NodeContextMenu = (props) => {
         {isPartOfGroupSelected && (
           <MenuItem onClick={() => void removeNodesFromGroups(selectedNodes)}>
             <ListItemIcon>
-              <PlaylistRemoveIcon fontSize="small" />
+              <img src={REMOVE_FROM_GROUP_ICON_TEXTURE} />
             </ListItemIcon>
             <ListItemText>Remove from group</ListItemText>
           </MenuItem>

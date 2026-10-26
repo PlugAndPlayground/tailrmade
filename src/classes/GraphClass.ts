@@ -1660,7 +1660,10 @@ export default class PPGraph {
       console.error(error);
       return false;
     }
-    this.groupLayer.configure(data.groups, new Set(Object.keys(this.nodes)));
+    this.groupLayer.configure(
+      data.groups ?? [],
+      new Set(Object.keys(this.nodes)),
+    );
 
     // migrate all nodes that need to
     for (let i = 0; i < data.nodes.length; i++) {
