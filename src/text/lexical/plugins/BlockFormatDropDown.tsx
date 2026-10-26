@@ -26,8 +26,8 @@ export function BlockFormatDropDown({
   blockTypeToBlockName: BlockTypeMap;
   showBlockTypeDropDown;
   setShowBlockTypeDropDown;
-}): JSX.Element {
-  const dropDownRef = useRef(null);
+}): React.JSX.Element {
+  const dropDownRef = useRef<HTMLDivElement>(null);
   const blockTypeDropDownanchorRef = useRef<HTMLButtonElement>(null);
 
   const handleBlockTypeDropdownToggle = (event) => {

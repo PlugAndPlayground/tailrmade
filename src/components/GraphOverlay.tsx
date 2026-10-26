@@ -34,7 +34,10 @@ import {
   saveDrawerStateToSession,
   loadDrawerStateFromSession,
 } from '../utils/sessionStorageHandler';
-import { VISIBILITY_ACTION } from '../utils/constants_shared';
+import {
+  VISIBILITY_ACTION,
+  TVisibilityAction,
+} from '../utils/constants_shared';
 import { EmptyState } from './dashboard/DashboardEditor';
 import { ModalHost } from './dashboard/ModalHost';
 import {
@@ -85,7 +88,7 @@ const GraphOverlay: React.FunctionComponent<GraphOverlayProps> = (props) => {
   const appliedAppViewRef = useRef(false);
 
   const setIsDashboardInEditMode = useCallback(
-    (action: VISIBILITY_ACTION) => {
+    (action: TVisibilityAction) => {
       if (action === VISIBILITY_ACTION.TOGGLE) {
         setIsEditMode((edit) => {
           InterfaceController.isDashboardInEditMode = !edit;
@@ -169,7 +172,7 @@ const GraphOverlay: React.FunctionComponent<GraphOverlayProps> = (props) => {
   const toggleDrawer = useCallback(
     (
       side: DrawerSide,
-      action: VISIBILITY_ACTION,
+      action: TVisibilityAction,
       // the sub-view this drawer should switch to (a left or right drawer view)
       content?: DrawerView,
     ) => {
@@ -177,32 +180,35 @@ const GraphOverlay: React.FunctionComponent<GraphOverlayProps> = (props) => {
         return;
       }
 
-      const drawer = overlayState[side];
-
-      updateOverlayState({
-        [side]: {
-          ...drawer,
-          visible: nextDrawerVisibility({
-            action,
-            isVisible: drawer.visible,
-            requestedView: content,
-            activeView: drawer.activeView,
-          }),
-          ...(content != null && { activeView: content }),
-        },
+      // functional update so back-to-back drawer calls in one event compose
+      setOverlayState((state) => {
+        const drawer = state[side];
+        return {
+          ...state,
+          [side]: {
+            ...drawer,
+            visible: nextDrawerVisibility({
+              action,
+              isVisible: drawer.visible,
+              requestedView: content,
+              activeView: drawer.activeView,
+            }),
+            ...(content != null && { activeView: content }),
+          },
+        };
       });
     },
-    [overlayState, updateOverlayState],
+    [],
   );
 
   const toggleLeftSideDrawer = useCallback(
-    (action: VISIBILITY_ACTION, content?: LeftDrawerView) =>
+    (action: TVisibilityAction, content?: LeftDrawerView) =>
       toggleDrawer(DrawerSide.LEFT, action, content),
     [toggleDrawer],
   );
 
   const toggleRightSideDrawer = useCallback(
-    (action: VISIBILITY_ACTION, view?: RightDrawerView) =>
+    (action: TVisibilityAction, view?: RightDrawerView) =>
       toggleDrawer(DrawerSide.RIGHT, action, view),
     [toggleDrawer],
   );
@@ -210,14 +216,15 @@ const GraphOverlay: React.FunctionComponent<GraphOverlayProps> = (props) => {
   // Set the active right drawer tab without changing the drawer's visibility
   const setRightDrawerView = useCallback(
     (view: RightDrawerView) => {
-      updateOverlayState({
-        rightSide: { ...overlayState.rightSide, activeView: view },
-      });
+      setOverlayState((state) => ({
+        ...state,
+        rightSide: { ...state.rightSide, activeView: view },
+      }));
     },
-    [overlayState.rightSide, updateOverlayState],
+    [],
   );
 
-  const toggleDashboard = useCallback((action: VISIBILITY_ACTION) => {
+  const toggleDashboard = useCallback((action: TVisibilityAction) => {
     setOverlayState((state) => ({
       ...state,
       [DrawerSide.DASHBOARD]: {
@@ -243,7 +250,7 @@ const GraphOverlay: React.FunctionComponent<GraphOverlayProps> = (props) => {
   }, [overlayState, isEditMode]);
 
   const toggleAppView = useCallback(
-    (action: VISIBILITY_ACTION) => {
+    (action: TVisibilityAction) => {
       const wasInAppView = appliedAppViewRef.current;
       const goToAppView =
         action === VISIBILITY_ACTION.TOGGLE
@@ -322,7 +329,7 @@ const GraphOverlay: React.FunctionComponent<GraphOverlayProps> = (props) => {
   }, [openDashboardInEditMode, setIsDashboardInEditMode]);
 
   const toggleMaximized = useCallback(
-    (action: VISIBILITY_ACTION) => {
+    (action: TVisibilityAction) => {
       updateOverlayState({
         dashboard: {
           ...overlayState.dashboard,

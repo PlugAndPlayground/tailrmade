@@ -23,7 +23,14 @@ const MonacoEditor = React.lazy(() => import('../../components/MonacoEditor'));
 
 // Loading component
 const EditorLoading = () => (
-  <Box display="flex" justifyContent="center" alignItems="center" height="100%">
+  <Box
+    sx={{
+      display: 'flex',
+      justifyContent: 'center',
+      alignItems: 'center',
+      height: '100%',
+    }}
+  >
     <CircularProgress />
   </Box>
 );

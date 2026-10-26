@@ -254,13 +254,16 @@ export type TNodeId = string;
 export type SerializedNode = {
   type: string;
   id: string;
-  name: string;
+  name: string | undefined; // undefined when it matches the default name
   x: number;
   y: number;
   width: number;
   height: number;
   socketArray: SerializedSocket[];
-  updateBehaviour: IUpdateBehaviour;
+  // intervalFrequency is left out when it is the default
+  updateBehaviour: Omit<IUpdateBehaviour, 'intervalFrequency'> & {
+    intervalFrequency: number | undefined;
+  };
   version: number | undefined; // undefined is interpreted as 1
   comment?: string; // optional user comment displayed above the node
 };

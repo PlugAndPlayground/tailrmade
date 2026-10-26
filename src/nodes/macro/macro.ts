@@ -51,8 +51,8 @@ export class Macro extends PPNode {
     return false;
   }
 
-  callerGraphics: PIXI.Graphics = undefined;
-  textRef: PIXI.Text = undefined;
+  callerGraphics!: PIXI.Graphics;
+  textRef: PIXI.Text | undefined = undefined;
   prevCallers: string = '';
   prevTimeUpdated = 0;
 
@@ -473,7 +473,7 @@ export class Macro extends PPNode {
     return toReturn;
   }
 
-  public shouldPropagateExecutionThrough(socket: PPSocket): boolean {
+  public shouldPropagateExecutionThrough(socket: Socket): boolean {
     return false;
   }
 
@@ -850,7 +850,7 @@ export class MapExecuteMacro extends ExecuteMacro {
     outputObject: Record<string, unknown>,
   ): Promise<void> {
     const calledMacro = this.getInputData(macroNameName);
-    const toReturn = [];
+    const toReturn: unknown[] = [];
     if (calledMacro !== EMPTY_DEFAULT_MACRO_NAME) {
       const inputArray: object[] = inputObject[macroArrayName];
 

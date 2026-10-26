@@ -23,6 +23,7 @@ import {
 } from './utils/interfaces';
 import {
   VISIBILITY_ACTION,
+  TVisibilityAction,
   surfaceElementVisibleSuffix,
 } from './utils/constants_shared';
 import {
@@ -175,18 +176,18 @@ export default class InterfaceController {
   static openNodeSearch: (position?: PIXI.Point) => void = () => {};
   static toggleShowEdit: (open?: boolean) => void = () => {};
   static toggleLeftSideDrawer: (
-    action: VISIBILITY_ACTION,
+    action: TVisibilityAction,
     content?: LeftDrawerView,
   ) => void = () => {};
-  static toggleShowDashboard: (action: VISIBILITY_ACTION) => void = () => {};
-  static toggleDashboardInEditMode: (action: VISIBILITY_ACTION) => void =
+  static toggleShowDashboard: (action: TVisibilityAction) => void = () => {};
+  static toggleDashboardInEditMode: (action: TVisibilityAction) => void =
     () => {};
-  static toggleAppView: (action: VISIBILITY_ACTION) => void = () => {};
+  static toggleAppView: (action: TVisibilityAction) => void = () => {};
   static isInAppView(): boolean {
     return this.getOverlayState().dashboard.fullscreen;
   }
   static toggleRightSideDrawer: (
-    action: VISIBILITY_ACTION,
+    action: TVisibilityAction,
     view?: RightDrawerView,
   ) => void = () => {};
   // Sets the active right drawer tab without changing the drawer's visibility.

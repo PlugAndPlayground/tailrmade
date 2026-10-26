@@ -84,11 +84,11 @@ export default class FlowLogic {
   static getHasDependencyOnOtherFoundationalWithExclusion(
     node: PPNode,
     foundational: PPNode[],
-    optionalExcludedNode: string,
+    optionalExcludedNode: string | undefined,
   ): boolean {
     const aggregated = new Set();
-    let current = node;
-    let next = [];
+    let current: PPNode | undefined = node;
+    let next: PPNode[] = [];
     while (current !== undefined) {
       aggregated.add(current.id);
       const nextNodes = current.inputSocketArray
@@ -110,7 +110,7 @@ export default class FlowLogic {
   static MAX_ITERATIONS = 10000;
   static async executeOptimizedChainBatch(
     foundational: PPNode[],
-    excludedParent: string = undefined, // this sucks man
+    excludedParent?: string, // this sucks man
   ): Promise<void> {
     // if it turns out that any of the foundationals are dependent on some other of them, remove from foundational (they will get called later because they apparently are part of child chain)
     const foundationalOriginalSet: Set<string> = new Set(
@@ -138,15 +138,16 @@ export default class FlowLogic {
     foundationalPost.sort((a, b) => a.executionOrder() - b.executionOrder());
     let currentExecuting = foundationalPost.shift();
     while (currentExecuting) {
-      await currentExecuting.execute();
-      hasExecuted.add(currentExecuting.id);
+      const executing = currentExecuting;
+      await executing.execute();
+      hasExecuted.add(executing.id);
       // uncomment if you want to see the execution visually by slowing it down (to make sure order is correct)
       //console.log('executing: ' + currentExecuting.getName());
       //await new Promise((resolve) => setTimeout(resolve, 100));
       Object.keys(currentExecuting.getDirectDependents()).forEach(
         (dependentKey) => {
           if (dependencyGraph[dependentKey] !== undefined) {
-            dependencyGraph[dependentKey].delete(currentExecuting.id);
+            dependencyGraph[dependentKey].delete(executing.id);
             if (
               dependencyGraph[dependentKey].size == 0 &&
               (PPGraph.currentGraph.nodes[dependentKey].updateBehaviour

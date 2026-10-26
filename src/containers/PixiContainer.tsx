@@ -3,7 +3,10 @@ import React from 'react';
 import * as styles from '../utils/style.module.css';
 
 const PixiContainer = React.forwardRef(
-  (props, forwardedRef: React.Ref<HTMLDivElement> | null): JSX.Element => {
+  (
+    props,
+    forwardedRef: React.Ref<HTMLDivElement> | null,
+  ): React.JSX.Element => {
     return (
       <div
         id="pixi-container"

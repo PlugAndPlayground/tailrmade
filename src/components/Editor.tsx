@@ -9,7 +9,14 @@ import type * as Monaco from 'monaco-editor/editor/editor.api';
 const MonacoEditor = React.lazy(() => import('./MonacoEditor'));
 
 const EditorLoading = () => (
-  <Box display="flex" justifyContent="center" alignItems="center" height="100%">
+  <Box
+    sx={{
+      display: 'flex',
+      justifyContent: 'center',
+      alignItems: 'center',
+      height: '100%',
+    }}
+  >
     <CircularProgress />
   </Box>
 );
@@ -18,7 +25,7 @@ type CodeEditorProps = {
   value: unknown;
   onChange?: (code: string) => void;
   editable?: boolean;
-  language: string;
+  language?: string;
   inDashboard?: boolean;
 };
 
@@ -26,12 +33,12 @@ export const CodeEditor: React.FunctionComponent<CodeEditorProps> = ({
   value,
   onChange,
   editable,
-  language,
+  language = 'plaintext',
   inDashboard = false,
 }) => {
   const minHeight = 48;
-  const editorRef = useRef<Monaco.editor.IStandaloneCodeEditor>();
-  const monacoRef = useRef<typeof Monaco>();
+  const editorRef = useRef<Monaco.editor.IStandaloneCodeEditor>(undefined);
+  const monacoRef = useRef<typeof Monaco>(undefined);
   const boxRef = useRef<HTMLDivElement>(null);
   const resizeRef = useRef<HTMLDivElement>(null);
 

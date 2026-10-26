@@ -40,7 +40,7 @@ type FilterContentProps = {
     event: React.MouseEvent<HTMLElement>,
     newFilter: string | null,
   ) => void;
-  filter: string;
+  filter: string | null;
   selectedNode: PPNode;
   selectedNodes: PPNode[];
   hasCommonInputs?: boolean;
@@ -123,10 +123,11 @@ function FilterContainer(props: FilterContentProps) {
 
 type CommonContentProps = {
   hasTriggerSocket: boolean;
-  load: boolean;
-  update: boolean;
-  interval: boolean;
-  intervalFrequency: number;
+  // null when the selected nodes disagree
+  load: boolean | null;
+  update: boolean | null;
+  interval: boolean | null;
+  intervalFrequency: number | null;
   onCheckboxChange: (event: any) => void;
   onFrequencyChange: (value: number) => void;
   onUpdateNow: (event: any) => void;
@@ -171,7 +172,7 @@ function CommonContent(props: CommonContentProps) {
               <Checkbox
                 size="small"
                 name="load"
-                checked={props.load}
+                checked={props.load ?? false}
                 indeterminate={props.load === null}
                 onChange={props.onCheckboxChange}
               />
@@ -184,7 +185,7 @@ function CommonContent(props: CommonContentProps) {
               <Checkbox
                 size="small"
                 name="update"
-                checked={props.update}
+                checked={props.update ?? false}
                 indeterminate={props.update === null}
                 onChange={props.onCheckboxChange}
               />
@@ -197,7 +198,7 @@ function CommonContent(props: CommonContentProps) {
               <Checkbox
                 size="small"
                 name="interval"
-                checked={props.interval}
+                checked={props.interval ?? false}
                 indeterminate={props.interval === null}
                 onChange={props.onCheckboxChange}
               />
@@ -247,7 +248,7 @@ export default CommonContent;
 interface CommonSocketsArrayProps {
   commonSockets: CommonSocket[];
   selectedNodes: PPNode[];
-  filter?: string;
+  filter?: string | null;
   value?: string;
   text?: string;
 }
@@ -434,8 +435,8 @@ function NodeInfoContent(props: NodeInfoContentProps) {
 }
 
 type PropertyArrayContainerProps = {
-  filter: string;
-  setFilter: React.Dispatch<React.SetStateAction<string>>;
+  filter: string | null;
+  setFilter: (filter: string | null) => void;
 };
 
 function getVisibleIDs(socketArray: Socket[]): string[] {

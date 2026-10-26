@@ -15,7 +15,8 @@ export type EnumItem = {
 export type EnumStructure = EnumItem[];
 
 export interface EnumTypeProps extends DataTypeProps {
-  dataType: AbstractType;
+  // shared by EnumType and DynamicEnumType; only EnumType has showAsButtons
+  dataType: AbstractType & { showAsButtons?: boolean };
   getOptions: () => EnumStructure;
   onChange?: (value: string) => void;
   setOptions;

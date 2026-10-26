@@ -11,6 +11,7 @@ cypress/screenshots
 cypress/videos
 cypress/logs
 cypress/downloads
+cypress/_socket-inventory.json
 cypress-server.log
 tests/frontend/cypress/screenshots
 tests/frontend/cypress/videos

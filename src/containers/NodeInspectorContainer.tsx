@@ -28,7 +28,7 @@ import { MAIN_COLOR } from '../utils/constants';
 
 function InspectorHeader(props) {
   const [nodeName, setNodeName] = React.useState('');
-  const textInput = useRef(null);
+  const textInput = useRef<HTMLInputElement>(null);
   const isEditable = props.isEditable;
   const selectedNode = props.selectedNodes[0];
   const originalName = selectedNode.getName();
@@ -116,7 +116,7 @@ type: ${props.selectedNodes[0].type}`}
               onKeyDown={(event) => {
                 if (event.key === 'Enter') {
                   event.preventDefault();
-                  textInput.current.blur();
+                  textInput.current?.blur();
                 }
               }}
               value={nodeName}
@@ -154,7 +154,7 @@ type: ${props.selectedNodes[0].type}`}
               }}
               onClick={() => {
                 setTimeout(() => {
-                  textInput.current.focus();
+                  textInput.current?.focus();
                 }, 100);
               }}
             >
@@ -371,8 +371,8 @@ function LinkedWidgets({ selectedNode }) {
 
 type InspectorContainerProps = {
   selectedNodes: PPNode[];
-  filter: string;
-  setFilter: React.Dispatch<React.SetStateAction<string>>;
+  filter: string | null;
+  setFilter: (filter: string | null) => void;
 };
 
 const NodeInspectorContainer: React.FunctionComponent<

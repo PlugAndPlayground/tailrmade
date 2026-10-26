@@ -118,7 +118,7 @@ export class Screenshot extends PPNode {
     disabled: false,
     width: '100%',
     height: '100%',
-  } as DashboardWidgetProps;
+  } as unknown as DashboardWidgetProps;
 
   /**
    * A node only writes its ReactUI output once it has executed with something

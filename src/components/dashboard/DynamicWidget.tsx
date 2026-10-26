@@ -90,7 +90,9 @@ export const DynamicWidgetView = (viewProps: DynamicWidgetViewProps) => {
     isSurfacePreview = false,
     ...props
   } = viewProps;
-  const layoutableElement = getLayoutableElement(props.id);
+  const layoutableElement = props.id
+    ? getLayoutableElement(props.id)
+    : undefined;
   // this hook runs on both branches below, so returning the placeholder
   // early cannot violate the rules of hooks
   const { localHover, handleMouseEnter, handleMouseLeave } =

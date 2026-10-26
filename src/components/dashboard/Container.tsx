@@ -85,8 +85,8 @@ const defaultProps: ContainerWidgetProps = {
 // SurfaceRenderer needs the same defaults when rendering without craft
 export const containerDefaultProps = defaultProps;
 
-interface ContainerProps extends ContainerWidgetProps {
-  children: React.ReactNode;
+export interface ContainerProps extends ContainerWidgetProps {
+  children?: React.ReactNode;
   gap: number;
 }
 
