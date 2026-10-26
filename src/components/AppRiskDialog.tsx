@@ -72,7 +72,7 @@ type Review = {
 const reviewStore = createStore<Review | null>(null);
 export const APP_RISK_PANEL_WIDTH = 380;
 
-const capabilityIcons: Record<string, typeof InfoOutlinedIcon> = {
+const actionIcons: Record<string, typeof InfoOutlinedIcon> = {
   'unrestricted-code': CodeIcon,
   'api-key': KeyIcon,
   network: PublicIcon,
@@ -103,20 +103,20 @@ const accessStyles: Record<RiskLevel, AccessStyle> = {
     color: '#fd6a52',
     label: 'Unrestricted',
     bars: 3,
-    description: 'Not sandboxed. Its capabilities cannot be determined.',
+    description: 'Not sandboxed. Its actions cannot be determined.',
   },
   dynamic: {
     color: '#ffc247',
     label: 'Dynamic',
     bars: 2,
     description:
-      'Its capabilities are known, but its values can change while running.',
+      'Its actions are known, but its values can change while running.',
   },
   static: {
     color: '#8cb8f7',
     label: 'Static',
     bars: 1,
-    description: 'Its capabilities are known and its values are constant.',
+    description: 'Its actions are known and its values are constant.',
   },
   // White rather than a lighter blue: it steps off the red-amber-blue ramp
   // instead of extending it, so it tells this apart from `static` without
@@ -351,7 +351,7 @@ export function AppRiskSummary(): React.ReactElement {
   ).size;
   return (
     <Box data-cy="app-risk-summary" sx={{ bgcolor: 'background.paper' }}>
-      <Box sx={{ px: 2, py: 1, color: 'text.primary' }}>Access</Box>
+      <Box sx={{ px: 2, py: 1, color: 'text.primary' }}>App risk review</Box>
       <Box sx={{ p: 2, bgcolor: 'background.default' }}>
         <Box
           data-cy="required-access-score"
@@ -377,12 +377,16 @@ export function AppRiskSummary(): React.ReactElement {
         </Box>
         <Button
           variant="outlined"
+          // The theme's secondary is the brand blue negated, a muted gold: it
+          // reads as caution next to the blue the rest of the drawer uses,
+          // without taking a level's colour and implying a verdict.
+          color="secondary"
           startIcon={<FactCheckOutlinedIcon />}
           data-cy="open-risk-review"
           onClick={showCurrentAppRisks}
           sx={{ mt: 1.5 }}
         >
-          Review risks
+          Open review
         </Button>
       </Box>
     </Box>
@@ -571,12 +575,12 @@ function AccessOverview({
   );
 }
 
-type Capability = { risk: NodeRisk; destinations: AppRisk[] };
+type AppAction = { risk: NodeRisk; destinations: AppRisk[] };
 
-// One card per capability, so its description shows once even when many
+// One card per action, so its description shows once even when many
 // destinations need it.
-function groupCapabilities(risks: AppRisk[]): Capability[] {
-  const byKind = new Map<string, Capability>();
+function groupActions(risks: AppRisk[]): AppAction[] {
+  const byKind = new Map<string, AppAction>();
   for (const appRisk of risks) {
     const key = `${appRisk.risk.kind}|${appRisk.risk.severity}`;
     const entry = byKind.get(key) ?? { risk: appRisk.risk, destinations: [] };
@@ -623,13 +627,13 @@ function NodeTypeRows({
   );
 }
 
-function CapabilityGroup({
+function ActionGroup({
   risk,
   destinations,
   onInspect,
-}: Capability & { onInspect: (ids: string[]) => void }): React.ReactElement {
+}: AppAction & { onInspect: (ids: string[]) => void }): React.ReactElement {
   const level = getRiskLevel(risk);
-  const Icon = capabilityIcons[risk.kind] ?? InfoOutlinedIcon;
+  const Icon = actionIcons[risk.kind] ?? InfoOutlinedIcon;
   const ids = [
     ...new Set(destinations.flatMap(({ nodes }) => nodes.map((n) => n.id))),
   ];
@@ -735,7 +739,7 @@ export function AppRiskDialog({
   const pending = pendingAppRun.useStore();
   const [starting, setStarting] = useState(false);
   const [search, setSearch] = useState('');
-  const [tab, setTab] = useState<'capabilities' | 'nodes'>('capabilities');
+  const [tab, setTab] = useState<'actions' | 'nodes'>('actions');
   const [inspection, setInspection] = useState<string[]>([]);
   const [panelElement, setPanelElement] = useState<HTMLDivElement | null>(null);
   const stacked = useIsStackLayout();
@@ -759,9 +763,9 @@ export function AppRiskDialog({
         .toLowerCase(),
     }));
   }, [review]);
-  const capabilities = useMemo(
+  const actions = useMemo(
     () =>
-      groupCapabilities(review?.risks ?? []).map((group) => ({
+      groupActions(review?.risks ?? []).map((group) => ({
         ...group,
         searchText: [
           group.risk.title,
@@ -781,7 +785,7 @@ export function AppRiskDialog({
   );
   useEffect(() => {
     setSearch('');
-    setTab('capabilities');
+    setTab('actions');
     setInspection(nodes.map((node) => node.id));
   }, [review, nodes]);
   useEffect(() => {
@@ -902,14 +906,14 @@ export function AppRiskDialog({
   };
   const query = search.trim().toLowerCase();
   const matchingNodes = nodes.filter((node) => node.searchText.includes(query));
-  const matchingCapabilities = capabilities.filter((group) =>
+  const matchingActions = actions.filter((group) =>
     group.searchText.includes(query),
   );
-  const showCapability = (risk: NodeRisk): void => {
-    // render the capabilities tab now so the card exists to scroll to
+  const showAction = (risk: NodeRisk): void => {
+    // render the actions tab now so the card exists to scroll to
     flushSync(() => {
       setSearch('');
-      setTab('capabilities');
+      setTab('actions');
     });
     const card = document.querySelector<HTMLElement>(
       `[data-cy="risk-details"][data-risk-kind="${risk.kind}"][data-risk-severity="${risk.severity}"]`,
@@ -976,7 +980,7 @@ export function AppRiskDialog({
               {review.risks.some(
                 ({ risk }) => risk.kind === 'unrestricted-code',
               ) &&
-                ' Some nodes also run code that is not sandboxed. Their capabilities cannot be determined, so this list is not complete for them — that part comes down to the source above.'}{' '}
+                ' Some nodes also run code that is not sandboxed. Their actions cannot be determined, so this list is not complete for them — that part comes down to the source above.'}{' '}
               <Box
                 component="a"
                 href={HELP_URL_APP_ACCESS}
@@ -1004,8 +1008,8 @@ export function AppRiskDialog({
               sx={{ mt: 1, borderBottom: 1, borderColor: 'divider' }}
             >
               <Tab
-                value="capabilities"
-                label={`Capabilities (${capabilities.length})`}
+                value="actions"
+                label={`Actions (${actions.length})`}
                 data-cy="risk-capabilities-tab"
               />
               <Tab
@@ -1017,25 +1021,25 @@ export function AppRiskDialog({
             <TextField
               fullWidth
               size="small"
-              label="Find a node or capability"
+              label="Find a node or action"
               value={search}
               onChange={(event) => setSearch(event.target.value)}
               sx={{ my: 1.5 }}
             />
-            {tab === 'capabilities' ? (
+            {tab === 'actions' ? (
               <>
-                {matchingCapabilities.map((group) => (
-                  <CapabilityGroup
+                {matchingActions.map((group) => (
+                  <ActionGroup
                     key={group.risk.id}
                     risk={group.risk}
                     destinations={group.destinations}
                     onInspect={inspectNodes}
                   />
                 ))}
-                {!matchingCapabilities.length && (
+                {!matchingActions.length && (
                   <Typography variant="body2" color="text.secondary">
-                    {capabilities.length
-                      ? 'No matching capabilities'
+                    {actions.length
+                      ? 'No matching actions'
                       : 'Nothing to review'}
                   </Typography>
                 )}
@@ -1063,7 +1067,7 @@ export function AppRiskDialog({
                               component="span"
                               role="link"
                               tabIndex={0}
-                              title="Show this capability"
+                              title="Show this action"
                               data-cy="node-capability"
                               data-risk-kind={risk.kind}
                               data-risk-severity={risk.severity}
@@ -1071,12 +1075,12 @@ export function AppRiskDialog({
                               onMouseDown={(event) => event.stopPropagation()}
                               onClick={(event) => {
                                 event.stopPropagation();
-                                showCapability(risk);
+                                showAction(risk);
                               }}
                               onKeyDown={(event) => {
                                 if (event.key !== 'Enter') return;
                                 event.stopPropagation();
-                                showCapability(risk);
+                                showAction(risk);
                               }}
                               sx={{
                                 display: 'block',

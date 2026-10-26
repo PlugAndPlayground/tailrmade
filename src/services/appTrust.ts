@@ -44,7 +44,7 @@ export async function getAppFingerprint(
 ): Promise<string | null> {
   try {
     // Migrated nodes may receive new IDs on each load. The original graph
-    // already identifies the reviewed code and wiring; retain risk capabilities.
+    // already identifies the reviewed code and wiring; retain risk actions.
     const content = getAppReviewContent(
       graph,
       risks

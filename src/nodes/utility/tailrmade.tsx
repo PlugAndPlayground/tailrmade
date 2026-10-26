@@ -267,11 +267,11 @@ export class Tailrmade extends PPNode {
   }
 
   // Same data the Access panel shows, so an app can display its own
-  // capabilities instead of asking people to open the review panel.
+  // actions instead of asking people to open the review panel.
   outputAppAccess(): void {
     const graph = PPGraph.currentGraph;
     const risks = collectAppRisks(Object.values(graph.nodes));
-    const capabilities = risks.map(({ risk, nodes }) => ({
+    const actions = risks.map(({ risk, nodes }) => ({
       kind: risk.kind,
       title: risk.title,
       description: risk.description,
@@ -292,7 +292,7 @@ export class Tailrmade extends PPNode {
         : null,
       // Mirrors the panel's headline: the highest level any node reaches.
       requiredLevel: highestRiskLevel(risks.map(({ risk }) => risk)),
-      capabilities,
+      actions,
     });
     void this.executeChildren();
   }

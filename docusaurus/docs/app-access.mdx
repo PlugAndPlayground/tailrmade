@@ -1,4 +1,4 @@
-# App access and capabilities
+# App access
 
 Apps in _tailrmade_ are graphs, and a graph can do real things: call APIs, spend
 your AI allowance, read and write your saved data, reach your computer through
@@ -17,7 +17,7 @@ name the key. You can read the list and decide.
 Two things get in the way of that.
 
 A value can be **set while running** — a URL that arrives from another node
-rather than being typed in. The capability is still known (it makes a request),
+rather than being typed in. The action is still known (it makes a request),
 but the address is not, so there is nothing to show you.
 
 And some code **cannot be described at all**. A custom function set to _Main
@@ -30,9 +30,9 @@ only part of this that forms a scale:
 
 | Level                   | Meaning                                                           |
 | ----------------------- | ----------------------------------------------------------------- |
-| **Unrestricted**        | Not sandboxed. Its capabilities cannot be determined.             |
-| **Dynamic**             | Its capabilities are known, but its values can change while running. |
-| **Static**              | Its capabilities are known and its values are constant.           |
+| **Unrestricted**        | Not sandboxed. Its actions cannot be determined.                  |
+| **Dynamic**             | Its actions are known, but its values can change while running.   |
+| **Static**              | Its actions are known and its values are constant.                |
 | **Static · loads only** | The same, and it only loads content from known sites.              |
 | **No access**           | Doesn't require any access.                                        |
 
@@ -45,7 +45,7 @@ the rule.
 Note what the scale does **not** tell you: how much is at stake. A _Static_ app
 can still spend your API credits and rewrite your saved data — you can simply
 see exactly that it will. That part is carried by the **impact tags** on each
-capability, not by the level.
+action, not by the level.
 
 ## What "Unrestricted" can and cannot do
 
@@ -66,14 +66,14 @@ This is why the panel stops being useful at this level and trust takes over.
 Check who the app came from — the source is shown at the top of the panel, with a
 **Tailrmade** badge when the app was published by us.
 
-## Capabilities
+## Actions
 
-Each capability is one thing a node can do. Cards carry **impact tags** ("Costs
+Each action is one thing a node does. Cards carry **impact tags** ("Costs
 money", "Sends your data out") so you do not have to infer the cost from the
 description. Impact is a set, not a ranking: money, your saved data, your
 computer and your privacy are different things, not degrees of one thing.
 
-| Capability                           | Level        | What it means                                                       |
+| Action                               | Level        | What it means                                                       |
 | ------------------------------------ | ------------ | ------------------------------------------------------------------- |
 | Runs code that is not sandboxed      | Unrestricted | Arbitrary JavaScript in the page; cannot be described in advance    |
 | Connects to other sites              | Static / Dynamic | Sends and receives data from the listed addresses               |
@@ -88,13 +88,13 @@ computer and your privacy are different things, not degrees of one thing.
 | Links to other sites                 | Static · loads only | Content links to or loads from the listed sites               |
 | Loads images from other sites        | Static · loads only | The site hosting each image can see when it loads             |
 
-The capabilities marked _Static / Dynamic_ land on whichever applies: _Static_
+The actions marked _Static / Dynamic_ land on whichever applies: _Static_
 when the address or key name is constant, _Dynamic_ when it arrives from another
 node.
 
 Each card lists the **destinations** it applies to and the nodes that need it.
 Where a destination cannot be worked out ahead of time, it reads _"Chosen while
-the app runs"_ and the capability counts as _Dynamic_.
+the app runs"_ and the action counts as _Dynamic_.
 
 ## How it is worked out
 
@@ -133,7 +133,7 @@ asking your users to accept. Most _Unrestricted_ apps do not need to be:
   it off for intermediate template nodes whose output feeds another node, or for
   markup that genuinely needs `<style>` blocks or inline handlers.
 - **Keep custom functions on Worker Thread**, the default. The QuickJS sandbox has
-  no network and no browser APIs, so a worker function reports no capability at
+  no network and no browser APIs, so a worker function reports no action at
   all. See [Create custom nodes](custom-nodes.mdx).
 - **Use real nodes instead of code.** An HTTP node reports its address; the same
   request made with `fetch` inside a main-thread function reports nothing and
@@ -152,7 +152,7 @@ data as the Access panel:
   app: 'My app',
   source: { ownerId: '…', owner: { name: '…', email: '…' }, verified: false },
   requiredLevel: 'static',
-  capabilities: [
+  actions: [
     {
       kind: 'api-key',
       title: 'Uses API keys',
@@ -169,7 +169,7 @@ data as the Access panel:
 
 `level` and `requiredLevel` are one of `unrestricted`, `dynamic`, `static`,
 `loads-only` or `none`. `resolved` is `false` when the value is only chosen while
-the app runs, which is what puts a capability at `dynamic`.
+the app runs, which is what puts an action at `dynamic`.
 
 Use it to show your own users what the app needs, or to assert in a test that an
-app has not quietly picked up a new capability.
+app has not quietly picked up a new one.

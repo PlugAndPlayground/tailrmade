@@ -88,7 +88,7 @@ function getStorageSocketPrefix(options: StorageSocketOptions = {}): Socket[] {
 }
 
 abstract class AbstractStorageNode extends PPNode {
-  // Readers and mutations report different capabilities, so neither
+  // Readers and mutations report different actions, so neither
   // description has to hedge about what this particular node does.
   protected mutatesStorage = false;
 

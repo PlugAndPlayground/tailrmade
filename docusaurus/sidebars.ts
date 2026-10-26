@@ -125,7 +125,7 @@ const sidebars: SidebarsConfig = {
         {
           type: 'doc',
           id: 'app-access',
-          label: 'App access and capabilities',
+          label: 'App access',
         },
         {
           type: 'doc',

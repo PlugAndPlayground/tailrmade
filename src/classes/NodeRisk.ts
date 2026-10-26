@@ -1,6 +1,6 @@
 export type RiskSeverity = 'critical' | 'warning' | 'info';
 
-// Short "so what?" labels shown next to each capability. A title says what a
+// Short "so what?" labels shown next to each action. A title says what a
 // node does, a consequence says what it costs you if the app misbehaves.
 export const CONSEQUENCE = {
   costsMoney: 'Costs money',
@@ -93,7 +93,7 @@ export class UnrestrictedCodeRisk extends NodeRisk {
   readonly title = 'Runs code that is not sandboxed';
   readonly resolved = false;
   readonly description =
-    'Its capabilities cannot be determined, because this code is not sandboxed. It can use anything Tailrmade can: your saved data, your API keys, your Companion, and any site. It cannot reach your files or other apps, or use your camera, microphone or location unless you have allowed Tailrmade to.';
+    'Its actions cannot be determined, because this code is not sandboxed. It can use anything Tailrmade can: your saved data, your API keys, your Companion, and any site. It cannot reach your files or other apps, or use your camera, microphone or location unless you have allowed Tailrmade to.';
   readonly consequences = [
     CONSEQUENCE.notSandboxed,
     CONSEQUENCE.changesYourData,

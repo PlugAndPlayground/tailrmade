@@ -292,7 +292,7 @@ export class AIBackend {
     return this.instance;
   }
 
-  // Public so AI nodes can report the Companion as a capability when the
+  // Public so AI nodes can report the Companion as an action when the
   // relay runs locally.
   public isLocalAI(): boolean {
     return (
