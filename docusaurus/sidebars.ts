@@ -124,8 +124,8 @@ const sidebars: SidebarsConfig = {
         },
         {
           type: 'doc',
-          id: 'app-access',
-          label: 'App access',
+          id: 'app-risk-review',
+          label: 'App risk review',
         },
         {
           type: 'doc',

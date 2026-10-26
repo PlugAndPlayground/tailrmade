@@ -564,7 +564,8 @@ WHERE service IS 'Store'`;
 export const SOCKETNAME_BACKGROUNDCOLOR = 'Background color';
 export const SANITIZE_NAME = 'Sanitize input';
 
-export const HELP_URL_APP_ACCESS = 'https://help.tailrmade.app/help/app-access';
+export const HELP_URL_APP_RISK_REVIEW =
+  'https://help.tailrmade.app/help/app-risk-review';
 
 // topParentOverrideSettings parameter names
 export const parentBgWidthName = 'parentBgWidth';

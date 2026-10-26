@@ -57,7 +57,7 @@ import { VISIBILITY_ACTION } from '../utils/constants_shared';
 import {
   customTheme,
   getDrawerBackground,
-  HELP_URL_APP_ACCESS,
+  HELP_URL_APP_RISK_REVIEW,
   RightDrawerView,
 } from '../utils/constants';
 import { setStackView, useIsStackLayout } from '../utils/layoutModel';
@@ -983,7 +983,7 @@ export function AppRiskDialog({
                 ' Some nodes also run code that is not sandboxed. Their actions cannot be determined, so this list is not complete for them — that part comes down to the source above.'}{' '}
               <Box
                 component="a"
-                href={HELP_URL_APP_ACCESS}
+                href={HELP_URL_APP_RISK_REVIEW}
                 target="_blank"
                 rel="noopener noreferrer"
                 data-cy="risk-help-link"
@@ -1010,7 +1010,7 @@ export function AppRiskDialog({
               <Tab
                 value="actions"
                 label={`Actions (${actions.length})`}
-                data-cy="risk-capabilities-tab"
+                data-cy="risk-actions-tab"
               />
               <Tab
                 value="nodes"
@@ -1054,13 +1054,13 @@ export function AppRiskDialog({
                       key={node.id}
                       node={graphNode}
                       aria-label={`Go to node ${node.name}`}
-                      aria-describedby={`risk-capabilities-${node.id}`}
+                      aria-describedby={`risk-actions-${node.id}`}
                       data-cy="go-to-risk-node"
                       data-node-id={node.id}
                       onClick={() => inspectNodes([node.id])}
                       tags={<AccessChip level={highestRiskLevel(node.risks)} />}
                       subtitle={
-                        <Box id={`risk-capabilities-${node.id}`}>
+                        <Box id={`risk-actions-${node.id}`}>
                           {node.risks.map((risk) => (
                             <Box
                               key={risk.id}
@@ -1068,7 +1068,7 @@ export function AppRiskDialog({
                               role="link"
                               tabIndex={0}
                               title="Show this action"
-                              data-cy="node-capability"
+                              data-cy="node-action"
                               data-risk-kind={risk.kind}
                               data-risk-severity={risk.severity}
                               // the row behind it inspects the node instead

@@ -108,7 +108,7 @@ describe('app risk review', () => {
       .should('contain', 'Loads images from other sites')
       .and('not.contain', 'Connects to other sites')
       .and('not.contain', 'hidden-secret');
-    cy.get('[data-cy="risk-capabilities-tab"]').click();
+    cy.get('[data-cy="risk-actions-tab"]').click();
     cy.get('[data-cy="risk-details"][data-risk-severity="info"]').should(
       'contain',
       'Loads images from other sites',
@@ -398,7 +398,7 @@ describe('app risk review', () => {
     cy.viewport(390, 900);
     cy.get('[data-cy="go-to-risk-node"]').scrollIntoView();
     cy.screenshot('node-capabilities-mobile', { capture: 'runner' });
-    cy.get('[data-cy="risk-capabilities-tab"]').click();
+    cy.get('[data-cy="risk-actions-tab"]').click();
     cy.get('[data-cy="inspect-risk-group"]').first().click();
     shouldWithTestController((controller) => {
       expect(
@@ -649,8 +649,8 @@ describe('app risk review', () => {
     cy.get('[data-cy="run-reviewed-app"]').should('not.exist');
     cy.screenshot('app-risk-summary', { capture: 'runner' });
     cy.get('[data-cy="risk-nodes-tab"]').click();
-    cy.get('[data-cy="node-capability"]').click();
-    cy.get('[data-cy="risk-capabilities-tab"]').should(
+    cy.get('[data-cy="node-action"]').click();
+    cy.get('[data-cy="risk-actions-tab"]').should(
       'have.attr',
       'aria-selected',
       'true',
