@@ -1,18 +1,21 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { flushSync } from 'react-dom';
 import { Point } from 'pixi.js';
 import {
   Alert,
   Box,
   Button,
   Chip,
+  Collapse,
   Dialog,
   DialogActions,
   DialogContent,
   DialogTitle,
   List,
-  ListItemButton,
-  ListItemIcon,
   Paper,
+  Tab,
+  Tabs,
+  ThemeProvider,
   TextField,
   Typography,
 } from '@mui/material';
@@ -28,24 +31,35 @@ import StorageIcon from '@mui/icons-material/Storage';
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import ImageOutlinedIcon from '@mui/icons-material/ImageOutlined';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import EditNoteIcon from '@mui/icons-material/EditNote';
+import HelpOutlineIcon from '@mui/icons-material/HelpOutlineOutlined';
 import VerifiedIcon from '@mui/icons-material/Verified';
 import {
   AppRisk,
   NodeRisk,
-  RiskSeverity,
+  RISK_LEVEL_ORDER,
+  RiskLevel,
   collectAppRisks,
+  getRiskLevel,
+  highestRiskLevel,
   requiresAppRiskReview,
 } from '../classes/NodeRisk';
 import PPGraph from '../classes/GraphClass';
+import PPNode from '../classes/NodeClass';
 import { createStore } from './createStore';
+import { NodeRow } from './NodeRow';
+import { TagChip } from './TagChip';
 import { pendingAppRun } from '../services/appExecution';
 import InterfaceController, { ListenEvent } from '../InterfaceController';
-import {
-  ensureVisible,
-  getNodesBounds,
-  smoothMoveViewport,
-} from '../pixi/utils-pixi';
+import { getNodesBounds, smoothMoveViewport } from '../pixi/utils-pixi';
 import { VISIBILITY_ACTION } from '../utils/constants_shared';
+import {
+  customTheme,
+  getDrawerBackground,
+  HELP_URL_APP_RISK_REVIEW,
+  RightDrawerView,
+} from '../utils/constants';
 import { setStackView, useIsStackLayout } from '../utils/layoutModel';
 
 type Review = {
@@ -58,7 +72,7 @@ type Review = {
 const reviewStore = createStore<Review | null>(null);
 export const APP_RISK_PANEL_WIDTH = 380;
 
-const capabilityIcons: Record<string, typeof InfoOutlinedIcon> = {
+const actionIcons: Record<string, typeof InfoOutlinedIcon> = {
   'unrestricted-code': CodeIcon,
   'api-key': KeyIcon,
   network: PublicIcon,
@@ -66,78 +80,162 @@ const capabilityIcons: Record<string, typeof InfoOutlinedIcon> = {
   'dynamic-image': ImageOutlinedIcon,
   navigation: OpenInNewIcon,
   companion: ComputerIcon,
-  storage: StorageIcon,
+  'storage-read': StorageIcon,
+  'storage-write': EditNoteIcon,
   'ai-usage': AutoAwesomeIcon,
 };
 
-const severityStyles: Record<
-  RiskSeverity,
-  { color: string; background: string; score: number; label: string }
-> = {
-  critical: {
-    color: '#e4c28c',
-    background: '#3d3426',
-    score: 3,
-    label: 'Broad access',
+type AccessStyle = {
+  color: string;
+  label: string;
+  // Shown instead of `label` where a row has no width for it.
+  shortLabel?: string;
+  // Filled slots out of BAR_SLOTS. The two Static levels share a count.
+  bars: number;
+  description: string;
+};
+
+// The one ordered scale in the panel: how well a person can judge this, from
+// "nothing to judge" up to "cannot be judged at all". `severity` still decides
+// what is allowed to run; it is not shown as a scale of its own.
+const accessStyles: Record<RiskLevel, AccessStyle> = {
+  unrestricted: {
+    color: '#fd6a52',
+    label: 'Unrestricted',
+    bars: 3,
+    description: 'Not sandboxed. Its actions cannot be determined.',
   },
-  warning: {
-    color: '#d5cfbd',
-    background: '#34332f',
-    score: 2,
-    label: 'Specific access',
+  dynamic: {
+    color: '#ffc247',
+    label: 'Dynamic',
+    bars: 2,
+    description:
+      'Its actions are known, but its values can change while running.',
   },
-  info: {
-    color: '#a9dfff',
-    background: '#173b50',
-    score: 1,
-    label: 'Basic access',
+  static: {
+    color: '#8cb8f7',
+    label: 'Static',
+    bars: 1,
+    description: 'Its actions are known and its values are constant.',
+  },
+  // White rather than a lighter blue: it steps off the red-amber-blue ramp
+  // instead of extending it, so it tells this apart from `static` without
+  // placing it a step above.
+  'loads-only': {
+    color: '#ffffff',
+    label: 'Static - loads only',
+    shortLabel: 'loads only',
+    bars: 1,
+    description: 'The same, and it only loads content from known sites.',
+  },
+  none: {
+    color: '#8d96ab',
+    label: 'No access',
+    bars: 0,
+    description: "Doesn't require any access.",
   },
 };
 
-function NodeCapability({ risk }: { risk: NodeRisk }): React.ReactElement {
-  const Icon = capabilityIcons[risk.kind] ?? InfoOutlinedIcon;
-  const { color, background, score, label } = severityStyles[risk.severity];
+const BAR_SLOTS = 3;
+
+const BAR_METRICS = {
+  chip: { width: 3, height: 8, gap: '1.5px' },
+  row: { width: 4, height: 12, gap: '2px' },
+  headline: { width: 5, height: 16, gap: '2.5px' },
+};
+
+// Only the headline level gets its description in full, so everywhere else a
+// level is named it carries the same sentence as hover text.
+const accessTitle = (level: RiskLevel): string =>
+  `${accessStyles[level].label}: ${accessStyles[level].description}`;
+
+// Filled towards how little there is to go on, so the level that can't be
+// judged at all carries the heaviest mark. The two Static levels fill the same
+// one slot: they sit at the same place on the scale and differ by what is at
+// stake, which is the colour's job here, not the count's. Empty slots stay
+// drawn so every level takes the same width in a row of them.
+function AccessBars({
+  level,
+  size = 'row',
+}: {
+  level: RiskLevel;
+  size?: keyof typeof BAR_METRICS;
+}): React.ReactElement {
+  const { color, bars } = accessStyles[level];
+  const { width, height, gap } = BAR_METRICS[size];
   return (
     <Box
-      data-cy="node-capability"
-      data-risk-kind={risk.kind}
-      data-risk-severity={risk.severity}
-      sx={{ display: 'flex', alignItems: 'flex-start', gap: 1, mt: 0.75 }}
+      component="span"
+      aria-hidden
+      data-access-level={level}
+      sx={{ display: 'inline-flex', flexShrink: 0, gap }}
     >
-      <Box
-        component="span"
-        sx={{
-          display: 'inline-flex',
-          flexShrink: 0,
-          p: 0.25,
-          borderRadius: 0.5,
-          color,
-          bgcolor: background,
-        }}
-      >
-        <Icon sx={{ fontSize: 16 }} />
-      </Box>
-      <Box sx={{ minWidth: 0 }}>
-        <Typography variant="caption" sx={{ color }}>
-          {score}/3 · {label}
-        </Typography>
-        <Typography
-          variant="body2"
-          sx={risk.severity === 'critical' ? { fontWeight: 600 } : {}}
-        >
-          {risk.title}
-        </Typography>
-        {risk.target && (
-          <Typography
-            variant="caption"
-            color="text.secondary"
-            sx={{ display: 'block' }}
-          >
-            {risk.target}
-          </Typography>
-        )}
-      </Box>
+      {Array.from({ length: BAR_SLOTS }, (_, slot) => (
+        <Box
+          key={slot}
+          component="span"
+          sx={{
+            width,
+            height,
+            borderRadius: '1px',
+            bgcolor: slot < bars ? color : 'rgba(255, 255, 255, 0.15)',
+          }}
+        />
+      ))}
     </Box>
+  );
+}
+
+function AccessLevel({
+  level,
+  variant = 'caption',
+  describe = true,
+}: {
+  level: RiskLevel;
+  variant?: 'caption' | 'subtitle2' | 'h6';
+  // The headline prints the description underneath, so it does not repeat it.
+  describe?: boolean;
+}): React.ReactElement {
+  return (
+    <Box
+      component="span"
+      title={describe ? accessTitle(level) : undefined}
+      sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.75 }}
+    >
+      <AccessBars level={level} size={variant === 'h6' ? 'headline' : 'row'} />
+      <Typography
+        variant={variant}
+        sx={{ color: accessStyles[level].color, lineHeight: 1 }}
+      >
+        {accessStyles[level].label}
+      </Typography>
+    </Box>
+  );
+}
+
+// An outline, not a fill: two levels that share a place on the scale are close
+// in colour on purpose, and a filled chip turns that into two near-identical
+// blocks at the smallest size in the panel.
+function AccessChip({ level }: { level: RiskLevel }): React.ReactElement {
+  const { color, label, shortLabel } = accessStyles[level];
+  return (
+    <Chip
+      size="small"
+      label={shortLabel ?? label}
+      icon={<AccessBars level={level} size="chip" />}
+      title={accessTitle(level)}
+      data-cy="node-access-level"
+      data-access-level={level}
+      sx={{
+        fontSize: '10px',
+        color,
+        bgcolor: 'transparent',
+        border: `1px solid ${color}`,
+        pl: 1,
+        '& .MuiChip-icon': { ml: '6px', mr: '-3px' },
+        '& .MuiChip-label': { pl: 0.5 },
+      }}
+    />
   );
 }
 
@@ -193,21 +291,49 @@ export function showCurrentAppRisks(): void {
   });
 }
 
-export function AppRiskInspector({
-  onInspect,
-}: {
-  onInspect: () => void;
-}): React.ReactElement {
-  const readReview = (): Review => {
-    const graph = PPGraph.currentGraph;
-    return {
-      name: graph.name,
-      risks: collectAppRisks(Object.values(graph.nodes)),
-      inspectionOnly: true,
-      resolve: () => {},
-    };
-  };
-  const [review, setReview] = useState(readReview);
+const requiredAccess = (risks: AppRisk[]): RiskLevel =>
+  highestRiskLevel(risks.map(({ risk }) => risk));
+
+function AppSource(): React.ReactElement {
+  const source = PPGraph.currentGraph.source;
+  if (!source) {
+    return (
+      <Typography variant="body2" color="text.secondary">
+        Unknown source
+      </Typography>
+    );
+  }
+  return (
+    <>
+      {source.ownerId === 'publicUser' ? (
+        <Chip
+          icon={<VerifiedIcon />}
+          label="Tailrmade"
+          aria-label="Verified Tailrmade"
+          color="primary"
+          size="small"
+        />
+      ) : (
+        <Typography variant="body2">
+          {source.owner.name || source.ownerId}
+        </Typography>
+      )}
+      {source.owner.email && (
+        <Typography variant="caption" color="text.secondary">
+          {source.owner.email}
+        </Typography>
+      )}
+    </>
+  );
+}
+
+const readCurrentRisks = (): AppRisk[] =>
+  collectAppRisks(Object.values(PPGraph.currentGraph.nodes));
+
+// Summary for the App inspector. The full review opens in the left panel so
+// its list stays put while the right inspector shows the selected node.
+export function AppRiskSummary(): React.ReactElement {
+  const [risks, setRisks] = useState(readCurrentRisks);
   useEffect(() => {
     const listener = InterfaceController.addListeners(
       [
@@ -215,43 +341,410 @@ export function AppRiskInspector({
         ListenEvent.GraphConfigured,
         ListenEvent.UnsavedChanges,
       ],
-      () => setReview(readReview()),
+      () => setRisks(readCurrentRisks()),
     );
     return () => InterfaceController.removeListener(listener);
   }, []);
+  const access = requiredAccess(risks);
+  const nodeCount = new Set(
+    risks.flatMap(({ nodes }) => nodes.map((node) => node.id)),
+  ).size;
   return (
-    <AppRiskDialog
-      dashboardVisible={false}
-      inspectorReview={review}
-      onInspect={onInspect}
-    />
+    <Box data-cy="app-risk-summary" sx={{ bgcolor: 'background.paper' }}>
+      <Box sx={{ px: 2, py: 1, color: 'text.primary' }}>App risk review</Box>
+      <Box sx={{ p: 2, bgcolor: 'background.default' }}>
+        <Box
+          data-cy="required-access-score"
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: 1,
+          }}
+        >
+          <AccessLevel level={access} variant="subtitle2" />
+          {nodeCount > 0 && (
+            <Typography variant="caption" color="text.secondary">
+              {`${nodeCount} ${nodeCount === 1 ? 'node' : 'nodes'} to review`}
+            </Typography>
+          )}
+        </Box>
+        <Typography variant="caption" color="text.secondary">
+          {accessStyles[access].description}
+        </Typography>
+        <Box data-cy="app-risk-source" sx={{ mt: 1 }}>
+          <AppSource />
+        </Box>
+        <Button
+          variant="outlined"
+          // The theme's secondary is the brand blue negated, a muted gold: it
+          // reads as caution next to the blue the rest of the drawer uses,
+          // without taking a level's colour and implying a verdict.
+          color="secondary"
+          startIcon={<FactCheckOutlinedIcon />}
+          data-cy="open-risk-review"
+          onClick={showCurrentAppRisks}
+          sx={{ mt: 1.5 }}
+        >
+          Open review
+        </Button>
+      </Box>
+    </Box>
+  );
+}
+
+type ReviewNode = { id: string; name: string; risks: NodeRisk[] };
+
+// The app-wide verdict at the top of the review: how much access the app
+// needs and how its nodes spread over the levels.
+// The headline explains its own level and nothing explains the other four, so
+// every level is defined here in one place. A disclosure rather than hover
+// text: the panel has a touch layout, where `title` never fires.
+function AccessLegend({
+  open,
+  onToggle,
+}: {
+  open: boolean;
+  onToggle: () => void;
+}): React.ReactElement {
+  return (
+    <>
+      <Button
+        size="small"
+        color="inherit"
+        disableRipple
+        aria-expanded={open}
+        aria-controls="access-legend"
+        data-cy="toggle-access-legend"
+        onClick={onToggle}
+        endIcon={
+          <ExpandMoreIcon
+            sx={{
+              fontSize: 16,
+              transform: open ? 'rotate(180deg)' : 'none',
+              transition: 'transform 150ms',
+            }}
+          />
+        }
+        sx={{
+          px: 0,
+          minWidth: 0,
+          fontWeight: 400,
+          color: 'text.secondary',
+          '&:hover': { bgcolor: 'transparent', color: 'text.primary' },
+        }}
+      >
+        What do these mean?
+      </Button>
+      <Collapse in={open} unmountOnExit>
+        <Box
+          id="access-legend"
+          data-cy="access-legend"
+          sx={{ display: 'grid', gap: 1, pt: 0.5, pb: 0.5 }}
+        >
+          {[...RISK_LEVEL_ORDER].reverse().map((level) => (
+            <Box
+              key={level}
+              data-cy="access-legend-row"
+              data-access-level={level}
+              sx={{ display: 'flex', gap: 1 }}
+            >
+              <Box sx={{ pt: '2px' }}>
+                <AccessBars level={level} />
+              </Box>
+              <Box sx={{ minWidth: 0 }}>
+                <Typography
+                  variant="caption"
+                  sx={{
+                    display: 'block',
+                    lineHeight: 1.4,
+                    color: accessStyles[level].color,
+                  }}
+                >
+                  {accessStyles[level].label}
+                </Typography>
+                <Typography
+                  variant="caption"
+                  color="text.secondary"
+                  sx={{ display: 'block', lineHeight: 1.4 }}
+                >
+                  {accessStyles[level].description}
+                </Typography>
+              </Box>
+            </Box>
+          ))}
+        </Box>
+      </Collapse>
+    </>
+  );
+}
+
+function AccessOverview({
+  nodes,
+  onInspectAll,
+}: {
+  nodes: ReviewNode[];
+  onInspectAll: () => void;
+}): React.ReactElement {
+  const levels = nodes.map((node) => highestRiskLevel(node.risks));
+  const access = highestRiskLevel(nodes.flatMap((node) => node.risks));
+  const [legendOpen, setLegendOpen] = useState(false);
+  return (
+    <Box
+      data-cy="required-access-score"
+      sx={{
+        p: 1.5,
+        borderRadius: 0,
+        bgcolor: 'action.hover',
+        borderLeft: 3,
+        borderColor: accessStyles[access].color,
+      }}
+    >
+      <Typography variant="overline" color="text.secondary">
+        Required access
+      </Typography>
+      <Box>
+        <AccessLevel level={access} variant="h6" describe={false} />
+      </Box>
+      <Typography variant="body2" color="text.secondary">
+        {accessStyles[access].description}
+      </Typography>
+      <AccessLegend
+        open={legendOpen}
+        onToggle={() => setLegendOpen((shown) => !shown)}
+      />
+      <Box
+        sx={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: 1,
+          mt: 1,
+          pt: 1,
+          borderTop: 1,
+          borderColor: 'divider',
+        }}
+      >
+        <Box sx={{ display: 'flex', gap: 1.5 }}>
+          {[...RISK_LEVEL_ORDER].reverse().map((level) => {
+            const count = levels.filter((item) => item === level).length;
+            return (
+              count > 0 && (
+                <Box
+                  key={level}
+                  component="button"
+                  type="button"
+                  aria-expanded={legendOpen}
+                  aria-controls="access-legend"
+                  onClick={() => setLegendOpen((shown) => !shown)}
+                  title={`${count} ${count === 1 ? 'node' : 'nodes'} \u2014 ${accessTitle(level)}`}
+                  sx={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 0.5,
+                    p: 0,
+                    border: 0,
+                    bgcolor: 'transparent',
+                    color: 'inherit',
+                    font: 'inherit',
+                    cursor: 'pointer',
+                  }}
+                >
+                  <AccessBars level={level} />
+                  <Typography variant="caption" sx={{ lineHeight: 1 }}>
+                    {count}
+                  </Typography>
+                </Box>
+              )
+            );
+          })}
+        </Box>
+        {nodes.length > 0 && (
+          <Button
+            size="small"
+            color="inherit"
+            startIcon={<MyLocationIcon />}
+            data-cy="inspect-all-risk-nodes"
+            onClick={onInspectAll}
+          >
+            Inspect all {nodes.length}
+          </Button>
+        )}
+      </Box>
+    </Box>
+  );
+}
+
+type AppAction = { risk: NodeRisk; destinations: AppRisk[] };
+
+// One card per action, so its description shows once even when many
+// destinations need it.
+function groupActions(risks: AppRisk[]): AppAction[] {
+  const byKind = new Map<string, AppAction>();
+  for (const appRisk of risks) {
+    const key = `${appRisk.risk.kind}|${appRisk.risk.severity}`;
+    const entry = byKind.get(key) ?? { risk: appRisk.risk, destinations: [] };
+    entry.destinations.push(appRisk);
+    byKind.set(key, entry);
+  }
+  return [...byKind.values()];
+}
+
+// Nodes of one type share a row, so twenty HTML Renderers stay one line.
+function NodeTypeRows({
+  nodes,
+  onInspect,
+}: {
+  nodes: AppRisk['nodes'];
+  onInspect: (ids: string[]) => void;
+}): React.ReactElement {
+  const byType = new Map<string, PPNode[]>();
+  for (const { id } of nodes) {
+    const node = PPGraph.currentGraph.nodes[id];
+    if (node) byType.set(node.type, [...(byType.get(node.type) ?? []), node]);
+  }
+  return (
+    <List dense disablePadding>
+      {[...byType.values()].map((typeNodes) => (
+        <NodeRow
+          key={typeNodes[0].type}
+          node={typeNodes[0]}
+          compact
+          label={
+            typeNodes.length === 1 ? typeNodes[0].name : typeNodes[0].getName()
+          }
+          title={typeNodes.map((node) => node.id).join('\n')}
+          data-cy="risk-node-type"
+          onClick={() => onInspect(typeNodes.map((node) => node.id))}
+          tags={
+            typeNodes.length > 1 && (
+              <TagChip label={`${typeNodes.length} nodes`} />
+            )
+          }
+        />
+      ))}
+    </List>
+  );
+}
+
+function ActionGroup({
+  risk,
+  destinations,
+  onInspect,
+}: AppAction & { onInspect: (ids: string[]) => void }): React.ReactElement {
+  const level = getRiskLevel(risk);
+  const Icon = actionIcons[risk.kind] ?? InfoOutlinedIcon;
+  const ids = [
+    ...new Set(destinations.flatMap(({ nodes }) => nodes.map((n) => n.id))),
+  ];
+  return (
+    <Box
+      role="group"
+      aria-label={risk.title}
+      data-cy="risk-details"
+      data-risk-kind={risk.kind}
+      data-risk-severity={risk.severity}
+      tabIndex={-1}
+      sx={{
+        outline: 'none',
+        scrollMarginTop: 8,
+        mb: 1.5,
+        borderRadius: 0,
+        bgcolor: 'action.hover',
+        borderLeft: 3,
+        borderColor: accessStyles[level].color,
+        overflowWrap: 'anywhere',
+      }}
+    >
+      <Box sx={{ p: 1.5, pb: 1 }}>
+        <Box
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: 1,
+          }}
+        >
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Icon sx={{ fontSize: 16, color: accessStyles[level].color }} />
+            <AccessLevel level={level} />
+          </Box>
+          <Button
+            size="small"
+            color="inherit"
+            startIcon={<MyLocationIcon />}
+            data-cy="inspect-risk-group"
+            onClick={() => onInspect(ids)}
+          >
+            Inspect {ids.length}
+          </Button>
+        </Box>
+        <Typography sx={{ fontWeight: 600 }}>{risk.title}</Typography>
+        {risk.consequences.length > 0 && (
+          <Box
+            data-cy="risk-consequences"
+            sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mt: 0.75 }}
+          >
+            {risk.consequences.map((consequence) => (
+              <TagChip
+                key={consequence}
+                label={consequence}
+                data-cy="risk-consequence"
+              />
+            ))}
+          </Box>
+        )}
+        <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+          {risk.description}
+        </Typography>
+      </Box>
+      <Box sx={{ px: 1, pb: 1 }}>
+        {destinations.map(({ risk: destination, nodes }) => (
+          <Box key={destination.id} data-cy="risk-destination">
+            {(destination.target || !destination.resolved) && (
+              <Typography
+                variant="body2"
+                data-cy="risk-destination-label"
+                sx={{
+                  fontWeight: 600,
+                  px: 0.5,
+                  pt: 1,
+                  pb: 0.5,
+                  ...(!destination.resolved && {
+                    fontWeight: 400,
+                    fontStyle: 'italic',
+                    color: 'text.secondary',
+                  }),
+                }}
+              >
+                {destination.target ?? 'Chosen while the app runs'}
+              </Typography>
+            )}
+            <NodeTypeRows nodes={nodes} onInspect={onInspect} />
+          </Box>
+        ))}
+      </Box>
+    </Box>
   );
 }
 
 export function AppRiskDialog({
   canvasElement,
   dashboardVisible,
-  inspectorReview,
-  onInspect,
 }: {
   canvasElement?: HTMLDivElement | null;
   dashboardVisible: boolean;
-  inspectorReview?: Review;
-  onInspect?: () => void;
 }): React.ReactElement | null {
-  const storedReview = reviewStore.useStore();
-  const review = inspectorReview ?? storedReview;
+  const review = reviewStore.useStore();
   const pending = pendingAppRun.useStore();
   const [starting, setStarting] = useState(false);
   const [search, setSearch] = useState('');
+  const [tab, setTab] = useState<'actions' | 'nodes'>('actions');
   const [inspection, setInspection] = useState<string[]>([]);
   const [panelElement, setPanelElement] = useState<HTMLDivElement | null>(null);
   const stacked = useIsStackLayout();
   const nodes = useMemo(() => {
-    const nodesById = new Map<
-      string,
-      { id: string; name: string; risks: NodeRisk[] }
-    >();
+    const nodesById = new Map<string, ReviewNode>();
     for (const { risk, nodes } of review?.risks ?? []) {
       for (const node of nodes) {
         const entry = nodesById.get(node.id) ?? { ...node, risks: [] };
@@ -270,20 +763,42 @@ export function AppRiskDialog({
         .toLowerCase(),
     }));
   }, [review]);
+  const actions = useMemo(
+    () =>
+      groupActions(review?.risks ?? []).map((group) => ({
+        ...group,
+        searchText: [
+          group.risk.title,
+          ...group.destinations.flatMap(({ risk, nodes }) => [
+            risk.target ?? '',
+            ...nodes.flatMap((node) => [
+              node.name,
+              node.id,
+              PPGraph.currentGraph.nodes[node.id]?.getName() ?? '',
+            ]),
+          ]),
+        ]
+          .join(' ')
+          .toLowerCase(),
+      })),
+    [review],
+  );
   useEffect(() => {
     setSearch('');
+    setTab('actions');
     setInspection(nodes.map((node) => node.id));
   }, [review, nodes]);
   useEffect(() => {
-    if (review && !review.paste && !dashboardVisible && !inspectorReview) {
+    if (review && !review.paste && !dashboardVisible) {
       InterfaceController.toggleLeftSideDrawer(VISIBILITY_ACTION.CLOSE);
     }
-  }, [review, dashboardVisible, inspectorReview]);
+  }, [review, dashboardVisible]);
   useEffect(() => {
     if (!review || review.paste || dashboardVisible || !panelElement) return;
     const frameSelection = () => {
       const graph = PPGraph.currentGraph;
-      const targets = inspection.map((id) => graph.nodes[id]);
+      // inspected nodes may have been deleted since
+      const targets = inspection.map((id) => graph.nodes[id]).filter(Boolean);
       if (!targets.length) return;
       const panel = panelElement.getBoundingClientRect();
       const canvas = canvasElement?.getBoundingClientRect();
@@ -350,7 +865,7 @@ export function AppRiskDialog({
           bgcolor: 'background.paper',
           border: 1,
           borderColor: 'divider',
-          borderRadius: 1,
+          borderRadius: 0,
           boxShadow: 2,
         }}
       >
@@ -358,7 +873,7 @@ export function AppRiskDialog({
           variant="body2"
           sx={{ minWidth: 0, overflowWrap: 'anywhere' }}
         >
-          {pending.name} - Risky nodes paused
+          {pending.name}: some nodes are paused until you review them
         </Typography>
         <Button
           variant="contained"
@@ -391,344 +906,303 @@ export function AppRiskDialog({
   };
   const query = search.trim().toLowerCase();
   const matchingNodes = nodes.filter((node) => node.searchText.includes(query));
+  const matchingActions = actions.filter((group) =>
+    group.searchText.includes(query),
+  );
+  const showAction = (risk: NodeRisk): void => {
+    // render the actions tab now so the card exists to scroll to
+    flushSync(() => {
+      setSearch('');
+      setTab('actions');
+    });
+    const card = document.querySelector<HTMLElement>(
+      `[data-cy="risk-details"][data-risk-kind="${risk.kind}"][data-risk-severity="${risk.severity}"]`,
+    )!;
+    card.scrollIntoView({ block: 'start', behavior: 'smooth' });
+    card.focus({ preventScroll: true });
+    card.animate(
+      [
+        { boxShadow: `0 0 0 2px ${accessStyles[getRiskLevel(risk)].color}` },
+        { boxShadow: '0 0 0 2px transparent' },
+      ],
+      { duration: 1500, easing: 'ease-in' },
+    );
+  };
   const inspectNodes = (ids: string[]): void => {
-    const targets = ids.map((id) => PPGraph.currentGraph.nodes[id]);
+    const targets = ids
+      .map((id) => PPGraph.currentGraph.nodes[id])
+      .filter(Boolean);
     if (!targets.length) return;
     InterfaceController.toggleAppView(VISIBILITY_ACTION.CLOSE);
     InterfaceController.toggleShowDashboard(VISIBILITY_ACTION.CLOSE);
     setStackView('graph');
+    InterfaceController.setRightDrawerView(RightDrawerView.GRAPH);
     PPGraph.currentGraph.selection.selectNodes(targets, false);
     setInspection(ids);
-    if (inspectorReview) {
-      void ensureVisible(targets);
-      onInspect?.();
-    }
   };
-  const requiredAccess = review.risks.reduce(
-    (highest, { risk }) =>
-      severityStyles[risk.severity].score > highest.score
-        ? severityStyles[risk.severity]
-        : highest,
-    severityStyles.info,
-  );
   const content = (
     <>
       <DialogTitle component="div" sx={{ overflowWrap: 'anywhere' }}>
         {!review.paste && (
-          <Box data-cy="required-access-score" sx={{ mb: 1 }}>
-            <Typography
-              variant="subtitle2"
-              sx={{ color: requiredAccess.color }}
-            >
-              Required access {requiredAccess.score}/3 · {requiredAccess.label}
-            </Typography>
-            <Typography variant="caption" color="text.secondary">
-              1 Basic · 2 Specific · 3 Broad
-            </Typography>
-          </Box>
+          <Typography
+            variant="overline"
+            color="text.secondary"
+            sx={{ display: 'block', lineHeight: 1.5 }}
+          >
+            {review.inspectionOnly ? 'Risk review' : 'Review before running'}
+          </Typography>
         )}
-        <Typography
-          id={inspectorReview ? 'inspector-risk-title' : 'app-risk-title'}
-          component="h2"
-          variant="h6"
-        >
-          {review.paste
-            ? `Paste ${review.name}?`
-            : review.inspectionOnly
-              ? `Risks in ${review.name}`
-              : `Before running ${review.name}`}
+        <Typography id="app-risk-title" component="h2" variant="h6">
+          {review.paste ? `Paste ${review.name}?` : review.name}
         </Typography>
         {!review.paste && (
-          <Box data-cy="app-risk-source" sx={{ mt: 1 }}>
-            {PPGraph.currentGraph.source ? (
-              <>
-                {PPGraph.currentGraph.source.ownerId === 'publicUser' ? (
-                  <Chip
-                    icon={<VerifiedIcon />}
-                    label="Tailrmade"
-                    aria-label="Verified Tailrmade"
-                    color="primary"
-                    size="small"
-                  />
-                ) : (
-                  <Typography variant="body2">
-                    {PPGraph.currentGraph.source.owner.name ||
-                      PPGraph.currentGraph.source.ownerId}
-                  </Typography>
-                )}
-                {PPGraph.currentGraph.source.owner.email && (
-                  <Typography variant="caption" color="text.secondary">
-                    {PPGraph.currentGraph.source.owner.email}
-                  </Typography>
-                )}
-              </>
-            ) : (
-              <Typography variant="body2" color="text.secondary">
-                Unknown source
-              </Typography>
-            )}
-          </Box>
-        )}
-        {!review.paste && (
-          <Box
-            sx={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              gap: 1,
-              flexWrap: 'wrap',
-              mt: 1,
-            }}
-          >
-            <Typography variant="body2" color="text.secondary">
-              {nodes.length} {nodes.length === 1 ? 'node' : 'nodes'} to review
-            </Typography>
-            <Button
-              color="inherit"
-              startIcon={<MyLocationIcon />}
-              data-cy="inspect-all-risk-nodes"
-              onClick={() => inspectNodes(nodes.map((node) => node.id))}
-            >
-              Inspect all
-            </Button>
+          <Box data-cy="app-risk-source" sx={{ mt: 0.5 }}>
+            <AppSource />
           </Box>
         )}
       </DialogTitle>
       <DialogContent dividers>
-        {review.paste && (
+        {review.paste ? (
           <Alert severity="info" role="note">
-            Depending on their configuration, pasted nodes can run code, use
-            saved Tailrmade data, and connect to services. They may run
-            immediately if this app is running. Check that their source and
-            behavior match what you expect before pasting.
+            Pasted nodes can run code, use your saved data and contact other
+            sites. They may run right away if this app is running. Only paste
+            from sources you trust.
           </Alert>
-        )}
-        {!review.paste && (
-          <Box sx={{ borderBottom: 1, borderColor: 'divider', pb: 2, mb: 2 }}>
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-              These capabilities are common in interactive apps. Review the
-              access below and check that it matches what you expect from this
-              app and its source.
-              {' The score reflects the broadest access required by the app.'}
+        ) : (
+          <>
+            <AccessOverview
+              nodes={nodes}
+              onInspectAll={() => inspectNodes(nodes.map((node) => node.id))}
+            />
+            <Typography variant="body2" color="text.secondary" sx={{ mt: 1.5 }}>
+              Everything below is declared by this app&apos;s own nodes. Check
+              it matches what the app is supposed to do.
               {review.risks.some(
                 ({ risk }) => risk.kind === 'unrestricted-code',
               ) &&
-                ' Browser access includes the ability to use keys, access data, and contact services beyond those listed here.'}
+                ' Some nodes also run code that is not sandboxed. Their actions cannot be determined, so this list is not complete for them — that part comes down to the source above.'}{' '}
+              <Box
+                component="a"
+                href={HELP_URL_APP_RISK_REVIEW}
+                target="_blank"
+                rel="noopener noreferrer"
+                data-cy="risk-help-link"
+                sx={{
+                  color: 'inherit',
+                  whiteSpace: 'nowrap',
+                  textDecoration: 'underline dotted',
+                  textUnderlineOffset: 3,
+                  '&:hover': { color: 'text.primary' },
+                }}
+              >
+                <HelpOutlineIcon
+                  sx={{ fontSize: 13, verticalAlign: '-2px', mr: '2px' }}
+                />
+                How access is decided
+              </Box>
             </Typography>
-            <Typography variant="subtitle2" sx={{ mb: 1 }}>
-              Nodes to review ({nodes.length})
-            </Typography>
+            <Tabs
+              value={tab}
+              onChange={(_, value) => setTab(value)}
+              variant="fullWidth"
+              sx={{ mt: 1, borderBottom: 1, borderColor: 'divider' }}
+            >
+              <Tab
+                value="actions"
+                label={`Actions (${actions.length})`}
+                data-cy="risk-actions-tab"
+              />
+              <Tab
+                value="nodes"
+                label={`Nodes (${nodes.length})`}
+                data-cy="risk-nodes-tab"
+              />
+            </Tabs>
             <TextField
               fullWidth
               size="small"
-              label="Find a node or capability"
+              label="Find a node or action"
               value={search}
               onChange={(event) => setSearch(event.target.value)}
+              sx={{ my: 1.5 }}
             />
-            <List dense sx={{ maxHeight: 320, overflowY: 'auto', mt: 1 }}>
-              {matchingNodes.map((node) => (
-                <ListItemButton
-                  key={node.id}
-                  aria-label={`Go to node ${node.name}`}
-                  aria-describedby={`${inspectorReview ? 'inspector-' : ''}risk-capabilities-${node.id}`}
-                  data-cy="go-to-risk-node"
-                  data-node-id={node.id}
-                  onClick={() => inspectNodes([node.id])}
-                  sx={{
-                    minHeight: 44,
-                    overflowWrap: 'anywhere',
-                    alignItems: 'flex-start',
-                    px: 1,
-                    py: 1.5,
-                    borderBottom: 1,
-                    borderColor: 'divider',
-                    '&:last-child': { borderBottom: 0 },
-                  }}
-                >
-                  <ListItemIcon sx={{ minWidth: 28, mt: 0.25 }}>
-                    <MyLocationIcon fontSize="small" />
-                  </ListItemIcon>
-                  <Box sx={{ minWidth: 0, flex: 1 }}>
-                    <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                      {node.name}
-                    </Typography>
-                    <Typography variant="caption" color="text.secondary">
-                      {node.id}
-                    </Typography>
-                    <Box
-                      id={`${inspectorReview ? 'inspector-' : ''}risk-capabilities-${node.id}`}
-                    >
-                      {node.risks.map((risk) => (
-                        <NodeCapability key={risk.id} risk={risk} />
-                      ))}
-                    </Box>
-                  </Box>
-                </ListItemButton>
-              ))}
-              {!matchingNodes.length && (
-                <Typography
-                  variant="body2"
-                  color="text.secondary"
-                  sx={{ p: 1 }}
-                >
-                  {nodes.length ? 'No matching nodes' : 'No risks found'}
-                </Typography>
-              )}
-            </List>
-          </Box>
+            {tab === 'actions' ? (
+              <>
+                {matchingActions.map((group) => (
+                  <ActionGroup
+                    key={group.risk.id}
+                    risk={group.risk}
+                    destinations={group.destinations}
+                    onInspect={inspectNodes}
+                  />
+                ))}
+                {!matchingActions.length && (
+                  <Typography variant="body2" color="text.secondary">
+                    {actions.length
+                      ? 'No matching actions'
+                      : 'Nothing to review'}
+                  </Typography>
+                )}
+              </>
+            ) : (
+              <List dense disablePadding>
+                {matchingNodes.map((node) => {
+                  const graphNode = PPGraph.currentGraph.nodes[node.id];
+                  if (!graphNode) return null;
+                  return (
+                    <NodeRow
+                      key={node.id}
+                      node={graphNode}
+                      aria-label={`Go to node ${node.name}`}
+                      aria-describedby={`risk-actions-${node.id}`}
+                      data-cy="go-to-risk-node"
+                      data-node-id={node.id}
+                      onClick={() => inspectNodes([node.id])}
+                      tags={<AccessChip level={highestRiskLevel(node.risks)} />}
+                      subtitle={
+                        <Box id={`risk-actions-${node.id}`}>
+                          {node.risks.map((risk) => (
+                            <Box
+                              key={risk.id}
+                              component="span"
+                              role="link"
+                              tabIndex={0}
+                              title="Show this action"
+                              data-cy="node-action"
+                              data-risk-kind={risk.kind}
+                              data-risk-severity={risk.severity}
+                              // the row behind it inspects the node instead
+                              onMouseDown={(event) => event.stopPropagation()}
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                showAction(risk);
+                              }}
+                              onKeyDown={(event) => {
+                                if (event.key !== 'Enter') return;
+                                event.stopPropagation();
+                                showAction(risk);
+                              }}
+                              sx={{
+                                display: 'block',
+                                width: 'fit-content',
+                                cursor: 'pointer',
+                                textDecoration: 'underline dotted',
+                                textUnderlineOffset: 3,
+                                '&:hover, &:focus-visible': {
+                                  opacity: 1,
+                                  color: 'text.primary',
+                                  textDecorationStyle: 'solid',
+                                },
+                              }}
+                            >
+                              {risk.title}
+                              {risk.target && ` · ${risk.target}`}
+                            </Box>
+                          ))}
+                        </Box>
+                      }
+                    />
+                  );
+                })}
+                {!matchingNodes.length && (
+                  <Typography variant="body2" color="text.secondary">
+                    {nodes.length ? 'No matching nodes' : 'Nothing to review'}
+                  </Typography>
+                )}
+              </List>
+            )}
+          </>
         )}
-        {!!review.risks.length && (
-          <Typography variant="subtitle2" sx={{ mb: 1 }}>
-            Capabilities
-          </Typography>
-        )}
-        {review.risks.map(({ risk, nodes }) => (
-          <Box
-            key={risk.id}
-            sx={{ mb: 2, '&:last-child': { mb: 0 }, overflowWrap: 'anywhere' }}
-          >
-            <Alert
-              severity={
-                risk.severity === 'critical' ? 'warning' : risk.severity
-              }
-              role="note"
-              data-cy="risk-details"
-              data-risk-kind={risk.kind}
-              data-risk-severity={risk.severity}
-              icon={React.createElement(
-                capabilityIcons[risk.kind] ?? InfoOutlinedIcon,
-                { fontSize: 'inherit' },
-              )}
-              sx={{
-                bgcolor: 'action.hover',
-                color: 'text.primary',
-                borderLeft: risk.severity === 'critical' ? 3 : 0,
-                borderColor: severityStyles[risk.severity].color,
-                '& .MuiAlert-icon': {
-                  color: severityStyles[risk.severity].color,
-                },
-              }}
-            >
-              <Typography
-                variant="caption"
-                sx={{ color: severityStyles[risk.severity].color }}
-              >
-                {severityStyles[risk.severity].score}/3 ·{' '}
-                {severityStyles[risk.severity].label}
-              </Typography>
-              <Typography sx={{ fontWeight: 600 }}>{risk.title}</Typography>
-              {risk.target && (
-                <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                  {risk.target}
-                </Typography>
-              )}
-              <Typography variant="body2">{risk.description}</Typography>
-            </Alert>
-            <Button
-              size="small"
-              color="inherit"
-              startIcon={<MyLocationIcon />}
-              data-cy="inspect-risk-group"
-              onClick={() => inspectNodes(nodes.map((node) => node.id))}
-              sx={{ mt: 0.5 }}
-            >
-              Inspect {nodes.length} {nodes.length === 1 ? 'node' : 'nodes'}
-            </Button>
-          </Box>
-        ))}
       </DialogContent>
-      {!inspectorReview && (
-        <DialogActions sx={{ flexShrink: 0, flexWrap: 'wrap' }}>
+      <DialogActions sx={{ flexShrink: 0, flexWrap: 'wrap' }}>
+        <Button
+          color="inherit"
+          onClick={() => {
+            if (!review.paste && !review.inspectionOnly)
+              inspectNodes(nodes.map((node) => node.id));
+            finish(false);
+          }}
+          autoFocus
+        >
+          {review.paste
+            ? 'Cancel'
+            : review.inspectionOnly
+              ? 'Close'
+              : 'Keep inspecting'}
+        </Button>
+        {!review.inspectionOnly && (
           <Button
-            color="inherit"
-            onClick={() => {
-              if (!review.paste && !review.inspectionOnly)
-                inspectNodes(nodes.map((node) => node.id));
-              finish(false);
-            }}
-            autoFocus
+            variant="contained"
+            startIcon={<PlayArrowIcon />}
+            onClick={() => finish(true)}
+            data-cy={review.paste ? 'confirm-node-paste' : 'run-reviewed-app'}
           >
-            {review.paste
-              ? 'Cancel'
-              : review.inspectionOnly
-                ? 'Close'
-                : 'Keep inspecting'}
+            {review.paste ? 'Paste nodes' : 'Run app'}
           </Button>
-          {!review.inspectionOnly && (
-            <Button
-              variant="contained"
-              startIcon={<PlayArrowIcon />}
-              onClick={() => finish(true)}
-              data-cy={review.paste ? 'confirm-node-paste' : 'run-reviewed-app'}
-            >
-              {review.paste ? 'Paste nodes' : 'Run app'}
-            </Button>
-          )}
-        </DialogActions>
-      )}
+        )}
+      </DialogActions>
     </>
   );
-  if (inspectorReview) {
-    return (
-      <Box
-        data-cy="graph-risk-inspector"
-        sx={{
-          '& .MuiDialogTitle-root': { p: 0, pb: 2 },
-          '& .MuiDialogContent-root': { p: 0, border: 0, overflow: 'visible' },
-        }}
-      >
-        {content}
-      </Box>
-    );
-  }
   if (!review.paste && !dashboardVisible) {
     return (
-      <Paper
-        ref={setPanelElement}
-        role="dialog"
-        aria-modal={false}
-        aria-labelledby="app-risk-title"
-        data-cy="app-risk-dialog"
-        elevation={8}
-        sx={{
-          position: stacked ? 'fixed' : 'relative',
-          zIndex: stacked ? 20 : 'auto',
-          pointerEvents: 'auto',
-          flex: `0 0 ${APP_RISK_PANEL_WIDTH}px`,
-          display: 'flex',
-          flexDirection: 'column',
-          ...(stacked
-            ? { left: 8, bottom: 64, top: '52%' }
-            : { height: '100dvh' }),
-          width: stacked ? 'calc(100% - 16px)' : APP_RISK_PANEL_WIDTH,
-          overflow: 'hidden',
-          border: 1,
-          borderColor: 'divider',
-          '& .MuiDialogTitle-root': { px: 2, py: 1 },
-          '& .MuiDialogContent-root': { px: 2 },
-        }}
-      >
-        {content}
-      </Paper>
+      <ThemeProvider theme={customTheme}>
+        <Paper
+          ref={setPanelElement}
+          role="dialog"
+          aria-modal={false}
+          aria-labelledby="app-risk-title"
+          data-cy="app-risk-dialog"
+          elevation={0}
+          sx={{
+            bgcolor: getDrawerBackground().hex(),
+            position: stacked ? 'fixed' : 'relative',
+            zIndex: stacked ? 20 : 'auto',
+            pointerEvents: 'auto',
+            flex: `0 0 ${APP_RISK_PANEL_WIDTH}px`,
+            display: 'flex',
+            flexDirection: 'column',
+            ...(stacked
+              ? { left: 8, bottom: 64, top: '52%' }
+              : { height: '100dvh' }),
+            width: stacked ? 'calc(100% - 16px)' : APP_RISK_PANEL_WIDTH,
+            overflow: 'hidden',
+            border: 1,
+            borderColor: 'divider',
+            // a pending run gets the accent, browsing risks later does not
+            ...(!review.inspectionOnly && {
+              borderTop: 3,
+              borderTopColor: accessStyles[requiredAccess(review.risks)].color,
+            }),
+            '& .MuiDialogTitle-root': { px: 2, py: 1 },
+            '& .MuiDialogContent-root': { px: 2 },
+          }}
+        >
+          {content}
+        </Paper>
+      </ThemeProvider>
     );
   }
   return (
-    <Dialog
-      open
-      onClose={() => finish(false)}
-      fullWidth
-      maxWidth="sm"
-      aria-labelledby="app-risk-title"
-      data-cy={review.paste ? 'node-paste-dialog' : 'app-risk-dialog'}
-      sx={{
-        zIndex: 1500,
-        '& .MuiDialog-paper': {
-          m: { xs: 2, sm: 4 },
-          width: { xs: 'calc(100% - 32px)', sm: 'calc(100% - 64px)' },
-        },
-      }}
-    >
-      {content}
-    </Dialog>
+    <ThemeProvider theme={customTheme}>
+      <Dialog
+        open
+        onClose={() => finish(false)}
+        fullWidth
+        maxWidth="sm"
+        aria-labelledby="app-risk-title"
+        data-cy={review.paste ? 'node-paste-dialog' : 'app-risk-dialog'}
+        sx={{
+          zIndex: 1500,
+          '& .MuiDialog-paper': {
+            bgcolor: getDrawerBackground().hex(),
+            backgroundImage: 'none',
+            m: { xs: 2, sm: 4 },
+            width: { xs: 'calc(100% - 32px)', sm: 'calc(100% - 64px)' },
+          },
+        }}
+      >
+        {content}
+      </Dialog>
+    </ThemeProvider>
   );
 }

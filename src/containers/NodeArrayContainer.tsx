@@ -2,11 +2,8 @@ import React, { memo, useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Autocomplete,
   Box,
-  Collapse,
   IconButton,
   List,
-  ListItem,
-  ListItemButton,
   Stack,
   TextField,
   Typography,
@@ -26,6 +23,11 @@ import {
 import { TRgba } from './../utils/color';
 import { StatusDetail } from '../components/StatusDetail';
 import { TagChip } from '../components/TagChip';
+import {
+  NodeRow,
+  ROW_BACKGROUND,
+  ROW_LINE_HEIGHT,
+} from '../components/NodeRow';
 
 const TAG_FILTER_PREFIX = 'tag:';
 
@@ -52,9 +54,6 @@ export const buildFilterText = (tags: string[], text: string): string =>
   tags.map((tag) => `${buildTagFilter(tag)} `).join('') + text;
 
 const ROW_SEVERITY_TINT = 0.08;
-const ROW_LINE_HEIGHT = 24;
-const TAG_MAX_SHARE = '65%';
-const ROW_BACKGROUND = TRgba.fromString(MAIN_COLOR).darken(0.6);
 const STATUS_REFRESH_THROTTLE_MS = 200;
 // severity is carried so the status tags can be ordered without this file
 // having to know their names
@@ -144,19 +143,9 @@ const NodeItem = memo(
       props.selectedTags.some((tag) => sameTag(tag, label));
 
     return (
-      <ListItem
-        key={node.id}
-        sx={{
-          p: 0,
-          flexDirection: 'column',
-          alignItems: 'stretch',
-          '&:hover + .MuiListItemSecondaryAction-root': {
-            visibility: 'visible',
-          },
-          bgcolor: `${rowBackground}`,
-          margin: '2px 0',
-          borderLeft: `16px solid ${node.getColor()}`,
-        }}
+      <NodeRow
+        node={node}
+        background={rowBackground}
         title={
           node.type === 'Macro'
             ? `${node.id}
@@ -166,168 +155,88 @@ ${(node as any)
   .join()}`
             : node.id
         }
-        onPointerEnter={(event: React.MouseEvent<HTMLLIElement>) => {
-          event.stopPropagation();
-          const nodeToJumpTo = PPGraph.currentGraph.nodes[node.id];
-          if (nodeToJumpTo) {
-            PPGraph.currentGraph.selection.drawSingleFocus(nodeToJumpTo);
-          }
-        }}
-        onClick={(event: React.MouseEvent<HTMLLIElement>) => {
-          event.stopPropagation();
-          const nodeToJumpTo = PPGraph.currentGraph.nodes[node.id];
-          if (nodeToJumpTo) {
-            void ensureVisible([nodeToJumpTo]);
+        onClick={(event) => {
+          void ensureVisible([node]);
+          setTimeout(() => {
+            PPGraph.currentGraph.selection.drawSingleFocus(node);
+          }, 800);
+          if (event.detail === ONCLICK_DOUBLECLICK) {
+            zoomToFitNodes([node], -0.8);
+            node.renderOutlineThrottled();
             setTimeout(() => {
-              PPGraph.currentGraph.selection.drawSingleFocus(nodeToJumpTo);
-            }, 800);
-            if (event.detail === ONCLICK_DOUBLECLICK) {
-              zoomToFitNodes([nodeToJumpTo], -0.8);
-              nodeToJumpTo.renderOutlineThrottled();
-              setTimeout(() => {
-                PPGraph.currentGraph.selection.selectNodes(
-                  [nodeToJumpTo],
-                  false,
-                );
-              }, 300);
-            }
+              PPGraph.currentGraph.selection.selectNodes([node], false);
+            }, 300);
           }
         }}
-      >
-        <ListItemButton
-          sx={{
-            p: 1,
-          }}
-        >
-          <Stack
-            sx={{
-              width: '100%',
-            }}
-          >
+        tags={
+          node.getTags().length > 0 &&
+          node
+            .getTags()
+            .map((part, index) => (
+              <TagChip
+                key={`${part}-${index}`}
+                label={part}
+                selected={isSelected(part)}
+                onClick={props.onTagClick}
+                title={tagTitle(part, isSelected(part))}
+                data-cy={`node-tag-${part}`}
+              />
+            ))
+        }
+        aside={
+          statuses.length > 0 && (
             <Box
               sx={{
                 display: 'flex',
-                alignItems: 'flex-start',
+                alignItems: 'center',
+                flexShrink: 0,
+                minHeight: `${ROW_LINE_HEIGHT}px`,
+                ml: '8px',
               }}
             >
-              <Box
+              <Box sx={{ display: 'flex', gap: '2px' }}>
+                {statusTags.map((tag) => (
+                  <TagChip
+                    key={tag.label}
+                    label={tag.label}
+                    color={tag.color}
+                    selected={isSelected(tag.label)}
+                    onClick={props.onTagClick}
+                    title={tagTitle(tag.label, isSelected(tag.label))}
+                    data-cy={`node-tag-${tag.label}`}
+                  />
+                ))}
+              </Box>
+              <IconButton
+                data-cy="expand-node-status"
+                aria-label={props.expanded ? 'Hide message' : 'Show message'}
+                onClick={(event) => {
+                  // the row itself jumps the canvas to the node
+                  event.stopPropagation();
+                  props.onToggleExpanded(node.id);
+                }}
                 sx={{
-                  flex: '1 1 auto',
-                  minWidth: 0,
-                  lineHeight: `${ROW_LINE_HEIGHT}px`,
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  whiteSpace: 'nowrap',
+                  p: '2px',
+                  ml: '1px',
+                  fontSize: '18px',
+                  transform: props.expanded ? 'rotate(180deg)' : 'rotate(0deg)',
+                  transition: 'transform 0.15s',
                 }}
               >
-                {node.name}
-              </Box>
-              {node.getTags().length > 0 && (
-                <Box
-                  sx={{
-                    display: 'flex',
-                    flexWrap: 'wrap',
-                    justifyContent: 'flex-end',
-                    columnGap: '2px',
-                    rowGap: '3px',
-                    maxWidth: TAG_MAX_SHARE,
-                    minWidth: 0,
-                    ml: '8px',
-                  }}
-                >
-                  {node.getTags().map((part, index) => (
-                    <TagChip
-                      key={`${part}-${index}`}
-                      label={part}
-                      selected={isSelected(part)}
-                      onClick={props.onTagClick}
-                      title={tagTitle(part, isSelected(part))}
-                      data-cy={`node-tag-${part}`}
-                    />
-                  ))}
-                </Box>
-              )}
-              {statuses.length > 0 && (
-                <Box
-                  sx={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    flexShrink: 0,
-                    minHeight: `${ROW_LINE_HEIGHT}px`,
-                    ml: '8px',
-                  }}
-                >
-                  <Box sx={{ display: 'flex', gap: '2px' }}>
-                    {statusTags.map((tag) => (
-                      <TagChip
-                        key={tag.label}
-                        label={tag.label}
-                        color={tag.color}
-                        selected={isSelected(tag.label)}
-                        onClick={props.onTagClick}
-                        title={tagTitle(tag.label, isSelected(tag.label))}
-                        data-cy={`node-tag-${tag.label}`}
-                      />
-                    ))}
-                  </Box>
-                  <IconButton
-                    data-cy="expand-node-status"
-                    aria-label={
-                      props.expanded ? 'Hide message' : 'Show message'
-                    }
-                    onClick={(event) => {
-                      // the row itself jumps the canvas to the node
-                      event.stopPropagation();
-                      props.onToggleExpanded(node.id);
-                    }}
-                    sx={{
-                      p: '2px',
-                      ml: '1px',
-                      fontSize: '18px',
-                      transform: props.expanded
-                        ? 'rotate(180deg)'
-                        : 'rotate(0deg)',
-                      transition: 'transform 0.15s',
-                    }}
-                  >
-                    <ExpandMoreIcon fontSize="inherit" />
-                  </IconButton>
-                </Box>
-              )}
+                <ExpandMoreIcon fontSize="inherit" />
+              </IconButton>
             </Box>
-            <Box
-              sx={{
-                fontSize: '12px',
-                opacity: '0.75',
-                textOverflow: 'ellipsis',
-              }}
-            >
-              <Box
-                sx={{
-                  display: 'inline',
-                }}
-              >
-                {node.name === node.getName() ? '' : node.getName()}
-              </Box>
-            </Box>
-          </Stack>
-        </ListItemButton>
-        {statuses.length > 0 && (
-          <Collapse in={props.expanded} unmountOnExit>
-            <Box
-              sx={{
-                px: 1,
-                pb: 1,
-                bgcolor: 'rgba(0,0,0,0.25)',
-              }}
-            >
-              {statuses.map((status, index) => (
-                <StatusDetail key={`${status.id}-${index}`} status={status} />
-              ))}
-            </Box>
-          </Collapse>
-        )}
-      </ListItem>
+          )
+        }
+        subtitle={node.name === node.getName() ? '' : node.getName()}
+        details={
+          statuses.length > 0 &&
+          statuses.map((status, index) => (
+            <StatusDetail key={`${status.id}-${index}`} status={status} />
+          ))
+        }
+        expanded={props.expanded}
+      />
     );
   },
   (prevProps, nextProps) => {

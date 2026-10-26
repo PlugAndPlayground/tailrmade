@@ -223,8 +223,8 @@ const MACRO_CALL_REGEX = /\bmacro\s*\(/;
 // customfunction does any number of inputs but only one output for simplicity
 export class CustomFunction extends PPNode {
   public getRisks(): NodeRisk[] {
-    return this.isRiskInputConnected(allowFullAccessName) ||
-      this.getInputData(allowFullAccessName)
+    const fullAccess = this.getStaticInputData(allowFullAccessName);
+    return !fullAccess.known || fullAccess.value
       ? [new UnrestrictedCodeRisk()]
       : [];
   }

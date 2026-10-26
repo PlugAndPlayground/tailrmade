@@ -1,10 +1,29 @@
 export type RiskSeverity = 'critical' | 'warning' | 'info';
 
+// Short "so what?" labels shown next to each action. A title says what a
+// node does, a consequence says what it costs you if the app misbehaves.
+export const CONSEQUENCE = {
+  costsMoney: 'Costs money',
+  sendsDataOut: 'Sends your data out',
+  readsYourData: 'Reads your saved data',
+  changesYourData: 'Can change your data',
+  reachesYourComputer: 'Reaches your computer',
+  revealsYouVisited: 'Reveals you visited',
+  notSandboxed: 'Not sandboxed',
+} as const;
+
+export type Consequence = (typeof CONSEQUENCE)[keyof typeof CONSEQUENCE];
+
 export abstract class NodeRisk {
   abstract readonly kind: string;
   abstract readonly title: string;
   abstract readonly description: string;
   readonly severity: RiskSeverity = 'warning';
+  readonly consequences: readonly Consequence[] = [];
+  // False when a value is only chosen once the app runs, so the review cannot
+  // show what it will be. The review has no prose here: it decides how to say
+  // that at render time.
+  readonly resolved: boolean = true;
 
   constructor(public readonly target?: string) {}
 
@@ -13,86 +32,170 @@ export abstract class NodeRisk {
   }
 }
 
+// What the review shows. `severity` says how much is at stake and still drives
+// execution gating; this says how well a person can judge it, which is the one
+// ordered scale in the panel.
+export type RiskLevel =
+  'unrestricted' | 'dynamic' | 'static' | 'loads-only' | 'none';
+
+// Lowest to highest, so a single max() gives an app its headline.
+export const RISK_LEVEL_ORDER: readonly RiskLevel[] = [
+  'none',
+  'loads-only',
+  'static',
+  'dynamic',
+  'unrestricted',
+];
+
+export function getRiskLevel(risk: NodeRisk): RiskLevel {
+  if (risk.severity === 'critical') return 'unrestricted';
+  if (!risk.resolved) return 'dynamic';
+  return risk.severity === 'info' ? 'loads-only' : 'static';
+}
+
+export function highestRiskLevel(risks: NodeRisk[]): RiskLevel {
+  return risks.reduce<RiskLevel>(
+    (highest, risk) =>
+      RISK_LEVEL_ORDER.indexOf(getRiskLevel(risk)) >
+      RISK_LEVEL_ORDER.indexOf(highest)
+        ? getRiskLevel(risk)
+        : highest,
+    'none',
+  );
+}
+
+// Drops credentials and the fragment, and masks every query value. Returns
+// undefined when the address cannot be worked out without running the graph.
+export function resolveDestination(
+  url: unknown,
+  baseURL = typeof document === 'undefined' ? undefined : document.baseURI,
+): string | undefined {
+  if (typeof url !== 'string') return undefined;
+  try {
+    const parsed = new URL(url, baseURL);
+    if (!['http:', 'https:', 'ws:', 'wss:'].includes(parsed.protocol)) {
+      return undefined;
+    }
+    // The query is part of what reaches the site, so hiding it entirely left
+    // the review quieter than the truth. Names say what kinds of data travel;
+    // values stay masked, so a secret typed into an address is never printed.
+    const query = [...parsed.searchParams]
+      .map(([name, value]) => (value === '' ? name : `${name}=\u2026`))
+      .join('&');
+    return parsed.origin + parsed.pathname + (query ? `?${query}` : '');
+  } catch {}
+  return undefined;
+}
+
 export class UnrestrictedCodeRisk extends NodeRisk {
   readonly kind = 'unrestricted-code';
   readonly severity = 'critical' as const;
-  readonly title = 'Runs JavaScript with browser access';
+  readonly title = 'Runs code that is not sandboxed';
+  readonly resolved = false;
   readonly description =
-    "Runs outside the code sandbox to support page interactions and browser libraries. This gives code access to the Tailrmade page and your signed-in session, including reading, changing, or deleting Tailrmade data, using available API keys and Companion services, and making network requests. Access is broader than the individual capabilities listed here; paid services can incur charges. Long-running code may make this tab unresponsive. Normal browser permissions still apply, without general access to your computer's files or other apps.";
+    'Its actions cannot be determined, because this code is not sandboxed. It can use anything Tailrmade can: your saved data, your API keys, your Companion, and any site. It cannot reach your files or other apps, or use your camera, microphone or location unless you have allowed Tailrmade to.';
+  readonly consequences = [
+    CONSEQUENCE.notSandboxed,
+    CONSEQUENCE.changesYourData,
+    CONSEQUENCE.sendsDataOut,
+    CONSEQUENCE.costsMoney,
+  ] as const;
 }
 
 export class ApiKeyRisk extends NodeRisk {
   readonly kind = 'api-key';
   readonly title = 'Uses API keys';
   readonly description =
-    'Uses the listed API keys through your configured Companion to authenticate requests. The service may charge for usage. Connected inputs can supply additional keys when the app runs.';
+    'Sends your saved keys with its requests. The service may charge you.';
+  readonly consequences = [
+    CONSEQUENCE.costsMoney,
+    CONSEQUENCE.sendsDataOut,
+  ] as const;
+  readonly resolved: boolean;
+
+  // Without a key name the review can only say one gets picked while running.
+  constructor(key?: string) {
+    super(key);
+    this.resolved = key !== undefined;
+  }
 }
 
 export class NetworkRisk extends NodeRisk {
   readonly severity: RiskSeverity;
   readonly kind = 'network';
-  readonly title = 'Connects to external services';
-  readonly description =
-    'Sends and receives data using the listed destinations. Connected inputs or custom code can choose other destinations when the app runs. Addresses shown here omit credentials, query strings, and fragments.';
+  readonly title: string;
+  readonly description: string;
+  readonly consequences: readonly Consequence[];
+  readonly resolved: boolean;
 
   constructor(
     url?: unknown,
     baseURL = typeof document === 'undefined' ? undefined : document.baseURI,
     severity: RiskSeverity = 'warning',
   ) {
-    let destination = 'Destination determined at runtime';
-    if (typeof url === 'string') {
-      try {
-        const parsed = new URL(url, baseURL);
-        if (['http:', 'https:', 'ws:', 'wss:'].includes(parsed.protocol)) {
-          // Show the endpoint without credentials or query/fragment secrets.
-          destination = parsed.origin + parsed.pathname;
-        }
-      } catch {}
-    }
+    const destination = resolveDestination(url, baseURL);
     super(destination);
+    this.resolved = destination !== undefined;
     this.severity = severity;
+    // Info only loads data, so it gets its own card instead of a second
+    // card with the same title
+    this.title =
+      severity === 'info'
+        ? 'Loads data from other sites'
+        : 'Connects to other sites';
+    this.description =
+      severity === 'info'
+        ? 'Loads data from the sites below. Each site can see the request.'
+        : 'Sends and receives data from the sites below.';
+    this.consequences =
+      severity === 'info'
+        ? [CONSEQUENCE.revealsYouVisited]
+        : [CONSEQUENCE.sendsDataOut];
   }
 }
 
 export class ExternalHtmlRisk extends NodeRisk {
   readonly kind = 'external-html';
   readonly severity = 'info' as const;
-  readonly title = 'References external URLs';
+  readonly title = 'Links to other sites';
   readonly description =
-    'Sanitized HTML references this address. Loading resources or following links sends a request to that host. Addresses omit credentials, query strings, and fragments.';
+    "Content links to or loads from the sites below. They can see when it's loaded or followed.";
+  readonly consequences = [CONSEQUENCE.revealsYouVisited] as const;
 
   constructor(url: string) {
-    super(new NetworkRisk(url).target);
+    super(resolveDestination(url));
   }
 }
 
 export class ExternalImageRisk extends NodeRisk {
   readonly kind = 'external-image';
   readonly severity = 'info' as const;
-  readonly title = 'Loads external images';
-  readonly description =
-    'Loads an image from the listed address. The image host receives the request. The address shown here omits credentials, query strings, and fragments.';
+  readonly title = 'Loads images from other sites';
+  readonly description = 'The site hosting each image can see when it loads.';
+  readonly consequences = [CONSEQUENCE.revealsYouVisited] as const;
 
   constructor(url: string) {
-    super(new NetworkRisk(url).target);
+    super(resolveDestination(url));
   }
 }
 
 export class DynamicImageRisk extends NodeRisk {
   readonly kind = 'dynamic-image';
-  readonly title = 'Loads images from dynamic URLs';
+  readonly title = 'Loads images from changing addresses';
   readonly description =
-    'Uses connected inputs to choose which images to load. If an image address includes app data, the image host receives that data with the request.';
+    'Other nodes choose which images to load, so app data in an address is sent to that site.';
+  readonly consequences = [CONSEQUENCE.sendsDataOut] as const;
+  readonly resolved = false;
 }
 
 export function getImageSourceRisks(
   source: unknown,
-  connected: boolean,
+  dynamic: boolean,
   baseURL = typeof document === 'undefined' ? undefined : document.baseURI,
 ): NodeRisk[] {
-  // A saved input value cannot predict what its connection will produce.
-  if (connected) return [new DynamicImageRisk()];
+  // Only when the address cannot be worked out ahead of time. A connection
+  // that resolves to a constant is reported as that constant.
+  if (dynamic) return [new DynamicImageRisk()];
   if (typeof source !== 'string' || !source.trim()) return [];
   try {
     const url = new URL(source, baseURL);
@@ -110,10 +213,14 @@ export class NavigationRisk extends NodeRisk {
   readonly kind = 'navigation';
   readonly title = 'Opens web pages';
   readonly description =
-    'Opens web pages in new tabs. Data included in a URL is sent to that destination. Connected inputs can choose destinations when the app runs. Addresses shown here omit credentials, query strings, and fragments.';
+    'Opens pages in a new tab. Anything in the address is sent to that site.';
+  readonly consequences = [CONSEQUENCE.sendsDataOut] as const;
+  readonly resolved: boolean;
 
   constructor(url?: unknown) {
-    super(new NetworkRisk(url).target);
+    const destination = resolveDestination(url);
+    super(destination);
+    this.resolved = destination !== undefined;
   }
 }
 
@@ -121,21 +228,38 @@ export class CompanionRisk extends NodeRisk {
   readonly kind = 'companion';
   readonly title = 'Uses your Companion';
   readonly description =
-    'Routes requests through your configured Tailrmade Companion. A Companion running on your computer can connect to services on that computer or your local network.';
+    'Sends requests through your Companion, which can reach your computer and local network.';
+  readonly consequences = [
+    CONSEQUENCE.reachesYourComputer,
+    CONSEQUENCE.sendsDataOut,
+  ] as const;
 }
 
-export class StorageRisk extends NodeRisk {
-  readonly kind = 'storage';
-  readonly title = 'Accesses Tailrmade data';
+export class StorageReadRisk extends NodeRisk {
+  readonly kind = 'storage-read';
+  readonly title = 'Reads Tailrmade data';
   readonly description =
-    'Reads saved data from Tailrmade in this browser or your Tailrmade cloud storage. Write and delete nodes can also update or remove that data. This access is limited to Tailrmade storage, not other files on your computer.';
+    'Reads data saved in Tailrmade by you or by other apps. Nothing outside Tailrmade storage.';
+  readonly consequences = [CONSEQUENCE.readsYourData] as const;
+}
+
+export class StorageWriteRisk extends NodeRisk {
+  readonly kind = 'storage-write';
+  readonly title = 'Changes Tailrmade data';
+  readonly description =
+    'Adds, changes or removes data saved in Tailrmade. Nothing outside Tailrmade storage.';
+  readonly consequences = [CONSEQUENCE.changesYourData] as const;
 }
 
 export class AIUsageRisk extends NodeRisk {
   readonly kind = 'ai-usage';
   readonly title = 'Uses AI services';
   readonly description =
-    'Sends app inputs to the configured AI provider for processing. Requests count toward your usage allowance and may use paid credits.';
+    'Sends app data to your AI provider. Counts toward your AI allowance and may use paid credits.';
+  readonly consequences = [
+    CONSEQUENCE.costsMoney,
+    CONSEQUENCE.sendsDataOut,
+  ] as const;
 }
 
 export interface RiskSource {

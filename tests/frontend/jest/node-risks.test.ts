@@ -1,12 +1,19 @@
 import {
+  AIUsageRisk,
   ApiKeyRisk,
+  CONSEQUENCE,
+  CompanionRisk,
   NetworkRisk,
   ExternalImageRisk,
   DynamicImageRisk,
+  StorageReadRisk,
+  StorageWriteRisk,
   UnrestrictedCodeRisk,
   collectAppRisks,
   findApiKeyReferences,
   getImageSourceRisks,
+  getRiskLevel,
+  highestRiskLevel,
   requiresAppRiskReview,
 } from '../../../src/classes/NodeRisk';
 
@@ -28,7 +35,7 @@ describe('app risk disclosure', () => {
     ).toBe(true);
   });
 
-  it('classifies fixed image sources and hides URL secrets', () => {
+  it('classifies fixed image sources and masks URL secrets', () => {
     const baseURL = 'https://app.example.com/editor';
     for (const source of [
       'https://user:secret@images.example.com/photo.png?key=secret#secret',
@@ -38,7 +45,9 @@ describe('app risk disclosure', () => {
       expect(risks).toHaveLength(1);
       expect(risks[0]).toBeInstanceOf(ExternalImageRisk);
       expect(risks[0].severity).toBe('info');
-      expect(risks[0].target).toBe('https://images.example.com/photo.png');
+      expect(risks[0].target).toBe(
+        'https://images.example.com/photo.png?key=…',
+      );
     }
     for (const source of [
       undefined,
@@ -115,8 +124,27 @@ describe('app risk disclosure', () => {
       new NetworkRisk(
         'https://user:secret@example.com/private?key=secret#secret',
       ).target,
-    ).toBe('https://example.com/private');
-    expect(new NetworkRisk().target).toBe('Destination determined at runtime');
+    ).toBe('https://example.com/private?key=…');
+    // An address the review cannot work out carries no prose in the model.
+    expect(new NetworkRisk().target).toBeUndefined();
+    expect(new NetworkRisk().resolved).toBe(false);
+  });
+
+  it('names query parameters without printing their values', () => {
+    expect(new NetworkRisk('https://example.com/p?a=1&b=2&c=3').target).toBe(
+      'https://example.com/p?a=…&b=…&c=…',
+    );
+    // An empty value has nothing to hide, so it is not masked into one.
+    expect(new NetworkRisk('https://example.com/p?flag=&x=1').target).toBe(
+      'https://example.com/p?flag&x=…',
+    );
+    expect(new NetworkRisk('https://example.com/p?').target).toBe(
+      'https://example.com/p',
+    );
+    // The fragment never reaches the server, so it stays out entirely.
+    expect(new NetworkRisk('https://example.com/p#secret').target).toBe(
+      'https://example.com/p',
+    );
   });
 
   it('resolves relative destinations against the page base URL', () => {
@@ -125,7 +153,7 @@ describe('app risk disclosure', () => {
         '../api/items?token=secret',
         'https://example.com/apps/one',
       ).target,
-    ).toBe('https://example.com/api/items');
+    ).toBe('https://example.com/api/items?token=…');
     expect(
       new NetworkRisk(
         '//user:secret@api.example.com/items',
@@ -137,16 +165,94 @@ describe('app risk disclosure', () => {
   it('supports websocket endpoints and does not expose non-network URL payloads', () => {
     expect(
       new NetworkRisk('wss://example.com:8443/events?key=secret').target,
-    ).toBe('wss://example.com:8443/events');
+    ).toBe('wss://example.com:8443/events?key=…');
     for (const url of [
       'data:text/plain,secret',
       'invalid://secret',
       'http://[',
     ]) {
-      expect(new NetworkRisk(url).target).toBe(
-        'Destination determined at runtime',
-      );
+      expect(new NetworkRisk(url).target).toBeUndefined();
+      expect(new NetworkRisk(url).resolved).toBe(false);
     }
+  });
+
+  it('ranks how well each capability can be judged', () => {
+    expect(getRiskLevel(new UnrestrictedCodeRisk())).toBe('unrestricted');
+    // Same capability, but the destination is only picked while running.
+    expect(getRiskLevel(new NetworkRisk('https://example.com'))).toBe('static');
+    expect(getRiskLevel(new NetworkRisk())).toBe('dynamic');
+    expect(getRiskLevel(new DynamicImageRisk())).toBe('dynamic');
+    expect(getRiskLevel(new ApiKeyRisk('OPENAI'))).toBe('static');
+    expect(getRiskLevel(new ApiKeyRisk())).toBe('dynamic');
+    expect(
+      getRiskLevel(new NetworkRisk('https://example.com', undefined, 'info')),
+    ).toBe('loads-only');
+    expect(highestRiskLevel([])).toBe('none');
+    expect(
+      highestRiskLevel([
+        new ExternalImageRisk('https://example.com/a.png'),
+        new StorageWriteRisk(),
+      ]),
+    ).toBe('static');
+    expect(highestRiskLevel([new StorageWriteRisk(), new NetworkRisk()])).toBe(
+      'dynamic',
+    );
+  });
+
+  it('keeps gating on what is at stake, not on how judgeable it is', () => {
+    // A dynamic destination is harder to judge but still blocks, and a fully
+    // static storage write blocks too, so the gate cannot read the scale.
+    for (const risk of [new NetworkRisk(), new StorageWriteRisk()]) {
+      expect(requiresAppRiskReview([{ risk, nodes: [] }])).toBe(true);
+    }
+    expect(
+      requiresAppRiskReview([
+        { risk: new ExternalImageRisk('https://example.com/a.png'), nodes: [] },
+      ]),
+    ).toBe(false);
+  });
+
+  it('separates reading saved data from changing it', () => {
+    const risks = collectAppRisks([
+      {
+        id: 'read',
+        nodeName: 'Storage read',
+        getRisks: () => [new StorageReadRisk()],
+      },
+      {
+        id: 'write',
+        nodeName: 'Storage write',
+        getRisks: () => [new StorageWriteRisk()],
+      },
+    ]);
+    expect(risks.map(({ risk }) => risk.kind).sort()).toEqual([
+      'storage-read',
+      'storage-write',
+    ]);
+    // Neither description has to hedge about the other direction.
+    expect(new StorageReadRisk().description).not.toContain('remove');
+    expect(new StorageWriteRisk().consequences).toEqual([
+      CONSEQUENCE.changesYourData,
+    ]);
+  });
+
+  it('tags every capability that costs money or leaves the browser', () => {
+    for (const risk of [new ApiKeyRisk('OPENAI'), new AIUsageRisk()]) {
+      expect(risk.consequences).toContain(CONSEQUENCE.costsMoney);
+    }
+    expect(new CompanionRisk().consequences).toContain(
+      CONSEQUENCE.reachesYourComputer,
+    );
+    // A plain GET only reveals that the request happened.
+    expect(
+      new NetworkRisk('https://example.com', undefined, 'info').consequences,
+    ).toEqual([CONSEQUENCE.revealsYouVisited]);
+    expect(new NetworkRisk('https://example.com').consequences).toEqual([
+      CONSEQUENCE.sendsDataOut,
+    ]);
+    expect(new UnrestrictedCodeRisk().consequences).toContain(
+      CONSEQUENCE.notSandboxed,
+    );
   });
 
   it('keeps different endpoints on the same host separate in the review', () => {

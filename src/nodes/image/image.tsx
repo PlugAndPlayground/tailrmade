@@ -86,10 +86,8 @@ const defaultProps: WidgetProps = {
 
 export class Image extends PPNode implements Layoutable {
   public getRisks(): NodeRisk[] {
-    return getImageSourceRisks(
-      this.getInputData(imageInputName),
-      this.isRiskInputConnected(imageInputName),
-    );
+    const source = this.getStaticInputData(imageInputName);
+    return getImageSourceRisks(source.value, !source.known);
   }
 
   // Images can be displayed without downstream consumers.

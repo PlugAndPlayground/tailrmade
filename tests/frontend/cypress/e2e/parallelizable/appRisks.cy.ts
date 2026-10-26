@@ -103,13 +103,15 @@ describe('app risk review', () => {
   it('shows fixed external images as information alongside blocking risks', () => {
     cy.viewport(1280, 900);
     beginLoad([codeNode(), { ...imageNode(externalImageURL), x: 400 }]);
+    cy.get('[data-cy="risk-nodes-tab"]').click();
     cy.get('[data-cy="go-to-risk-node"][data-node-id="image"]')
-      .should('contain', 'Loads external images')
-      .and('not.contain', 'Connects to external services')
+      .should('contain', 'Loads images from other sites')
+      .and('not.contain', 'Connects to other sites')
       .and('not.contain', 'hidden-secret');
-    cy.get('[data-cy="app-risk-dialog"] .MuiAlert-colorInfo').should(
+    cy.get('[data-cy="risk-actions-tab"]').click();
+    cy.get('[data-cy="risk-details"][data-risk-severity="info"]').should(
       'contain',
-      'Loads external images',
+      'Loads images from other sites',
     );
     shouldWithTestController((controller) => {
       expect(controller.getNodeByID('code').debug_timesExecuted).to.equal(0);
@@ -137,7 +139,7 @@ describe('app risk review', () => {
     );
     cy.get('[data-cy="app-risk-dialog"]').should(
       'contain',
-      'Loads images from dynamic URLs',
+      'Loads images from changing addresses',
     );
     shouldWithTestController((controller) => {
       expect(
@@ -211,6 +213,7 @@ describe('app risk review', () => {
       cy.get(
         '[aria-label="Center review"], [aria-label="Inspect alongside graph"]',
       ).should('not.exist');
+      cy.get('[data-cy="risk-nodes-tab"]').click();
       cy.get('[data-cy="go-to-risk-node"]').should('have.length', 2);
       cy.get('[data-cy="go-to-risk-node"][data-node-id="second-code"]').click();
       cy.get('[data-cy="app-risk-dialog"]')
@@ -265,6 +268,7 @@ describe('app risk review', () => {
   it('searches a large node list and inspects every affected node at once', () => {
     const ids = Array.from({ length: 30 }, (_, index) => `code-${index}`);
     beginLoad(ids.map((id, index) => ({ ...codeNode(), id, x: index * 300 })));
+    cy.get('[data-cy="risk-nodes-tab"]').click();
     cy.get('[data-cy="go-to-risk-node"]').should('have.length', 30);
     cy.get('[data-cy="app-risk-dialog"]').find('input').type('code-29');
     cy.get('[data-cy="go-to-risk-node"]')
@@ -308,6 +312,7 @@ describe('app risk review', () => {
     it(`keeps the inspector beside the review at ${width}px, including after resizing`, () => {
       cy.viewport(width, 900);
       beginLoad([codeNode()]);
+      cy.get('[data-cy="risk-nodes-tab"]').click();
       cy.get('[data-cy="go-to-risk-node"]').click();
       cy.get('[data-cy="inspector-column"]').then(($column) => {
         if ($column.width() === 0)
@@ -371,9 +376,10 @@ describe('app risk review', () => {
       'have.length.greaterThan',
       1,
     );
+    cy.get('[data-cy="risk-nodes-tab"]').click();
     cy.get('[data-cy="go-to-risk-node"]').should('have.length', 1);
     cy.get('[data-cy="go-to-risk-node"]')
-      .should('contain', 'Connects to external services')
+      .should('contain', 'Connects to other sites')
       .and('contain', 'Uses API keys')
       .and('contain', 'Uses your Companion')
       .and('contain', 'https://example.com/api')
@@ -384,7 +390,7 @@ describe('app risk review', () => {
     cy.get('[data-cy="app-risk-dialog"]')
       .find('input')
       .clear()
-      .type('external services');
+      .type('other sites');
     cy.get('[data-cy="go-to-risk-node"]').should('have.length', 1);
     cy.viewport(1280, 900);
     cy.get('[data-cy="go-to-risk-node"]').scrollIntoView();
@@ -392,6 +398,7 @@ describe('app risk review', () => {
     cy.viewport(390, 900);
     cy.get('[data-cy="go-to-risk-node"]').scrollIntoView();
     cy.screenshot('node-capabilities-mobile', { capture: 'runner' });
+    cy.get('[data-cy="risk-actions-tab"]').click();
     cy.get('[data-cy="inspect-risk-group"]').first().click();
     shouldWithTestController((controller) => {
       expect(
@@ -495,7 +502,7 @@ describe('app risk review', () => {
     });
     cy.get('[data-cy="app-risk-dialog"]')
       .should('be.visible')
-      .and('contain', 'Runs JavaScript with browser access');
+      .and('contain', 'Runs code that is not sandboxed');
     doWithTestController(async (controller) => {
       await controller.getNodeByID('code').execute();
       expect(controller.getNodeByID('code').debug_timesExecuted).to.equal(0);
@@ -616,46 +623,53 @@ describe('app risk review', () => {
     });
   });
 
-  it('shows risks in a graph inspector tab without opening a review dialog', () => {
+  it('summarizes risks in the app inspector and reviews them in the side panel', () => {
     cy.viewport(1280, 900);
     beginLoad([serializedNode('add', 'add', [])]);
     cy.get('[data-cy="inspector-column"]').then(($column) => {
       if ($column.width() === 0)
         cy.get('[data-cy="right-drawer-toggle-btn"]').click();
     });
-    cy.get('[data-cy="graph-inspector-tab"]').click();
-    cy.get('[data-cy="review-risks-button"]').should('not.exist');
-    cy.get('[data-cy="graph-risk-inspector"]').should('not.exist');
-    cy.get('[data-cy="graph-risks-tab"]')
-      .click()
-      .should('have.attr', 'aria-selected', 'true');
-    cy.get('[data-cy="graph-risk-inspector"]')
-      .should('contain', 'No risks found')
-      .and('contain', 'Required access 1/3')
+    cy.get('[data-cy="app-info-tab"]').click();
+    cy.get('[data-cy="app-risk-summary"]')
+      .should('contain', 'No access')
+      .and('not.contain', 'to review')
       .and('contain', 'Unknown source');
     cy.get('[data-cy="app-risk-dialog"]').should('not.exist');
-    cy.get('[data-cy="run-reviewed-app"]').should('not.exist');
-    cy.get('[data-cy="graph-nodes-tab"]').click();
-    cy.get('[data-cy="graph-risk-inspector"]').should('not.exist');
     beginLoad([codeNode()]);
     cy.get('[data-cy="run-reviewed-app"]').click();
     cy.get('[data-cy="app-risk-dialog"]').should('not.exist');
-    cy.get('[data-cy="graph-risks-tab"]').click();
-    cy.get('[data-cy="graph-risk-inspector"]')
-      .should('contain', 'Runs JavaScript with browser access')
-      .and('contain', 'Required access 3/3');
-    cy.get('[data-cy="app-risk-dialog"]').should('not.exist');
+    cy.get('[data-cy="app-risk-summary"]')
+      .should('contain', '1 node to review')
+      .and('contain', 'Unrestricted');
+    cy.get('[data-cy="open-risk-review"]').click();
+    cy.get('[data-cy="app-risk-dialog"]')
+      .should('contain', 'Runs code that is not sandboxed')
+      .and('contain', 'Risk review');
     cy.get('[data-cy="run-reviewed-app"]').should('not.exist');
-    cy.screenshot('graph-risk-inspector', { capture: 'runner' });
-    cy.get(
-      '[data-cy="graph-risk-inspector"] [data-cy="go-to-risk-node"]',
-    ).click();
-    cy.get('[data-cy="graph-nodes-tab"]').should(
+    cy.screenshot('app-risk-summary', { capture: 'runner' });
+    cy.get('[data-cy="risk-nodes-tab"]').click();
+    cy.get('[data-cy="node-action"]').click();
+    cy.get('[data-cy="risk-actions-tab"]').should(
       'have.attr',
       'aria-selected',
       'true',
     );
+    cy.focused()
+      .should('have.attr', 'data-cy', 'risk-details')
+      .and('have.attr', 'data-risk-kind', 'unrestricted-code');
+    cy.get('[data-cy="risk-nodes-tab"]').click();
+    cy.get('[data-cy="go-to-risk-node"]').click();
+    // the list stays open beside the node inspector
     cy.get('#inspector-container-node').should('be.visible');
+    // the inspected node is gone when the open review is refreshed
+    doWithTestController((controller) => controller.removeNode('code'));
+    cy.get('[data-cy="app-info-tab"]').click();
+    cy.get('[data-cy="app-risk-summary"]').should('contain', 'No access');
+    cy.get('[data-cy="open-risk-review"]').click();
+    cy.get('[data-cy="app-risk-dialog"]').should('contain', 'No access');
+    cy.get('[data-cy="app-risk-dialog"]').contains('button', 'Close').click();
+    cy.get('[data-cy="app-risk-dialog"]').should('not.exist');
   });
 
   it('does not verify an owner claimed by a graph file', () => {
@@ -691,11 +705,103 @@ describe('app risk review', () => {
     );
   });
 
+  // A wired-up input used to count as dynamic without anyone looking at what
+  // was wired up, so these pin that the whole chain is followed.
+  const openURLNode = () => serializedNode('openurl', 'open', []);
+  const linkTo = (
+    sourceNodeId: string,
+    sourceSocketName: string,
+    targetNodeId: string,
+    targetSocketName: string,
+  ) => ({ sourceNodeId, sourceSocketName, targetNodeId, targetSocketName });
+  it('resolves a constant wired into Open URL instead of calling it dynamic', () => {
+    beginLoad(
+      [
+        openURLNode(),
+        serializedNode('constant_string', 'address', [
+          serializedSocket('String', 'https://example.com/docs?token=secret'),
+        ]),
+      ],
+      [linkTo('address', 'String', 'open', 'url')],
+    );
+    shouldWithTestController((controller) => {
+      const risk = controller.getNodeByID('open').getRisks()[0];
+      expect(risk.resolved).to.equal(true);
+      expect(risk.target).to.equal('https://example.com/docs?token=…');
+    });
+    cy.get('[data-cy="app-risk-dialog"]').should(
+      'contain',
+      'https://example.com/docs?token=…',
+    );
+  });
+
+  it('follows the chain through a constant whose own input is connected', () => {
+    beginLoad(
+      [
+        openURLNode(),
+        serializedNode('constant_string', 'address', [
+          serializedSocket('String', 'https://example.com/chained'),
+        ]),
+        serializedNode('constant', 'relay', [
+          serializedSocket('In', '', 'StringType'),
+        ]),
+      ],
+      [
+        linkTo('address', 'String', 'relay', 'In'),
+        linkTo('relay', 'Out', 'open', 'url'),
+      ],
+    );
+    shouldWithTestController((controller) => {
+      const risk = controller.getNodeByID('open').getRisks()[0];
+      expect(risk.resolved).to.equal(true);
+      expect(risk.target).to.equal('https://example.com/chained');
+    });
+  });
+
+  it('follows a constant through a label into Open URL', () => {
+    beginLoad(
+      [
+        openURLNode(),
+        serializedNode('constant_string', 'address', [
+          serializedSocket('String', 'https://example.com/via-label'),
+        ]),
+        serializedNode('label', 'caption', [
+          serializedSocket('Input', '', 'StringType'),
+        ]),
+      ],
+      [
+        linkTo('address', 'String', 'caption', 'Input'),
+        linkTo('caption', 'Output', 'open', 'url'),
+      ],
+    );
+    shouldWithTestController((controller) => {
+      const risk = controller.getNodeByID('open').getRisks()[0];
+      expect(risk.resolved).to.equal(true);
+      expect(risk.target).to.equal('https://example.com/via-label');
+    });
+  });
+
+  it('stays dynamic when the chain reaches something it cannot work out', () => {
+    beginLoad(
+      [openURLNode(), codeNode()],
+      [linkTo('code', 'OutData', 'open', 'url')],
+    );
+    shouldWithTestController((controller) => {
+      const risk = controller.getNodeByID('open').getRisks()[0];
+      expect(risk.resolved).to.equal(false);
+      expect(risk.target).to.equal(undefined);
+    });
+    cy.get('[data-cy="app-risk-dialog"]').should(
+      'contain',
+      'Chosen while the app runs',
+    );
+  });
+
   it('reviews legacy main-thread migration before running it', () => {
     beginLoad([codeNode(2)]);
     cy.get('[data-cy="app-risk-dialog"]').should(
       'contain',
-      'Runs JavaScript with browser access',
+      'Runs code that is not sandboxed',
     );
     cy.window().then((win: any) => expect(win.__riskCodeRuns).to.be.undefined);
     cy.get('[data-cy="run-reviewed-app"]').click();
@@ -727,7 +833,7 @@ describe('app risk review', () => {
     );
     cy.get('[data-cy="app-risk-dialog"]').should(
       'contain',
-      'Runs JavaScript with browser access',
+      'Runs code that is not sandboxed',
     );
     cy.window().then((win: any) => expect(win.__riskCodeRuns).to.be.undefined);
     cy.get('[data-cy="app-risk-dialog"]')

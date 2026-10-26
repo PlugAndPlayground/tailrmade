@@ -112,10 +112,6 @@ export default class PPNode extends PIXI.Container implements IWarningHandler {
     return UNKNOWN_STATIC_VALUE;
   }
 
-  protected isRiskInputConnected(name: string): boolean {
-    return Boolean(this.getInputSocketByName(name).links.length);
-  }
-
   _NodeNameRef: PIXI.Text;
   _BackgroundRef: PIXI.Container;
   _NodeTextStringRef: PIXI.Text;
