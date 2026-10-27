@@ -145,9 +145,10 @@ export class Concatenate extends StringDynamicInputNode {
   }
 
   protected async onExecute(input, output): Promise<void> {
-    output[concatStringName] = this.getAllNonDefaultInputSockets()
-      .map((socket) => socket.data)
-      .reduce((prev, current) => prev + current, '');
+    output[concatStringName] = this.getAllNonDefaultInputSockets().reduce(
+      (text, socket) => text + socket.data,
+      '',
+    );
   }
 
   protected shouldDrawAddInputNodeButton(): boolean {
