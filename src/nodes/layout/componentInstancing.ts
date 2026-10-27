@@ -1,11 +1,11 @@
-// Running a UI surface once "as a component instance".
+// Running a UI component once "as a placement".
 //
-// The definition's inner nodes are single shared copies, exactly as a macro's
-// are: a pass writes this instance's arguments into the surface's parameter
-// output sockets, runs the inner nodes, and then captures what each of them
-// ended up with. That capture - one input object per inner node - is what the
-// instance renders from, so N instances of one definition can show N different
-// things without the inner nodes being duplicated.
+// The nodes inside a component frame are single shared copies, exactly as a
+// macro's are: a pass writes this placement's arguments into the component's
+// parameter output sockets, runs the nodes they feed, and then captures what
+// each node rendered by the component's body surface ended up with. That
+// capture - one input object per node - is what the placement renders from, so
+// N placements can show N different things without anything being duplicated.
 //
 // Same shape as Macro.executeMacro (write args, executeChildren, read back),
 // and worth collapsing into one shared helper once a second caller needs it.
@@ -13,19 +13,20 @@ import PPGraph from '../../classes/GraphClass';
 import PPNode from '../../classes/NodeClass';
 import type { ComponentInstanceSnapshots } from '../../components/dashboard/componentInstance';
 import { getEmbeddedSurfaceNodes, getLinkedSourceNodeIds } from './surfaceSync';
+import type { UIComponent } from './uiComponentNode';
 import type { UISurfaceNode } from './uiSurface';
 
-// arguments keyed by the definition's parameter socket name - never by
-// position, because a definition's parameter list has gaps (an unlinked
-// parameter in the middle, and the spare one at the end)
+// arguments keyed by the component's parameter socket name - never by
+// position, because the parameter list has gaps (an unlinked parameter in the
+// middle, and the spare one at the end)
 export type ComponentArgs = Record<string, unknown>;
 
-// Passes share the definition's sockets, so two of them must never interleave.
-// Macro has the same exposure today and no guard; this keeps instances honest
+// Passes share the component's sockets, so two of them must never interleave.
+// Macro has the same exposure today and no guard; this keeps placements honest
 // without changing macro behaviour.
 let passQueue: Promise<unknown> = Promise.resolve();
 
-// every node rendered by this surface, following embedded surfaces so a
+// every node rendered by the body surface, following embedded surfaces so a
 // component built out of nested surfaces is captured whole
 function getRenderedNodeIds(surface: UISurfaceNode): Set<string> {
   const collected = new Set<string>();
@@ -45,19 +46,24 @@ function getRenderedNodeIds(surface: UISurfaceNode): Set<string> {
 }
 
 async function runPass(
-  definition: UISurfaceNode,
+  component: UIComponent,
   args: ComponentArgs,
 ): Promise<ComponentInstanceSnapshots> {
-  definition.getParameterSockets().forEach((parameter) => {
+  component.getParameterSockets().forEach((parameter) => {
     if (Object.prototype.hasOwnProperty.call(args, parameter.name)) {
       parameter.data = args[parameter.name];
     }
   });
 
-  await definition.executeChildren();
+  await component.executeChildren();
+
+  const body = component.getBodySurface();
+  if (!body) {
+    return {};
+  }
 
   const snapshots: ComponentInstanceSnapshots = {};
-  getRenderedNodeIds(definition).forEach((nodeId) => {
+  getRenderedNodeIds(body).forEach((nodeId) => {
     const node = PPGraph.currentGraph.getNodeById(nodeId);
     if (node) {
       snapshots[nodeId] = PPNode.remapInput(node.inputSocketArray);
@@ -66,11 +72,11 @@ async function runPass(
   return snapshots;
 }
 
-export function runSurfaceAsInstance(
-  definition: UISurfaceNode,
+export function runComponentAsInstance(
+  component: UIComponent,
   args: ComponentArgs,
 ): Promise<ComponentInstanceSnapshots> {
-  const pass = passQueue.then(() => runPass(definition, args));
+  const pass = passQueue.then(() => runPass(component, args));
   passQueue = pass.catch(() => undefined);
   return pass;
 }

@@ -2053,11 +2053,28 @@ ${Math.round(bounds.minX)}, ${Math.round(
   }
 
   /**
-   * Called on every node when a UI surface's parameter sockets change, so UI
-   * component instances of that surface can re-derive their own inputs.
-   * Overridden in UIComponentInstance; a no-op everywhere else.
+   * The UI component hooks, mirroring the macro ones above: a component asks
+   * every node whether it places it, then tells those that do when its
+   * parameters changed (Meta) or when its contents did.
+   * Overridden in PlaceComponent; no-ops everywhere else.
    */
-  public definitionSurfaceUpdatedMeta(_surface: PPNode): void {}
+  public isPlacingComponent(_componentName: string): boolean {
+    return false;
+  }
+
+  public placedComponentChangedName(_oldName: string, _newName: string): void {}
+
+  public placedComponentUpdatedMeta(_component: PPNode): void {}
+
+  public placedComponentUpdated(): void {
+    if (
+      this.updateBehaviour.update &&
+      PPGraph.currentGraph.graphConfiguredAndReady &&
+      !this.isExecuting
+    ) {
+      this.macroDebouncedExecution();
+    }
+  }
 
   // we should migrate all nodes to use these functions instead of specifying the field themselves in constructor
   public getName(): string {

@@ -16,7 +16,6 @@ import { SurfaceChrome } from '../../components/dashboard/SurfaceChrome';
 import { getPageDashboardIcon } from '../../components/dashboard/dashboardIcons';
 import { DeferredReactType } from '../datatypes/deferredHtmlType';
 import { JSONType } from '../datatypes/jsonType';
-import { AnyType } from '../datatypes/anyType';
 import { BooleanType } from '../datatypes/booleanType';
 import { StringType } from '../datatypes/stringType';
 import { GhostType } from '../datatypes/ghostType';
@@ -46,7 +45,6 @@ import {
   surfaceRadioGroupSocketName,
   surfaceElementVisibleSuffix,
   surfaceElementLayoutSuffix,
-  surfaceParameterPrefixName,
   VISIBILITY_ACTION,
 } from '../../utils/constants_shared';
 import { SOCKET_NAME_DASHBOARD_CONTENT } from '../../utils/layoutableHelpers';
@@ -378,81 +376,7 @@ everything to keep. Omitted connected widgets are appended with a warning.
         getDefaultWidgetLayoutValue(),
         true,
       ),
-      new PPSocket(
-        SOCKET_TYPE.OUT,
-        `${surfaceParameterPrefixName} 1`,
-        new AnyType(),
-        undefined,
-      ),
     ];
-  }
-
-  // The surface's parameter outputs, in socket order - the signature every UI
-  // component instance of this surface derives its own inputs from.
-  public getParameterSockets(): PPSocket[] {
-    return this.outputSocketArray.filter((socket) =>
-      socket.name.startsWith(surfaceParameterPrefixName),
-    );
-  }
-
-  // a parameter takes the type of whatever it is wired into, so an instance's
-  // matching input socket gets that type too
-  public socketShouldAutomaticallyAdapt(socket: PPSocket): boolean {
-    return (
-      socket.isOutput() && socket.name.startsWith(surfaceParameterPrefixName)
-    );
-  }
-
-  // mirrors the fed socket's name onto the parameter (Macro does the same), so
-  // "Parameter 1" wired into a Stat's Value reads as "Value" on every instance
-  public getSocketDisplayName(socket: PPSocket): string {
-    if (
-      socket.isOutput() &&
-      socket.name.startsWith(surfaceParameterPrefixName) &&
-      socket.hasLink()
-    ) {
-      const target = socket.links[0].getTarget();
-      return target.getNode().getSocketDisplayName(target);
-    }
-    return super.getSocketDisplayName(socket);
-  }
-
-  private shouldRemoveLastParameter(parameters: PPSocket[]): boolean {
-    return (
-      parameters.length >= 2 &&
-      parameters[parameters.length - 1].links.length === 0 &&
-      parameters[parameters.length - 2].links.length === 0
-    );
-  }
-
-  // keeps exactly one spare parameter socket at the end, as Macro does
-  private updateParameterSocketCount(): void {
-    const parameters = this.getParameterSockets();
-    if (parameters.length > 0 && parameters[parameters.length - 1].hasLink()) {
-      this.addOutput(
-        this.constructSocketName(
-          surfaceParameterPrefixName,
-          this.outputSocketArray,
-        ),
-        new AnyType(),
-      );
-    }
-    let remaining = this.getParameterSockets();
-    while (this.shouldRemoveLastParameter(remaining)) {
-      this.removeSocket(remaining[remaining.length - 1]);
-      remaining = remaining.slice(0, -1);
-    }
-    this.notifyInstancesOfSignatureChange();
-  }
-
-  // every UI component instance of this surface re-derives its input sockets
-  private notifyInstancesOfSignatureChange(): void {
-    if (!PPGraph.currentGraph?.graphConfiguredAndReady) {
-      return;
-    }
-    Object.values(PPGraph.currentGraph.nodes).forEach((node) =>
-      node.definitionSurfaceUpdatedMeta(this),
-    );
   }
 
   public getMinNodeWidth(): number {
@@ -568,17 +492,11 @@ everything to keep. Omitted connected widgets are appended with a warning.
   public outputPlugged(socket: PPSocket): void {
     super.outputPlugged(socket);
     this.updateRootLayoutSocketVisibility();
-    if (socket.name.startsWith(surfaceParameterPrefixName)) {
-      this.updateParameterSocketCount();
-    }
   }
 
   public outputUnplugged(socket: PPSocket): void {
     super.outputUnplugged(socket);
     this.updateRootLayoutSocketVisibility();
-    if (socket.name.startsWith(surfaceParameterPrefixName)) {
-      this.updateParameterSocketCount();
-    }
   }
 
   // an embedded surface's external placement is controlled by the parent's

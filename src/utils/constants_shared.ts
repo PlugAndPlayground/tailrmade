@@ -35,12 +35,14 @@ export const surfaceRadioGroupSocketName = 'Radio Group';
 export const surfaceElementVisibleSuffix = ' visible';
 export const surfaceElementLayoutSuffix = ' layout';
 
-// A surface's parameter output sockets, which feed its inner nodes and become
-// the input sockets of every UI component instance of it. Same spelling as
-// MACRO_PARAMETER_PREFIX_NAME on purpose - it reads the same to the user - but
-// a separate constant, because components and macros are meant to stay
-// independent features.
-export const surfaceParameterPrefixName = 'Parameter';
+// A UI component's sockets. The parameters are OUTPUTS on its left block,
+// feeding the nodes inside the frame; the UI is a single INPUT on its right
+// block, taking the surface that is the component's body - the same shape as
+// Macro's parameters and its Output. Same spelling as
+// MACRO_PARAMETER_PREFIX_NAME on purpose, since it reads the same to the user,
+// but a separate constant: components and macros stay independent features.
+export const componentParameterPrefixName = 'Parameter';
+export const componentUISocketName = 'UI';
 export const componentDefinitionSocketName = 'Component';
 
 export const modalOpenSocketName = 'Open';

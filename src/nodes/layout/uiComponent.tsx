@@ -3,7 +3,6 @@ import { Box } from '@mui/material';
 import HybridNode2, {
   HybridWidgetContentProps,
 } from '../../classes/HybridNode2';
-import PPGraph from '../../classes/GraphClass';
 import PPNode from '../../classes/NodeClass';
 import PPSocket from '../../classes/SocketClass';
 import {
@@ -16,7 +15,6 @@ import {
   ComponentInstanceSnapshots,
 } from '../../components/dashboard/componentInstance';
 import { getPageDashboardIcon } from '../../components/dashboard/dashboardIcons';
-import { AnyType } from '../datatypes/anyType';
 import { DynamicEnumType } from '../datatypes/dynamicEnumType';
 import { EnumStructure } from '../datatypes/enumType';
 import { TRgba } from '../../utils/color';
@@ -24,19 +22,21 @@ import { AGENT_DOCS_HEADING } from '../../utils/nodeDocs';
 import { NODE_TYPE_COLOR, SOCKET_TYPE } from '../../utils/constants';
 import {
   componentDefinitionSocketName,
-  surfaceParameterPrefixName,
+  componentParameterPrefixName,
+  componentUISocketName,
 } from '../../utils/constants_shared';
 import { SOCKET_NAME_DASHBOARD_CONTENT } from '../../utils/layoutableHelpers';
 import {
   DashboardIconProps,
-  isSurfaceNode,
   Layoutable,
   WidgetProps,
 } from '../../utils/interfaces';
 import { deSerializeType, serializeType } from '../datatypes/typehelper';
-import { ComponentArgs, runSurfaceAsInstance } from './componentInstancing';
+import { ComponentArgs, runComponentAsInstance } from './componentInstancing';
 import { SurfaceSync } from './surfaceSync';
-import type { UISurfaceNode } from './uiSurface';
+import { getComponents, UIComponent } from './uiComponentNode';
+
+export { UIComponent } from './uiComponentNode';
 
 const NO_COMPONENT = '';
 
@@ -54,16 +54,17 @@ const Notice: React.FunctionComponent<{ label: string }> = ({ label }) => (
   </Box>
 );
 
-export const UIComponentInstanceWidget: React.FunctionComponent<
-  HybridWidgetContentProps<UIComponentInstance>
+export const PlaceComponentWidget: React.FunctionComponent<
+  HybridWidgetContentProps<PlaceComponent>
 > = (props) => {
   const node = props.node;
   const visited = useContext(SurfaceVisitedContext);
   const isCanvasPreview =
     useContext(SurfaceCanvasPreviewContext) || !props.inDashboard;
-  const definition = node.getDefinition();
+  const component = node.getComponent();
+  const body = component?.getBodySurface();
 
-  if (!definition) {
+  if (!component) {
     const name = String(props[componentDefinitionSocketName] ?? '');
     return (
       <Notice
@@ -72,27 +73,32 @@ export const UIComponentInstanceWidget: React.FunctionComponent<
     );
   }
 
-  // the same guard embedded surfaces use, keyed on the DEFINITION - two
-  // instances of one definition are fine, a definition inside itself is not
-  if (visited.includes(definition.id)) {
+  if (!body) {
     return (
       <Notice
-        label={`Recursive component (${definition.getDashboardName()}) - not rendered`}
+        label={`"${component.nodeName}" has no UI surface plugged into its ${componentUISocketName} input`}
       />
     );
   }
 
-  const tree = SurfaceSync.applyRuntimeOverrides(
-    definition,
-    definition.getSurfaceTree(),
-  );
+  // the guard embedded surfaces already use, keyed on the body surface - two
+  // placements of one component are fine, a component inside itself is not
+  if (visited.includes(body.id)) {
+    return (
+      <Notice
+        label={`Recursive component (${component.nodeName}) - not rendered`}
+      />
+    );
+  }
+
+  const tree = SurfaceSync.applyRuntimeOverrides(body, body.getSurfaceTree());
 
   return (
     <ComponentInstanceContext.Provider
       value={{ ownerId: node.id, snapshots: node.instanceSnapshots }}
     >
       <SurfaceCanvasPreviewContext.Provider value={isCanvasPreview}>
-        <SurfaceVisitedContext.Provider value={[...visited, definition.id]}>
+        <SurfaceVisitedContext.Provider value={[...visited, body.id]}>
           <SurfaceRenderer tree={tree} interactive={false} />
         </SurfaceVisitedContext.Provider>
       </SurfaceCanvasPreviewContext.Provider>
@@ -100,50 +106,44 @@ export const UIComponentInstanceWidget: React.FunctionComponent<
   );
 };
 
-export class UIComponentInstance extends HybridNode2 implements Layoutable {
-  // what this instance's widgets render from: the inner nodes' input objects
-  // as they stood at the end of THIS instance's evaluation pass
+export class PlaceComponent extends HybridNode2 implements Layoutable {
+  // what this placement's widgets render from: the inner nodes' input objects
+  // as they stood at the end of THIS placement's evaluation pass
   instanceSnapshots: ComponentInstanceSnapshots = {};
 
-  // A component instance is placed to be seen, so it is never "unused".
+  // A placement is placed to be seen, so it is never "unused".
   public getSeemsUnused(): boolean {
     return false;
   }
 
   public getName(): string {
-    return 'UI component';
+    return 'Place Component';
   }
 
   public getDescription(): string {
-    return 'Show a UI surface as a reusable component, with its own values';
+    return 'Place a UI component, with its own parameter values';
   }
 
   public getDocs(): string {
-    return `Places a UI surface as a component: the same layout, shown as many
-times as you like, each placement with its own values.
+    return `One placement of a "UI Component". Place it as often as you like -
+each placement keeps its own values.
 
-Pick the surface to use under "${componentDefinitionSocketName}". This node then
-grows one input socket per "${surfaceParameterPrefixName}" output socket on that
-surface, and its "ReactUI" output can be connected to any surface like an
-ordinary widget.
+Pick the component under "${componentDefinitionSocketName}". This node then
+grows one input per "${componentParameterPrefixName}" the component declares,
+and its "ReactUI" output connects to any UI surface like an ordinary widget.
 
-To make a surface usable here, wire its "${surfaceParameterPrefixName} 1" output
-into an input of one of its widgets (a Stat's Value, a Text's content). A fresh
-parameter appears each time you use the last one, and each parameter takes the
-name of the socket it feeds.
+The nodes inside the component are shared between placements, so a change to
+the component shows up everywhere at once; only the parameter values differ.
 
-The component's inner nodes are shared between all instances - only the values
-are per instance - so a change to the surface shows up in every placement at
-once. Instances render read-only: a widget inside a component does not yet
-write back per instance.
+Placements render read-only for now: a widget inside a component does not yet
+write back per placement.
 
 ${AGENT_DOCS_HEADING}
-The surface is referenced by NODE NAME, so renaming a surface currently breaks
-instances pointing at it.`;
+The component is referenced by NAME, and component names are kept unique.`;
   }
 
   public getTags(): string[] {
-    return ['Widget', 'Layout', 'Container', 'Component'];
+    return ['Widget', 'Layout', 'Component'];
   }
 
   public getColor(): TRgba {
@@ -159,9 +159,7 @@ instances pointing at it.`;
   }
 
   static getComponentOptions(): EnumStructure {
-    return Object.values(PPGraph.currentGraph.nodes)
-      .filter(isSurfaceNode)
-      .map((surface) => ({ text: surface.getDashboardName() }));
+    return getComponents().map((component) => ({ text: component.nodeName }));
   }
 
   protected getDefaultIO(): PPSocket[] {
@@ -170,7 +168,7 @@ instances pointing at it.`;
         SOCKET_TYPE.IN,
         componentDefinitionSocketName,
         new DynamicEnumType(
-          () => UIComponentInstance.getComponentOptions(),
+          () => PlaceComponent.getComponentOptions(),
           () => {
             this.updateParameterSockets();
             void this.executeOptimizedChain();
@@ -182,49 +180,56 @@ instances pointing at it.`;
     ];
   }
 
-  // The surface this instance shows. Resolved by node name, as Execute Macro
-  // resolves a macro and as "Navigate to UI surface" resolves a surface -
-  // names are what the picker can offer. Names are not unique, so an ambiguous
-  // name takes the first match.
-  public getDefinition(): UISurfaceNode | undefined {
+  public getComponent(): UIComponent | undefined {
     const name = String(
       this.getInputData(componentDefinitionSocketName) ?? '',
     ).trim();
-    if (!name || !PPGraph.currentGraph) {
+    if (!name) {
       return undefined;
     }
-    return Object.values(PPGraph.currentGraph.nodes)
-      .filter(isSurfaceNode)
-      .find((surface) => surface.getDashboardName() === name);
+    return getComponents().find((component) => component.nodeName === name);
   }
 
-  // this instance's own input sockets for the definition's parameters
+  public isPlacingComponent(componentName: string): boolean {
+    return this.getInputData(componentDefinitionSocketName) === componentName;
+  }
+
+  public placedComponentChangedName(_oldName: string, newName: string): void {
+    this.setInputData(componentDefinitionSocketName, newName);
+  }
+
+  public placedComponentUpdatedMeta(_component: PPNode): void {
+    this.updateParameterSockets();
+  }
+
+  // this placement's own inputs for the component's parameters
   private getParameterInputSockets(): PPSocket[] {
     return this.inputSocketArray.filter((socket) =>
-      socket.name.startsWith(surfaceParameterPrefixName),
+      socket.name.startsWith(componentParameterPrefixName),
     );
   }
 
   /**
-   * Re-derives this node's parameter inputs from the definition's parameter
-   * outputs: adds what is missing, removes what is extra and unlinked, and
+   * Re-derives this node's parameter inputs from the component's parameter
+   * outputs: adds what is missing, drops what is extra and unlinked, and
    * aligns the types. Modelled on ExecuteMacro.updateMacroCallSockets.
    */
   public updateParameterSockets(): void {
-    const definition = this.getDefinition();
-    // a definition keeps one spare (unlinked) parameter at the end; an
-    // instance only wants the ones actually feeding something
-    const definitionParameters = (
-      definition?.getParameterSockets() ?? []
-    ).filter((socket) => socket.hasLink());
-    const wantedNames = definitionParameters.map((socket) => socket.name);
-
-    const toRemove = this.getParameterInputSockets().filter(
-      (socket) => !wantedNames.includes(socket.name) && !socket.hasLink(),
+    const component = this.getComponent();
+    // a component keeps one spare (unlinked) parameter at the end; a placement
+    // only wants the ones that actually feed something
+    const parameters = (component?.getParameterSockets() ?? []).filter(
+      (socket) => socket.hasLink(),
     );
-    toRemove.forEach((socket) => this.removeSocket(socket));
+    const wantedNames = parameters.map((socket) => socket.name);
 
-    definitionParameters.forEach((parameter) => {
+    this.getParameterInputSockets()
+      .filter(
+        (socket) => !wantedNames.includes(socket.name) && !socket.hasLink(),
+      )
+      .forEach((socket) => this.removeSocket(socket));
+
+    parameters.forEach((parameter) => {
       const existing = this.getInputSocketByName(parameter.name);
       if (!existing) {
         this.addSocket(
@@ -246,30 +251,21 @@ instances pointing at it.`;
     this.resizeAndDraw();
   }
 
-  // the definition's parameter names mean nothing on their own, so show the
-  // name the definition shows (which is the fed socket's name)
+  // a parameter's name means nothing on its own, so show the name the
+  // component shows (which is the name of the socket it feeds)
   public getSocketDisplayName(socket: PPSocket): string {
-    if (socket.name.startsWith(surfaceParameterPrefixName)) {
-      const definition = this.getDefinition();
-      const parameter = definition?.getOutputSocketByName(socket.name);
-      if (parameter) {
-        return definition!.getSocketDisplayName(parameter);
+    if (socket.name.startsWith(componentParameterPrefixName)) {
+      const component = this.getComponent();
+      const parameter = component?.getOutputSocketByName(socket.name);
+      if (parameter && component) {
+        return component.getSocketDisplayName(parameter);
       }
     }
     return super.getSocketDisplayName(socket);
   }
 
-  public definitionSurfaceUpdatedMeta(surface: PPNode): void {
-    if (this.getDefinition()?.id === surface.id) {
-      this.updateParameterSockets();
-    }
-  }
-
   public getWidgetProps(): WidgetProps {
-    return {
-      ...super.getWidgetProps(),
-      height: 'auto',
-    };
+    return { ...super.getWidgetProps(), height: 'auto' };
   }
 
   public getDashboardIcon(_props: DashboardIconProps): React.ReactNode {
@@ -277,24 +273,24 @@ instances pointing at it.`;
   }
 
   getWidgetContent(
-    props: HybridWidgetContentProps<UIComponentInstance>,
+    props: HybridWidgetContentProps<PlaceComponent>,
   ): React.ReactElement {
-    return <UIComponentInstanceWidget {...props} />;
+    return <PlaceComponentWidget {...props} />;
   }
 
   // Not HybridNode2.onExecute: that structuredClones the input object for its
   // own reactUIProps, which throws on anything non-cloneable a parameter may
-  // carry. An instance builds its render payload per inner node instead.
+  // carry. A placement builds its render payload per inner node instead.
   protected async onExecute(input: any, output: any): Promise<void> {
-    const definition = this.getDefinition();
-    if (definition) {
+    const component = this.getComponent();
+    if (component) {
       const args: ComponentArgs = Object.fromEntries(
         this.getParameterInputSockets().map((socket) => [
           socket.name,
           socket.data,
         ]),
       );
-      this.instanceSnapshots = await runSurfaceAsInstance(definition, args);
+      this.instanceSnapshots = await runComponentAsInstance(component, args);
     } else {
       this.instanceSnapshots = {};
     }
