@@ -2052,6 +2052,13 @@ ${Math.round(bounds.minX)}, ${Math.round(
     this.debounceDrawShape();
   }
 
+  /**
+   * Called on every node when a UI surface's parameter sockets change, so UI
+   * component instances of that surface can re-derive their own inputs.
+   * Overridden in UIComponentInstance; a no-op everywhere else.
+   */
+  public definitionSurfaceUpdatedMeta(_surface: PPNode): void {}
+
   // we should migrate all nodes to use these functions instead of specifying the field themselves in constructor
   public getName(): string {
     return this.name;

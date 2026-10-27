@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useContext } from 'react';
 import {
   Accordion,
   AccordionDetails,
@@ -29,6 +29,7 @@ import InterfaceController from '../../InterfaceController';
 import { useHoverEvents, useParentDirection } from './hooks';
 import { DynamicWidgetName } from '../../utils/constants_shared';
 import { dynamicWidgetDefaultProps } from '../../utils/surfaceTree';
+import { ComponentInstanceContext } from './componentInstance';
 import { ColorSetting, colorSettingToCss } from '../../utils/themeColors';
 
 export type DynamicWidgetBaseProps = {
@@ -93,10 +94,12 @@ export const DynamicWidgetView = (viewProps: DynamicWidgetViewProps) => {
   const layoutableElement = props.id
     ? getLayoutableElement(props.id)
     : undefined;
-  // this hook runs on both branches below, so returning the placeholder
+  // these hooks run on both branches below, so returning the placeholder
   // early cannot violate the rules of hooks
   const { localHover, handleMouseEnter, handleMouseLeave } =
     useHoverEvents(layoutableElement);
+  // set when this widget is part of a UI component instance's rendering
+  const componentInstance = useContext(ComponentInstanceContext);
   if (!layoutableElement) {
     // a widget whose graph node cannot be resolved must be visibly broken,
     // not silently blank - the stored layout still references it (e.g. a
@@ -149,6 +152,17 @@ export const DynamicWidgetView = (viewProps: DynamicWidgetViewProps) => {
 
   const style = getBasicLayoutStyles(width, height, parentDirection);
 
+  // Inside a component instance the widget renders from that instance's
+  // snapshot rather than from the shared node's live sockets - the same
+  // reactUIProps channel a linked ReactUI output already uses. Without a
+  // snapshot (an inner node that has not been evaluated yet) it falls back to
+  // the live reading, which is what the widget would have shown anyway.
+  // Instances are read-only for now: a write would reach the shared node and
+  // change every instance at once.
+  const instanceSnapshot = componentInstance
+    ? componentInstance.snapshots[layoutableElement.getRelatedNode().id]
+    : undefined;
+
   const widgetContent = (
     <>
       {showLabel && (
@@ -159,7 +173,8 @@ export const DynamicWidgetView = (viewProps: DynamicWidgetViewProps) => {
       {layoutableElement.getDashboardWrapper({
         index,
         isEditMode,
-        disabled: disabled ?? false,
+        disabled: componentInstance ? true : (disabled ?? false),
+        reactUIProps: instanceSnapshot,
         blockInteraction,
         height: style.height as string,
         width: style.width as string,

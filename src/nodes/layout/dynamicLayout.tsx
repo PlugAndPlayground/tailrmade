@@ -118,7 +118,8 @@ export const DynamicWidgetContainerNode: React.FunctionComponent<
       >
         <HybridNodeErrorBoundary node={props.property}>
           <props.property.getWidgetContent
-            {...PPNode.remapInput(props.property.inputSocketArray)}
+            {...(props.reactUIProps ??
+              PPNode.remapInput(props.property.inputSocketArray))}
             {...props}
             id={props.property.id}
             selected={props.property.selected}

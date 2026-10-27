@@ -302,7 +302,7 @@ export class TextEditor2 extends HybridNode2 {
       }
     }, []);
     const backgroundColor = TRgba.fromObject(props[SOCKETNAME_BACKGROUNDCOLOR]);
-    const tokenInputs = getTokenInputs(node);
+    const tokenInputs = getTokenInputs(node, props);
 
     const editorConfig = useMemo(
       () => createTextEditorConfig('TextEditor2'),

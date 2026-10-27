@@ -21,9 +21,26 @@ export function getBindableInputSockets(node: PPNode): Socket[] {
   );
 }
 
-export function getTokenInputs(node: PPNode): Record<string, unknown> {
+/**
+ * Token values for a node's bindable inputs.
+ *
+ * `values` is the widget's own props when it has them: a widget rendered as
+ * part of a UI component instance is handed that instance's snapshot instead
+ * of the node's live socket data, and reading `socket.data` here would show
+ * every instance the shared node's last value. Falls back to the socket for
+ * any name the caller does not carry.
+ */
+export function getTokenInputs(
+  node: PPNode,
+  values?: Record<string, unknown>,
+): Record<string, unknown> {
   return Object.fromEntries(
-    getBindableInputSockets(node).map((socket) => [socket.name, socket.data]),
+    getBindableInputSockets(node).map((socket) => [
+      socket.name,
+      values && Object.prototype.hasOwnProperty.call(values, socket.name)
+        ? values[socket.name]
+        : socket.data,
+    ]),
   );
 }
 
