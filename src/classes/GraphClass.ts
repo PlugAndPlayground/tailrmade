@@ -523,7 +523,11 @@ export default class PPGraph {
 
   // Separate drawing logic to reduce complexity in the onViewportMove method
   private drawConnectionLine(event: PIXI.FederatedPointerEvent): void {
-    let socketCenter = this.getSocketCenter(this.selectedSocket);
+    const selectedSocket = this.selectedSocket;
+    if (!selectedSocket) {
+      return;
+    }
+    let socketCenter = this.getSocketCenter(selectedSocket);
 
     // Get target point based on context
     let targetPoint: PIXI.Point;
@@ -538,7 +542,7 @@ export default class PPGraph {
     }
 
     // swap points if grabbed an input socket
-    if (this.selectedSocket.isInput()) {
+    if (selectedSocket.isInput()) {
       const temp = targetPoint;
       targetPoint = socketCenter;
       socketCenter = temp;
@@ -563,7 +567,7 @@ export default class PPGraph {
     );
 
     const TEMP_CONNECTION_SCREEN_WIDTH = 4;
-    const selectedDataType = this.selectedSocket.dataType;
+    const selectedDataType = selectedSocket.dataType;
     this.tempConnection.stroke({
       width: TEMP_CONNECTION_SCREEN_WIDTH / this.viewportScaleX,
       color: selectedDataType.getColor().hexNumber(),
@@ -1029,7 +1033,7 @@ export default class PPGraph {
           conversionNode.id,
           conversionNode.getSocketForNewConnection(
             this.nodes[sourceNodeID].getOutputSocketByName(sourceSocketName),
-          ).name,
+          )!.name,
           true,
         );
         return this.linkConnect(
@@ -1519,9 +1523,9 @@ export default class PPGraph {
     );
 
     // get serialized links
-    const linksSerialized = Object.values(this.getLinks()).map((link) =>
-      link.serialize(),
-    );
+    const linksSerialized = Object.values(this.getLinks())
+      .map((link) => link.serialize())
+      .filter((link) => link !== undefined);
 
     // Extract dashboard overlay state, ignoring left and right drawers
     const overlayState = InterfaceController.getOverlayState();
@@ -1594,9 +1598,9 @@ export default class PPGraph {
     });
 
     // get serialized links
-    const linksSerialized = linksFullyContainedInSelection.map((link) =>
-      link.serialize(),
-    );
+    const linksSerialized = linksFullyContainedInSelection
+      .map((link) => link.serialize())
+      .filter((link) => link !== undefined);
 
     const data = {
       version: GRAPH_DATA_VERSION,
@@ -1966,7 +1970,8 @@ export default class PPGraph {
           .map((socket) => socket.links.map((link) => link.serialize())),
       )
       .flat()
-      .flat();
+      .flat()
+      .filter((link) => link !== undefined);
     const action = async () => {
       this.selection.deselectAllNodesAndResetSelection();
       for (let i = 0; i < nodesSerialized.length; i++) {

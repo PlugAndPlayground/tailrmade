@@ -24,9 +24,7 @@ export abstract class SegmentNode extends PPNode {
     return ['Segment'];
   }
 
-  protected getSegment(): Segment {
-    return undefined;
-  }
+  protected abstract getSegment(): Segment;
 
   // paste my segment and remove self
   public async addAndDestroy() {

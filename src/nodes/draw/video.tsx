@@ -5,7 +5,6 @@ import {
   Box,
   Button,
   ButtonGroup,
-  Grid,
   ThemeProvider,
   Typography,
 } from '@mui/material';
@@ -264,14 +263,15 @@ export class Video extends HybridNode2 {
   public getWidgetContent(
     props: HybridWidgetContentProps<Video>,
   ): React.ReactElement {
-    return <VideoComponent node={this} {...props} />;
+    return <VideoComponent {...props} node={this} />;
   }
 }
 
-const VideoComponent: React.FC<{
-  node: Video;
-  disabled?: boolean;
-}> = ({ node, disabled, ...props }) => {
+const VideoComponent: React.FC<HybridWidgetContentProps<Video>> = ({
+  node,
+  disabled,
+  ...props
+}) => {
   const resizeObserver = useRef<ResizeObserver | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
 
@@ -368,21 +368,22 @@ const VideoComponent: React.FC<{
   };
 
   const getCaptureSize = (captureSizeName: string) =>
-    SIMPLE_SIZE_OPTIONS.find((option) => option.text === captureSizeName).value;
+    SIMPLE_SIZE_OPTIONS.find((option) => option.text === captureSizeName)!
+      .value;
 
   const getCanvasAndContext = (
     scaleFactor: number,
   ): [HTMLCanvasElement, CanvasRenderingContext2D] => {
     const canvas = document.createElement('canvas');
-    canvas.width = videoRef.current.videoWidth * scaleFactor;
-    canvas.height = videoRef.current.videoHeight * scaleFactor;
-    const context = canvas.getContext('2d');
+    canvas.width = videoRef.current!.videoWidth * scaleFactor;
+    canvas.height = videoRef.current!.videoHeight * scaleFactor;
+    const context = canvas.getContext('2d')!;
     return [canvas, context];
   };
 
   const captureFrame = (scaleFactor: number) => {
     const [canvas, context] = getCanvasAndContext(scaleFactor);
-    context.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
+    context.drawImage(videoRef.current!, 0, 0, canvas.width, canvas.height);
     return canvas.toDataURL();
   };
 
@@ -404,7 +405,7 @@ const VideoComponent: React.FC<{
 
   const captureMultipleFrames = useCallback(async () => {
     const captureSize = getCaptureSize(props[captureSizeSocketName]);
-    const duration = videoRef.current.duration;
+    const duration = videoRef.current!.duration;
     const arrayToCapture = props[frameArraySocketName];
     const timeArray =
       props[toggleSecondsPercentSocketName] === toggleOptions[1].text
@@ -432,18 +433,18 @@ const VideoComponent: React.FC<{
     imageArray: string[],
   ) => {
     for (let i = 0; i < timeArray.length; i += 1) {
-      videoRef.current.currentTime = timeArray[i];
+      videoRef.current!.currentTime = timeArray[i];
       await new Promise<void>((resolve) => {
         const seekedHandler = () => {
           resolve();
-          videoRef.current.removeEventListener('seeked', seekedHandler);
+          videoRef.current!.removeEventListener('seeked', seekedHandler);
         };
-        videoRef.current.addEventListener('seeked', seekedHandler);
+        videoRef.current!.addEventListener('seeked', seekedHandler);
       });
 
       // Capture the frame
       const [canvas, context] = getCanvasAndContext(captureSize);
-      context.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
+      context.drawImage(videoRef.current!, 0, 0, canvas.width, canvas.height);
       const base64ImageData = canvas.toDataURL();
       // Store the image data in the appropriate index
       imageArray[i] = base64ImageData; // Use i + index to map correctly
@@ -576,10 +577,11 @@ const VideoOverlay: React.FC<{
   loadingState: string;
   localResourceId: string;
 }> = ({ loadingState, localResourceId }) => (
-  <Grid
-    container
-    direction="column"
+  // MUI v9 Grid only lays out rows, so this is a plain flex column
+  <Box
     sx={{
+      display: 'flex',
+      flexDirection: 'column',
       alignItems: 'center',
       justifyContent: 'center',
       position: 'absolute',
@@ -597,15 +599,13 @@ const VideoOverlay: React.FC<{
     {loadingState === LOADING_STATE.FAILED && (
       <Box>Unfortunately this video codec is not supported</Box>
     )}
-  </Grid>
+  </Box>
 );
 
-function CircularProgressWithLabel(
-  props: CircularProgressProps & { variant: string; value?: number },
-) {
+function CircularProgressWithLabel(props: CircularProgressProps) {
   return (
     <Box sx={{ position: 'relative', display: 'inline-flex' }}>
-      <CircularProgress variant={props.variant} {...props} />
+      <CircularProgress {...props} />
       {props.value && (
         <Box
           sx={{

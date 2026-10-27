@@ -25,16 +25,18 @@ import PPStorage from '../PPStorage';
 import PPGraph from '../classes/GraphClass';
 
 interface ErrorFallbackProps {
-  error: Error;
+  // react-error-boundary types thrown values as unknown
+  error: unknown;
   resetErrorBoundary?: () => void;
   inline?: boolean; // If true, renders inline instead of fixed overlay
 }
 
 function ErrorFallback({
-  error,
+  error: thrown,
   resetErrorBoundary,
   inline = false,
 }: ErrorFallbackProps) {
+  const error = thrown instanceof Error ? thrown : new Error(String(thrown));
   const [isLoading, setIsLoading] = useState(false);
   const [backupSuccess, setBackupSuccess] = useState(false);
   const [errorCopied, setErrorCopied] = useState(false);
@@ -155,7 +157,7 @@ function ErrorFallback({
             <Typography
               variant={inline ? 'h6' : 'h5'}
               color="error"
-              fontWeight="bold"
+              sx={{ fontWeight: 'bold' }}
             >
               {inline ? 'Error' : 'App Crashed'}
             </Typography>
@@ -185,13 +187,13 @@ function ErrorFallback({
                   pr: 1,
                 }}
               >
-                <Typography variant="body2" fontWeight="medium">
+                <Typography variant="body2" sx={{ fontWeight: 'medium' }}>
                   Show error details
                 </Typography>
                 <Tooltip
                   title={errorCopied ? 'Copied!' : 'Copy error details'}
-                  PopperProps={{
-                    sx: { zIndex: 10001 },
+                  slotProps={{
+                    popper: { sx: { zIndex: 10001 } },
                   }}
                 >
                   <Box
@@ -260,8 +262,8 @@ function ErrorFallback({
                 <Tooltip
                   title={backupSuccess ? 'Downloaded backup successfully!' : ''}
                   open={backupSuccess}
-                  PopperProps={{
-                    sx: { zIndex: 10001 },
+                  slotProps={{
+                    popper: { sx: { zIndex: 10001 } },
                   }}
                 >
                   <Button
@@ -324,8 +326,8 @@ function ErrorFallback({
               </Button>
               <Tooltip
                 title={emailCopied ? 'Copied!' : 'Copy email address'}
-                PopperProps={{
-                  sx: { zIndex: 10001 },
+                slotProps={{
+                  popper: { sx: { zIndex: 10001 } },
                 }}
               >
                 <IconButton

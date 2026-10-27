@@ -64,7 +64,7 @@ export class NOT extends BooleanOperationNode {
     ].concat(super.getDefaultIO());
   }
 
-  protected onExecute(input: any, output: any): Promise<void> {
+  protected async onExecute(input: any, output: any): Promise<void> {
     output[invertedOutName] = !input[inputAName];
     return;
   }
@@ -132,7 +132,7 @@ export class OR extends BooleanDynamicNode {
   }
 
   // hacky check
-  protected onExecute(input: any, output: any): Promise<void> {
+  protected async onExecute(input: any, output: any): Promise<void> {
     output[orOutName] =
       this.inputSocketArray
         .filter(
@@ -183,7 +183,7 @@ export class AND extends BooleanDynamicNode {
     return 'Returns true if all of the inputs are truthy';
   }
 
-  protected onExecute(input: any, output: any): Promise<void> {
+  protected async onExecute(input: any, output: any): Promise<void> {
     output[andOutName] =
       this.inputSocketArray.find((a) => !a.data) == undefined;
     return;

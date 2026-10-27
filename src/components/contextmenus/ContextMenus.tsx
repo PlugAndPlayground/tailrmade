@@ -10,24 +10,13 @@ import {
   Typography,
 } from '@mui/material';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
-import { createStyles, makeStyles } from '@mui/styles';
 
 export type SubMenuItemProps = MenuItemProps & {
   button?: true;
   label: string;
 } & Pick<PopperProps, 'placement'>;
 
-const useStyles = makeStyles((theme) =>
-  createStyles({
-    active: {
-      backgroundColor: 'rgba(255, 255, 255, 0.04)',
-    },
-  }),
-);
-
 export const SubMenuItem = (props: SubMenuItemProps) => {
-  // @ts-ignore
-  const classes = useStyles();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLLIElement | null>(null);
 
@@ -35,7 +24,7 @@ export const SubMenuItem = (props: SubMenuItemProps) => {
     <MenuItem
       {...props}
       ref={ref}
-      className={open ? classes.active : ''}
+      sx={open ? { backgroundColor: 'rgba(255, 255, 255, 0.04)' } : undefined}
       onMouseEnter={() => setOpen(true)}
       onMouseLeave={() => setOpen(false)}
     >

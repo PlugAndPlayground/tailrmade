@@ -72,7 +72,7 @@ export class JSONGet extends PPNode {
     ];
   }
   protected async onExecute(
-    inputObject: unknown,
+    inputObject: Record<string, any>,
     outputObject: Record<string, unknown>,
   ): Promise<void> {
     outputObject[outValueName] = {};
@@ -128,7 +128,7 @@ export class JSONSet extends PPNode {
     ];
   }
   protected async onExecute(
-    inputObject: unknown,
+    inputObject: Record<string, any>,
     outputObject: Record<string, unknown>,
   ): Promise<void> {
     const parsedJSON = parseJSON(inputObject[JSONName]).value;
@@ -161,7 +161,7 @@ abstract class JSONArrayFunction extends JSONBasicFunction {
   protected abstract getOutArrayName(): string;
   protected abstract getOutputFromInput(input: any): any[];
 
-  protected onExecute(input: any, output: any): Promise<void> {
+  protected async onExecute(input: any, output: any): Promise<void> {
     output[this.getOutArrayName()] = this.getOutputFromInput(input[JSONName]);
     return;
   }
@@ -473,7 +473,7 @@ export class FormatMap extends Format {
       const json = inputArray[0];
 
       this.adaptOutputs(json);
-      let outputArray = [];
+      let outputArray: any[] = [];
       for (let i = 0; i < inputArray.length; i++) {
         outputArray.push({});
       }
@@ -553,7 +553,7 @@ export class Make extends DynamicInputNode {
     return 'Create Object';
   }
 
-  public getSocketForNewConnection = (socket: Socket): Socket =>
+  public getSocketForNewConnection = (socket: Socket): Socket | undefined =>
     DynamicInputNodeFunctions.getSocketForNewConnection(socket, this, true);
 
   protected getDefaultIO(): Socket[] {
@@ -687,7 +687,7 @@ export class Extend extends DynamicInputNode {
     output[JSONName] = outObject;
   }
   // we want to always create a new socket for the new connection if you release on the node
-  public getSocketForNewConnection = (socket: Socket): Socket =>
+  public getSocketForNewConnection = (socket: Socket): Socket | undefined =>
     DynamicInputNodeFunctions.getSocketForNewConnection(
       socket,
       this,

@@ -7,12 +7,11 @@ import {
   useRef,
   useState,
 } from 'react';
+import { $createCodeNode, $isCodeNode } from '@lexical/code';
 import {
-  $createCodeNode,
-  $isCodeNode,
   CODE_LANGUAGE_FRIENDLY_NAME_MAP,
   CODE_LANGUAGE_MAP,
-} from '@lexical/code';
+} from '@lexical/code-prism';
 import { $isLinkNode, TOGGLE_LINK_COMMAND } from '@lexical/link';
 import {
   $isListNode,
@@ -193,7 +192,7 @@ function ToolbarPlugin({
   profile: TextHostProfile;
   // lets the host re-derive its outputs after a toolbar undo/redo
   onHistoryChange?: () => void;
-}): JSX.Element {
+}): React.JSX.Element {
   const [editor] = useLexicalComposerContext();
   const toolbarRef = useRef(null);
   const [activeEditor, setActiveEditor] = useState(editor);

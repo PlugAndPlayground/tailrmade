@@ -543,7 +543,7 @@ export class DRAW_Combine extends DRAW_Base {
     return super.getNewSocketName(inputGraphicsName);
   }
 
-  public getSocketForNewConnection = (socket: Socket): Socket => {
+  public getSocketForNewConnection = (socket: Socket): Socket | undefined => {
     return DynamicInputNodeFunctions.getSocketForNewConnection(
       socket,
       this,
@@ -609,7 +609,7 @@ export class DRAW_Overlay extends DRAW_Base {
     }
   }
 
-  public getSocketForNewConnection = (socket: Socket): Socket => {
+  public getSocketForNewConnection = (socket: Socket): Socket | undefined => {
     const createdSocket = DynamicInputNodeFunctions.getSocketForNewConnection(
       socket,
       this,

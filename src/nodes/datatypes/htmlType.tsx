@@ -51,7 +51,7 @@ export class HtmlType extends AbstractType {
 
   getComment(data: any): string {
     if (data) {
-      return inspect(data, null, 10);
+      return inspect(data, undefined, 10);
     }
     return 'null';
   }

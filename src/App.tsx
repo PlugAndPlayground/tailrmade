@@ -77,7 +77,7 @@ fetch('/buildInfo')
 
 (window as any).testController = new TestController(); // this is for cypress tests to be able to access everything in here
 
-const App = (): JSX.Element => {
+const App = (): React.JSX.Element => {
   console.log('FULL APP REDRAW');
 
   // Update document title when current graph changes
@@ -122,7 +122,7 @@ const App = (): JSX.Element => {
   const [selectedSocket, setSelectedSocket] = useState<PPSocket | null>(null);
   const [contextMenuPosition, setContextMenuPosition] = useState([0, 0]);
   const [graphToBeModified, setGraphToBeModified] =
-    useState<IGraphSearch>(null);
+    useState<IGraphSearch | null>(null);
   const [showDebugInfo, setShowDebugInfo] = useState(false);
   const [nodeSearchActiveItem, setNodeSearchActiveItem] = useState<
     INodeSearch[]
@@ -138,12 +138,12 @@ const App = (): JSX.Element => {
   useEffect(() => {
     console.time('main_app_mount');
 
-    // create pixiApp
+    // create pixiApp; it fills the refs before anything reads them
     lastTimeTicked = createPixiApp(
-      pixiContext,
-      pixiApp,
-      viewport,
-      overlayCommentContainer,
+      pixiContext as React.RefObject<HTMLDivElement>,
+      pixiApp as React.RefObject<PIXI.Application>,
+      viewport as React.RefObject<Viewport>,
+      overlayCommentContainer as React.RefObject<PIXI.Container>,
       mousePosition,
       lastTimeTicked,
     );
@@ -253,8 +253,8 @@ const App = (): JSX.Element => {
 
   useEffect(() => {
     if (isNodeSearchVisible) {
-      nodeSearchInput.current.focus();
-      nodeSearchInput.current.select();
+      nodeSearchInput.current?.focus();
+      nodeSearchInput.current?.select();
       // console.dir(nodeSearchInput.current);
     } else {
       // TODO remove timeout here
@@ -270,7 +270,7 @@ const App = (): JSX.Element => {
   useEffect(() => {
     if (PPGraph.currentGraph) {
       PPGraph.currentGraph.showDebugInfo = showDebugInfo;
-      overlayCommentContainer.current.visible = showDebugInfo;
+      overlayCommentContainer.current!.visible = showDebugInfo;
     }
   }, [showDebugInfo]);
 
@@ -316,11 +316,13 @@ const App = (): JSX.Element => {
             />
           )}
           <NodeDetailPopover />
-          {showDeleteGraph && (
+          {showDeleteGraph && graphToBeModified && (
             <DeleteConfirmationDialog graphToBeModified={graphToBeModified} />
           )}
 
-          {showEdit && <EditDialog graphToBeModified={graphToBeModified} />}
+          {showEdit && graphToBeModified && (
+            <EditDialog graphToBeModified={graphToBeModified} />
+          )}
           <SpinnerContainer />
           <AuthDialogHost />
 

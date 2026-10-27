@@ -172,7 +172,7 @@ export class DRAW_3D_GRAPH_PLOTLY extends HybridNode2 {
 
   protected redraw() {
     super.redraw();
-    void this.updatePlotlyDrawing(this.prevInputObject);
+    void this.updatePlotlyDrawing();
   }
 
   getWidgetContent(props: WidgetContentProps): React.ReactElement {
@@ -185,9 +185,8 @@ export class DRAW_3D_GRAPH_PLOTLY extends HybridNode2 {
     void this.updatePlotlyDrawing(input);
   }
 
-  protected async updatePlotlyDrawing(
-    input: any = this.prevInputObject,
-  ): Promise<void> {
+  // without input, it reads the current socket values
+  protected async updatePlotlyDrawing(input?: any): Promise<void> {
     const getInputValue = (name: string) =>
       input?.[name] ?? this.getInputData(name);
 

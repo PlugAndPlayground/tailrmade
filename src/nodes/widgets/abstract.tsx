@@ -335,7 +335,8 @@ export abstract class WidgetHybridBase extends HybridNode2 {
   }
 
   getWidgetProps(): WidgetProps {
-    return { ...defaultProps, heightMode: 'hug' };
+    // heightMode is the legacy field; migrateLegacyWidgetProps turns it into height
+    return { ...defaultProps, heightMode: 'hug' } as WidgetProps;
   }
 
   /**

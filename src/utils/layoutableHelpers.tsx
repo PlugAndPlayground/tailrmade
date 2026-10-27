@@ -73,7 +73,7 @@ export const getNewDirection = (
 export const getBasicLayoutStyles = (
   rawWidth: string,
   rawHeight: string,
-  parentDirection: 'row' | 'column',
+  parentDirection: FlexDirection | undefined,
 ): React.CSSProperties => {
   const width = asCssDimension(rawWidth);
   const height = asCssDimension(rawHeight);

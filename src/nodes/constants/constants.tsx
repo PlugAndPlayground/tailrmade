@@ -19,7 +19,7 @@ abstract class PRIMITIVE_CONSTANT extends PPNode {
       : UNKNOWN_STATIC_VALUE;
   }
 
-  drawnConstant: PIXI.Text = undefined;
+  drawnConstant: PIXI.Text | undefined = undefined;
 
   public getParallelInputsOutputs(): boolean {
     return true;
@@ -36,14 +36,14 @@ abstract class PRIMITIVE_CONSTANT extends PPNode {
     if (!this.drawnConstant) {
       this.drawConstant();
     }
-    return this.drawnConstant.height + 20;
+    return this.drawnConstant!.height + 20;
   }
 
   public getMinNodeWidth(): number {
     if (this.drawnConstant == undefined) {
       this.drawConstant();
     }
-    return this.drawnConstant.width + 50;
+    return this.drawnConstant!.width + 50;
   }
 
   private drawConstant(): void {
@@ -74,7 +74,9 @@ abstract class PRIMITIVE_CONSTANT extends PPNode {
     }
 
     this._BackgroundGraphicsRef.clear();
-    this.removeChild(this.drawnConstant);
+    if (this.drawnConstant) {
+      this.removeChild(this.drawnConstant);
+    }
     this.drawErrorBoundary();
     this.drawBackground();
     this.drawConstant();

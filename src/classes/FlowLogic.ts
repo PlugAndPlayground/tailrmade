@@ -101,11 +101,11 @@ export default class FlowLogic {
   static getHasDependencyOnOtherFoundationalWithExclusion(
     node: PPNode,
     foundational: PPNode[],
-    optionalExcludedNode: string,
+    optionalExcludedNode: string | undefined,
   ): boolean {
     const aggregated = new Set();
-    let current = node;
-    let next = [];
+    let current: PPNode | undefined = node;
+    let next: PPNode[] = [];
     while (current !== undefined) {
       aggregated.add(current.id);
       const nextNodes = current.inputSocketArray
@@ -127,7 +127,7 @@ export default class FlowLogic {
   static MAX_ITERATIONS = 10000;
   static async executeOptimizedChainBatch(
     foundational: PPNode[],
-    excludedParent: string = undefined, // this sucks man
+    excludedParent?: string, // this sucks man
   ): Promise<void> {
     if (!appExecutionAllowed.get()) return;
     // if it turns out that any of the foundationals are dependent on some other of them, remove from foundational (they will get called later because they apparently are part of child chain)

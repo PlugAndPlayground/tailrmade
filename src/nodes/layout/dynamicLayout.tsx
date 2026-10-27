@@ -482,6 +482,9 @@ drive it directly. Nothing happens on graph load - the default surface wins.
 ## Wiring
 - Tabs/dropdown for several destinations: set its options to the exact surface
   names and connect its "Out" to "Surface".
+- If that navigation appears on several separate top-level surfaces, create
+  ONE Tabs/dropdown node and fan its SAME "ReactUI" output out to every
+  surface.
 - One button per destination: set "Surface" to the fixed target and connect the
   button's "Out" to "Execute".
 
@@ -492,7 +495,9 @@ drive it directly. Nothing happens on graph load - the default surface wins.
 
 ${AGENT_DOCS_HEADING}
 Rename surfaces with set_node_name and pin a fixed destination with
-set_socket_value on "Surface".`;
+set_socket_value on "Surface". For shared top-level navigation, reuse one
+WidgetTabs node and one NavigateToPage node; connect that Tabs node's ReactUI
+output to every surface where it should render.`;
   }
 
   public getVersion(): number {

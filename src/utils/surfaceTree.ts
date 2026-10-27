@@ -5,6 +5,7 @@ import { UNSET_VALUE } from './constants';
 import { RootName, containerName } from './constants_shared';
 import { TRgba } from './color';
 import { INHERIT_COLOR } from './themeColors';
+import type { ContainerProps } from '../components/dashboard/Container';
 
 // The root surface paints NOTHING of its own by default: the app theme's
 // background.default is what shows through, and text inherits the theme's
@@ -115,7 +116,7 @@ export const rootProps = {
       padding: '0px 8px',
     },
   },
-};
+} satisfies ContainerProps;
 
 export const emptyLayout = {
   [RootName]: {

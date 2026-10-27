@@ -213,7 +213,9 @@ export class TextEditor2 extends HybridNode2 {
     return super.getNewSocketName('Input');
   }
 
-  public getSocketForNewConnection = (socket: PPSocket): PPSocket => {
+  public getSocketForNewConnection = (
+    socket: PPSocket,
+  ): PPSocket | undefined => {
     if (!socket.isInput()) {
       return DynamicInputNodeFunctions.getSocketForNewConnection(
         socket,
@@ -290,7 +292,7 @@ export class TextEditor2 extends HybridNode2 {
     const node = props.node as TextEditor2;
     const editorRef = useRef<LexicalEditor>(null);
     const [contentHeight, setContentHeight] = useState(0);
-    const [contrastColor, setContrastColor] = useState();
+    const [contrastColor, setContrastColor] = useState<TRgba>();
     const [pauseUpdate, setPauseUpdate] = useState(false);
     const [isDashboardFocused, setIsDashboardFocused] = useState(false);
     const [isLinkEditMode, setIsLinkEditMode] = useState<boolean>(false);
@@ -311,8 +313,8 @@ export class TextEditor2 extends HybridNode2 {
 
     const makeEditorEditable = useCallback(
       (state) => {
-        editorRef.current.update(() => {
-          editorRef.current.setEditable(state);
+        editorRef.current?.update(() => {
+          editorRef.current?.setEditable(state);
         });
       },
       [editorRef],
@@ -330,7 +332,7 @@ export class TextEditor2 extends HybridNode2 {
 
       // Trust Lexical's own state for the initial gate; the per-frame loop
       // below waits for the DOM attribute to actually reconcile.
-      if (!editorRef.current.isEditable()) {
+      if (!editorRef.current?.isEditable()) {
         node.pendingFocus = request;
         return;
       }
@@ -361,6 +363,7 @@ export class TextEditor2 extends HybridNode2 {
 
         const selection = window.getSelection();
         const hasSelectionInEditor =
+          selection !== null &&
           selection.rangeCount > 0 &&
           editorElement.contains(selection.anchorNode) &&
           editorElement.contains(selection.focusNode);
@@ -372,14 +375,16 @@ export class TextEditor2 extends HybridNode2 {
         range.selectNodeContents(editorElement);
         range.collapse(false);
 
-        selection.removeAllRanges();
-        selection.addRange(range);
+        selection?.removeAllRanges();
+        selection?.addRange(range);
       };
 
       requestAnimationFrame(() => attemptFocus(0));
     }, [node, props.dataCyId]);
 
     useEffect(() => {
+      if (!editorRef.current) return;
+
       const unregisterFocus = editorRef.current.registerCommand(
         FOCUS_COMMAND,
         () => {
@@ -409,6 +414,9 @@ export class TextEditor2 extends HybridNode2 {
       // satisfy any pending focus request.
       const unregisterEditable = editorRef.current.registerEditableListener(
         (editable: boolean) => {
+          if (!editable) {
+            setPauseUpdate(false);
+          }
           if (editable && shouldAutoFocusWidgetContent(props)) {
             applyPendingFocus();
           }
@@ -452,7 +460,7 @@ export class TextEditor2 extends HybridNode2 {
       // If the editor was already editable, the editable listener won't fire a
       // fresh `true`, so satisfy any pending focus directly here. (Whichever of
       // the two paths consumes the request first wins; the other no-ops.)
-      if (editorRef.current.isEditable()) {
+      if (editorRef.current?.isEditable()) {
         applyPendingFocus();
       }
     }, [
@@ -474,7 +482,7 @@ export class TextEditor2 extends HybridNode2 {
     const updateOutputsAndEditorHeight = () => {
       node.updateOutputs(editorRef.current!, tokenInputs);
       const target = document.querySelector(`[data-cy='${props.dataCyId}']`);
-      if (target.scrollHeight) {
+      if (target?.scrollHeight) {
         setContentHeight(target.scrollHeight);
       }
     };
@@ -484,7 +492,7 @@ export class TextEditor2 extends HybridNode2 {
     useEffect(() => {
       const editor = editorRef.current;
       const markdown = props[textEditorMarkdownName];
-      if (pauseUpdate) return;
+      if (pauseUpdate || markdown == null || !editor) return;
       editor.setEditorState(
         editor.parseEditorState(markdownToLexicalState(markdown, true)),
         { tag: inputSyncTag },
@@ -493,7 +501,9 @@ export class TextEditor2 extends HybridNode2 {
 
     // token values arrive with every execution, so outputs follow each render
     useEffect(() => {
-      updateOutputsAndEditorHeight();
+      if (editorRef.current) {
+        updateOutputsAndEditorHeight();
+      }
     });
 
     const onChangeByInternal = (

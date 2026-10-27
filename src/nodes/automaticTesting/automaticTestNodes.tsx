@@ -34,7 +34,7 @@ export class TEST_PotentiallyFail extends TEST {
     return 'Evokes test failure if the incoming condition is fulfilled';
   }
 
-  protected onExecute(input: any, output: any): Promise<void> {
+  protected async onExecute(input: any, output: any): Promise<void> {
     if (input[conditionName]) {
       console.log('Test Failure: ' + new Error().stack);
       InterfaceController.showSnackBar(
@@ -53,7 +53,7 @@ export class TEXT_PotentiallySucceed extends TEST {
     return 'Evokes test success if the incoming condition is fulfilled';
   }
 
-  protected onExecute(input: any, output: any): Promise<void> {
+  protected async onExecute(input: any, output: any): Promise<void> {
     if (input[conditionName]) {
       InterfaceController.showSnackBar(
         input[descriptionName] + ': Test Success!',

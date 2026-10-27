@@ -2,7 +2,9 @@ export const VISIBILITY_ACTION = {
   OPEN: 'OPEN',
   CLOSE: 'CLOSE',
   TOGGLE: 'TOGGLE',
-};
+} as const;
+export type TVisibilityAction =
+  (typeof VISIBILITY_ACTION)[keyof typeof VISIBILITY_ACTION];
 
 // lives here (rather than constants.tsx) so it stays importable from modules
 // that must stay free of constants.tsx's pixi.js/MUI/theme imports, such as

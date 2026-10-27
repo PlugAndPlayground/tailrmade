@@ -399,8 +399,10 @@ const SocketHeader = React.memo(
                 fontSize: '12px',
                 zIndex: 1500,
               }}
-              MenuListProps={{
-                'aria-labelledby': 'long-button',
+              slotProps={{
+                list: {
+                  'aria-labelledby': 'long-button',
+                },
               }}
               anchorEl={anchorEl}
               open={open}

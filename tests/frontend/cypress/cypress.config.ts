@@ -11,6 +11,19 @@ export default defineConfig({
     specPattern: 'tests/frontend/cypress/e2e/**/*.cy.ts',
     supportFile: 'tests/frontend/cypress/support/e2e.ts',
     setupNodeEvents(on, config) {
+      // Cypress 16: CYPRESS_* vars only populate config.env, so copy the
+      // non-sensitive ones the specs read via Cypress.expose()
+      for (const key of [
+        'cpuThrottleRate',
+        'pnpTimeout',
+        'pnpBaseUrl',
+        'inventoryOut',
+        'TEST_EMAIL',
+      ]) {
+        if (config.env[key] !== undefined) {
+          config.expose[key] = config.env[key];
+        }
+      }
       on('before:browser:launch', (browser, launchOptions) => {
         const isCI = process.env.CI || process.env.GITHUB_ACTIONS;
         if (
@@ -31,4 +44,11 @@ export default defineConfig({
     numTestsKeptInMemory: 10,
   },
   defaultCommandTimeout: 15000,
+  // Cypress 16 defaults to the 'modern' checkVisibility() strategy, which
+  // treats elements clipped by a zero-width overflow:hidden parent (e.g. the
+  // closed dashboard column) as visible. 'legacy' is deprecated; drop it once
+  // those assertions check the column state instead of :visible.
+  visibilityStrategy: 'legacy',
+  // Cypress 16 lowered the default from 10 to 0, too fast for Lexical inputs
+  keystrokeDelay: 10,
 });

@@ -206,11 +206,11 @@ export class CompanionBackend {
     // this was annoying
     //void this.testConnectionContinously();
   }
-  public static getInstance() {
+  public static getInstance(): CompanionBackend {
     if (CompanionBackend.companion == undefined) {
       this.companion = new CompanionBackend();
     }
-    return this.companion;
+    return this.companion!;
   }
 
   public setEnableDummyCompanion(enabled: boolean) {

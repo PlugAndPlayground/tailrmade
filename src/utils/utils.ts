@@ -949,7 +949,7 @@ export function compare(valueA: any, operator: string, valueB: any): boolean {
 export function getSocketsForConnection(
   node: PPNode,
   socket: PPSocket,
-): [PPSocket, PPSocket] {
+): [PPSocket | undefined, PPSocket | undefined] {
   const input =
     socket.isInput() || socket.socketType === SOCKET_TYPE.GHOST
       ? socket
@@ -1326,7 +1326,7 @@ export const saveBase64AsImage = async (
 };
 
 export const downloadFile = (
-  content: Blob | string | ArrayBufferLike,
+  content: Blob | string | ArrayBuffer,
   fileName: string,
   contentType: string,
 ): void => {

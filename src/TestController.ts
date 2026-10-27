@@ -24,7 +24,7 @@ import FlowLogic from './classes/FlowLogic';
 import { BackendGateway } from './services/BackendGateway';
 import { DASHBOARD_DEFAULT, LeftDrawerView } from './utils/constants';
 import { zoomToFitNodes } from './pixi/utils-pixi';
-import { VISIBILITY_ACTION } from './utils/constants_shared';
+import { VISIBILITY_ACTION, TVisibilityAction } from './utils/constants_shared';
 import {
   MCPToolResult,
   TailrmadeMCPServer,
@@ -424,17 +424,17 @@ export default class TestController {
   }
 
   toggleLeftSideDrawer(
-    action: VISIBILITY_ACTION = VISIBILITY_ACTION.TOGGLE,
+    action: TVisibilityAction = VISIBILITY_ACTION.TOGGLE,
     content: LeftDrawerView = LeftDrawerView.GRAPHS,
   ) {
     InterfaceController.toggleLeftSideDrawer(action, content);
   }
 
-  toggleDashboard(action: VISIBILITY_ACTION = VISIBILITY_ACTION.TOGGLE) {
+  toggleDashboard(action: TVisibilityAction = VISIBILITY_ACTION.TOGGLE) {
     InterfaceController.toggleShowDashboard(action);
   }
 
-  toggleRightSideDrawer(action: VISIBILITY_ACTION = VISIBILITY_ACTION.CLOSE) {
+  toggleRightSideDrawer(action: TVisibilityAction = VISIBILITY_ACTION.CLOSE) {
     InterfaceController.toggleRightSideDrawer(action);
   }
 
@@ -477,7 +477,7 @@ export default class TestController {
     if (viewport.scale.x > maxZoom) {
       viewport.setZoom(maxZoom, true);
       viewport.emit('moved', { viewport, type: 'pinch' });
-      viewport.emit('moved-end', { viewport, type: 'pinch' });
+      viewport.emit('moved-end', viewport);
     }
   }
 
@@ -502,7 +502,7 @@ export default class TestController {
     );
     PPGraph.currentGraph.selection.drawRectanglesFromSelection();
     viewport.emit('moved', { viewport, type: 'pinch' });
-    viewport.emit('moved-end', { viewport, type: 'pinch' });
+    viewport.emit('moved-end', viewport);
   }
 
   resetViewport() {
@@ -514,10 +514,7 @@ export default class TestController {
       viewport,
       type: 'pinch',
     });
-    viewport.emit('moved-end', {
-      viewport,
-      type: 'pinch',
-    });
+    viewport.emit('moved-end', viewport);
   }
 
   getTimesLoadedFromDB() {
