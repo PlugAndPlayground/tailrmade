@@ -67,7 +67,9 @@ const DIRECTION_OPTIONS: EnumStructure = [{ text: 'column' }, { text: 'row' }];
 // Parameter names the repeater fills itself, whatever the entry looks like.
 // Anything else is matched against the entry's own fields by name.
 const ENTRY_PARAMETER_NAMES = ['entry', 'item', 'value'];
-const KEY_PARAMETER_NAMES = ['key', 'label', 'index'];
+// deliberately NOT 'label': a parameter feeding a widget's Label socket is
+// named "Label", and almost always wants the entry itself rather than the key
+const KEY_PARAMETER_NAMES = ['key', 'index'];
 
 export interface TemplateRow {
   key: string;
@@ -252,8 +254,8 @@ an array or a JSON object. Each entry becomes one placement.
 Entries are bound to the template's parameters by NAME, so there is no mapping
 to configure:
 - a parameter called entry, item or value gets the whole entry
-- a parameter called key, label or index gets the entry's key (an object's key,
-  an array's index)
+- a parameter called key or index gets the entry's key (an object's key, an
+  array's index)
 - any other parameter gets the entry's field of the same name
 - if the entry is not an object, an unmatched parameter gets the entry itself
 
@@ -387,11 +389,6 @@ The template is referenced by NAME, and template names are kept unique.`;
       return String(entry[field]);
     }
     return key;
-  }
-
-  // as Execute Macro does: our outputs take the type of what they feed
-  public socketShouldAutomaticallyAdapt(socket: PPSocket): boolean {
-    return socket.isOutput();
   }
 
   // ---- per-placement edits ---------------------------------------------

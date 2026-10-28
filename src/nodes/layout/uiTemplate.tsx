@@ -335,9 +335,13 @@ The template is referenced by NAME, and template names are kept unique.`;
     return super.getSocketDisplayName(socket);
   }
 
-  // as Execute Macro does: our outputs take the type of what they feed
+  // Only the template-derived Output sockets adapt. Not ReactUI: it carries a
+  // render function, and letting it adapt retypes it away from
+  // DeferredReactType, after which a surface will not accept the connection.
   public socketShouldAutomaticallyAdapt(socket: PPSocket): boolean {
-    return socket.isOutput();
+    return (
+      socket.isOutput() && socket.name.startsWith(templateOutputPrefixName)
+    );
   }
 
   // ---- per-placement edits ---------------------------------------------
