@@ -528,7 +528,7 @@ describe('app risk review', () => {
 
   it('resolves constant concatenated HTTP URLs before approval and runs safe GETs', () => {
     let requests = 0;
-    const origin = new URL(Cypress.env('pnpBaseUrl') || 'http://127.0.0.1:8080')
+    const origin = new URL(Cypress.expose('pnpBaseUrl') || 'http://127.0.0.1:8080')
       .origin;
     cy.intercept('GET', '**/constant-risk-probe*', (request) => {
       requests++;
@@ -618,7 +618,7 @@ describe('app risk review', () => {
           .getRisks()
           .map((risk) => ({ target: risk.target, severity: risk.severity })),
       ).to.deep.equal([
-        { target: 'https://example.com/path', severity: 'info' },
+        { target: 'https://example.com/path?token=…', severity: 'info' },
       ]);
     });
   });
@@ -707,7 +707,10 @@ describe('app risk review', () => {
 
   // A wired-up input used to count as dynamic without anyone looking at what
   // was wired up, so these pin that the whole chain is followed.
-  const openURLNode = () => serializedNode('openurl', 'open', []);
+  const openURLNode = () => ({
+    ...serializedNode('openurl', 'open', []),
+    version: 4,
+  });
   const linkTo = (
     sourceNodeId: string,
     sourceSocketName: string,

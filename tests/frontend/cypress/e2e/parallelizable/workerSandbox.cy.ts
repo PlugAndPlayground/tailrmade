@@ -50,7 +50,7 @@ describe('restricted custom function workers', () => {
         await controller.setNodeInputValue(
           'Sandbox',
           'url',
-          `${Cypress.env('pnpBaseUrl') || 'http://localhost:8080'}/__sandbox_probe`,
+          `${Cypress.expose('pnpBaseUrl') || 'http://localhost:8080'}/__sandbox_probe`,
         );
         await controller.executeNodeByID('Sandbox');
         expect(controller.getNodeOutputValue('Sandbox', 'OutData')).to.eq(
