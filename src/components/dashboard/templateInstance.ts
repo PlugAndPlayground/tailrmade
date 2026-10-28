@@ -41,6 +41,46 @@ export const emptyTemplateCapture = (): TemplateInstanceCapture => ({
   outputs: {},
 });
 
+/**
+ * Identifies the placement a widget is being rendered inside, so an edit made
+ * in it can be routed to that placement instead of the shared inner node.
+ */
+// values per inner node id, then socket name
+export type TemplateNodeValues = Record<string, Record<string, unknown>>;
+
+/**
+ * What a placing node remembers.
+ *
+ * `rows` holds the viewer's edits, per row key ('' for a single placement).
+ *
+ * `baseline` is the other half, and it is not optional: the inner nodes are
+ * shared, so whatever one pass leaves in a socket is what the next pass starts
+ * from. A row that has never been edited would inherit the previous row's
+ * value. The baseline is the value a socket had before anyone edited it, and
+ * every pass restores it first - so an unedited row shows what the template
+ * author set, not what the row above it happens to hold.
+ */
+export type TemplateEdits = {
+  baseline: TemplateNodeValues;
+  rows: Record<string, TemplateNodeValues>;
+};
+
+export const emptyTemplateEdits = (): TemplateEdits => ({
+  baseline: {},
+  rows: {},
+});
+
+// what one pass applies: the baseline, then that row's edits over it
+export type TemplateRowEdits = {
+  baseline: TemplateNodeValues;
+  edits: TemplateNodeValues;
+};
+
+export interface TemplateInstanceHandle {
+  ownerId: string;
+  rowKey?: string;
+}
+
 export interface TemplateInstanceContextValue extends TemplateInstanceCapture {
   // the node this rendering belongs to (Place Template, or Repeat Template)
   ownerId: string;

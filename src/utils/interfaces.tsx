@@ -10,6 +10,7 @@ import {
   LeftDrawerView,
   RightDrawerView,
 } from './constants';
+import type { TemplateInstanceHandle } from '../components/dashboard/templateInstance';
 import type { UISurfaceNode } from '../nodes/layout/uiSurface';
 import type { ThemeDocument } from './theme/document';
 import type { ColorSetting } from './themeColors';
@@ -175,6 +176,9 @@ export interface DashboardWidgetProps {
   // fall through to whatever is underneath instead, e.g. PIXI's canvas for
   // drag-and-drop link creation onto a UI surface node).
   isSurfacePreview?: boolean;
+  // set when this widget is rendered inside a UI template placement; a value
+  // the viewer changes is written to that placement, not to the shared node
+  templateInstance?: TemplateInstanceHandle;
   // Add any additional props you need
 }
 
@@ -202,6 +206,8 @@ export interface WidgetContentProps {
   components?: React.ReactNode;
   // see DashboardWidgetProps.isSurfacePreview
   isSurfacePreview?: boolean;
+  // see DashboardWidgetProps.templateInstance
+  templateInstance?: TemplateInstanceHandle;
 }
 
 export interface Layoutable {

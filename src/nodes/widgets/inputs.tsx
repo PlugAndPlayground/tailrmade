@@ -24,6 +24,7 @@ import { NumberType } from '../datatypes/numberType';
 import { EnumType, EnumStructure } from '../datatypes/enumType';
 import { AbstractType } from '../datatypes/abstractType';
 import { BackPropagation } from '../../interfaces';
+import type { TemplateInstanceHandle } from '../../components/dashboard/templateInstance';
 import { SOCKET_TYPE } from '../../utils/constants';
 import {
   ActionHandler,
@@ -156,16 +157,16 @@ export class WidgetTextField extends WidgetHybridBase {
     this.setOutputData(outName, inputObject[initialValueName]);
   }
 
-  handleOnChange = async (event) => {
+  handleOnChange = async (event, instance?: TemplateInstanceHandle) => {
     const value = event.target.value;
     const id = this.id;
-    const prev = this.getInputData(initialValueName);
+    const prev = this.readWidgetValue(initialValueName, instance);
 
     const applyFunction = async (newValue) => {
       const safeNode = SerializableActionHandler.getSafeNode(id);
-      safeNode.setInputData(initialValueName, newValue);
-      safeNode.setOutputData(outName, newValue);
-      await safeNode.executeOptimizedChain();
+      await safeNode.applyWidgetEdit(initialValueName, newValue, instance, {
+        [outName]: newValue,
+      });
     };
 
     await ActionHandler.performRawAction(
@@ -243,7 +244,7 @@ export class WidgetTextField extends WidgetHybridBase {
               onChange={(e) => {
                 setInternalValue(e.target.value);
                 // still update graph so outputs react immediately
-                void node.handleOnChange(e);
+                void node.handleOnChange(e, props.templateInstance);
               }}
               onBlur={() => {
                 setIsFocused(false);
@@ -359,7 +360,9 @@ export class WidgetNumberField extends WidgetNumberBase {
           {...getWidgetControlProps(props.disabled)}
           label={props[labelName]}
           value={props[initialValueName]}
-          onChange={(value) => void node.handleValueChange(value)}
+          onChange={(value) =>
+            void node.handleValueChange(value, props.templateInstance)
+          }
           min={limitRange ? props[minValueName] : undefined}
           max={limitRange ? props[maxValueName] : undefined}
           step={Math.max(props[stepName], 10 ** -decimals)}

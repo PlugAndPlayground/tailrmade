@@ -33,6 +33,7 @@ import { StringType } from '../datatypes/stringType';
 import { BooleanType } from '../datatypes/booleanType';
 import { WidgetContentProps } from '../../utils/interfaces';
 import { useResolvedInputVariant } from '../../utils/theme';
+import type { TemplateInstanceHandle } from '../../components/dashboard/templateInstance';
 
 enum AutocompleteType {
   SINGLE = '(single select)',
@@ -96,8 +97,11 @@ abstract class WidgetAutocompleteBase extends WidgetSelectableBase {
     return [...new Set(options.map(stringifyIfNeeded))];
   }
 
-  handleOnChange = async (newValue: unknown) => {
-    await this.performValueChange(newValue);
+  handleOnChange = async (
+    newValue: unknown,
+    instance?: TemplateInstanceHandle,
+  ) => {
+    await this.performValueChange(newValue, instance);
   };
 
   protected getDefaultIO(): Socket[] {
@@ -172,11 +176,17 @@ abstract class WidgetAutocompleteBase extends WidgetSelectableBase {
               disabled={isDisabled}
               noOptionsText={noOptionsText}
               onChange={(_event, newValue) => {
-                void node.handleOnChange(newValue ?? '');
+                void node.handleOnChange(
+                  newValue ?? '',
+                  props.templateInstance,
+                );
               }}
               onInputChange={(_event, newInputValue, reason) => {
                 if (freeSolo && reason === 'input') {
-                  void node.handleOnChange(newInputValue);
+                  void node.handleOnChange(
+                    newInputValue,
+                    props.templateInstance,
+                  );
                 }
               }}
               renderInput={(params) => (
@@ -220,7 +230,7 @@ abstract class WidgetAutocompleteBase extends WidgetSelectableBase {
             disableCloseOnSelect
             noOptionsText={noOptionsText}
             onChange={(_event, newValue) => {
-              void node.handleOnChange(newValue);
+              void node.handleOnChange(newValue, props.templateInstance);
             }}
             renderOption={(optionProps, option, { selected }) => (
               <li {...optionProps}>

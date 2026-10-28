@@ -3,6 +3,7 @@ import { Box } from '@mui/material';
 import HybridNode2, {
   HybridWidgetContentProps,
 } from '../../classes/HybridNode2';
+import PPGraph from '../../classes/GraphClass';
 import PPNode from '../../classes/NodeClass';
 import PPSocket from '../../classes/SocketClass';
 import {
@@ -12,17 +13,22 @@ import {
 } from '../../components/dashboard/SurfaceRenderer';
 import {
   TemplateInstanceContext,
+  TemplateEdits,
+  emptyTemplateEdits,
   TemplateInstanceCapture,
+  TemplateRowEdits,
   emptyTemplateCapture,
 } from '../../components/dashboard/templateInstance';
 import { getPageDashboardIcon } from '../../components/dashboard/dashboardIcons';
 import { DynamicEnumType } from '../datatypes/dynamicEnumType';
+import { JSONType } from '../datatypes/jsonType';
 import { EnumStructure } from '../datatypes/enumType';
 import { TRgba } from '../../utils/color';
 import { AGENT_DOCS_HEADING } from '../../utils/nodeDocs';
 import { NODE_TYPE_COLOR, SOCKET_TYPE } from '../../utils/constants';
 import {
   templateSocketName,
+  templateEditsSocketName,
   templateOutputPrefixName,
   templateParameterPrefixName,
   templateUISocketName,
@@ -105,7 +111,10 @@ export const PlaceTemplateWidget: React.FunctionComponent<
     >
       <SurfaceCanvasPreviewContext.Provider value={isCanvasPreview}>
         <SurfaceVisitedContext.Provider value={[...visited, body.id]}>
-          <SurfaceRenderer tree={tree} interactive={false} />
+          <SurfaceRenderer
+            tree={tree}
+            interactive={Boolean(props.inDashboard) && !props.disabled}
+          />
         </SurfaceVisitedContext.Provider>
       </SurfaceCanvasPreviewContext.Provider>
     </TemplateInstanceContext.Provider>
@@ -183,6 +192,13 @@ The template is referenced by NAME, and template names are kept unique.`;
         ),
         NO_TEMPLATE,
         true,
+      ),
+      new PPSocket(
+        SOCKET_TYPE.IN,
+        templateEditsSocketName,
+        new JSONType(),
+        {},
+        false,
       ),
     ];
   }
@@ -324,6 +340,54 @@ The template is referenced by NAME, and template names are kept unique.`;
     return socket.isOutput();
   }
 
+  // ---- per-placement edits ---------------------------------------------
+
+  private getEdits(): TemplateEdits {
+    const stored = this.getInputData(templateEditsSocketName);
+    if (!stored || typeof stored !== 'object') {
+      return emptyTemplateEdits();
+    }
+    const edits = stored as Partial<TemplateEdits>;
+    return { baseline: edits.baseline ?? {}, rows: edits.rows ?? {} };
+  }
+
+  public getRowEdits(rowKey: string | undefined): TemplateRowEdits {
+    const edits = this.getEdits();
+    return {
+      baseline: edits.baseline,
+      edits: edits.rows[rowKey ?? ''] ?? {},
+    };
+  }
+
+  public getTemplateEdit(
+    rowKey: string | undefined,
+    nodeId: string,
+    socketName: string,
+  ): unknown {
+    return this.getEdits().rows[rowKey ?? '']?.[nodeId]?.[socketName];
+  }
+
+  public setTemplateEdit(
+    rowKey: string | undefined,
+    nodeId: string,
+    socketName: string,
+    value: unknown,
+  ): void {
+    const edits = structuredClone(this.getEdits());
+    // The first edit of a socket records what it held beforehand. At that
+    // moment no row has edited it, so the shared node still carries the value
+    // the template author set - which is what every unedited row must show.
+    if (edits.baseline[nodeId]?.[socketName] === undefined) {
+      const node = PPGraph.currentGraph.getNodeById(nodeId);
+      if (node?.getInputSocketByName(socketName)) {
+        (edits.baseline[nodeId] ??= {})[socketName] =
+          node.getInputData(socketName);
+      }
+    }
+    ((edits.rows[rowKey ?? ''] ??= {})[nodeId] ??= {})[socketName] = value;
+    this.setInputData(templateEditsSocketName, edits);
+  }
+
   // lets surface-embedding loop detection see through this placement
   public getTemplateBodySurface(): PPNode | undefined {
     return this.getTemplate()?.getBodySurface();
@@ -355,7 +419,11 @@ The template is referenced by NAME, and template names are kept unique.`;
           socket.data,
         ]),
       );
-      this.capture = await runTemplateAsInstance(template, args);
+      this.capture = await runTemplateAsInstance(
+        template,
+        args,
+        this.getRowEdits(undefined),
+      );
       Object.entries(this.capture.outputs).forEach(([name, value]) => {
         if (this.getOutputSocketByName(name)) {
           output[name] = value;

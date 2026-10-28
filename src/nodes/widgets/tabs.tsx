@@ -28,6 +28,7 @@ import {
   SerializableActionHandler,
 } from '../../classes/Action';
 import { AGENT_DOCS_HEADING } from '../../utils/nodeDocs';
+import type { TemplateInstanceHandle } from '../../components/dashboard/templateInstance';
 
 const tabsOptionsName = 'Tab Options';
 const selectedTabIndex = 'Selected Tab';
@@ -116,17 +117,21 @@ are intentionally independent.`;
     return selectedTabIndex;
   }
 
-  handleOnChange = async (event, newValue) => {
+  handleOnChange = async (
+    event,
+    newValue,
+    instance?: TemplateInstanceHandle,
+  ) => {
     const id = this.id;
-    const prev = this.getInputData(selectedTabIndex);
+    const prev = this.readWidgetValue(selectedTabIndex, instance);
 
     const applyFunction = async (newIndex) => {
       const safeNode = SerializableActionHandler.getSafeNode(id);
-      safeNode.setInputData(selectedTabIndex, newIndex);
       const selectedOption = safeNode.getInputData(tabsOptionsName)[newIndex];
-      safeNode.setOutputData(outName, selectedOption);
-      safeNode.setOutputData(outIndexName, newIndex);
-      await safeNode.executeOptimizedChain();
+      await safeNode.applyWidgetEdit(selectedTabIndex, newIndex, instance, {
+        [outName]: selectedOption,
+        [outIndexName]: newIndex,
+      });
     };
 
     await ActionHandler.performRawAction(
@@ -167,7 +172,9 @@ are intentionally independent.`;
           <Tabs
             data-cy={`${props.dataCyId}-tabs`}
             value={selectedIndex}
-            onChange={node.handleOnChange}
+            onChange={(event, newValue) =>
+              void node.handleOnChange(event, newValue, props.templateInstance)
+            }
             variant={scrollable ? 'scrollable' : 'standard'}
             scrollButtons={scrollable ? 'auto' : false}
             centered={!scrollable}

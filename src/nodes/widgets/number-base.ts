@@ -9,6 +9,7 @@ import { BackPropagation } from '../../interfaces';
 import { SOCKET_TYPE } from '../../utils/constants';
 import { limitRange } from '../../utils/utils';
 import { NumberType } from '../datatypes/numberType';
+import type { TemplateInstanceHandle } from '../../components/dashboard/templateInstance';
 import {
   WidgetHybridBase,
   initialValueName,
@@ -68,9 +69,12 @@ export abstract class WidgetNumberBase extends WidgetHybridBase {
     return roundToDecimals(limited, getDecimals(inputObject[decimalsName]));
   }
 
-  handleValueChange = async (value: number) => {
+  handleValueChange = async (
+    value: number,
+    instance?: TemplateInstanceHandle,
+  ) => {
     const id = this.id;
-    const prev = this.getInputData(initialValueName);
+    const prev = this.readWidgetValue(initialValueName, instance);
     const newValue = roundToDecimals(
       value,
       getDecimals(this.getInputData(decimalsName)),
@@ -78,9 +82,9 @@ export abstract class WidgetNumberBase extends WidgetHybridBase {
 
     const applyFunction = async (data: number) => {
       const safeNode = SerializableActionHandler.getSafeNode(id);
-      safeNode.setInputData(initialValueName, data);
-      safeNode.setOutputData(outName, data);
-      await safeNode.executeOptimizedChain();
+      await safeNode.applyWidgetEdit(initialValueName, data, instance, {
+        [outName]: data,
+      });
     };
 
     await ActionHandler.performRawAction(

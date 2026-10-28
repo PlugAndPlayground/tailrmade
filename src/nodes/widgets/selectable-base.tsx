@@ -15,6 +15,7 @@ import {
   SerializableActionHandler,
 } from '../../classes/Action';
 import { BackPropagation } from '../../interfaces';
+import type { TemplateInstanceHandle } from '../../components/dashboard/templateInstance';
 import { SOCKET_TYPE } from '../../utils/constants';
 import { ArrayType } from '../datatypes/arrayType';
 import { StringType } from '../datatypes/stringType';
@@ -116,18 +117,21 @@ export abstract class WidgetSelectableBase extends WidgetHybridBase {
     outputObject[selectedOptionName] = formattedValue;
   }
 
-  protected async performValueChange(newValue: unknown): Promise<void> {
+  protected async performValueChange(
+    newValue: unknown,
+    instance?: TemplateInstanceHandle,
+  ): Promise<void> {
     const options = this.stringifyOptions(this.getInputData(optionsName));
     const id = this.id;
     const formattedValue = this.validateAndFormatSelected(newValue, options);
-    const prev = this.getInputData(selectedOptionName);
+    const prev = this.readWidgetValue(selectedOptionName, instance);
     const applyFunction = async (val: unknown) => {
       const safeNode = SerializableActionHandler.getSafeNode(
         id,
       ) as WidgetSelectableBase;
-      safeNode.setInputData(selectedOptionName, val);
-      safeNode.setOutputData(outName, val);
-      await safeNode.executeOptimizedChain();
+      await safeNode.applyWidgetEdit(selectedOptionName, val, instance, {
+        [outName]: val,
+      });
     };
     await ActionHandler.performRawAction(
       new BakedAction(

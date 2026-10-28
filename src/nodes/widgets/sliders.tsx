@@ -175,7 +175,10 @@ export class WidgetSlider extends WidgetNumberBase {
             max={max}
             step={10 ** -decimals}
             onChange={(_event, newValue) =>
-              void node.handleValueChange(newValue as number)
+              void node.handleValueChange(
+                newValue as number,
+                props.templateInstance,
+              )
             }
             valueLabelDisplay="off"
             sx={{

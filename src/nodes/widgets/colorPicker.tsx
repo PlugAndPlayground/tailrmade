@@ -36,6 +36,7 @@ import {
   SerializableActionHandler,
 } from '../../classes/Action';
 import { BackPropagation } from '../../interfaces';
+import type { TemplateInstanceHandle } from '../../components/dashboard/templateInstance';
 
 const pickerDefaultName = 'Pick a color';
 
@@ -88,32 +89,35 @@ export class WidgetColorPicker extends WidgetHybridBase {
     this.setOutputData(outName, newValue);
   }
 
-  handleOnChange = throttle(async (color) => {
-    const id = this.id;
-    const prev = this.getInputData(initialValueName);
-    const pickedrgb = color.rgba;
-    const newColor = new TRgba(
-      pickedrgb.r,
-      pickedrgb.g,
-      pickedrgb.b,
-      pickedrgb.a,
-    );
-    const applyFunction = async (newValue) => {
-      const safeNode = SerializableActionHandler.getSafeNode(
-        id,
-      ) as WidgetColorPicker;
-      safeNode.setInputData(initialValueName, newValue);
-      safeNode.setOutputData(outName, newValue);
-      await safeNode.executeOptimizedChain();
-    };
-    await ActionHandler.performRawAction(
-      new BakedAction(
-        new SerializableAction(applyFunction, applyFunction, 'Change color'),
-        newColor,
-        prev,
-      ),
-    );
-  }, 100);
+  handleOnChange = throttle(
+    async (color, instance?: TemplateInstanceHandle) => {
+      const id = this.id;
+      const prev = this.readWidgetValue(initialValueName, instance);
+      const pickedrgb = color.rgba;
+      const newColor = new TRgba(
+        pickedrgb.r,
+        pickedrgb.g,
+        pickedrgb.b,
+        pickedrgb.a,
+      );
+      const applyFunction = async (newValue) => {
+        const safeNode = SerializableActionHandler.getSafeNode(
+          id,
+        ) as WidgetColorPicker;
+        await safeNode.applyWidgetEdit(initialValueName, newValue, instance, {
+          [outName]: newValue,
+        });
+      };
+      await ActionHandler.performRawAction(
+        new BakedAction(
+          new SerializableAction(applyFunction, applyFunction, 'Change color'),
+          newColor,
+          prev,
+        ),
+      );
+    },
+    100,
+  );
 
   getWidgetContent(props: WidgetContentProps): React.ReactElement {
     const node = props.node as WidgetColorPicker;
@@ -214,7 +218,9 @@ export class WidgetColorPicker extends WidgetHybridBase {
                   <span className="chrome-picker">
                     <Sketch
                       color={initialColor.hsva()}
-                      onChange={node.handleOnChange}
+                      onChange={(color) =>
+                        void node.handleOnChange(color, props.templateInstance)
+                      }
                       presetColors={PRESET_COLORS}
                     />
                   </span>

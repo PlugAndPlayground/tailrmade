@@ -41,6 +41,7 @@ import { StringType } from '../datatypes/stringType';
 import { EnumType, EnumStructure } from '../datatypes/enumType';
 import { BooleanType } from '../datatypes/booleanType';
 import { BackPropagation } from '../../interfaces';
+import type { TemplateInstanceHandle } from '../../components/dashboard/templateInstance';
 import { DEFAULT_UPDATE_FREQUENCY, SOCKET_TYPE } from '../../utils/constants';
 import {
   ActionHandler,
@@ -350,9 +351,9 @@ export class WidgetButtonGroup extends WidgetSelectionBase {
     return selectedButtonIndex;
   }
 
-  handleButtonClick = async (index) => {
+  handleButtonClick = async (index, instance?: TemplateInstanceHandle) => {
     const id = this.id;
-    const prev = this.getInputData(selectedButtonIndex);
+    const prev = this.readWidgetValue(selectedButtonIndex, instance);
 
     // If we're in regular button mode (not toggle), or we're in exclusive toggle mode
     // simply set the selected index to the clicked button
@@ -361,12 +362,12 @@ export class WidgetButtonGroup extends WidgetSelectionBase {
 
     const applyFunction = async (newIndex) => {
       const safeNode = SerializableActionHandler.getSafeNode(id);
-      safeNode.setInputData(selectedButtonIndex, newIndex);
       const options = safeNode.getInputData(buttonGroupOptionsName);
       const selectedOption = options[newIndex];
-      safeNode.setOutputData(outName, selectedOption);
-      safeNode.setOutputData(outIndexName, newIndex);
-      await safeNode.executeOptimizedChain();
+      await safeNode.applyWidgetEdit(selectedButtonIndex, newIndex, instance, {
+        [outName]: selectedOption,
+        [outIndexName]: newIndex,
+      });
     };
 
     await ActionHandler.performRawAction(
@@ -450,6 +451,7 @@ export class WidgetButtonGroup extends WidgetSelectionBase {
                       onClick={() =>
                         void (node as WidgetButtonGroup).handleButtonClick(
                           index,
+                          props.templateInstance,
                         )
                       }
                       disabled={props.disabled}
@@ -545,7 +547,10 @@ export class WidgetButtonGroup extends WidgetSelectionBase {
                     {...getWidgetControlProps(props.disabled)}
                     key={index}
                     onClick={() =>
-                      void (node as WidgetButtonGroup).handleButtonClick(index)
+                      void (node as WidgetButtonGroup).handleButtonClick(
+                        index,
+                        props.templateInstance,
+                      )
                     }
                     sx={{
                       fontSize: fontSize,
@@ -648,18 +653,18 @@ export class WidgetSwitch extends WidgetHybridBase {
     this.setOutputData(outName, newValue);
   }
 
-  handleOnChange = (value) => {
+  handleOnChange = (value, instance?: TemplateInstanceHandle) => {
     const id = this.id;
-    const prev = this.getInputData(initialValueName);
+    const prev = this.readWidgetValue(initialValueName, instance);
     const applyFunction = async (newValue) => {
       const safeNode = SerializableActionHandler.getSafeNode(
         id,
       ) as WidgetSwitch;
       const onValue = safeNode.getInputData(onValueName);
       const offValue = safeNode.getInputData(offValueName);
-      safeNode.setInputData(initialValueName, value);
-      safeNode.setOutputData(outName, newValue ? onValue : offValue);
-      await safeNode.executeOptimizedChain();
+      await safeNode.applyWidgetEdit(initialValueName, value, instance, {
+        [outName]: newValue ? onValue : offValue,
+      });
     };
     void ActionHandler.performRawAction(
       new BakedAction(
@@ -677,7 +682,7 @@ export class WidgetSwitch extends WidgetHybridBase {
 
     const handleChange = (event: React.ChangeEvent<HTMLInputElement>) => {
       const checked = event.target.checked;
-      (node as WidgetSwitch).handleOnChange(checked);
+      (node as WidgetSwitch).handleOnChange(checked, props.templateInstance);
     };
 
     return (

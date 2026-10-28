@@ -14,6 +14,8 @@ import PPNode from '../../classes/NodeClass';
 import {
   emptyTemplateCapture,
   TemplateInstanceCapture,
+  TemplateNodeValues,
+  TemplateRowEdits,
 } from '../../components/dashboard/templateInstance';
 import {
   getEmbeddedSurfaceNodes,
@@ -52,12 +54,36 @@ function getRenderedSurfaces(surface: UISurfaceNode): UISurfaceNode[] {
 async function runPass(
   template: UITemplate,
   args: TemplateArgs,
+  edits: TemplateRowEdits,
 ): Promise<TemplateInstanceCapture> {
   template.getParameterSockets().forEach((parameter) => {
     if (Object.prototype.hasOwnProperty.call(args, parameter.name)) {
       parameter.data = args[parameter.name];
     }
   });
+
+  // Baseline first, then this row's edits over it. The baseline matters as
+  // much as the edits: the inner nodes are shared, so without it a row that
+  // was never edited would start from whatever the previous row left behind.
+  //
+  // Both are written before the inner nodes run, so they propagate like any
+  // other input. A socket the graph drives is re-written during
+  // executeChildren and the edit does not stick - the same rule a linked
+  // widget socket already follows outside a template.
+  const write = (values: TemplateNodeValues) =>
+    Object.entries(values).forEach(([nodeId, bySocket]) => {
+      const node = PPGraph.currentGraph.getNodeById(nodeId);
+      if (!node) {
+        return;
+      }
+      Object.entries(bySocket).forEach(([socketName, value]) => {
+        if (node.getInputSocketByName(socketName)) {
+          node.setInputData(socketName, value);
+        }
+      });
+    });
+  write(edits.baseline);
+  write(edits.edits);
 
   await template.executeChildren();
 
@@ -92,8 +118,9 @@ async function runPass(
 export function runTemplateAsInstance(
   template: UITemplate,
   args: TemplateArgs,
+  edits: TemplateRowEdits = { baseline: {}, edits: {} },
 ): Promise<TemplateInstanceCapture> {
-  const pass = passQueue.then(() => runPass(template, args));
+  const pass = passQueue.then(() => runPass(template, args, edits));
   passQueue = pass.catch(() => undefined);
   return pass;
 }

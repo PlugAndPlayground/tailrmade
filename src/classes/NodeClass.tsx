@@ -42,6 +42,7 @@ import {
 } from '../utils/constants';
 import { isDoubleActivation } from '../utils/touchGestures';
 import UpdateBehaviourClass from './UpdateBehaviourClass';
+import type { TemplateInstanceHandle } from '../components/dashboard/templateInstance';
 import { isCanvasExploreOnly } from '../utils/stackLayout';
 import NodeHeaderClass from './NodeHeaderClass';
 import PPGraph from './GraphClass';
@@ -2073,6 +2074,80 @@ ${Math.round(bounds.minX)}, ${Math.round(
    */
   public getTemplateBodySurface(): PPNode | undefined {
     return undefined;
+  }
+
+  /**
+   * Per-placement edits, stored on the node that owns the placement (Place
+   * Template, Repeat Template). No-ops elsewhere.
+   */
+  public setTemplateEdit(
+    _rowKey: string | undefined,
+    _nodeId: string,
+    _socketName: string,
+    _value: unknown,
+  ): void {}
+
+  public getTemplateEdit(
+    _rowKey: string | undefined,
+    _nodeId: string,
+    _socketName: string,
+  ): unknown {
+    return undefined;
+  }
+
+  /**
+   * What a widget currently shows for one of its input sockets: the
+   * placement's edited value when it is rendered inside one, otherwise the
+   * shared node's own socket.
+   */
+  public readWidgetValue(
+    socketName: string,
+    instance?: TemplateInstanceHandle,
+  ): unknown {
+    if (instance) {
+      const owner = PPGraph.currentGraph.getNodeById(instance.ownerId);
+      const edited = owner?.getTemplateEdit(
+        instance.rowKey,
+        this.id,
+        socketName,
+      );
+      if (edited !== undefined) {
+        return edited;
+      }
+    }
+    return this.getInputData(socketName);
+  }
+
+  /**
+   * Writes a value the viewer changed. Inside a template placement it belongs
+   * to THAT placement - writing the shared node would change every placement
+   * at once, and the next evaluation pass would overwrite it anyway - so it
+   * goes to the owner's edit store and the owner re-evaluates.
+   *
+   * An edit only sticks on a socket nothing in the graph drives; a socket fed
+   * by a template parameter is re-written on every pass, which is the same
+   * rule a linked widget socket already follows outside a template.
+   */
+  public async applyWidgetEdit(
+    socketName: string,
+    value: unknown,
+    instance?: TemplateInstanceHandle,
+    outputs: Record<string, unknown> = {},
+  ): Promise<void> {
+    if (instance) {
+      const owner = PPGraph.currentGraph.getNodeById(instance.ownerId);
+      if (owner) {
+        owner.setTemplateEdit(instance.rowKey, this.id, socketName, value);
+        // the placement re-evaluates, which recomputes its own outputs
+        await owner.executeOptimizedChain();
+        return;
+      }
+    }
+    this.setInputData(socketName, value);
+    Object.entries(outputs).forEach(([name, outputValue]) =>
+      this.setOutputData(name, outputValue),
+    );
+    await this.executeOptimizedChain();
   }
 
   public placedTemplateUpdated(): void {

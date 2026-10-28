@@ -157,8 +157,8 @@ export const DynamicWidgetView = (viewProps: DynamicWidgetViewProps) => {
   // reactUIProps channel a linked ReactUI output already uses. Without a
   // snapshot (an inner node that has not been evaluated yet) it falls back to
   // the live reading, which is what the widget would have shown anyway.
-  // Instances are read-only for now: a write would reach the shared node and
-  // change every instance at once.
+  // A value the viewer changes is routed to this placement through the handle
+  // below, so it never reaches the shared node.
   const instanceSnapshot = componentInstance
     ? componentInstance.snapshots[layoutableElement.getRelatedNode().id]
     : undefined;
@@ -173,8 +173,14 @@ export const DynamicWidgetView = (viewProps: DynamicWidgetViewProps) => {
       {layoutableElement.getDashboardWrapper({
         index,
         isEditMode,
-        disabled: componentInstance ? true : (disabled ?? false),
+        disabled: disabled ?? false,
         reactUIProps: instanceSnapshot,
+        templateInstance: componentInstance
+          ? {
+              ownerId: componentInstance.ownerId,
+              rowKey: componentInstance.rowKey,
+            }
+          : undefined,
         blockInteraction,
         height: style.height as string,
         width: style.width as string,

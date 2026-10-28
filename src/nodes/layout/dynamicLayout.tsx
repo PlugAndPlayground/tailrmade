@@ -131,6 +131,7 @@ export const DynamicWidgetContainerNode: React.FunctionComponent<
             width={props.width}
             height={props.height}
             isEditMode={props.isEditMode}
+            templateInstance={props.templateInstance}
             components={props.components}
           />
         </HybridNodeErrorBoundary>

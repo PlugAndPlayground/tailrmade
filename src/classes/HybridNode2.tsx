@@ -857,6 +857,7 @@ const DynamicWidgetContainerHybridNodeInner: React.FunctionComponent<
             inDashboard={true}
             isEditMode={props.isEditMode}
             isSurfacePreview={props.isSurfacePreview}
+            templateInstance={props.templateInstance}
             dataCyId={`${props.property.id}-dashboard${props.isSurfacePreview ? '-preview' : ''}`}
             disabled={props.disabled}
             showDashboard={showDashboard}
