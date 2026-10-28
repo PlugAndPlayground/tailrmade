@@ -54,6 +54,7 @@ import { PNPStatus, PNPSuccess } from './ErrorClass';
 import { PNPHitArea } from './selection/PNPHitArea';
 import { getOverflowForSize } from '../utils/layoutableHelpers';
 import { serializeSocketData } from '../utils/serializeSocketData';
+import { isTemplatePassRunning } from '../utils/templatePass';
 
 export default class Socket
   extends PIXI.Container
@@ -378,6 +379,9 @@ export default class Socket
     //);
 
     const adaptationAcceptable =
+      // a template pass pushes one row's value through shared sockets; the
+      // type belongs to the template, not to the row (see templatePass.ts)
+      !isTemplatePassRunning() &&
       this.getNode()?.socketShouldAutomaticallyAdapt(this) &&
       this.dataType.allowedToAutomaticallyAdapt();
     const socketWantsToAdapt = this.dataType.prefersToChangeAwayFromThisType();

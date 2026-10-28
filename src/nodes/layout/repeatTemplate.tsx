@@ -67,6 +67,9 @@ const DIRECTION_OPTIONS: EnumStructure = [{ text: 'column' }, { text: 'row' }];
 // Parameter names the repeater fills itself, whatever the entry looks like.
 // Anything else is matched against the entry's own fields by name.
 const ENTRY_PARAMETER_NAMES = ['entry', 'item', 'value'];
+const FIELD_SOCKET_SUFFIX = ' from';
+const fieldSocketNameFor = (parameterName: string): string =>
+  `${parameterName}${FIELD_SOCKET_SUFFIX}`;
 // deliberately NOT 'label': a parameter feeding a widget's Label socket is
 // named "Label", and almost always wants the entry itself rather than the key
 const KEY_PARAMETER_NAMES = ['key', 'index'];
@@ -111,25 +114,34 @@ export function bindEntryToParameters(
   template: UITemplate,
   key: string,
   entry: unknown,
+  overrides: Record<string, string> = {},
 ): Record<string, unknown> {
+  const pick = (wanted: string): unknown => {
+    if (KEY_PARAMETER_NAMES.includes(wanted)) {
+      return key;
+    }
+    if (ENTRY_PARAMETER_NAMES.includes(wanted)) {
+      return entry;
+    }
+    if (isPlainObject(entry)) {
+      const field = Object.keys(entry).find(
+        (name) => name.trim().toLowerCase() === wanted,
+      );
+      return field === undefined ? undefined : entry[field];
+    }
+    // a scalar entry has only itself to give
+    return entry;
+  };
+
   const args: Record<string, unknown> = {};
   template.getParameterSockets().forEach((parameter) => {
     if (!parameter.hasLink()) {
       return;
     }
-    const shown = template.getSocketDisplayName(parameter).trim().toLowerCase();
-    if (KEY_PARAMETER_NAMES.includes(shown)) {
-      args[parameter.name] = key;
-    } else if (ENTRY_PARAMETER_NAMES.includes(shown)) {
-      args[parameter.name] = entry;
-    } else if (isPlainObject(entry)) {
-      const field = Object.keys(entry).find(
-        (name) => name.trim().toLowerCase() === shown,
-      );
-      args[parameter.name] = field === undefined ? undefined : entry[field];
-    } else {
-      args[parameter.name] = entry;
-    }
+    const override = (overrides[parameter.name] ?? '').trim().toLowerCase();
+    args[parameter.name] = pick(
+      override || template.getSocketDisplayName(parameter).trim().toLowerCase(),
+    );
   });
   return args;
 }
@@ -259,6 +271,10 @@ to configure:
 - any other parameter gets the entry's field of the same name
 - if the entry is not an object, an unmatched parameter gets the entry itself
 
+When a parameter's name does not match the field you want - above all when it
+should take the row's KEY but feeds a widget's "Label" socket - set its
+"<parameter> from" input to a field name, or to "key" or "entry".
+
 "${directionSocketName}" and "${columnsSocketName}" decide the layout: one
 column is a list, several is a grid, and a row direction puts the entries side
 by side. "${keyFieldSocketName}" names the field that identifies a row, which
@@ -301,7 +317,10 @@ The template is referenced by NAME, and template names are kept unique.`;
         templateSocketName,
         new DynamicEnumType(
           () => RepeatTemplate.getTemplateOptions(),
-          () => void this.executeOptimizedChain(),
+          () => {
+            this.updateFieldSockets();
+            void this.executeOptimizedChain();
+          },
         ),
         '',
         true,
@@ -377,7 +396,70 @@ The template is referenced by NAME, and template names are kept unique.`;
   }
 
   public placedTemplateUpdatedMeta(_template: PPNode): void {
+    this.updateFieldSockets();
     void this.executeOptimizedChain();
+  }
+
+  /**
+   * One "<parameter> from" input per wired template parameter, so a parameter
+   * can be pointed at a field explicitly when its own name does not match one
+   * - above all at the row's key, which a parameter feeding a widget's Label
+   * socket cannot ask for by name.
+   *
+   * Left empty it binds by name, which covers the common case; this is the
+   * escape hatch, at one socket per parameter rather than MapExecuteMacro's
+   * two.
+   */
+  public updateFieldSockets(): void {
+    const template = this.getTemplate();
+    const parameters = (template?.getParameterSockets() ?? []).filter(
+      (socket) => socket.hasLink(),
+    );
+    const wanted = parameters.map((socket) => fieldSocketNameFor(socket.name));
+
+    this.inputSocketArray
+      .filter(
+        (socket) =>
+          socket.name.endsWith(FIELD_SOCKET_SUFFIX) &&
+          !wanted.includes(socket.name) &&
+          !socket.hasLink(),
+      )
+      .forEach((socket) => this.removeSocket(socket));
+
+    parameters.forEach((parameter) => {
+      const name = fieldSocketNameFor(parameter.name);
+      if (!this.getInputSocketByName(name)) {
+        this.addSocket(
+          new PPSocket(SOCKET_TYPE.IN, name, new StringType(), '', false),
+        );
+      }
+    });
+    this.resizeAndDraw();
+  }
+
+  private getFieldOverrides(): Record<string, string> {
+    const template = this.getTemplate();
+    const overrides: Record<string, string> = {};
+    (template?.getParameterSockets() ?? []).forEach((parameter) => {
+      const value = this.getInputData(fieldSocketNameFor(parameter.name));
+      if (typeof value === 'string' && value.trim() !== '') {
+        overrides[parameter.name] = value;
+      }
+    });
+    return overrides;
+  }
+
+  // reads as '"Label" from' in the inspector rather than 'Parameter 1 from'
+  public getSocketDisplayName(socket: PPSocket): string {
+    if (socket.name.endsWith(FIELD_SOCKET_SUFFIX)) {
+      const parameterName = socket.name.slice(0, -FIELD_SOCKET_SUFFIX.length);
+      const template = this.getTemplate();
+      const parameter = template?.getOutputSocketByName(parameterName);
+      if (parameter && template) {
+        return `"${template.getSocketDisplayName(parameter)}" from`;
+      }
+    }
+    return super.getSocketDisplayName(socket);
   }
 
   // A row's identity, so edits and React keys survive a reorder. Prefers the
@@ -469,13 +551,14 @@ The template is referenced by NAME, and template names are kept unique.`;
 
     const rows: TemplateRow[] = [];
     if (template) {
+      const overrides = this.getFieldOverrides();
       // sequential on purpose: every row writes the same shared parameter
       // sockets, so the passes must not interleave
       for (const [key, entry] of entries) {
         const rowKey = this.getRowKey(key, entry);
         const capture = await runTemplateAsInstance(
           template,
-          bindEntryToParameters(template, key, entry),
+          bindEntryToParameters(template, key, entry, overrides),
           this.getRowEdits(rowKey),
         );
         rows.push({

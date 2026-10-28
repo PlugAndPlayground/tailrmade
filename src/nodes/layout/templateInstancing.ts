@@ -10,6 +10,7 @@
 // Same shape as Macro.executeMacro (write args, executeChildren, read back),
 // and worth collapsing into one shared helper once a second caller needs it.
 import PPGraph from '../../classes/GraphClass';
+import { beginTemplatePass, endTemplatePass } from '../../utils/templatePass';
 import PPNode from '../../classes/NodeClass';
 import {
   emptyTemplateCapture,
@@ -57,6 +58,21 @@ async function runPass(
   edits: TemplateRowEdits,
 ): Promise<TemplateInstanceCapture> {
   template.getParameterSockets().forEach((parameter) => {
+    // A parameter SEEDS the row, and then yields to it. If the viewer has
+    // edited a socket this parameter feeds, the edit is written into the
+    // parameter itself, so it survives the propagation that executeChildren
+    // does below - otherwise the parameter would overwrite the edit on every
+    // pass and a value could be shown from data or edited, never both.
+    const edited = parameter.links
+      .map((link) => {
+        const target = link.getTarget();
+        return edits.edits[target.getNode().id]?.[target.name];
+      })
+      .find((value) => value !== undefined);
+    if (edited !== undefined) {
+      parameter.data = edited;
+      return;
+    }
     if (Object.prototype.hasOwnProperty.call(args, parameter.name)) {
       parameter.data = args[parameter.name];
     }
@@ -120,7 +136,14 @@ export function runTemplateAsInstance(
   args: TemplateArgs,
   edits: TemplateRowEdits = { baseline: {}, edits: {} },
 ): Promise<TemplateInstanceCapture> {
-  const pass = passQueue.then(() => runPass(template, args, edits));
+  const pass = passQueue.then(async () => {
+    beginTemplatePass();
+    try {
+      return await runPass(template, args, edits);
+    } finally {
+      endTemplatePass();
+    }
+  });
   passQueue = pass.catch(() => undefined);
   return pass;
 }
