@@ -9,8 +9,9 @@
 //
 // Same shape as Macro.executeMacro (write args, executeChildren, read back),
 // and worth collapsing into one shared helper once a second caller needs it.
+import FlowLogic from '../../classes/FlowLogic';
 import PPGraph from '../../classes/GraphClass';
-import { beginTemplatePass, endTemplatePass } from '../../utils/templatePass';
+import { registerTemplateInnerNodes } from '../../utils/templatePass';
 import PPNode from '../../classes/NodeClass';
 import {
   emptyTemplateCapture,
@@ -101,6 +102,14 @@ async function runPass(
   write(edits.baseline);
   write(edits.edits);
 
+  // everything the parameters reach is shared between rows, so none of it may
+  // let its socket types drift with one row's data
+  registerTemplateInnerNodes(
+    FlowLogic.getAllUpDownstreamNodes(template, false, true, false).map(
+      (node) => node.id,
+    ),
+  );
+
   await template.executeChildren();
 
   const capture = emptyTemplateCapture();
@@ -136,14 +145,7 @@ export function runTemplateAsInstance(
   args: TemplateArgs,
   edits: TemplateRowEdits = { baseline: {}, edits: {} },
 ): Promise<TemplateInstanceCapture> {
-  const pass = passQueue.then(async () => {
-    beginTemplatePass();
-    try {
-      return await runPass(template, args, edits);
-    } finally {
-      endTemplatePass();
-    }
-  });
+  const pass = passQueue.then(() => runPass(template, args, edits));
   passQueue = pass.catch(() => undefined);
   return pass;
 }

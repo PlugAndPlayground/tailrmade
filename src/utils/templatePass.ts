@@ -1,22 +1,28 @@
-// Whether a UI template placement is being evaluated right now.
+// Which nodes are inside a UI template's body.
 //
-// A socket's data type is meant to describe the graph the user wired up, so it
-// adapts to the data put through it. Inside a template pass that is wrong: the
-// inner nodes are shared and every row pushes its own value through them, so a
-// socket would end up typed by whichever row ran last. Feed a template a mix
-// of strings and numbers and the type test meant to tell them apart stops
-// working, because the socket carrying the value has already coerced it.
+// A socket's data type adapts to the data put through it, which is right for a
+// graph the user wired up and wrong inside a template: the inner nodes are
+// shared and every row pushes its own value through them, so a socket would
+// end up typed by whichever row happened to run last. Feed a template a mix of
+// strings and numbers and a type test meant to tell them apart sees everything
+// already coerced to the last row's type.
 //
-// A leaf module on purpose - SocketClass reads this, and anything importing
-// the template nodes would close an import cycle.
-let depth = 0;
+// Registration is by NODE rather than by a "a pass is running now" flag,
+// because a pass schedules deferred executions that land after it returns -
+// those would re-type the sockets again a moment later.
+//
+// A leaf module on purpose: SocketClass reads this, and anything importing the
+// template nodes would close an import cycle.
+const innerNodeIds = new Set<string>();
 
-export const isTemplatePassRunning = (): boolean => depth > 0;
-
-export const beginTemplatePass = (): void => {
-  depth += 1;
+export const registerTemplateInnerNodes = (nodeIds: string[]): void => {
+  nodeIds.forEach((id) => innerNodeIds.add(id));
 };
 
-export const endTemplatePass = (): void => {
-  depth = Math.max(0, depth - 1);
+export const isTemplateInnerNode = (nodeId: string): boolean =>
+  innerNodeIds.has(nodeId);
+
+// a graph swap leaves the previous graph's ids behind, so start clean
+export const clearTemplateInnerNodes = (): void => {
+  innerNodeIds.clear();
 };

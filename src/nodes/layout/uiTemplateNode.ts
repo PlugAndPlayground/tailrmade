@@ -19,6 +19,7 @@ import UpdateBehaviourClass from '../../classes/UpdateBehaviourClass';
 import { PNPHitArea } from '../../classes/selection/PNPHitArea';
 import PPSelection from '../../classes/selection/SelectionClass';
 import FlowLogic from '../../classes/FlowLogic';
+import { registerTemplateInnerNodes } from '../../utils/templatePass';
 import { ensureVisible } from '../../pixi/utils-pixi';
 import { TRgba } from '../../utils/color';
 import { AGENT_DOCS_HEADING } from '../../utils/nodeDocs';
@@ -197,8 +198,19 @@ Templates are referenced by NAME, which is kept unique across templates.`;
     this.notifyPlacementsOfSignatureChange();
   }
 
+  // the nodes this template's parameters reach, flagged so their socket types
+  // never drift with one row's data (see utils/templatePass.ts)
+  public registerBody(): void {
+    registerTemplateInnerNodes(
+      FlowLogic.getAllUpDownstreamNodes(this, false, true, false).map(
+        (node) => node.id,
+      ),
+    );
+  }
+
   public inputPlugged(socket: Socket): void {
     super.inputPlugged(socket);
+    this.registerBody();
     if (socket.name.startsWith(templateOutputPrefixName)) {
       // adopt the type of whatever feeds it, so placements get it too
       const linked = socket.links[0]?.getSource();
@@ -335,8 +347,29 @@ Templates are referenced by NAME, which is kept unique across templates.`;
 
   public outputPlugged(socket: Socket): void {
     super.outputPlugged(socket);
-    // adopt the type of what it was wired into, as Macro does
+    // Everything a parameter reaches is shared between rows, so its sockets
+    // must stop adapting to data - from this connection onwards.
+    this.registerBody();
     const linked = socket.links[0]?.target;
+    // Connecting copies the parameter's data into the target, and a parameter
+    // that has never run carries a placeholder. A target that adapts will have
+    // just taken the placeholder's type, which says nothing about the
+    // template: put it back, so a type test downstream still sees real values.
+    if (linked && linked.getNode().socketShouldAutomaticallyAdapt(linked)) {
+      // Both stay untyped. Connecting copies the parameter's placeholder into
+      // the target, the target adapts to it and tells the parameter to match,
+      // and the template ends up typed by a value no row ever supplied. A
+      // parameter feeding a socket that takes anything IS untyped: rows carry
+      // whatever they carry, which is the whole point of a type test here.
+      if (!(linked.dataType instanceof AnyType)) {
+        linked.changeSocketDataType(new AnyType());
+      }
+      if (!(socket.dataType instanceof AnyType)) {
+        socket.changeSocketDataType(new AnyType());
+      }
+      return;
+    }
+    // otherwise adopt the type of what it was wired into, as Macro does
     if (linked && linked.dataType.getName() !== socket.dataType.getName()) {
       socket.changeSocketDataType(
         deSerializeType(serializeType(linked.dataType)),
