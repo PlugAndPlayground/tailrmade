@@ -1,4 +1,4 @@
-// The UI Component frame: a block you drop nodes into, shaped and read like a
+// The UI Template frame: a block you drop nodes into, shaped and read like a
 // Macro.
 //
 // Geometry is the point. Like Macro, the sockets are inverted - the parameter
@@ -8,7 +8,7 @@
 // doubles back, which is what makes a macro legible and what a parameter wired
 // out of a surface could never be.
 //
-// The component holds no layout of its own: its body is whatever UI surface is
+// The template holds no layout of its own: its body is whatever UI surface is
 // plugged into "UI", so surfaces, nested surfaces and the dashboard editor all
 // work here unchanged.
 import * as PIXI from 'pixi.js';
@@ -28,8 +28,9 @@ import {
   SOCKET_TYPE,
 } from '../../utils/constants';
 import {
-  componentParameterPrefixName,
-  componentUISocketName,
+  templateParameterPrefixName,
+  templateOutputPrefixName,
+  templateUISocketName,
 } from '../../utils/constants_shared';
 import { AnyType } from '../datatypes/anyType';
 import { DeferredReactType } from '../datatypes/deferredHtmlType';
@@ -45,14 +46,14 @@ const UI_BLOCK_SIZE = 60;
 const COMPONENT_AUTOALIGN_PADDING = 100;
 const UPDATE_PLACEMENTS_INTERVAL_MILLISECONDS = 2000;
 
-export function getComponents(): UIComponent[] {
+export function getTemplates(): UITemplate[] {
   return Object.values(PPGraph.currentGraph?.nodes ?? {}).filter(
-    (node): node is UIComponent => node instanceof UIComponent,
+    (node): node is UITemplate => node instanceof UITemplate,
   );
 }
 
-export class UIComponent extends PPNode {
-  // A component exists to be placed; it never looks unused.
+export class UITemplate extends PPNode {
+  // A template exists to be placed; it never looks unused.
   public getSeemsUnused(): boolean {
     return false;
   }
@@ -62,38 +63,38 @@ export class UIComponent extends PPNode {
   prevTimeUpdated = 0;
 
   public getName(): string {
-    return 'UI Component';
+    return 'UI Template';
   }
 
   public getDescription(): string {
-    return 'Wrap a piece of UI into a component and place it as often as you want';
+    return 'Wrap a piece of UI into a template and place it as often as you want';
   }
 
   public getDocs(): string {
     return `A block you build a piece of reusable UI inside, shaped like a Macro.
 
 Drop the nodes that make up the UI inside the frame, arrange them on a UI
-surface as usual, and plug that surface's "ReactUI" output into the component's
-"${componentUISocketName}" input on the right.
+surface as usual, and plug that surface's "ReactUI" output into the template's
+"${templateUISocketName}" input on the right.
 
-Anything the component should differ by - a city, a title, a number - comes out
-of a "${componentParameterPrefixName}" socket on the left: wire it into the
+Anything the template should differ by - a city, a title, a number - comes out
+of a "${templateParameterPrefixName}" socket on the left: wire it into the
 input that should change. A fresh parameter appears as soon as you use the last
 one, and each takes the name of the socket it feeds.
 
-Place it with "Place Component", once per copy you want. Each placement has its
+Place it with "Place Template", once per copy you want. Each placement has its
 own parameter values and renders on its own; the nodes inside the frame are
-shared, so a change to the component shows up in every placement.
+shared, so a change to the template shows up in every placement.
 
-Placements render read-only for now: a widget inside a component does not yet
+Placements render read-only for now: a widget inside a template does not yet
 write back per placement.
 
 ${AGENT_DOCS_HEADING}
-Components are referenced by NAME, which is kept unique across components.`;
+Templates are referenced by NAME, which is kept unique across templates.`;
   }
 
   public getTags(): string[] {
-    return ['Component', 'Layout', 'UI'];
+    return ['Template', 'Layout', 'UI'];
   }
 
   public getMinNodeWidth(): number {
@@ -120,13 +121,14 @@ Components are referenced by NAME, which is kept unique across components.`;
     return [
       new Socket(
         SOCKET_TYPE.OUT,
-        `${componentParameterPrefixName} 1`,
+        `${templateParameterPrefixName} 1`,
         new AnyType(),
       ),
+      new Socket(SOCKET_TYPE.IN, templateUISocketName, new DeferredReactType()),
       new Socket(
         SOCKET_TYPE.IN,
-        componentUISocketName,
-        new DeferredReactType(),
+        `${templateOutputPrefixName} 1`,
+        new AnyType(),
       ),
     ];
   }
@@ -143,20 +145,105 @@ Components are referenced by NAME, which is kept unique across components.`;
 
   public getParameterSockets(): Socket[] {
     return this.outputSocketArray.filter((socket) =>
-      socket.name.startsWith(componentParameterPrefixName),
+      socket.name.startsWith(templateParameterPrefixName),
     );
   }
 
-  // the surface plugged into "UI" - the component's body
+  // What one placement of this template PRODUCES. Inputs on the right block,
+  // exactly as Macro's Output is: the nodes inside feed them, and a placement
+  // exposes one output socket per declared one.
+  public getOutputSockets(): Socket[] {
+    return this.inputSocketArray.filter((socket) =>
+      socket.name.startsWith(templateOutputPrefixName),
+    );
+  }
+
+  // The values this pass produced, keyed by socket name. Only the WIRED
+  // outputs: the spare one at the end is an affordance, not a result, and
+  // counting it would make a single-output template look like it has two.
+  public readOutputs(): Record<string, unknown> {
+    return Object.fromEntries(
+      this.getOutputSockets()
+        .filter((socket) => socket.hasLink())
+        .map((socket) => [socket.name, socket.data]),
+    );
+  }
+
+  private shouldRemoveLastOutput(outputs: Socket[]): boolean {
+    return (
+      outputs.length >= 2 &&
+      outputs[outputs.length - 1].links.length === 0 &&
+      outputs[outputs.length - 2].links.length === 0
+    );
+  }
+
+  // keeps one spare Output at the end, the same way parameters work
+  private updateOutputSocketCount(): void {
+    const outputs = this.getOutputSockets();
+    if (outputs.length > 0 && outputs[outputs.length - 1].hasLink()) {
+      this.addInput(
+        this.constructSocketName(
+          templateOutputPrefixName,
+          this.inputSocketArray,
+        ),
+        new AnyType(),
+      );
+    }
+    let remaining = this.getOutputSockets();
+    while (this.shouldRemoveLastOutput(remaining)) {
+      this.removeSocket(remaining[remaining.length - 1]);
+      remaining = remaining.slice(0, -1);
+    }
+    this.notifyPlacementsOfSignatureChange();
+  }
+
+  public inputPlugged(socket: Socket): void {
+    super.inputPlugged(socket);
+    if (socket.name.startsWith(templateOutputPrefixName)) {
+      // adopt the type of whatever feeds it, so placements get it too
+      const linked = socket.links[0]?.getSource();
+      if (linked && linked.dataType.getName() !== socket.dataType.getName()) {
+        socket.changeSocketDataType(
+          deSerializeType(serializeType(linked.dataType)),
+        );
+      }
+      this.updateOutputSocketCount();
+      this.debounceDrawShape();
+    }
+  }
+
+  public inputUnplugged(socket: Socket): void {
+    super.inputUnplugged(socket);
+    if (socket.name.startsWith(templateOutputPrefixName)) {
+      this.updateOutputSocketCount();
+      this.debounceDrawShape();
+    }
+  }
+
+  // an Output's display name follows whatever feeds it, as a parameter's
+  // follows what it feeds
+  public getOutputDisplayName(socket: Socket): string {
+    if (socket.hasLink()) {
+      const source = socket.links[0].getSource();
+      return source.getNode().getSocketDisplayName(source);
+    }
+    return socket.name;
+  }
+
+  // the surface plugged into "UI" - the template's body
   public getBodySurface(): UISurfaceNode | undefined {
-    const socket = this.getInputSocketByName(componentUISocketName);
+    const socket = this.getInputSocketByName(templateUISocketName);
     const source = socket?.links[0]?.getSource().getNode();
     return source && isSurfaceNode(source) ? source : undefined;
   }
 
-  // a parameter takes the type of whatever it feeds
+  // Same direction as Macro: the Output INPUTS adapt to whatever feeds them,
+  // while a parameter keeps the type it adopted from the socket it feeds (see
+  // outputPlugged). Letting a parameter adapt would make it take the type of
+  // the last VALUE pushed through it - that is one placement's data, and every
+  // placement would then inherit it.
   public socketShouldAutomaticallyAdapt(socket: Socket): boolean {
-    return socket.isOutput();
+    return socket.isInput();
   }
 
   // mirrors the fed socket's name onto the parameter, as Macro does
@@ -180,18 +267,16 @@ Components are referenced by NAME, which is kept unique across components.`;
       : socket.name;
   }
 
-  // component names are the reference placements store, so keep them unique
+  // template names are the reference placements store, so keep them unique
   // (Macro does the same for the same reason)
   public setNodeName(text: string): string {
-    const others = getComponents().filter(
-      (component) => component.id !== this.id,
-    );
+    const others = getTemplates().filter((template) => template.id !== this.id);
     const oldName = this.nodeName;
     let nameToUse = text;
     for (
       let i = 0;
-      nameToUse === 'UI Component' ||
-      others.some((component) => component.nodeName === nameToUse);
+      nameToUse === 'UI Template' ||
+      others.some((template) => template.nodeName === nameToUse);
       i++
     ) {
       nameToUse = `${text}${i}`;
@@ -200,14 +285,14 @@ Components are referenced by NAME, which is kept unique across components.`;
     this.name = nameToUse;
     super.setNodeName(nameToUse);
     placements.forEach((node) =>
-      node.placedComponentChangedName(oldName, nameToUse),
+      node.placedTemplateChangedName(oldName, nameToUse),
     );
     return nameToUse;
   }
 
   public getPlacements(): PPNode[] {
     return Object.values(PPGraph.currentGraph.nodes).filter((node) =>
-      node.isPlacingComponent(this.nodeName),
+      node.isPlacingTemplate(this.nodeName),
     );
   }
 
@@ -225,7 +310,7 @@ Components are referenced by NAME, which is kept unique across components.`;
     if (parameters.length > 0 && parameters[parameters.length - 1].hasLink()) {
       this.addOutput(
         this.constructSocketName(
-          componentParameterPrefixName,
+          templateParameterPrefixName,
           this.outputSocketArray,
         ),
         new AnyType(),
@@ -244,7 +329,7 @@ Components are referenced by NAME, which is kept unique across components.`;
       return;
     }
     this.getPlacements().forEach((node) =>
-      node.placedComponentUpdatedMeta(this),
+      node.placedTemplateUpdatedMeta(this),
     );
   }
 
@@ -290,7 +375,7 @@ Components are referenced by NAME, which is kept unique across components.`;
     if (PPGraph.currentGraph.graphConfiguredAndReady) {
       this.getPlacements().forEach((node) => {
         if (!node.isExecuting) {
-          node.placedComponentUpdated();
+          node.placedTemplateUpdated();
         }
       });
     }

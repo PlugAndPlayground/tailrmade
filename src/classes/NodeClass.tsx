@@ -2053,20 +2053,29 @@ ${Math.round(bounds.minX)}, ${Math.round(
   }
 
   /**
-   * The UI component hooks, mirroring the macro ones above: a component asks
+   * The UI template hooks, mirroring the macro ones above: a template asks
    * every node whether it places it, then tells those that do when its
    * parameters changed (Meta) or when its contents did.
-   * Overridden in PlaceComponent; no-ops everywhere else.
+   * Overridden in PlaceTemplate; no-ops everywhere else.
    */
-  public isPlacingComponent(_componentName: string): boolean {
+  public isPlacingTemplate(_templateName: string): boolean {
     return false;
   }
 
-  public placedComponentChangedName(_oldName: string, _newName: string): void {}
+  public placedTemplateChangedName(_oldName: string, _newName: string): void {}
 
-  public placedComponentUpdatedMeta(_component: PPNode): void {}
+  public placedTemplateUpdatedMeta(_template: PPNode): void {}
 
-  public placedComponentUpdated(): void {
+  /**
+   * The surface this node renders as a UI template body, if it is one.
+   * Lets surface-embedding loop detection see through a template placement
+   * without surfaceSync.ts importing the template nodes.
+   */
+  public getTemplateBodySurface(): PPNode | undefined {
+    return undefined;
+  }
+
+  public placedTemplateUpdated(): void {
     if (
       this.updateBehaviour.update &&
       PPGraph.currentGraph.graphConfiguredAndReady &&
@@ -2387,7 +2396,7 @@ ${Math.round(bounds.minX)}, ${Math.round(
   public postPassForAutoAlign(nodes: PPNode[], iterations: number): void {}
 
   // Outer chrome (in px) a post-pass node draws around its content during auto
-  // align. The layout reserves this so wrapped components keep the component gap
+  // align. The layout reserves this so wrapped templates keep the template gap
   // to their neighbours instead of overlapping. 0 = no chrome.
   public getAutoAlignChromeMargin(): number {
     return 0;

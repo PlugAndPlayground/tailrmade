@@ -29,7 +29,7 @@ import InterfaceController from '../../InterfaceController';
 import { useHoverEvents, useParentDirection } from './hooks';
 import { DynamicWidgetName } from '../../utils/constants_shared';
 import { dynamicWidgetDefaultProps } from '../../utils/surfaceTree';
-import { ComponentInstanceContext } from './componentInstance';
+import { TemplateInstanceContext } from './templateInstance';
 import { ColorSetting, colorSettingToCss } from '../../utils/themeColors';
 
 export type DynamicWidgetBaseProps = {
@@ -98,8 +98,8 @@ export const DynamicWidgetView = (viewProps: DynamicWidgetViewProps) => {
   // early cannot violate the rules of hooks
   const { localHover, handleMouseEnter, handleMouseLeave } =
     useHoverEvents(layoutableElement);
-  // set when this widget is part of a UI component instance's rendering
-  const componentInstance = useContext(ComponentInstanceContext);
+  // set when this widget is part of a UI template instance's rendering
+  const componentInstance = useContext(TemplateInstanceContext);
   if (!layoutableElement) {
     // a widget whose graph node cannot be resolved must be visibly broken,
     // not silently blank - the stored layout still references it (e.g. a
@@ -152,7 +152,7 @@ export const DynamicWidgetView = (viewProps: DynamicWidgetViewProps) => {
 
   const style = getBasicLayoutStyles(width, height, parentDirection);
 
-  // Inside a component instance the widget renders from that instance's
+  // Inside a template instance the widget renders from that instance's
   // snapshot rather than from the shared node's live sockets - the same
   // reactUIProps channel a linked ReactUI output already uses. Without a
   // snapshot (an inner node that has not been evaluated yet) it falls back to

@@ -72,7 +72,8 @@ const getNodeCategories = () => ({
   events: require('./events'),
   uiSurface: require('./layout/uiSurface'),
   uiModal: require('./layout/uiModal'),
-  uiComponent: require('./layout/uiComponent'),
+  uiTemplate: require('./layout/uiTemplate'),
+  repeatTemplate: require('./layout/repeatTemplate'),
 });
 
 const getAINodeCategories = () => {
@@ -90,7 +91,8 @@ const getAINodeCategories = () => {
     widgetNodes: categories.widgetNodes,
     uiSurface: categories.uiSurface,
     uiModal: categories.uiModal,
-    uiComponent: categories.uiComponent,
+    uiTemplate: categories.uiTemplate,
+    repeatTemplate: categories.repeatTemplate,
     layout: categories.layout,
     string: categories.string,
     math: categories.math,

@@ -13,6 +13,7 @@ import {
   SurfaceVisitedContext,
 } from '../../components/dashboard/SurfaceRenderer';
 import { SurfaceChrome } from '../../components/dashboard/SurfaceChrome';
+import { TemplateInstanceContext } from '../../components/dashboard/templateInstance';
 import { getPageDashboardIcon } from '../../components/dashboard/dashboardIcons';
 import { DeferredReactType } from '../datatypes/deferredHtmlType';
 import { JSONType } from '../datatypes/jsonType';
@@ -72,6 +73,8 @@ export const UISurfaceWidget: React.FunctionComponent<
   // embedded in it render with inDashboard true, so inherit the flag too
   const isCanvasPreview =
     useContext(SurfaceCanvasPreviewContext) || !props.inDashboard;
+  // set when this surface is nested inside a template placement's rendering
+  const templateInstance = useContext(TemplateInstanceContext);
 
   if (visited.includes(node.id)) {
     return (
@@ -89,12 +92,17 @@ export const UISurfaceWidget: React.FunctionComponent<
     );
   }
 
-  const tree = SurfaceSync.applyRuntimeOverrides(
-    node,
-    coerceSurfaceTreeOrEmpty(
-      props[surfaceJsonSocketName] ?? node.getSurfaceTree(),
-    ),
-  );
+  // Inside a template placement, visibility and per-element layout belong to
+  // that placement's pass - they live on this surface's shared sockets, so
+  // re-deriving them here would give every placement the last pass's answer.
+  const tree =
+    templateInstance?.trees[node.id] ??
+    SurfaceSync.applyRuntimeOverrides(
+      node,
+      coerceSurfaceTreeOrEmpty(
+        props[surfaceJsonSocketName] ?? node.getSurfaceTree(),
+      ),
+    );
 
   // A UISurfaceWidget only ever renders a surface as a canvas preview or as a
   // surface embedded inside another surface — never the top-level surface that

@@ -119,22 +119,30 @@ export function findEmbeddingsOf(
   return matches;
 }
 
-// ids of all surfaces (transitively) embedded inside the given surface
+// Ids of all surfaces (transitively) reachable inside the given surface -
+// embedded directly, or through a UI template placed on it, whose body surface
+// is just as much a part of what this surface renders.
 export function getDescendantSurfaceIds(surface: PPNode): Set<string> {
   const descendants = new Set<string>();
   const queue: PPNode[] = [surface];
+  const visit = (child: PPNode | undefined) => {
+    if (child && !descendants.has(child.id)) {
+      descendants.add(child.id);
+      queue.push(child);
+    }
+  };
   while (queue.length > 0) {
     const current = queue.shift()!;
     if (!current.isSurface()) {
       continue;
     }
-    getEmbeddedSurfaceNodes(current as unknown as SurfaceLikeNode).forEach(
-      (child) => {
-        if (!descendants.has(child.id)) {
-          descendants.add(child.id);
-          queue.push(child);
-        }
-      },
+    const like = current as unknown as SurfaceLikeNode;
+    getEmbeddedSurfaceNodes(like).forEach(visit);
+    // a Place/Repeat Template on this surface pulls in its template's body
+    getElementSockets(like).forEach((socket) =>
+      socket.links.forEach((link) =>
+        visit(link.getSource().getNode().getTemplateBodySurface()),
+      ),
     );
   }
   return descendants;
