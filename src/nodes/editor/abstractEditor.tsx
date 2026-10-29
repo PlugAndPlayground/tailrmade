@@ -1,4 +1,4 @@
-import React, { Suspense, useEffect, useRef } from 'react';
+import React, { Suspense, useCallback, useEffect, useRef } from 'react';
 import {
   Box,
   Button,
@@ -17,6 +17,14 @@ import { CustomFunction } from '../data/dataFunctions';
 import { BackPropagation } from '../../interfaces';
 import { AbstractType } from '../datatypes/abstractType';
 import { WidgetContentProps } from '../../utils/interfaces';
+import {
+  commitDelayName,
+  commitModeName,
+  editorCommitOptions,
+  getCommitDelaySocket,
+  getCommitModeSocket,
+  useCommitMode,
+} from '../commitMode';
 
 // Lazy load MonacoEditor
 const MonacoEditor = React.lazy(() => import('../../components/MonacoEditor'));
@@ -41,7 +49,7 @@ interface EditorComponentProps {
   value: string;
   readOnly: boolean;
   isInteractionEnabled: boolean;
-  onChange: (value: string) => Promise<void>;
+  onChange: (value: string) => void;
   onBlur?: () => void;
 }
 
@@ -142,6 +150,8 @@ export abstract class CodeEditorAbstract extends HybridNode2 {
     return [
       new PPSocket(SOCKET_TYPE.OUT, outputSocketName, this.getSocketType()),
       new PPSocket(SOCKET_TYPE.IN, editorInputSocketName, this.getSocketType()),
+      getCommitModeSocket(editorCommitOptions),
+      getCommitDelaySocket(this),
     ];
   }
 
@@ -214,7 +224,28 @@ export abstract class CodeEditorAbstract extends HybridNode2 {
   getWidgetContent(props: WidgetContentProps): React.ReactElement {
     const node = props.node as CodeEditorAbstract;
     const inputSocket = node.getInputSocketByName(editorInputSocketName);
-    const value = inputSocket.getStringifiedData();
+    // Monaco owns the text; the draft only decides when it reaches the graph,
+    // and showing it keeps an execution from resetting the editor mid-edit
+    const commit = useCommitMode<string>(
+      inputSocket.getStringifiedData(),
+      (next) => void node.onChange(next),
+      { mode: props[commitModeName], delay: props[commitDelayName] },
+    );
+    // EditorComponent is memoized on purpose, so it gets callbacks that keep
+    // their identity across renders and read the current ones from here
+    const latest = useRef({ commit, node, inDashboard: props.inDashboard });
+    latest.current = { commit, node, inDashboard: props.inDashboard };
+    const handleChange = useCallback(
+      (next: string) => latest.current.commit.edit(next),
+      [],
+    );
+    const handleBlur = useCallback(() => {
+      const current = latest.current;
+      current.commit.endEditing();
+      if (current.inDashboard) {
+        current.node.onDashboardBlur();
+      }
+    }, []);
     const isDashboardEditable = props.inDashboard && !(props.disabled ?? false);
     const isEditorInteractive = props.inDashboard
       ? isDashboardEditable
@@ -237,11 +268,11 @@ export abstract class CodeEditorAbstract extends HybridNode2 {
           >
             <EditorComponent
               language={node.getEditorLanguage()}
-              value={value}
+              value={commit.value}
               readOnly={readOnly}
               isInteractionEnabled={isEditorInteractive}
-              onChange={node.onChange}
-              onBlur={props.inDashboard ? node.onDashboardBlur : undefined}
+              onChange={handleChange}
+              onBlur={handleBlur}
             />
             {isEditorInteractive && !readOnly && (
               <ButtonGroup

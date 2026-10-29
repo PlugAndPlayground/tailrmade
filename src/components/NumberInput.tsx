@@ -153,21 +153,25 @@ export const NumberInput = ({
             value={state.inputValue}
             onChange={inputProps.onChange}
             onKeyUp={inputProps.onKeyUp}
-            onKeyDown={(event) => {
-              // the MUI input types its handler for a textarea too; this one
-              // only ever renders NumberField.Input
-              inputProps.onKeyDown?.(
-                event as React.KeyboardEvent<HTMLInputElement>,
-              );
-              // Base UI treats Enter as a navigation key and does not commit on
-              // it, so the only commit it would ever reach is the blur
-              if (event.key === 'Enter' && typed !== null) {
-                onCommit?.(typed);
-              }
-            }}
+            onKeyDown={inputProps.onKeyDown}
             onFocus={inputProps.onFocus}
             onBlur={inputProps.onBlur}
-            slotProps={{ input: inputProps }}
+            slotProps={{
+              input: {
+                ...inputProps,
+                // Base UI has Enter among its navigation keys and does not
+                // commit on it, so the only commit it reaches on its own is the
+                // blur. MUI's InputBase spreads these over its own handlers,
+                // which is why this has to wrap Base UI's rather than sit
+                // beside it as an onKeyDown prop.
+                onKeyDown: (event) => {
+                  inputProps.onKeyDown?.(event);
+                  if (event.key === 'Enter' && typed !== null) {
+                    onCommit?.(typed);
+                  }
+                },
+              },
+            }}
             endAdornment={
               endAdornment || showSteppers ? (
                 <>
