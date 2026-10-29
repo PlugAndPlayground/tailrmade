@@ -128,8 +128,6 @@ export class WidgetSlider extends WidgetNumberBase {
     const node = props.node as WidgetSlider;
     const min = props[minValueName];
     const max = props[maxValueName];
-    // On release the thumb follows the draft while the graph still sees the
-    // value from before the drag; while dragging the two stay in step
     const commit = useCommitMode<number>(
       props[initialValueName],
       (next) => void node.handleValueChange(next),

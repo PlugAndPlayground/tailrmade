@@ -548,9 +548,6 @@ export const SelectWidget: React.FunctionComponent<EnumTypeProps> = (props) => {
                 title={text}
                 disabled={disabled}
               >
-                {/* an option too long for two lines ends in an ellipsis
-                    rather than making the whole row as tall as its longest
-                    label; the title carries the full text either way */}
                 <Box
                   component="span"
                   sx={{

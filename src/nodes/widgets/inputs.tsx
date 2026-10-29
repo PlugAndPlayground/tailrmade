@@ -193,8 +193,6 @@ export class WidgetTextField extends WidgetHybridBase {
   getWidgetContent(props: WidgetContentProps): React.ReactElement {
     const node = props.node as WidgetTextField;
     const multiline = props[multilineName];
-    // the draft is the field's value, so an execution of the graph cannot
-    // overwrite what is being typed - see useCommitMode
     const commit = useCommitMode<string>(
       props[initialValueName],
       (value) => void node.handleOnChange(value),
@@ -345,8 +343,6 @@ export class WidgetNumberField extends WidgetNumberBase {
 
   getWidgetContent(props: WidgetContentProps): React.ReactElement {
     const node = props.node as WidgetNumberField;
-    // NumberInput keeps the typed text itself, so the draft is only here to hold
-    // a deferred commit - the field's value stays the graph's
     const commit = useCommitMode<number>(
       props[initialValueName],
       (value) => void node.handleValueChange(value),

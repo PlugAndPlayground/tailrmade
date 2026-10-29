@@ -155,9 +155,7 @@ abstract class WidgetAutocompleteBase extends WidgetSelectableBase {
     const color = props[colorName];
 
     const currentValue = node.formatSelected(props[selectedOptionName]);
-    // only the single-select free-text path defers; picking an option is one
-    // deliberate act and always commits. MUI owns the text in the box, so the
-    // draft here is bookkeeping for the pending commit, not what is displayed
+    // only the single-select free-text path defers
     const commit = useCommitMode<string>(
       typeof currentValue === 'string' ? currentValue : '',
       (text) => void node.handleOnChange(text),
