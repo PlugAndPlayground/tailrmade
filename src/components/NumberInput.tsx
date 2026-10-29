@@ -24,6 +24,12 @@ export interface NumberInputProps {
   label?: string;
   value: number | null; // null shows an empty field
   onChange?: (value: number) => void;
+  /**
+   * Fires when the value is finished rather than while it is typed: on Enter and
+   * on blur. Lets a caller defer whatever it does with the value without having
+   * to own the text in the field.
+   */
+  onCommit?: (value: number) => void;
   min?: number;
   max?: number;
   /** Step for the arrows and arrow keys. `'any'` disables step snapping. */
@@ -62,6 +68,7 @@ export const NumberInput = ({
   label,
   value,
   onChange,
+  onCommit,
   min,
   max,
   step,
@@ -101,7 +108,9 @@ export const NumberInput = ({
       onValueCommitted={(next) => {
         if (next === null) {
           setTyped(value);
+          return;
         }
+        onCommit?.(next);
       }}
       min={min}
       max={max}
@@ -144,7 +153,18 @@ export const NumberInput = ({
             value={state.inputValue}
             onChange={inputProps.onChange}
             onKeyUp={inputProps.onKeyUp}
-            onKeyDown={inputProps.onKeyDown}
+            onKeyDown={(event) => {
+              // the MUI input types its handler for a textarea too; this one
+              // only ever renders NumberField.Input
+              inputProps.onKeyDown?.(
+                event as React.KeyboardEvent<HTMLInputElement>,
+              );
+              // Base UI treats Enter as a navigation key and does not commit on
+              // it, so the only commit it would ever reach is the blur
+              if (event.key === 'Enter' && typed !== null) {
+                onCommit?.(typed);
+              }
+            }}
             onFocus={inputProps.onFocus}
             onBlur={inputProps.onBlur}
             slotProps={{ input: inputProps }}

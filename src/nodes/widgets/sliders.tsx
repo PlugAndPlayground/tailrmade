@@ -7,6 +7,10 @@ import {
   getColorSocket,
   getSizeSocket,
   getWidgetDragControlProps,
+  commitModeName,
+  draggingCommitOptions,
+  getCommitModeSocket,
+  useCommitMode,
   initialValueName,
   labelName,
   outName,
@@ -51,6 +55,7 @@ export class WidgetSlider extends WidgetNumberBase {
       new Socket(SOCKET_TYPE.IN, maxValueName, new NumberType(), 100, false),
       getDecimalsSocket(),
       new Socket(SOCKET_TYPE.IN, labelName, new StringType(), 'Slider', false),
+      getCommitModeSocket(draggingCommitOptions),
       getColorSocket(),
       getSizeSocket(),
       new Socket(SOCKET_TYPE.OUT, outName, new NumberType()),
@@ -123,7 +128,14 @@ export class WidgetSlider extends WidgetNumberBase {
     const node = props.node as WidgetSlider;
     const min = props[minValueName];
     const max = props[maxValueName];
-    const value = props[initialValueName];
+    // On release the thumb follows the draft while the graph still sees the
+    // value from before the drag; while dragging the two stay in step
+    const commit = useCommitMode<number>(
+      props[initialValueName],
+      (next) => void node.handleValueChange(next),
+      { mode: props[commitModeName] },
+    );
+    const value = commit.value;
     const decimals = getDecimals(props[decimalsName]);
     const size = useWidgetSize(props[sizeName]);
     const color = props[colorName];
@@ -174,9 +186,8 @@ export class WidgetSlider extends WidgetNumberBase {
             min={min}
             max={max}
             step={10 ** -decimals}
-            onChange={(_event, newValue) =>
-              void node.handleValueChange(newValue as number)
-            }
+            onChange={(_event, newValue) => commit.edit(newValue as number)}
+            onChangeCommitted={commit.endEditing}
             valueLabelDisplay="off"
             sx={{
               width: '100%',

@@ -16,6 +16,12 @@ import {
   getSizeSx,
   getLabelSocket,
   getWidgetControlProps,
+  commitDelayName,
+  commitModeName,
+  getCommitDelaySocket,
+  getCommitModeSocket,
+  searchCommitOptions,
+  useCommitMode,
   labelName,
   optionsName,
   selectedOptionName,
@@ -149,6 +155,14 @@ abstract class WidgetAutocompleteBase extends WidgetSelectableBase {
     const color = props[colorName];
 
     const currentValue = node.formatSelected(props[selectedOptionName]);
+    // only the single-select free-text path defers; picking an option is one
+    // deliberate act and always commits. MUI owns the text in the box, so the
+    // draft here is bookkeeping for the pending commit, not what is displayed
+    const commit = useCommitMode<string>(
+      typeof currentValue === 'string' ? currentValue : '',
+      (text) => void node.handleOnChange(text),
+      { mode: props[commitModeName], delay: props[commitDelayName] },
+    );
 
     if (node.isSingle()) {
       return (
@@ -172,11 +186,13 @@ abstract class WidgetAutocompleteBase extends WidgetSelectableBase {
               disabled={isDisabled}
               noOptionsText={noOptionsText}
               onChange={(_event, newValue) => {
+                // a pick beats whatever was half-typed
+                commit.revert();
                 void node.handleOnChange(newValue ?? '');
               }}
               onInputChange={(_event, newInputValue, reason) => {
                 if (freeSolo && reason === 'input') {
-                  void node.handleOnChange(newInputValue);
+                  commit.edit(newInputValue);
                 }
               }}
               renderInput={(params) => (
@@ -259,6 +275,12 @@ export class WidgetAutocomplete extends WidgetAutocompleteBase {
   protected getDefaultIO(): Socket[] {
     return WidgetAutocompleteBase.getSelectTypeSockets(true).concat(
       super.getDefaultIO(),
+      [
+        getCommitModeSocket(searchCommitOptions, () =>
+          this.getInputData(freeSoloName),
+        ),
+        getCommitDelaySocket(this),
+      ],
     );
   }
 
