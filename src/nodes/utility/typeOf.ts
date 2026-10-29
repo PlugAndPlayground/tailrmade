@@ -87,9 +87,6 @@ one seen.`;
     return TRgba.fromString(NODE_TYPE_COLOR.TRANSFORM);
   }
 
-  // The whole point of the node. AnyType asks to be adapted away from, so
-  // without this a Value socket that saw a number would coerce every later
-  // string to 0 and report Number for all of them.
   public socketShouldAutomaticallyAdapt(socket: Socket): boolean {
     return false;
   }
@@ -100,8 +97,6 @@ one seen.`;
       new Socket(
         SOCKET_TYPE.IN,
         isTypeName,
-        // dynamic rather than a fixed EnumType so saved graphs pick up types
-        // added to reportableTypes later instead of restoring an old list
         new DynamicEnumType(getTypeOptions, () => {}),
         new NumberType().getName(),
       ),
