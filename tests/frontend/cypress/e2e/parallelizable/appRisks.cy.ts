@@ -119,7 +119,14 @@ describe('app risk review', () => {
     cy.screenshot('external-image-information', { capture: 'runner' });
   });
 
-  it('requires review for connected image sources before evaluating them', () => {
+  it('runs a connected constant image source without a warning', () => {
+    cy.intercept('GET', '**/risk-static-image.png*', {
+      headers: {
+        'content-type': 'image/png',
+        'access-control-allow-origin': '*',
+      },
+      body: Uint8Array.from(atob(png), (char) => char.charCodeAt(0)).buffer,
+    }).as('imageRequest');
     beginLoad(
       [
         serializedNode('constant', 'source', [
@@ -132,6 +139,48 @@ describe('app risk review', () => {
           id: 'image-link',
           sourceNodeId: 'source',
           sourceSocketName: 'Out',
+          targetNodeId: 'image',
+          targetSocketName: 'Image',
+        },
+      ],
+    );
+    shouldWithTestController((controller) => {
+      const node = controller.getNodeByID('image');
+      expect(node.debug_timesExecuted).to.be.greaterThan(0);
+      expect(node.getRisks().map((risk) => risk.severity)).to.deep.equal([
+        'info',
+      ]);
+      expect(node.getOutputData('Details')).to.include({
+        textureWidth: 1,
+        textureHeight: 1,
+      });
+    });
+    cy.get('[data-cy="app-risk-dialog"]').should('not.exist');
+    cy.get('[data-cy="app-not-running"]').should('not.exist');
+    cy.wait('@imageRequest');
+  });
+
+  it('requires review for dynamic image sources before evaluating them', () => {
+    beginLoad(
+      [
+        {
+          ...serializedNode('customfunction', 'source', [
+            serializedSocket(
+              'Code',
+              `() => ${JSON.stringify(externalImageURL)}`,
+              'CodeType',
+            ),
+            serializedSocket('Main Thread', false, 'BooleanType'),
+          ]),
+          version: 3,
+        },
+        imageNode(`data:image/png;base64,${png}`),
+      ],
+      [
+        {
+          id: 'image-link',
+          sourceNodeId: 'source',
+          sourceSocketName: 'OutData',
           targetNodeId: 'image',
           targetSocketName: 'Image',
         },
@@ -197,19 +246,11 @@ describe('app risk review', () => {
         codeNode(),
         { ...codeNode(), id: 'second-code', x: 5000, y: 5000 },
       ]);
-      if (width < 900) {
-        cy.get('[data-cy="app-risk-dialog"] [role="dialog"]').should(
-          'have.attr',
-          'aria-modal',
-          'true',
-        );
-      } else {
-        cy.get('[data-cy="app-risk-dialog"]').should(
-          'have.attr',
-          'aria-modal',
-          'false',
-        );
-      }
+      cy.get('[data-cy="app-risk-dialog"]').should(
+        'have.attr',
+        'aria-modal',
+        'false',
+      );
       cy.get(
         '[aria-label="Center review"], [aria-label="Inspect alongside graph"]',
       ).should('not.exist');
@@ -528,8 +569,9 @@ describe('app risk review', () => {
 
   it('resolves constant concatenated HTTP URLs before approval and runs safe GETs', () => {
     let requests = 0;
-    const origin = new URL(Cypress.expose('pnpBaseUrl') || 'http://127.0.0.1:8080')
-      .origin;
+    const origin = new URL(
+      Cypress.expose('pnpBaseUrl') || 'http://127.0.0.1:8080',
+    ).origin;
     cy.intercept('GET', '**/constant-risk-probe*', (request) => {
       requests++;
       request.reply({ body: { ok: true } });
