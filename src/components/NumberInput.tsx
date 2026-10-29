@@ -24,11 +24,6 @@ export interface NumberInputProps {
   label?: string;
   value: number | null; // null shows an empty field
   onChange?: (value: number) => void;
-  /**
-   * Fires when the value is finished rather than while it is typed: on Enter and
-   * on blur. Lets a caller defer whatever it does with the value without having
-   * to own the text in the field.
-   */
   onCommit?: (value: number) => void;
   min?: number;
   max?: number;
@@ -159,11 +154,6 @@ export const NumberInput = ({
             slotProps={{
               input: {
                 ...inputProps,
-                // Base UI has Enter among its navigation keys and does not
-                // commit on it, so the only commit it reaches on its own is the
-                // blur. MUI's InputBase spreads these over its own handlers,
-                // which is why this has to wrap Base UI's rather than sit
-                // beside it as an onKeyDown prop.
                 onKeyDown: (event) => {
                   inputProps.onKeyDown?.(event);
                   if (event.key === 'Enter' && typed !== null) {

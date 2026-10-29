@@ -4,23 +4,10 @@ import { SOCKET_TYPE } from '../utils/constants';
 import { EnumStructure, EnumType } from './datatypes/enumType';
 import { NumberType } from './datatypes/numberType';
 
-/**
- * When the value a viewer is editing reaches the graph.
- *
- * Every editable widget used to push every intermediate value: one undoable
- * action and one execution of whatever hangs off it per keystroke or per drag
- * step. That is right for a slider driving a live preview and wrong for a text
- * field or a code editor feeding an expensive chain, so the widgets that are
- * edited rather than clicked carry a Commit socket. The immediate modes come
- * first in every option list, so they are the defaults and a graph that never
- * touches this socket behaves exactly as it did.
- */
+// When the value a viewer is editing reaches the graph.
 export const commitModeName = 'Commit';
 export const commitDelayName = 'Commit Delay';
 
-// these strings are the stored socket value as well as the button label, so
-// they stay at two short words: the inspector draws them as a button group in a
-// drawer narrow enough that anything longer wraps to a third line
 export const COMMIT_WHILE_TYPING = 'While typing';
 export const COMMIT_RATE_LIMITED = 'Rate limited';
 export const COMMIT_AFTER_PAUSE = 'After pause';
@@ -29,9 +16,6 @@ export const COMMIT_ON_BLUR = 'On blur';
 export const COMMIT_WHILE_DRAGGING = 'While dragging';
 export const COMMIT_ON_RELEASE = 'On release';
 
-// every list runs from the most eager to the most patient, so the mode that
-// waits for the user to leave the control comes last; the immediate mode leads,
-// which is what makes options[0] the default
 export const typingCommitOptions: EnumStructure = [
   { text: COMMIT_WHILE_TYPING },
   { text: COMMIT_RATE_LIMITED },
@@ -39,16 +23,12 @@ export const typingCommitOptions: EnumStructure = [
   { text: COMMIT_ON_ENTER_OR_BLUR },
 ];
 
-// a search box wants its text live - the only thing worth deferring there is
-// how often the text reaches the graph, never whether a keystroke shows up
 export const searchCommitOptions: EnumStructure = [
   { text: COMMIT_WHILE_TYPING },
   { text: COMMIT_RATE_LIMITED },
   { text: COMMIT_AFTER_PAUSE },
 ];
 
-// Enter writes a new line in an editor, and the editors own their key handling
-// anyway, so blur is the explicit end of an edit there
 export const editorCommitOptions: EnumStructure = [
   { text: COMMIT_WHILE_TYPING },
   { text: COMMIT_RATE_LIMITED },
@@ -63,11 +43,6 @@ export const draggingCommitOptions: EnumStructure = [
 
 export const defaultCommitDelay = 400;
 
-/**
- * The modes that hold a value back. Membership is listed rather than inferred,
- * and everything else counts as immediate, so a socket that is missing, left at
- * a legacy value or linked to something unexpected keeps the old behaviour.
- */
 const deferredCommitModes: ReadonlySet<unknown> = new Set([
   COMMIT_RATE_LIMITED,
   COMMIT_ON_ENTER_OR_BLUR,

@@ -526,12 +526,7 @@ export const SelectWidget: React.FunctionComponent<EnumTypeProps> = (props) => {
               padding: '4px 6px',
               fontSize: '0.7rem',
               lineHeight: 1.15,
-              // the drawer gets narrow enough that an option needs two lines,
-              // so the button grows to fit them instead of clipping
               minHeight: '24px',
-              // MUI shouts these by default, which costs about a character a
-              // line for no gain - the option names are written as prose
-              textTransform: 'none',
               '&:hover': {
                 backgroundColor: 'secondary.dark',
               },
