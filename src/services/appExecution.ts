@@ -9,7 +9,8 @@ export function isNodeExecutionAllowed(node: PPNode): boolean {
   return (
     appExecutionAllowed.get() &&
     (appRisksAccepted.get() ||
-      node.getRisks().every((risk) => risk.severity === 'info'))
+      (!node.deferUntilAppApproved &&
+        node.getRisks().every((risk) => risk.severity === 'info')))
   );
 }
 

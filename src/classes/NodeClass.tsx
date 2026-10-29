@@ -93,6 +93,9 @@ import { loadStatusIcons } from '../utils/statusIcons';
 import { NodeStatusBadges } from './NodeStatusBadges';
 
 export default class PPNode extends PIXI.Container implements IWarningHandler {
+  // Composite operations must not return a partial result during risk review.
+  public readonly deferUntilAppApproved: boolean = false;
+
   // Called after loading and migration, before execution. Inspect inputs only.
   public getRisks(): NodeRisk[] {
     return [];

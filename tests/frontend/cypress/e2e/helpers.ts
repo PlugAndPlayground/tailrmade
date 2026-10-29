@@ -456,22 +456,27 @@ export const waitForGraphToBeReady = () => {
 // Fixture tests exercise running apps. Risk-review tests load directly so they
 // can assert the paused state and choose whether to approve the app themselves.
 export const approveLoadedTestApp = () => {
-  cy.get('body').should(($body) => {
-    expect(
-      $body.find('[data-cy="app-not-running"]').length === 0 ||
-        $body.find('[data-cy="run-reviewed-app"]').length > 0,
-      'app started or ready for review',
-    ).to.equal(true);
-  });
-  cy.get('body').then(($body) => {
-    if ($body.find('[data-cy="run-reviewed-app"]').length) {
-      cy.get('[data-cy="run-reviewed-app"]').click();
-    }
+  doWithTestController((controller) => {
+    // React may not have rendered the pending banner or review yet. Check
+    // startup state rather than treating an absent banner as approval.
+    cy.get('body', { timeout: PNP_TIMEOUT })
+      .should(($body) => {
+        expect(
+          controller.isLoadedAppRunning() ||
+            $body.find('[data-cy="run-reviewed-app"]').length > 0,
+          'app started or ready for review',
+        ).to.equal(true);
+      })
+      .then(($body) => {
+        if ($body.find('[data-cy="run-reviewed-app"]').length) {
+          cy.get('[data-cy="run-reviewed-app"]').click();
+        }
+      });
   });
   cy.get('[data-cy="app-risk-dialog"]').should('not.exist');
   cy.get('[data-cy="app-not-running"]').should('not.exist');
   shouldWithTestController((controller) => {
-    expect(controller.getGraph().graphConfiguredAndReady).to.equal(true);
+    expect(controller.isLoadedAppRunning()).to.equal(true);
   }, PNP_TIMEOUT);
 };
 

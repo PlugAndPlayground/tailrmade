@@ -20,6 +20,7 @@ function node(id: string, risky = false) {
   const result = {
     id,
     destroyed: false,
+    deferUntilAppApproved: false,
     risks: risky ? [new UnrestrictedCodeRisk()] : [],
     inputSocketArray: [],
     outputSocketArray: [],
@@ -93,6 +94,51 @@ it('stops at an unaccepted node and resumes its chain without replaying complete
   await FlowLogic.resumePausedExecutions();
   expect(risky.execute).toHaveBeenCalledTimes(1);
 });
+
+it.each([false, true])(
+  'resumes a macro caller with complete results (mapped: %s)',
+  async (mapped) => {
+    const source = node('source');
+    const caller = node('caller');
+    caller.deferUntilAppApproved = true;
+    const inner = node('inner', true);
+    const child = node('child');
+    connect(source, caller);
+    connect(caller, child);
+    const inputs = mapped ? [4, 8] : [4];
+    let input = 0;
+    let innerResult = 0;
+    const outputs: number[] = [];
+    let received: number[] = [];
+    inner.execute.mockImplementation(async () => {
+      innerResult = input * 3;
+    });
+    caller.execute.mockImplementation(async () => {
+      for (input of inputs) {
+        await FlowLogic.executeOptimizedChainBatch([inner] as any, 'macro');
+        outputs.push(innerResult);
+      }
+    });
+    child.execute.mockImplementation(async () => {
+      received = [...outputs];
+    });
+
+    await FlowLogic.executeOptimizedChainBatch([source] as any);
+    expect(caller.execute).not.toHaveBeenCalled();
+    expect(inner.execute).not.toHaveBeenCalled();
+    expect(child.execute).not.toHaveBeenCalled();
+
+    appRisksAccepted.set(true);
+    await FlowLogic.resumePausedExecutions();
+    expect(received).toEqual(inputs.map((value) => value * 3));
+    expect(source.execute).toHaveBeenCalledTimes(1);
+    expect(caller.execute).toHaveBeenCalledTimes(1);
+    expect(inner.execute).toHaveBeenCalledTimes(inputs.length);
+    expect(child.execute).toHaveBeenCalledTimes(1);
+    await FlowLogic.resumePausedExecutions();
+    expect(caller.execute).toHaveBeenCalledTimes(1);
+  },
+);
 
 it('can start at a safe node downstream of an unaccepted node', async () => {
   const risky = node('risky', true);

@@ -31,8 +31,13 @@ import {
 } from './services/TailrmadeMCPServer';
 import { AIBackend } from './services/AIBackend';
 import { createTokenInput } from './text/nodeInputs';
+import { pendingAppRun } from './services/appExecution';
 
 export default class TestController {
+  isLoadedAppRunning(): boolean {
+    return !pendingAppRun.get() && PPGraph.currentGraph.graphConfiguredAndReady;
+  }
+
   identify(): string {
     return 'its testcontroller';
   }
