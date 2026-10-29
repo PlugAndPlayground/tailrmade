@@ -15,8 +15,11 @@
 // template nodes would close an import cycle.
 const innerNodeIds = new Set<string>();
 
-export const registerTemplateInnerNodes = (nodeIds: string[]): void => {
-  nodeIds.forEach((id) => innerNodeIds.add(id));
+/** Registers the nodes and returns the ids that were not registered before. */
+export const registerTemplateInnerNodes = (nodeIds: string[]): string[] => {
+  const added = nodeIds.filter((id) => !innerNodeIds.has(id));
+  added.forEach((id) => innerNodeIds.add(id));
+  return added;
 };
 
 export const isTemplateInnerNode = (nodeId: string): boolean =>

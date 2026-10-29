@@ -10,6 +10,7 @@
 // Same shape as Macro.executeMacro (write args, executeChildren, read back),
 // and worth collapsing into one shared helper once a second caller needs it.
 import FlowLogic from '../../classes/FlowLogic';
+import { AnyType } from '../datatypes/anyType';
 import PPGraph from '../../classes/GraphClass';
 import { registerTemplateInnerNodes } from '../../utils/templatePass';
 import PPNode from '../../classes/NodeClass';
@@ -94,7 +95,12 @@ async function runPass(
         return;
       }
       Object.entries(bySocket).forEach(([socketName, value]) => {
-        if (node.getInputSocketByName(socketName)) {
+        const target = node.getInputSocketByName(socketName);
+        // A socket the graph drives takes its value from whatever feeds it.
+        // Writing the baseline here would clobber the parameter that is about
+        // to propagate - and an edit on such a socket is already carried by
+        // the parameter itself (see the seed-then-yield above).
+        if (target && !target.hasLink()) {
           node.setInputData(socketName, value);
         }
       });
@@ -104,11 +110,31 @@ async function runPass(
 
   // everything the parameters reach is shared between rows, so none of it may
   // let its socket types drift with one row's data
-  registerTemplateInnerNodes(
-    FlowLogic.getAllUpDownstreamNodes(template, false, true, false).map(
+  // A node wired up before it was known to be part of a template may carry a
+  // socket type taken from one value that happened to pass through it. That
+  // type describes nothing, and from here on the socket will not adapt again,
+  // so clear it once as the node joins.
+  registerTemplateInnerNodes([
+    // the template too: its Output sockets adapt, and they take whatever the
+    // last row put through them just like the inner nodes do
+    template.id,
+    // the whole connected branch, as Macro does for its content: a node two
+    // hops downstream (the one that picks which widget's value to report) is
+    // just as much part of the template as the widgets themselves
+    ...FlowLogic.getAllUpDownstreamNodes(template, true, true, true).map(
       (node) => node.id,
     ),
-  );
+  ]).forEach((nodeId) => {
+    const node = PPGraph.currentGraph.getNodeById(nodeId);
+    node?.getAllSockets().forEach((socket) => {
+      if (
+        node.socketShouldAutomaticallyAdapt(socket) &&
+        !(socket.dataType instanceof AnyType)
+      ) {
+        socket.changeSocketDataType(new AnyType());
+      }
+    });
+  });
 
   await template.executeChildren();
 

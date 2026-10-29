@@ -202,7 +202,7 @@ Templates are referenced by NAME, which is kept unique across templates.`;
   // never drift with one row's data (see utils/templatePass.ts)
   public registerBody(): void {
     registerTemplateInnerNodes(
-      FlowLogic.getAllUpDownstreamNodes(this, false, true, false).map(
+      FlowLogic.getAllUpDownstreamNodes(this, true, true, true).map(
         (node) => node.id,
       ),
     );
@@ -350,30 +350,38 @@ Templates are referenced by NAME, which is kept unique across templates.`;
     // Everything a parameter reaches is shared between rows, so its sockets
     // must stop adapting to data - from this connection onwards.
     this.registerBody();
-    const linked = socket.links[0]?.target;
+
+    // EVERY link, not just the first: a parameter commonly fans out (one
+    // value feeding a widget and a test of it), and looking only at links[0]
+    // left every target after the first typed by the placeholder below.
+    const targets = socket.links.map((link) => link.target);
+
     // Connecting copies the parameter's data into the target, and a parameter
     // that has never run carries a placeholder. A target that adapts will have
     // just taken the placeholder's type, which says nothing about the
-    // template: put it back, so a type test downstream still sees real values.
-    if (linked && linked.getNode().socketShouldAutomaticallyAdapt(linked)) {
-      // Both stay untyped. Connecting copies the parameter's placeholder into
-      // the target, the target adapts to it and tells the parameter to match,
-      // and the template ends up typed by a value no row ever supplied. A
-      // parameter feeding a socket that takes anything IS untyped: rows carry
-      // whatever they carry, which is the whole point of a type test here.
-      if (!(linked.dataType instanceof AnyType)) {
-        linked.changeSocketDataType(new AnyType());
-      }
+    // template, so both stay untyped: a parameter feeding a socket that takes
+    // anything IS untyped, and rows carry whatever they carry - which is the
+    // whole point of a type test downstream.
+    const adapting = targets.filter((target) =>
+      target.getNode().socketShouldAutomaticallyAdapt(target),
+    );
+    if (adapting.length > 0) {
+      adapting.forEach((target) => {
+        if (!(target.dataType instanceof AnyType)) {
+          target.changeSocketDataType(new AnyType());
+        }
+      });
       if (!(socket.dataType instanceof AnyType)) {
         socket.changeSocketDataType(new AnyType());
       }
-      return;
-    }
-    // otherwise adopt the type of what it was wired into, as Macro does
-    if (linked && linked.dataType.getName() !== socket.dataType.getName()) {
-      socket.changeSocketDataType(
-        deSerializeType(serializeType(linked.dataType)),
-      );
+    } else {
+      // otherwise adopt the type of what it was wired into, as Macro does
+      const linked = targets[0];
+      if (linked && linked.dataType.getName() !== socket.dataType.getName()) {
+        socket.changeSocketDataType(
+          deSerializeType(serializeType(linked.dataType)),
+        );
+      }
     }
     this.updateParameterSocketCount();
     this.debounceDrawShape();
