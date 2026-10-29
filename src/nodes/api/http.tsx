@@ -59,6 +59,11 @@ export class HTTPNode extends PPNode {
 Authorization: "Bearer $TM_KEY{OPENAI_KEY}". The value is substituted at
 request time and is not stored in the graph.
 
+Headers are empty by default. A JSON POST usually needs a Content-Type, e.g.
+{ "Content-Type": "application/json", "Authorization": "Bearer $TM_KEY{OPENAI_KEY}" }
+Only add headers the endpoint needs: any header beyond the basics makes the
+browser check the endpoint's CORS policy first, which many endpoints fail.
+
 KEYNAME comes from either:
 - The cloud: store it under "Manage API Keys" while logged in.
 - The companion app: enable "Send Through Companion" and define it as an
@@ -90,7 +95,7 @@ Sending through the companion app needs
         SOCKET_TYPE.IN,
         headersInputName,
         new JSONType(),
-        HTTPNode.defaultHeaders,
+        {},
       ),
       new Socket(
         SOCKET_TYPE.IN,
@@ -211,18 +216,6 @@ If it is a CORS issue, select the HTTP node and in the Info tab on the right dow
   getColor(): TRgba {
     return TRgba.fromString(NODE_TYPE_COLOR.INPUT);
   }
-
-  static getDefaultBearerHeaders(key) {
-    return { ...this.getBearerAuthentication(key), ...this.defaultHeaders };
-  }
-  static getBearerAuthentication(key) {
-    return { Authorization: 'Bearer ' + key };
-  }
-
-  static readonly defaultHeaders = {
-    'Content-Type': 'application/json',
-    Authorization: 'Basic $TM_KEY{YOUR_ENVIRONMENTAL_COMPANION_VARIABLE_HERE}',
-  };
 
   public getUpdateBehaviour(): UpdateBehaviourClass {
     return new UpdateBehaviourClass(true, false, false, 1000, this);
