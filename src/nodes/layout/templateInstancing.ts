@@ -33,6 +33,43 @@ import type { UISurfaceNode } from './uiSurface';
 // middle, and the spare one at the end)
 export type TemplateArgs = Record<string, unknown>;
 
+/**
+ * Marks everything connected to a template as part of its body, so none of it
+ * lets its socket types drift with one row's data, and clears the types of any
+ * node joining for the first time.
+ *
+ * The clearing matters because a node is usually wired up before the template
+ * knows about it: by then a socket may carry a type taken from one value that
+ * happened to pass through, which describes nothing about the template. From
+ * here on it will not adapt again, so this is the moment to reset it.
+ *
+ * Called both when a template's own sockets are plugged and at the start of
+ * every pass - whichever happens first, the clearing happens with it.
+ */
+export function registerTemplateBody(template: PPNode): void {
+  registerTemplateInnerNodes([
+    // the template too: its Output sockets adapt just like the inner ones
+    template.id,
+    ...FlowLogic.getAllUpDownstreamNodes(template, true, true, true).map(
+      (node) => node.id,
+    ),
+  ]).forEach((nodeId) => {
+    const node = PPGraph.currentGraph.getNodeById(nodeId);
+    node?.getAllSockets().forEach((socket) => {
+      if (
+        // only sockets carrying row data: an unlinked one holds a setting the
+        // user chose (a Custom function's "Main Thread", say), and clearing
+        // that would swap its editor for an untyped one
+        socket.hasLink() &&
+        node.socketShouldAutomaticallyAdapt(socket) &&
+        !(socket.dataType instanceof AnyType)
+      ) {
+        socket.changeSocketDataType(new AnyType());
+      }
+    });
+  });
+}
+
 // Passes share the template's sockets, so two of them must never interleave.
 // Macro has the same exposure today and no guard; this keeps placements honest
 // without changing macro behaviour.
@@ -114,27 +151,7 @@ async function runPass(
   // socket type taken from one value that happened to pass through it. That
   // type describes nothing, and from here on the socket will not adapt again,
   // so clear it once as the node joins.
-  registerTemplateInnerNodes([
-    // the template too: its Output sockets adapt, and they take whatever the
-    // last row put through them just like the inner nodes do
-    template.id,
-    // the whole connected branch, as Macro does for its content: a node two
-    // hops downstream (the one that picks which widget's value to report) is
-    // just as much part of the template as the widgets themselves
-    ...FlowLogic.getAllUpDownstreamNodes(template, true, true, true).map(
-      (node) => node.id,
-    ),
-  ]).forEach((nodeId) => {
-    const node = PPGraph.currentGraph.getNodeById(nodeId);
-    node?.getAllSockets().forEach((socket) => {
-      if (
-        node.socketShouldAutomaticallyAdapt(socket) &&
-        !(socket.dataType instanceof AnyType)
-      ) {
-        socket.changeSocketDataType(new AnyType());
-      }
-    });
-  });
+  registerTemplateBody(template);
 
   await template.executeChildren();
 

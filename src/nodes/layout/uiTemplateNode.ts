@@ -19,7 +19,7 @@ import UpdateBehaviourClass from '../../classes/UpdateBehaviourClass';
 import { PNPHitArea } from '../../classes/selection/PNPHitArea';
 import PPSelection from '../../classes/selection/SelectionClass';
 import FlowLogic from '../../classes/FlowLogic';
-import { registerTemplateInnerNodes } from '../../utils/templatePass';
+import { registerTemplateBody } from './templateInstancing';
 import { ensureVisible } from '../../pixi/utils-pixi';
 import { TRgba } from '../../utils/color';
 import { AGENT_DOCS_HEADING } from '../../utils/nodeDocs';
@@ -201,11 +201,7 @@ Templates are referenced by NAME, which is kept unique across templates.`;
   // the nodes this template's parameters reach, flagged so their socket types
   // never drift with one row's data (see utils/templatePass.ts)
   public registerBody(): void {
-    registerTemplateInnerNodes(
-      FlowLogic.getAllUpDownstreamNodes(this, true, true, true).map(
-        (node) => node.id,
-      ),
-    );
+    registerTemplateBody(this);
   }
 
   public inputPlugged(socket: Socket): void {

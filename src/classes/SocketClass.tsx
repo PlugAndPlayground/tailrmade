@@ -766,7 +766,12 @@ export default class Socket
 
   // if the socket we are connecting to changed type then so do we (assuming we care)
   connectedTargetSocketChangedType(socket: Socket) {
-    if (this.getNode().socketShouldAutomaticallyAdapt(this)) {
+    if (
+      // inside a template this would re-type a shared socket from one row's
+      // data, behind the guard in the data setter above (templatePass.ts)
+      !isTemplateInnerNode(this.getNode()?.id) &&
+      this.getNode().socketShouldAutomaticallyAdapt(this)
+    ) {
       this.changeSocketDataType(socket.dataType);
     }
     this.getNode().connectedTargetSocketChangedType(socket);
