@@ -18,19 +18,25 @@ import { NumberType } from './datatypes/numberType';
 export const commitModeName = 'Commit';
 export const commitDelayName = 'Commit Delay';
 
+// these strings are the stored socket value as well as the button label, so
+// they stay at two short words: the inspector draws them as a button group in a
+// drawer narrow enough that anything longer wraps to a third line
 export const COMMIT_WHILE_TYPING = 'While typing';
-export const COMMIT_RATE_LIMITED = 'While typing, rate limited';
-export const COMMIT_ON_ENTER_OR_BLUR = 'On enter or blur';
+export const COMMIT_RATE_LIMITED = 'Rate limited';
+export const COMMIT_AFTER_PAUSE = 'After pause';
+export const COMMIT_ON_ENTER_OR_BLUR = 'Enter or blur';
 export const COMMIT_ON_BLUR = 'On blur';
-export const COMMIT_AFTER_TYPING_STOPS = 'After typing stops';
 export const COMMIT_WHILE_DRAGGING = 'While dragging';
 export const COMMIT_ON_RELEASE = 'On release';
 
+// every list runs from the most eager to the most patient, so the mode that
+// waits for the user to leave the control comes last; the immediate mode leads,
+// which is what makes options[0] the default
 export const typingCommitOptions: EnumStructure = [
   { text: COMMIT_WHILE_TYPING },
   { text: COMMIT_RATE_LIMITED },
+  { text: COMMIT_AFTER_PAUSE },
   { text: COMMIT_ON_ENTER_OR_BLUR },
-  { text: COMMIT_AFTER_TYPING_STOPS },
 ];
 
 // a search box wants its text live - the only thing worth deferring there is
@@ -38,7 +44,7 @@ export const typingCommitOptions: EnumStructure = [
 export const searchCommitOptions: EnumStructure = [
   { text: COMMIT_WHILE_TYPING },
   { text: COMMIT_RATE_LIMITED },
-  { text: COMMIT_AFTER_TYPING_STOPS },
+  { text: COMMIT_AFTER_PAUSE },
 ];
 
 // Enter writes a new line in an editor, and the editors own their key handling
@@ -46,8 +52,8 @@ export const searchCommitOptions: EnumStructure = [
 export const editorCommitOptions: EnumStructure = [
   { text: COMMIT_WHILE_TYPING },
   { text: COMMIT_RATE_LIMITED },
+  { text: COMMIT_AFTER_PAUSE },
   { text: COMMIT_ON_BLUR },
-  { text: COMMIT_AFTER_TYPING_STOPS },
 ];
 
 export const draggingCommitOptions: EnumStructure = [
@@ -66,7 +72,7 @@ const deferredCommitModes: ReadonlySet<unknown> = new Set([
   COMMIT_RATE_LIMITED,
   COMMIT_ON_ENTER_OR_BLUR,
   COMMIT_ON_BLUR,
-  COMMIT_AFTER_TYPING_STOPS,
+  COMMIT_AFTER_PAUSE,
   COMMIT_ON_RELEASE,
 ]);
 
@@ -75,7 +81,7 @@ export const commitsImmediately = (mode: unknown): boolean =>
 
 /** The two modes that read Commit Delay: one waits it out, one rations by it. */
 export const usesCommitDelay = (mode: unknown): boolean =>
-  mode === COMMIT_AFTER_TYPING_STOPS || mode === COMMIT_RATE_LIMITED;
+  mode === COMMIT_AFTER_PAUSE || mode === COMMIT_RATE_LIMITED;
 
 export const getCommitModeSocket = (
   options: EnumStructure = typingCommitOptions,
@@ -96,7 +102,7 @@ export const getCommitModeSocket = (
 
 /**
  * How long the deferred timers wait, in ms: the quiet period after the last
- * keystroke in COMMIT_AFTER_TYPING_STOPS, the shortest gap between two commits
+ * keystroke in COMMIT_AFTER_PAUSE, the shortest gap between two commits
  * in COMMIT_RATE_LIMITED. Hidden in the modes that have no timer.
  */
 export const getCommitDelaySocket = (node: {
@@ -200,7 +206,7 @@ export function useCommitMode<T>(
     }
     isDirty.current = true;
     setIsEditing(true);
-    if (mode === COMMIT_AFTER_TYPING_STOPS) {
+    if (mode === COMMIT_AFTER_PAUSE) {
       cancelTimer();
       timer.current = setTimeout(commit, Math.max(0, delay));
       return;

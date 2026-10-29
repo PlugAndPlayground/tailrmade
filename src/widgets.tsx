@@ -523,10 +523,15 @@ export const SelectWidget: React.FunctionComponent<EnumTypeProps> = (props) => {
           sx={{
             mt: 1,
             '& .MuiToggleButtonGroup-grouped': {
-              padding: '4px 8px',
+              padding: '4px 6px',
               fontSize: '0.7rem',
-              lineHeight: 1,
-              height: '24px',
+              lineHeight: 1.15,
+              // the drawer gets narrow enough that an option needs two lines,
+              // so the button grows to fit them instead of clipping
+              minHeight: '24px',
+              // MUI shouts these by default, which costs about a character a
+              // line for no gain - the option names are written as prose
+              textTransform: 'none',
               '&:hover': {
                 backgroundColor: 'secondary.dark',
               },
@@ -548,7 +553,21 @@ export const SelectWidget: React.FunctionComponent<EnumTypeProps> = (props) => {
                 title={text}
                 disabled={disabled}
               >
-                {text}
+                {/* an option too long for two lines ends in an ellipsis
+                    rather than making the whole row as tall as its longest
+                    label; the title carries the full text either way */}
+                <Box
+                  component="span"
+                  sx={{
+                    display: '-webkit-box',
+                    WebkitBoxOrient: 'vertical',
+                    WebkitLineClamp: 2,
+                    overflow: 'hidden',
+                    overflowWrap: 'anywhere',
+                  }}
+                >
+                  {text}
+                </Box>
               </ToggleButton>
             );
           })}
