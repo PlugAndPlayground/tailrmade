@@ -1,4 +1,3 @@
-import * as PIXI from 'pixi.js';
 import PPGraph from '../../classes/GraphClass';
 import PPNode from '../../classes/NodeClass';
 import PPSocket from '../../classes/SocketClass';

@@ -1,4 +1,3 @@
-import PPNode from '../../classes/NodeClass';
 import Socket from '../../classes/SocketClass';
 import { TRgba } from '../../utils/color';
 import { CustomArgs } from '../../utils/interfaces';

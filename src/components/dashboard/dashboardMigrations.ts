@@ -1,11 +1,4 @@
 /**
- * Dashboard layout migration utilities
- * Handles migrations between different versions of the dashboard layout format
- */
-
-export const CURRENT_LAYOUT_VERSION = 2;
-
-/**
  * Helper function to convert mode to dimension value
  * Used for migrating from widthMode/heightMode to width/height
  */

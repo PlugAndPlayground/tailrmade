@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef, Suspense } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { ErrorBoundary } from 'react-error-boundary';
 import * as PIXI from 'pixi.js';
 import { Viewport } from 'pixi-viewport';
@@ -14,11 +14,7 @@ import { NodeDetailPopover } from './components/NodeDetailPopover';
 
 import { EditDialog, DeleteConfirmationDialog } from './components/Dialogs';
 import PPGraph from './classes/GraphClass';
-import {
-  CONTEXTMENU_GRAPH_HEIGHT,
-  CONTEXTMENU_WIDTH,
-  MAIN_COLOR,
-} from './utils/constants';
+import { CONTEXTMENU_GRAPH_HEIGHT, CONTEXTMENU_WIDTH } from './utils/constants';
 import { IGraphSearch, INodeSearch } from './utils/interfaces';
 import { controlOrMetaKey, isPhone } from './utils/utils';
 import { createPixiApp, zoomToFitNodes } from './pixi/utils-pixi';

@@ -40,7 +40,6 @@ import {
 import {
   AbstractType,
   DataTypeProps,
-  IsCompatible,
   isDirectlyCompatible,
 } from '../nodes/datatypes/abstractType';
 import { dataToType, serializeType } from '../nodes/datatypes/typehelper';

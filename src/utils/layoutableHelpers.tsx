@@ -22,7 +22,6 @@ import { asCssDimension } from './cssDimensions';
 export const SOCKET_NAME_DASHBOARD_CONTENT = 'ReactUI';
 export const widthName = 'Width';
 export const heightName = 'Height';
-export const directionName = 'Direction';
 
 export const editPadding = 8;
 

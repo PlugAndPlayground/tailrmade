@@ -65,6 +65,8 @@ import {
 import { hri } from 'human-readable-ids';
 import { inputArrayName } from '../data/json';
 import InterfaceController from '../../InterfaceController';
+import { EditListItem, GridCellKind } from '@glideapps/glide-data-grid'; // direct import as its being used early
+import { StringType } from '../datatypes/stringType';
 
 const rowObjectsNames = 'JSON Array';
 export const tableDataInputName = 'Data';
@@ -81,8 +83,6 @@ const hyperlinkWwwRegex = /^www\./i;
 const EXTRA_ROWS = 10;
 
 const STANDARD_COLUMN_WIDTH = 100;
-import { EditListItem, GridCellKind } from '@glideapps/glide-data-grid'; // direct import as its being used early
-import { StringType } from '../datatypes/stringType';
 
 // Lazy load the DataGrid and its types
 const LazyDataEditor = React.lazy(() => import('@glideapps/glide-data-grid'));

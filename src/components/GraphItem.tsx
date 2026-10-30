@@ -13,7 +13,7 @@ import {
 } from '@mui/material';
 import React, { useState } from 'react';
 import PPGraph from '../classes/GraphClass';
-import InterfaceController, { ListenEvent } from '../InterfaceController';
+import InterfaceController from '../InterfaceController';
 import { MAIN_COLOR } from '../utils/constants';
 import { EditIcon } from '../utils/icons';
 import { IGraphSearch, IGraphSearchLabel } from '../utils/interfaces';

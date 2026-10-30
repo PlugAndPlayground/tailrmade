@@ -4,7 +4,6 @@ import { Container as MUIContainer, Stack, ToggleButton } from '@mui/material';
 import { getDefaultWidgetLayoutValue } from '../../nodes/datatypes/widgetLayoutType';
 import { UNSET_VALUE } from '../../utils/constants';
 import { FlexDirection, MobileBehavior } from '../../utils/interfaces';
-import { TRgba } from '../../utils/color';
 import {
   LayoutSection,
   PaddingSection,

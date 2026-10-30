@@ -3,7 +3,6 @@ import debounce from 'lodash/debounce';
 import PPGraph from './GraphClass';
 import PPNode from './NodeClass';
 import Socket from './SocketClass';
-import InterfaceController from '../InterfaceController';
 
 // Track if execution is pending and allow waiting for it
 let executionPromise: Promise<void> | null = null;
