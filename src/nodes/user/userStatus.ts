@@ -3,10 +3,7 @@ import Socket from '../../classes/SocketClass';
 import { BackendGateway } from '../../services/BackendGateway';
 import type { QuotaInfo } from '../../services/BackendApiClient';
 import { SOCKET_TYPE } from '../../utils/constants';
-import {
-  AccountTier,
-  STORAGE_QUOTA_LIMITS,
-} from '../../services/shared-types';
+import { AccountTier, STORAGE_QUOTA_LIMITS } from '../../services/shared-types';
 import { BooleanType } from '../datatypes/booleanType';
 import { NumberType } from '../datatypes/numberType';
 import { StringType } from '../datatypes/stringType';
