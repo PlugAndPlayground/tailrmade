@@ -459,6 +459,22 @@ describe('app risk review', () => {
     });
   });
 
+  it('reviews Pixotope nodes, which have no HTTP node sockets', () => {
+    beginLoad([
+      serializedNode('pixotopegatewayget', 'gateway-get', []),
+      serializedNode('pixotopegatewayset', 'gateway-set', []),
+      serializedNode('pixotopegatewaycall', 'gateway-call', []),
+    ]);
+    cy.get('[data-cy="risk-nodes-tab"]').click();
+    cy.get('[data-cy="go-to-risk-node"]').should('have.length', 3);
+    cy.get('[data-cy="go-to-risk-node"]').each((node) => {
+      cy.wrap(node)
+        .should('contain', 'Connects to other sites')
+        .and('contain', 'localhost:16208')
+        .and('not.contain', 'Uses your Companion');
+    });
+  });
+
   [false, true].forEach((saveAs) => {
     it(`trusts an app after ${saveAs ? 'Save As' : 'Save'} without running it first`, () => {
       beginLoad([codeNode()]);
