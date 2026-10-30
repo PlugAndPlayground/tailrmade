@@ -306,7 +306,7 @@ export abstract class GRAPH_SCATTER extends DRAW_Base {
     if (inputObject[inputShowTrendLine]) {
       const [mBase, bBase, mCI, bCI] = calculateTrendLine(points);
 
-      const drawLine = (m: number, b: number, stroke: PIXI.Stroke) => {
+      const drawLine = (m: number, b: number, stroke: PIXI.StrokeStyle) => {
         const intersectionX0 = (minValue2 - b) / m;
         const intersectionXMax = (maxValue2 - b) / m;
 

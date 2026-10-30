@@ -51,8 +51,8 @@ export class Macro extends PPNode {
     return false;
   }
 
-  callerGraphics: PIXI.Graphics = undefined;
-  textRef: PIXI.Text = undefined;
+  callerGraphics!: PIXI.Graphics;
+  textRef: PIXI.Text | undefined = undefined;
   prevCallers: string = '';
   prevTimeUpdated = 0;
 
@@ -473,7 +473,7 @@ export class Macro extends PPNode {
     return toReturn;
   }
 
-  public shouldPropagateExecutionThrough(socket: PPSocket): boolean {
+  public shouldPropagateExecutionThrough(socket: Socket): boolean {
     return false;
   }
 
@@ -546,6 +546,10 @@ export class Macro extends PPNode {
 }
 
 export class ExecuteMacro extends PPNode {
+  // Pause the caller, including MapExecuteMacro, before entering its body.
+  // Pausing inside a macro would let executeMacro return an unfinished result.
+  public readonly deferUntilAppApproved: boolean = true;
+
   // Macros can be referenced by name or execute nodes with side effects.
   public getSeemsUnused(): boolean {
     return false;
@@ -850,7 +854,7 @@ export class MapExecuteMacro extends ExecuteMacro {
     outputObject: Record<string, unknown>,
   ): Promise<void> {
     const calledMacro = this.getInputData(macroNameName);
-    const toReturn = [];
+    const toReturn: unknown[] = [];
     if (calledMacro !== EMPTY_DEFAULT_MACRO_NAME) {
       const inputArray: object[] = inputObject[macroArrayName];
 

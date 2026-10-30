@@ -29,6 +29,8 @@ export function shareOptions(): any {
         name: currentGraph.name,
         isRemote: true,
         location: currentGraph.location,
+        access: currentGraph.access,
+        owner: currentGraph.owner,
         date: new Date(),
       })
     : null;

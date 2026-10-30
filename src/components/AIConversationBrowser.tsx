@@ -372,7 +372,7 @@ const AIConversationBrowser = () => {
                     input: {
                       'aria-label': 'Perform actions',
                       'data-cy': 'AI Perform Actions Toggle',
-                    },
+                    } as React.InputHTMLAttributes<HTMLInputElement>,
                   }}
                 />
               }
@@ -393,7 +393,7 @@ const AIConversationBrowser = () => {
                       input: {
                         'aria-label': 'Let the AI see the app',
                         'data-cy': 'AI Auto Capture Toggle',
-                      },
+                      } as React.InputHTMLAttributes<HTMLInputElement>,
                     }}
                   />
                 }

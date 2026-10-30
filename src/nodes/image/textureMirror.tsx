@@ -15,9 +15,9 @@ export interface TextureMirrorSource {
 
 type TextureMirrorBodyProps = {
   source: TextureMirrorSource;
-  disabled: boolean;
-  width: string;
-  height: string;
+  disabled?: boolean;
+  width?: string;
+  height?: string;
 };
 
 export const TextureMirrorBody: React.FunctionComponent<

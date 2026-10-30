@@ -134,7 +134,7 @@ export class SerializableActionHandler {
     nodeID: string,
     socketType: TSocketType,
     socketName: string,
-  ): Socket {
+  ): Socket | undefined {
     return PPGraph.currentGraph
       .getNodeById(nodeID)
       .getSocketByNameAndType(socketName, socketType);
@@ -493,7 +493,7 @@ export class ACTIONS {
     const nodeID = args.nodeID;
     const socketName = args.socketName;
     const node = PPGraph.currentGraph.nodes[nodeID];
-    const socket = node.getSocketByNameAndType(socketName, args.socketType);
+    const socket = node.getSocketByNameAndType(socketName, args.socketType)!;
     const alsoExecute = node.updateBehaviour.update;
     socket.data = args.newValue;
     if (alsoExecute) {

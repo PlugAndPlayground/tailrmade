@@ -139,7 +139,7 @@ abstract class WidgetDropdownBase extends WidgetSelectableBase {
               void node.handleOnChange(event);
             }}
             renderValue={(selected) =>
-              Array.isArray(selected) ? selected.join(', ') : selected
+              Array.isArray(selected) ? selected.join(', ') : String(selected)
             }
             MenuProps={getMenuProps(size, fontScalar)}
           >
@@ -218,17 +218,19 @@ const getMenuProps = (size: unknown, fontScalar: number) => {
   const ITEM_HEIGHT = 48;
   const ITEM_PADDING_TOP = 8;
   return {
-    PaperProps: {
-      style: {
-        maxHeight: ITEM_HEIGHT * 9.5 + ITEM_PADDING_TOP,
-      },
-      sx: {
-        ...getSizeSx(size, fontScalar),
-        '& .MuiMenuItem-root': {
-          fontSize: `${getSizeTokens(size, fontScalar).fontSize}px`,
+    slotProps: {
+      paper: {
+        style: {
+          maxHeight: ITEM_HEIGHT * 9.5 + ITEM_PADDING_TOP,
         },
-        '& .MuiTypography-root': {
-          fontSize: `${getSizeTokens(size, fontScalar).fontSize}px`,
+        sx: {
+          ...getSizeSx(size, fontScalar),
+          '& .MuiMenuItem-root': {
+            fontSize: `${getSizeTokens(size, fontScalar).fontSize}px`,
+          },
+          '& .MuiTypography-root': {
+            fontSize: `${getSizeTokens(size, fontScalar).fontSize}px`,
+          },
         },
       },
     },

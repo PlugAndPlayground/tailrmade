@@ -7,12 +7,19 @@ import * as PIXI from 'pixi.js';
 import { StringType } from '../datatypes/stringType';
 import { AbstractType } from '../datatypes/abstractType';
 import { BackPropagation } from '../../interfaces';
+import { StaticValue, UNKNOWN_STATIC_VALUE } from '../../classes/StaticValue';
 
 const numberName = 'Number';
 const stringName = 'String';
 
 abstract class PRIMITIVE_CONSTANT extends PPNode {
-  drawnConstant: PIXI.Text = undefined;
+  public getStaticOutputData(name: string, visited: Set<Socket>): StaticValue {
+    return name === this.getInputName()
+      ? this.getStaticInputData(this.getInputName(), visited)
+      : UNKNOWN_STATIC_VALUE;
+  }
+
+  drawnConstant: PIXI.Text | undefined = undefined;
 
   public getParallelInputsOutputs(): boolean {
     return true;
@@ -29,14 +36,14 @@ abstract class PRIMITIVE_CONSTANT extends PPNode {
     if (!this.drawnConstant) {
       this.drawConstant();
     }
-    return this.drawnConstant.height + 20;
+    return this.drawnConstant!.height + 20;
   }
 
   public getMinNodeWidth(): number {
     if (this.drawnConstant == undefined) {
       this.drawConstant();
     }
-    return this.drawnConstant.width + 50;
+    return this.drawnConstant!.width + 50;
   }
 
   private drawConstant(): void {
@@ -67,7 +74,9 @@ abstract class PRIMITIVE_CONSTANT extends PPNode {
     }
 
     this._BackgroundGraphicsRef.clear();
-    this.removeChild(this.drawnConstant);
+    if (this.drawnConstant) {
+      this.removeChild(this.drawnConstant);
+    }
     this.drawErrorBoundary();
     this.drawBackground();
     this.drawConstant();

@@ -167,7 +167,7 @@ export function InlineTextEditor({
             contentEditable={
               <ContentEditable
                 data-cy={dataCy}
-                className="text-inline-input"
+                className="text-inline-input text-block-hits"
                 {...{ [DATA_DASHBOARD_EDITABLE]: 'true' }}
               />
             }

@@ -82,10 +82,39 @@ import { DropShadowFilter, GlowFilter } from 'pixi-filters';
 import { getObjectsInsideBounds } from '../pixi/utils-pixi';
 import { BackPropagation, BackPropagationPayload } from '../interfaces';
 import { addDashboardContentOutput } from '../utils/layoutableHelpers';
+import { NodeRisk } from './NodeRisk';
+import { isNodeExecutionAllowed } from '../services/appExecution';
+import {
+  resolveStaticInput,
+  StaticValue,
+  UNKNOWN_STATIC_VALUE,
+} from './StaticValue';
 import { loadStatusIcons } from '../utils/statusIcons';
 import { NodeStatusBadges } from './NodeStatusBadges';
 
 export default class PPNode extends PIXI.Container implements IWarningHandler {
+  // Composite operations must not return a partial result during risk review.
+  public readonly deferUntilAppApproved: boolean = false;
+
+  // Called after loading and migration, before execution. Inspect inputs only.
+  public getRisks(): NodeRisk[] {
+    return [];
+  }
+
+  public getStaticInputData(name: string, visited?: Set<Socket>): StaticValue {
+    const socket = this.getInputSocketByName(name);
+    if (!socket)
+      throw new Error(`Missing input "${name}" on node "${this.id}"`);
+    return resolveStaticInput(socket, visited);
+  }
+
+  public getStaticOutputData(
+    _name: string,
+    _visited: Set<Socket>,
+  ): StaticValue {
+    return UNKNOWN_STATIC_VALUE;
+  }
+
   _NodeNameRef: PIXI.Text;
   _BackgroundRef: PIXI.Container;
   _NodeTextStringRef: PIXI.Text;
@@ -829,12 +858,14 @@ export default class PPNode extends PIXI.Container implements IWarningHandler {
     );
   }
 
+  // the socket getters below assume the socket exists; callers pass names of
+  // sockets they declared, so they're typed as non-optional
   getNodeTriggerSocketByName(slotName: string): Socket {
-    return this.nodeTriggerSocketArray.find((el) => el.name === slotName);
+    return this.nodeTriggerSocketArray.find((el) => el.name === slotName)!;
   }
 
   getInputSocketByName(slotName: string): Socket {
-    return this.inputSocketArray.find((el) => el.name === slotName);
+    return this.inputSocketArray.find((el) => el.name === slotName)!;
   }
 
   getInputOrTriggerSocketByName(
@@ -853,19 +884,22 @@ export default class PPNode extends PIXI.Container implements IWarningHandler {
       this.resizeAndDraw();
       return newSocket;
     } else {
-      return found;
+      return found!;
     }
   }
 
   getOutputSocketByName(slotName: string): Socket {
-    return this.outputSocketArray.find((el) => el.name === slotName);
+    return this.outputSocketArray.find((el) => el.name === slotName)!;
   }
 
   public getSocketByName(name: string): Socket {
-    return this.getAllSockets().find((socket) => socket.name === name);
+    return this.getAllSockets().find((socket) => socket.name === name)!;
   }
 
-  public getSocketByNameAndType(name: string, socketType: TSocketType): Socket {
+  public getSocketByNameAndType(
+    name: string,
+    socketType: TSocketType | undefined,
+  ): Socket | undefined {
     switch (socketType) {
       case SOCKET_TYPE.TRIGGER: {
         return this.getNodeTriggerSocketByName(name);
@@ -1353,7 +1387,7 @@ ${Math.round(bounds.minX)}, ${Math.round(
 
   // if you want to optimize the mapping of arguments, override this function instead of execute(), but most of the time just override onExecute()
   protected async rawExecute(): Promise<void> {
-    if (!this.hasBeenAdded) {
+    if (!this.hasBeenAdded || !isNodeExecutionAllowed(this)) {
       return;
     }
 
@@ -1451,6 +1485,7 @@ ${Math.round(bounds.minX)}, ${Math.round(
 
   // Don't call this from outside unless you know very well what you are doing, you are probably looking for executeOptimizedChain()
   public async execute(): Promise<void> {
+    if (!isNodeExecutionAllowed(this) || this.destroyed) return;
     this.setStatus(new PNPSuccess());
     if (this.isExecuting) {
       this.wantsToExecute = true;
@@ -1625,7 +1660,7 @@ ${Math.round(bounds.minX)}, ${Math.round(
     );
   }
 
-  public getSocketForNewConnection(socket: Socket): Socket {
+  public getSocketForNewConnection(socket: Socket): Socket | undefined {
     const socketArray = socket.isInput()
       ? this.outputSocketArray
       : this.inputSocketArray;
@@ -1706,7 +1741,7 @@ ${Math.round(bounds.minX)}, ${Math.round(
     // remove added listener from graph.viewport
     PPGraph.currentGraph.viewport.removeEventListener(
       'moved',
-      this.onViewportMoveHandler,
+      (this as any).onViewportMoveHandler,
     );
 
     // Clean up event listeners
@@ -1754,11 +1789,13 @@ ${Math.round(bounds.minX)}, ${Math.round(
       changeBlur = -changeBlur;
     }
     this.visualOffsetXY(changeXY, changeXY);
-    this.dropShadowFilter.offset.x -= changeXY;
-    this.dropShadowFilter.offset.y -= changeXY;
+    if (this.dropShadowFilter) {
+      this.dropShadowFilter.offset.x -= changeXY;
+      this.dropShadowFilter.offset.y -= changeXY;
 
-    this.dropShadowFilter.blur += changeBlur;
-    this.dropShadowFilter.blur = Math.max(0.01, this.dropShadowFilter.blur);
+      this.dropShadowFilter.blur += changeBlur;
+      this.dropShadowFilter.blur = Math.max(0.01, this.dropShadowFilter.blur);
+    }
     this.updateConnectionPosition();
     this.hoverState = Math.max(
       0,
@@ -1802,7 +1839,8 @@ ${Math.round(bounds.minX)}, ${Math.round(
       // created the filter (e.g. the viewport moved/zoomed under a
       // stationary pointer), so it may not exist yet
       if (this.dropShadowFilter) {
-        this.dropShadowFilter.offset.set(0, 0);
+        this.dropShadowFilter.offsetX = 0;
+        this.dropShadowFilter.offsetY = 0;
         this.dropShadowFilter.blur = this.BLUR_CHANGE_ITERATION;
       }
       this.x = Math.round(this.x);
@@ -1815,7 +1853,7 @@ ${Math.round(bounds.minX)}, ${Math.round(
     }
     this.isHovering = true;
     this.cursor = 'move'; // Show move cursor on hover
-    this.updateBehaviour.graphics.redrawAnythingChanging();
+    this.updateBehaviour.graphics?.redrawAnythingChanging();
     this.nodeSelectionHeader.redrawAnythingChanging(true);
     this.selectionFilterIn();
   }
@@ -1823,7 +1861,7 @@ ${Math.round(bounds.minX)}, ${Math.round(
   onPointerOut(): void {
     this.isHovering = false;
     this.cursor = 'auto'; // Reset cursor
-    this.updateBehaviour.graphics.redrawAnythingChanging();
+    this.updateBehaviour.graphics?.redrawAnythingChanging();
     this.nodeSelectionHeader.redrawAnythingChanging(false);
     this.selectionFilterOut();
   }

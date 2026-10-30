@@ -319,7 +319,7 @@ export class PDFReader extends PPNode {
     pdfDocument: any,
     startPage: number,
     endPage: number,
-  ): Promise<string[]> {
+  ): Promise<(string | null)[]> {
     const pages: string[] = [];
 
     for (let i = startPage; i <= endPage; i++) {
@@ -417,8 +417,8 @@ export class PDFReader extends PPNode {
     pdfDocument: any,
     pagesToRender: Array<{ pageNumber: number; index: number }>,
     pageScale: number,
-  ): Promise<string[]> {
-    const pageImages: string[] = [];
+  ): Promise<(string | null)[]> {
+    const pageImages: (string | null)[] = [];
 
     for (const pageInfo of pagesToRender) {
       try {

@@ -17,6 +17,7 @@ import PPGraph from '../classes/GraphClass';
 import { NodeArrayContainer } from './NodeArrayContainer';
 import { customTheme, RightDrawerView } from '../utils/constants';
 import { ThemeSettings } from '../components/dashboard/ThemePanel';
+import { AppRiskSummary } from '../components/AppRiskDialog';
 
 type RightSideContainerProps = {
   rightDrawerView: RightDrawerView;
@@ -88,6 +89,7 @@ const RightSideContainerInner: React.FC<RightSideContainerProps> = ({
     return (
       <Stack spacing={2}>
         <InfoContent graph={PPGraph.currentGraph} />
+        <AppRiskSummary />
         {/* the theme belongs to the app, not to a surface, so it lives beside
             the other app-wide settings rather than in the dashboard's own
             chrome - and it stays reachable outside edit mode, where widgets
@@ -152,7 +154,7 @@ const RightSideContainerInner: React.FC<RightSideContainerProps> = ({
             gets no top padding here and brings it along on the field
             itself, where it is part of what the field covers. */}
         <Box
-        data-cy="inspector-content"
+          data-cy="inspector-content"
           sx={{
             flex: 1,
             overflow: 'auto',

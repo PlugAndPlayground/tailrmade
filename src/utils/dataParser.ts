@@ -17,7 +17,7 @@ export function isCSV(text) {
 
   // Detect the most likely delimiter
   const possibleDelimiters = [',', ';', '\t', '|'];
-  const delimiterCounts = {};
+  const delimiterCounts: Record<string, number> = {};
 
   // Count occurrences of each delimiter in the first line
   possibleDelimiters.forEach((delimiter) => {

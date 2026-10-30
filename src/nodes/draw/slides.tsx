@@ -4,10 +4,19 @@ import { Box, BoxProps } from '@mui/material';
 import { ErrorBoundary } from 'react-error-boundary';
 import ErrorFallback from '../../components/ErrorFallback';
 import PPNode from '../../classes/NodeClass';
+import DOMPurify from 'dompurify';
+import {
+  NodeRisk,
+  UnrestrictedCodeRisk,
+  NetworkRisk,
+  ExternalHtmlRisk,
+  getImageSourceRisks,
+} from '../../classes/NodeRisk';
 import PPSocket from '../../classes/SocketClass';
 import UpdateBehaviourClass from '../../classes/UpdateBehaviourClass';
 import InterfaceController, { ListenEvent } from '../../InterfaceController';
 import { CodeType } from '../datatypes/codeType';
+import { BooleanType } from '../datatypes/booleanType';
 import { EnumStructure, EnumType } from '../datatypes/enumType';
 import { TriggerType } from '../datatypes/triggerType';
 import { DynamicImport } from '../../utils/dynamicImport';
@@ -15,6 +24,7 @@ import { TNodeSource } from '../../utils/interfaces';
 import { getCanvasWidgetPointerEvents } from '../../utils/nodeInteractivity';
 import {
   NODE_TYPE_COLOR,
+  SANITIZE_NAME,
   SOCKET_TYPE,
   TRIGGER_TYPE_OPTIONS,
 } from '../../utils/constants';
@@ -45,6 +55,25 @@ const prevSocketName = 'Previous';
 const nextSocketName = 'Next';
 
 export class Slideshow extends HybridNode2 {
+  public getRisks(): NodeRisk[] {
+    // reveal.js stylesheets always come from this one CDN path.
+    const theme = new NetworkRisk(BASEURL, undefined, 'info');
+    if (!this.getStaticInputData(SANITIZE_NAME).value) {
+      return [new UnrestrictedCodeRisk(), new NetworkRisk()];
+    }
+    const data = this.getStaticInputData(inputSocketNameData);
+    if (!data.known) return [theme, new NetworkRisk()];
+    const sanitized = sanitizeSlides(
+      typeof data.value === 'string' ? data.value : '',
+    );
+    const urls = sanitized.match(/(?:https?:)?\/\/[^\s<>"'()]+/g) ?? [];
+    return [
+      theme,
+      ...[...new Set(urls)]
+        .filter((url) => getImageSourceRisks(url, false).length > 0)
+        .map((url) => new ExternalHtmlRisk(url)),
+    ];
+  }
   eventTarget: EventTarget;
   revealModule;
 
@@ -192,6 +221,13 @@ Check out its documentation for more details.`;
       ),
       new PPSocket(
         SOCKET_TYPE.IN,
+        SANITIZE_NAME,
+        new BooleanType(),
+        true,
+        false,
+      ),
+      new PPSocket(
+        SOCKET_TYPE.IN,
         themesSocketName,
         new EnumType(themesOptions, undefined, true),
         themesOptions[0].text,
@@ -232,6 +268,24 @@ Check out its documentation for more details.`;
   }
 }
 
+// Slide decks rely on <style> blocks, data-background attributes and links,
+// all of which survive sanitizing. Scripts and event handlers do not.
+export function sanitizeSlides(markup: string): string {
+  DOMPurify.addHook('afterSanitizeAttributes', (node) => {
+    if (node.tagName === 'A' && node.hasAttribute('target')) {
+      node.setAttribute('rel', 'noopener noreferrer');
+    }
+  });
+  try {
+    return DOMPurify.sanitize(markup, {
+      ADD_TAGS: ['style'],
+      ADD_ATTR: ['target'],
+    });
+  } finally {
+    DOMPurify.removeHook('afterSanitizeAttributes');
+  }
+}
+
 const initializing: string = `<section>
   <h1>Initializing slides</h1>
 </section>`;
@@ -249,7 +303,7 @@ const MyFunctionalComponent = ({
   const [data, setData] = useState(initializing);
   const [initialized, setInitialized] = useState(false);
   const deckDivRef = useRef(null);
-  const deckRef = useRef(null);
+  const deckRef = useRef<any>(null);
   const revealCssLinkId = `reveal-css-${node.id}`;
   const themeLinkId = `reveal-theme-${node.id}`;
 
@@ -376,7 +430,11 @@ const MyFunctionalComponent = ({
     if (!initialized) return;
 
     if (props[inputSocketNameData]) {
-      setData(props[inputSocketNameData]);
+      setData(
+        props[SANITIZE_NAME]
+          ? sanitizeSlides(props[inputSocketNameData])
+          : props[inputSocketNameData],
+      );
     } else {
       setData(invalidData);
     }
@@ -384,7 +442,11 @@ const MyFunctionalComponent = ({
     setTimeout(() => {
       handleNodeResize();
     }, 100);
-  }, [initialized, props[inputSocketNameData]]);
+  }, [initialized, props[inputSocketNameData], props[SANITIZE_NAME]]);
+
+  const pointerEventsInput = { ...props, node, inDashboard } as Parameters<
+    typeof getCanvasWidgetPointerEvents
+  >[0];
 
   // for slides on a hidden dashboard remove interaction
   // else inject css variable for the arrow controls as they get lost (reveal.js bug?)
@@ -393,12 +455,12 @@ const MyFunctionalComponent = ({
       ? { pointerEvents: 'none' }
       : {
           '--r-controls-spacing': '0.8em' as const,
-          pointerEvents: getCanvasWidgetPointerEvents(props),
+          pointerEvents: getCanvasWidgetPointerEvents(pointerEventsInput),
         };
 
   // specifically remove interaction for sections
   const sectionStylesOverrides: BoxProps['sx'] = {
-    pointerEvents: getCanvasWidgetPointerEvents(props),
+    pointerEvents: getCanvasWidgetPointerEvents(pointerEventsInput),
   };
 
   // and again specifically for sections of slides on a hidden dashboard

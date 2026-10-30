@@ -1,4 +1,5 @@
 import PPNode from '../../classes/NodeClass';
+import { NetworkRisk, NodeRisk } from '../../classes/NodeRisk';
 import Socket from '../../classes/SocketClass';
 import UpdateBehaviourClass from '../../classes/UpdateBehaviourClass';
 import { SOCKET_TYPE } from '../../utils/constants';
@@ -20,6 +21,12 @@ const gatewayAddressDefault = 'http://localhost:16208/gateway/2.0.0/publish';
 
 abstract class PixotopeGatewayNode extends HTTPNode {
   protected readOnly = false;
+
+  // Gateway nodes replace the HTTP sockets and never use the Companion, so
+  // HTTPNode's risks do not apply.
+  public getRisks(): NodeRisk[] {
+    return [new NetworkRisk(this.getStaticInputData(urlInputName).value)];
+  }
 
   public getSeemsUnused(): boolean {
     // All gateway operations use HTTP POST, regardless of their effects.

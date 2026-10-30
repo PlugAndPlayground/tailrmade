@@ -22,8 +22,10 @@ import MailChecker from 'mailchecker';
 import InterfaceController, { ListenEvent } from '../InterfaceController';
 import { StoredGraph } from '../utils/indexedDB';
 import PPStorage from '../PPStorage';
+import { registerCloudGraphSource } from '../services/graphSource';
 import { AccessType } from '../utils/interfaces';
 import {
+  CLOUD_MODE,
   getDefaultPreferences,
   type StorageType,
   type UserData,
@@ -489,7 +491,7 @@ export class FirebaseAppHandler {
     try {
       this.ensureUserLoggedIn(`list ${type}s`);
 
-      return this.backendApi.listItemsMetadata(type);
+      return await this.backendApi.listItemsMetadata(type);
     } catch (error) {
       console.error(`Error listing ${type}s:`, error);
       return {
@@ -502,7 +504,7 @@ export class FirebaseAppHandler {
 
   async refreshGraphsMetadata(notifyListeners = true): Promise<boolean> {
     let success = false;
-    if (this.getIsLoggedIn()) {
+    if (CLOUD_MODE && this.getIsLoggedIn()) {
       console.log('Fetching Cloud Graphs');
       const result = await this.listItemsMetadata('graph');
       this.cachedGraphs = result.objects;
@@ -561,15 +563,9 @@ export class FirebaseAppHandler {
     location: string,
     type: StoredItemType,
   ): Promise<StoredItem | undefined> {
-    try {
-      this.ensureUserLoggedIn(`get ${type}`);
-      this.validateObjectId(itemId);
-
-      return this.backendApi.getItem(itemId, location, type);
-    } catch (error) {
-      console.error(`Error getting ${type}:`, error);
-      return undefined;
-    }
+    this.ensureUserLoggedIn(`get ${type}`);
+    this.validateObjectId(itemId);
+    return this.backendApi.getItem(itemId, location, type);
   }
 
   /**
@@ -663,6 +659,14 @@ export class FirebaseAppHandler {
     return this.cachedExampleGraphs;
   }
 
+  private async getGraphOwnerAccount(): Promise<UserData> {
+    const account =
+      this.currentUserData ?? (await this.backendApi.getUserData());
+    if (!account)
+      throw new Error('TM account data unavailable for graph owner');
+    return account;
+  }
+
   async tryGetGraph(
     userId: string,
     itemId: string,
@@ -676,7 +680,13 @@ export class FirebaseAppHandler {
       console.log('getting private graph');
       const graph = await this.getGraph(itemId, location);
       console.log('graph', graph);
-      return PPStorage.getInstance().stringToStoredGraph(graph?.data);
+      if (!graph) throw new Error(`App "${itemId}" not found in "${location}"`);
+      const stored = PPStorage.getInstance().stringToStoredGraph(graph.data);
+      const account = await this.getGraphOwnerAccount();
+      return registerCloudGraphSource(stored, account.uid, {
+        name: account.name,
+        email: account.email,
+      });
     }
   }
 
@@ -699,7 +709,17 @@ export class FirebaseAppHandler {
         location,
         name,
       );
-      return PPStorage.getInstance().stringToStoredGraph(graphData);
+      const currentUser = this.currentUser;
+      let owner = graphData.owner;
+      if (!owner && currentUser && userId === currentUser.uid) {
+        const account = await this.getGraphOwnerAccount();
+        owner = { name: account.name, email: account.email };
+      }
+      return registerCloudGraphSource(
+        PPStorage.getInstance().stringToStoredGraph(graphData.data),
+        userId,
+        owner,
+      );
     } catch (error) {
       console.error('Error retrieving public graph:', error);
       throw error;

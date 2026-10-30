@@ -39,6 +39,15 @@ body {
   padding-bottom: 0;
 }
 
+.text-block-hits * {
+  pointer-events: none;
+}
+
+.text-block-hits
+  :is(p, h1, h2, h3, h4, h5, h6, blockquote, ul, ol, li, a, .editor-code) {
+  pointer-events: auto;
+}
+
 .editor-input {
   min-height: 160px;
   resize: none;

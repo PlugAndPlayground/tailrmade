@@ -6,6 +6,7 @@ import { useTheme } from '@mui/material';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import PPStorage, { checkForUnsavedChanges } from '../PPStorage';
 import PPGraph from '../classes/GraphClass';
+import { rememberCopiedSelection } from '../services/nodePasteTrust';
 import PPNode from '../classes/NodeClass';
 import PPSocket from '../classes/SocketClass';
 import HybridNode2 from '../classes/HybridNode2';
@@ -948,7 +949,7 @@ export function compare(valueA: any, operator: string, valueB: any): boolean {
 export function getSocketsForConnection(
   node: PPNode,
   socket: PPSocket,
-): [PPSocket, PPSocket] {
+): [PPSocket | undefined, PPSocket | undefined] {
   const input =
     socket.isInput() || socket.socketType === SOCKET_TYPE.GHOST
       ? socket
@@ -1046,6 +1047,7 @@ export const cutOrCopyClipboard = async (e: ClipboardEvent): Promise<void> => {
   ) {
     e.preventDefault();
     const serializeSelection = PPGraph.currentGraph.serializeSelection(false);
+    rememberCopiedSelection(serializeSelection);
     writeDataToClipboard(serializeSelection);
     if (e.type === 'cut') {
       await PPGraph.currentGraph.perform_action_DeleteSelectedNodes();
@@ -1324,7 +1326,7 @@ export const saveBase64AsImage = async (
 };
 
 export const downloadFile = (
-  content: Blob | string | ArrayBufferLike,
+  content: Blob | string | ArrayBuffer,
   fileName: string,
   contentType: string,
 ): void => {

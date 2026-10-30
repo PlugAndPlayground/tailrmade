@@ -436,7 +436,7 @@ const timeAgoStyles = [
     label: 'Relative time (Short Minutes)',
     style: 'twitter-minute-now',
   },
-];
+] as const;
 
 export class DateAndTime extends PPNode {
   public getName(): string {
