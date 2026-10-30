@@ -347,7 +347,7 @@ export class AIBackend {
     ].filter((value): value is string => typeof value === 'string');
 
     return candidateMessages.find((message) =>
-      /token limit exceeded|token usage limit exceeded|daily token limit exceeded|out of tokens/i.test(
+      /token limit exceeded|token usage limit exceeded|daily token limit exceeded|out of tokens|AI allowance reached/i.test(
         message,
       ),
     );
