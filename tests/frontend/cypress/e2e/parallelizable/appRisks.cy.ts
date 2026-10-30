@@ -246,11 +246,21 @@ describe('app risk review', () => {
         codeNode(),
         { ...codeNode(), id: 'second-code', x: 5000, y: 5000 },
       ]);
-      cy.get('[data-cy="app-risk-dialog"]').should(
-        'have.attr',
-        'aria-modal',
-        'false',
-      );
+      // Mobile starts in the dashboard, where review is a modal. Selecting
+      // a node switches to the graph and its non-modal review panel.
+      if (width < 900) {
+        cy.get('[data-cy="app-risk-dialog"] [role="dialog"]').should(
+          'have.attr',
+          'aria-modal',
+          'true',
+        );
+      } else {
+        cy.get('[data-cy="app-risk-dialog"]').should(
+          'have.attr',
+          'aria-modal',
+          'false',
+        );
+      }
       cy.get(
         '[aria-label="Center review"], [aria-label="Inspect alongside graph"]',
       ).should('not.exist');
