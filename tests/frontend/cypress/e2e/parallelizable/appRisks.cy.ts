@@ -800,10 +800,7 @@ describe('app risk review', () => {
       expect(risk.resolved).to.equal(true);
       expect(risk.target).to.equal('https://example.com/docs?token=…');
     });
-    cy.get('[data-cy="app-risk-dialog"]').should(
-      'contain',
-      'https://example.com/docs?token=…',
-    );
+    cy.get('[data-cy="app-risk-dialog"]').should('not.exist');
   });
 
   it('follows the chain through a constant whose own input is connected', () => {

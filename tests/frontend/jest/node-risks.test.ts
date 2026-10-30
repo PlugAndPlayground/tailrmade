@@ -4,6 +4,7 @@ import {
   CONSEQUENCE,
   CompanionRisk,
   NetworkRisk,
+  NavigationRisk,
   ExternalImageRisk,
   DynamicImageRisk,
   StorageReadRisk,
@@ -18,6 +19,16 @@ import {
 } from '../../../src/classes/NodeRisk';
 
 describe('app risk disclosure', () => {
+  it('requires navigation review only when the destination is unresolved', () => {
+    const fixed = new NavigationRisk('https://example.com/docs');
+    const dynamic = new NavigationRisk();
+    expect(fixed.severity).toBe('info');
+    expect(requiresAppRiskReview([{ risk: fixed, nodes: [] }])).toBe(false);
+    expect(dynamic.severity).toBe('warning');
+    expect(getRiskLevel(dynamic)).toBe('dynamic');
+    expect(requiresAppRiskReview([{ risk: dynamic, nodes: [] }])).toBe(true);
+  });
+
   it('does not require approval for informational image loads alone', () => {
     const risks = collectAppRisks([
       {
