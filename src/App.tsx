@@ -11,14 +11,11 @@ import PixiContainer from './containers/PixiContainer';
 import { onOpenFileBrowser, StyledDropzone } from './dragAndDrop';
 import { Tooltip } from './components/Tooltip';
 import { NodeDetailPopover } from './components/NodeDetailPopover';
+import { GroupColorPicker } from './components/GroupColorPicker';
 
 import { EditDialog, DeleteConfirmationDialog } from './components/Dialogs';
 import PPGraph from './classes/GraphClass';
-import {
-  CONTEXTMENU_GRAPH_HEIGHT,
-  CONTEXTMENU_WIDTH,
-  MAIN_COLOR,
-} from './utils/constants';
+import { CONTEXTMENU_WIDTH } from './utils/constants';
 import { IGraphSearch, INodeSearch } from './utils/interfaces';
 import { controlOrMetaKey, isPhone } from './utils/utils';
 import { createPixiApp, zoomToFitNodes } from './pixi/utils-pixi';
@@ -34,6 +31,7 @@ import GraphContextMenu from './components/contextmenus/GraphContextMenu';
 import { AuthDialogHost } from './components/AuthDialog';
 import { isCanvasExploreOnly } from './utils/stackLayout';
 import NodeContextMenu from './components/contextmenus/NodeContextMenu';
+import PPGroup from './classes/groups/GroupClass';
 import SocketContextMenu from './components/contextmenus/SocketContextMenu';
 import SpinnerContainer from './containers/SpinnerContainer';
 import { CLOUD_MODE } from './services/shared-types';
@@ -191,17 +189,14 @@ const App = (): React.JSX.Element => {
       setIsGraphContextMenuOpen(false);
       setIsNodeContextMenuOpen(false);
       setIsSocketContextMenuOpen(false);
-      const contextMenuPosX = Math.min(
-        window.innerWidth - (CONTEXTMENU_WIDTH + 8),
-        event.global.x,
-      );
-      const contextMenuPosY = (offset: number) => {
-        return Math.min(window.innerHeight - offset, event.global.y);
-      };
+      const contextMenuPos = [
+        Math.min(window.innerWidth - (CONTEXTMENU_WIDTH + 8), event.global.x),
+        event.global.y,
+      ];
       switch (true) {
         case target.parent instanceof PPSocket:
           console.log('app right click, socket');
-          setContextMenuPosition([contextMenuPosX, contextMenuPosY(80)]);
+          setContextMenuPosition(contextMenuPos);
           setSelectedSocket(target.parent as PPSocket);
           setIsSocketContextMenuOpen(true);
           break;
@@ -210,25 +205,24 @@ const App = (): React.JSX.Element => {
           if (!target.selected) {
             PPGraph.currentGraph.selection.selectNodes([target], false);
           }
-          setContextMenuPosition([contextMenuPosX, contextMenuPosY(220)]);
+          setContextMenuPosition(contextMenuPos);
+          setIsNodeContextMenuOpen(true);
+          break;
+        case target instanceof PPGroup:
+          PPGraph.currentGraph.selection.selectNodes(
+            target.getMembers(),
+            false,
+          );
+          setContextMenuPosition(contextMenuPos);
           setIsNodeContextMenuOpen(true);
           break;
         case target instanceof Viewport:
           console.log('app right click, viewport');
-          setContextMenuPosition([
-            contextMenuPosX,
-            contextMenuPosY(CONTEXTMENU_GRAPH_HEIGHT + 8),
-          ]);
+          setContextMenuPosition(contextMenuPos);
           setIsGraphContextMenuOpen(true);
           break;
         case target instanceof PPSelection:
-          setContextMenuPosition([
-            Math.min(
-              window.innerWidth - (CONTEXTMENU_WIDTH + 8),
-              event.global.x,
-            ),
-            Math.min(window.innerHeight - 432, event.global.y),
-          ]);
+          setContextMenuPosition(contextMenuPos);
           setIsNodeContextMenuOpen(true);
           break;
         default:
@@ -316,6 +310,7 @@ const App = (): React.JSX.Element => {
             />
           )}
           <NodeDetailPopover />
+          <GroupColorPicker />
           {showDeleteGraph && graphToBeModified && (
             <DeleteConfirmationDialog graphToBeModified={graphToBeModified} />
           )}

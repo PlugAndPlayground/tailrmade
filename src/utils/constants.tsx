@@ -242,9 +242,14 @@ export const ADD_TO_DASHBOARD_ICON_TEXTURE =
   '../assets/Icon_AddToDashboard.svg';
 export const CONFIRMATION_ICON_TEXTURE = '../assets/Icon_Confirmation.svg';
 export const STATUS_ERROR_ICON_TEXTURE = '../assets/Icon_Error.svg';
+export const COLORIZE_ICON_TEXTURE = '../assets/Icon_Colorize.svg';
 export const STATUS_WARNING_ICON_TEXTURE = '../assets/Icon_Warning.svg';
 export const STATUS_UNUSED_ICON_TEXTURE = '../assets/Icon_Unused.svg';
 export const STATUS_COMMENT_ICON_TEXTURE = '../assets/Icon_Comment.svg';
+export const GROUP_ICON_TEXTURE = '../assets/Icon_Group.svg';
+export const UNGROUP_ICON_TEXTURE = '../assets/Icon_Ungroup.svg';
+export const REMOVE_FROM_GROUP_ICON_TEXTURE =
+  '../assets/Icon_RemoveFromGroup.svg';
 
 export const ALIGNLEFT_TEXTURE = '../assets/Icon_AlignLeft.svg';
 export const ALIGNAUTO_TEXTURE = '../assets/Icon_AutoAlign.svg';

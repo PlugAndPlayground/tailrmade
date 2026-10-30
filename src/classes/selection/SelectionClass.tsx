@@ -38,6 +38,9 @@ import {
   LayoutEdge,
   LayoutNodeInput,
 } from './layeredLayout';
+import { AlignUnit } from '../groups/GroupLayer';
+import PPGroup from '../groups/GroupClass';
+import { addNodesToGroup } from '../groups/groupActions';
 
 export enum Interaction {
   Passive,
@@ -225,15 +228,15 @@ export default class PPSelection extends PIXI.Container {
         upPosition.y - pendingClick.downPosition.y,
       ) > NODE_CLICK_DRAG_THRESHOLD_PX;
 
+    // after a drag, stopDragAction clears it, as it still needs the dragged node
     if (!wasDragged) {
       this.selectNodes([node], pendingClick.isShiftClick);
       onResolved({
         event,
         wasOnlySelectedAtPointerDown: pendingClick.wasOnlySelectedAtPointerDown,
       });
+      this.clearPendingClick();
     }
-
-    this.clearPendingClick();
     return true;
   }
 
@@ -303,8 +306,39 @@ export default class PPSelection extends PIXI.Container {
   }
 
   public stopDragAction(event) {
+    const groupToJoin = this.getGroupToJoin();
+    const draggedNodes = this.getDraggedNodes();
+    PPGraph.currentGraph.groupLayer.setDropTarget(undefined);
     this.setInteraction(Interaction.Passive);
     this.clearPendingClick();
+    if (groupToJoin) {
+      void addNodesToGroup(groupToJoin.id, draggedNodes);
+    }
+  }
+
+  // Ungrouped nodes dropped inside a group's frame join it. Members do not
+  // change groups this way, as their own frame follows them.
+  private getGroupToJoin(): PPGroup | undefined {
+    const groupLayer = PPGraph.currentGraph.groupLayer;
+    if (
+      this.interaction !== Interaction.Dragging ||
+      this.lastPointMovedTo.equals(this.sourcePoint) ||
+      this.getDraggedNodes().some((node) => groupLayer.getGroupOfNode(node.id))
+    ) {
+      return undefined;
+    }
+    return groupLayer.getGroupAt(
+      this.lastPointMovedTo.x,
+      this.lastPointMovedTo.y,
+    );
+  }
+
+  // the pending click node joins the drag even if it is not selected yet
+  private getDraggedNodes(): PPNode[] {
+    const pendingNode = this.pendingClick?.node;
+    return pendingNode && !this.selectedNodes.includes(pendingNode)
+      ? [...this.selectedNodes, pendingNode]
+      : this.selectedNodes;
   }
 
   async onPointerDown(event: PIXI.FederatedPointerEvent): Promise<void> {
@@ -424,18 +458,14 @@ export default class PPSelection extends PIXI.Container {
         this.lastPointMovedTo = targetPoint;
         void this.moveSelection(deltaX, deltaY);
         this.drawRectanglesFromSelection(); // Update visual border during drag
+        PPGraph.currentGraph.groupLayer.setDropTarget(this.getGroupToJoin());
         break;
       }
     }
   }
 
   async moveSelection(deltaX: number, deltaY: number): Promise<void> {
-    // Include pending click node in the drag (if not already selected)
-    const pendingNode = this.pendingClick?.node;
-    const nodesToMove =
-      pendingNode && !this.selectedNodes.includes(pendingNode)
-        ? [...this.selectedNodes, pendingNode]
-        : this.selectedNodes;
+    const nodesToMove = this.getDraggedNodes();
 
     const prevPositions = nodesToMove.map(
       (node) => new PIXI.Point(node.position.x, node.position.y),
@@ -507,13 +537,33 @@ export default class PPSelection extends PIXI.Container {
     return edges;
   }
 
-  async autoAlignNodes(nodes: PPNode[]): Promise<void> {
-    const nonePostPassNodes = nodes.filter(
-      (node) => !node.isPostPassForAutoAlign(),
+  static moveUnitTo(unit: AlignUnit, x: number, y: number): void {
+    const deltaX = x - unit.frame.x;
+    const deltaY = y - unit.frame.y;
+    unit.nodes.forEach((node) =>
+      node.setPosition(node.x + deltaX, node.y + deltaY),
     );
-    if (nonePostPassNodes.length === 0) {
+  }
+
+  static getNodesWithGroupMembers(nodes: PPNode[]): PPNode[] {
+    const movedNodes = new Set<PPNode>();
+    nodes.forEach((node) => {
+      const group = PPGraph.currentGraph.groupLayer.getGroupOfNode(node.id);
+      (group?.getMembers() ?? [node]).forEach((member) =>
+        movedNodes.add(member),
+      );
+    });
+    return Array.from(movedNodes);
+  }
+
+  async autoAlignNodes(nodes: PPNode[]): Promise<void> {
+    const units = PPGraph.currentGraph.groupLayer.getAlignUnits(
+      nodes.filter((node) => !node.isPostPassForAutoAlign()),
+    );
+    if (units.length === 0) {
       return;
     }
+    const nonePostPassNodes = units.flatMap((unit) => unit.nodes);
     const { minX, minY } = PPSelection.getNodesMinMax(nonePostPassNodes);
     const positionsOld = nonePostPassNodes.map((node) => ({
       id: node.id,
@@ -545,21 +595,37 @@ export default class PPSelection extends PIXI.Container {
         });
       });
 
-    const layoutNodes: LayoutNodeInput[] = nonePostPassNodes.map((node) => ({
-      id: node.id,
-      width: node.nodeWidth,
-      height: node.nodeHeight,
-      y: node.y,
-      marginTop: marginById.get(node.id) ?? 0,
-      marginBottom: marginById.get(node.id) ?? 0,
-    }));
-    const edges: LayoutEdge[] = this.buildLayoutEdges(nonePostPassNodes);
+    // a group is laid out as one box, wired by its members' links
+    const unitIdByNodeId = new Map<string, string>();
+    units.forEach((unit) =>
+      unit.nodes.forEach((node) => unitIdByNodeId.set(node.id, unit.id)),
+    );
+    const layoutNodes: LayoutNodeInput[] = units.map((unit) => {
+      const margin = Math.max(
+        ...unit.nodes.map((node) => marginById.get(node.id) ?? 0),
+      );
+      return {
+        id: unit.id,
+        width: unit.frame.width,
+        height: unit.frame.height,
+        y: unit.frame.y,
+        marginTop: margin,
+        marginBottom: margin,
+      };
+    });
+    const edges: LayoutEdge[] = this.buildLayoutEdges(nonePostPassNodes)
+      .map((edge) => ({
+        ...edge,
+        from: unitIdByNodeId.get(edge.from) as string,
+        to: unitIdByNodeId.get(edge.to) as string,
+      }))
+      .filter((edge) => edge.from !== edge.to);
     const { positions } = computeLayeredLayout(layoutNodes, edges);
 
-    nonePostPassNodes.forEach((node) => {
-      const position = positions.get(node.id);
+    units.forEach((unit) => {
+      const position = positions.get(unit.id);
       if (position) {
-        node.setPosition(position.x, position.y);
+        PPSelection.moveUnitTo(unit, position.x, position.y);
       }
     });
 
@@ -609,28 +675,29 @@ export default class PPSelection extends PIXI.Container {
     alignAndDistribute: TAlignOptions,
   ): Promise<void> {
     const selection = PPGraph.currentGraph.selection;
-    const { minX, minY, maxX, maxY } = PPSelection.getNodesMinMax(
+    const units = PPGraph.currentGraph.groupLayer.getAlignUnits(
       selection.selectedNodes,
     );
+    const minX = Math.min(...units.map((unit) => unit.frame.left));
+    const minY = Math.min(...units.map((unit) => unit.frame.top));
+    const maxX = Math.max(...units.map((unit) => unit.frame.right));
+    const maxY = Math.max(...units.map((unit) => unit.frame.bottom));
 
-    const nodeIDsPos = selection.selectedNodes.map((node) => ({
-      id: node.id,
-      x: node.x,
-      y: node.y,
-      width: node.nodeWidth,
-      height: node.nodeHeight,
-    }));
+    const previousPositions = units
+      .flatMap((unit) => unit.nodes)
+      .map((node) => ({ id: node.id, x: node.x, y: node.y }));
 
     let incrementPos = 0;
 
-    function alignNode(
-      node: PPNode,
+    function alignUnit(
+      unit: AlignUnit,
       alignAndDistribute: TAlignOptions,
       interval: number,
       index: number,
     ) {
-      let x;
-      let y;
+      const { width, height } = unit.frame;
+      let x = unit.frame.x;
+      let y = unit.frame.y;
       switch (alignAndDistribute) {
         case ALIGNOPTIONS.ALIGN_AUTO:
           x = minX;
@@ -640,31 +707,30 @@ export default class PPSelection extends PIXI.Container {
           x = minX;
           break;
         case ALIGNOPTIONS.ALIGN_CENTER_HORIZONTAL:
-          x = minX + (maxX - minX) / 2 - node.nodeWidth / 2;
+          x = minX + (maxX - minX) / 2 - width / 2;
           break;
         case ALIGNOPTIONS.ALIGN_RIGHT:
-          console.log(node.width, node.nodeWidth, node.getMinNodeWidth());
-          x = maxX - node.nodeWidth;
+          x = maxX - width;
           break;
         case ALIGNOPTIONS.ALIGN_TOP:
           y = minY;
           break;
         case ALIGNOPTIONS.ALIGN_CENTER_VERTICAL:
-          y = minY + (maxY - minY) / 2 - node.nodeHeight / 2;
+          y = minY + (maxY - minY) / 2 - height / 2;
           break;
         case ALIGNOPTIONS.ALIGN_BOTTOM:
-          y = maxY - node.nodeHeight;
+          y = maxY - height;
           break;
         case ALIGNOPTIONS.DISTRIBUTE_HORIZONTAL:
           x = index === 0 ? minX : incrementPos + interval;
-          incrementPos = x + node.nodeWidth;
+          incrementPos = x + width;
           break;
         case ALIGNOPTIONS.DISTRIBUTE_VERTICAL:
           y = index === 0 ? minY : incrementPos + interval;
-          incrementPos = y + node.nodeHeight;
+          incrementPos = y + height;
           break;
       }
-      node.setPosition(x, y);
+      PPSelection.moveUnitTo(unit, x, y);
     }
 
     const doAlign = async () => {
@@ -674,25 +740,24 @@ export default class PPSelection extends PIXI.Container {
         const calcInterval = (min, max, sum, length) =>
           (max - min - sum) / (length - 1);
 
-        nodeIDsPos.sort((a, b) => {
+        units.sort((a, b) => {
           return alignAndDistribute === ALIGNOPTIONS.DISTRIBUTE_VERTICAL
-            ? a.y - b.y
-            : a.x - b.x;
+            ? a.frame.y - b.frame.y
+            : a.frame.x - b.frame.x;
         });
 
         const sumOfWidthHeight =
           alignAndDistribute === ALIGNOPTIONS.DISTRIBUTE_VERTICAL
-            ? nodeIDsPos.reduce((n, { height }) => n + height, 0)
-            : nodeIDsPos.reduce((n, { width }) => n + width, 0);
+            ? units.reduce((n, { frame }) => n + frame.height, 0)
+            : units.reduce((n, { frame }) => n + frame.width, 0);
 
         const interval =
           alignAndDistribute === ALIGNOPTIONS.DISTRIBUTE_VERTICAL
-            ? calcInterval(minY, maxY, sumOfWidthHeight, nodeIDsPos.length)
-            : calcInterval(minX, maxX, sumOfWidthHeight, nodeIDsPos.length);
+            ? calcInterval(minY, maxY, sumOfWidthHeight, units.length)
+            : calcInterval(minX, maxX, sumOfWidthHeight, units.length);
 
-        nodeIDsPos.forEach((idAndPos, index) => {
-          const node = PPGraph.currentGraph.nodes[idAndPos.id];
-          alignNode(node, alignAndDistribute, interval, index);
+        units.forEach((unit, index) => {
+          alignUnit(unit, alignAndDistribute, interval, index);
         });
         incrementPos = 0; // reset
       }
@@ -701,10 +766,8 @@ export default class PPSelection extends PIXI.Container {
     };
 
     const undoAlign = (): Promise<void> => {
-      nodeIDsPos.forEach((idAndPos, index) => {
-        const node = PPGraph.currentGraph.nodes[idAndPos.id];
-        const oldPosition = nodeIDsPos[index];
-        node.setPosition(oldPosition.x, oldPosition.y);
+      previousPositions.forEach(({ id, x, y }) => {
+        PPGraph.currentGraph.nodes[id].setPosition(x, y);
       });
       selection.drawRectanglesFromSelection();
       return Promise.resolve();
@@ -1021,8 +1084,7 @@ class ScaleHandle extends PIXI.Graphics {
   private _pointerDragging: boolean;
   private _pointerMoveTarget: PIXI.Container | null;
   private dragStartSize:
-    | { nodeID: string; width: number; height: number }
-    | undefined;
+    { nodeID: string; width: number; height: number } | undefined;
 
   constructor(selection: PPSelection) {
     super();
