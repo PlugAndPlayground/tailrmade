@@ -6,7 +6,6 @@ import { getPropertyNames } from '../utils/utils';
 import { NUMBER_COLOR, NumberType } from './datatypes/numberType';
 import { EnumType } from './datatypes/enumType';
 import { SmallDynamicInputNode } from './abstract/DynamicInputNode';
-import { AnyType } from './datatypes/anyType';
 import { AbstractType } from './datatypes/abstractType';
 
 const addendName = 'Addend';

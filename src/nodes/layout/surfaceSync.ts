@@ -16,7 +16,6 @@ import { isLayoutableNode, isSurfaceNode } from '../../utils/interfaces';
 import type { UISurfaceNode } from './uiSurface';
 import { DeferredReactType } from '../datatypes/deferredHtmlType';
 import type { WidgetLayoutInterface } from '../datatypes/widgetLayoutType';
-import { MAIN_COLOR } from '../../utils/constants';
 import {
   dashboardLayoutInputName,
   surfaceJsonSocketName,

@@ -6,14 +6,12 @@ import {
   NODE_MARGIN,
   NODE_TYPE_COLOR,
   SOCKET_TYPE,
-  SOCKET_WIDTH,
 } from '../../utils/constants';
 import { TNodeSource } from '../../utils/interfaces';
 import { AnyType } from '../datatypes/anyType';
 import { ensureVisible, getObjectsInsideBounds } from '../../pixi/utils-pixi';
 import UpdateBehaviourClass from '../../classes/UpdateBehaviourClass';
 import { DynamicEnumType } from '../datatypes/dynamicEnumType';
-import debounce from 'lodash/debounce';
 import * as PIXI from 'pixi.js';
 import InputArrayKeysType, {
   CONSTANT_NAME,

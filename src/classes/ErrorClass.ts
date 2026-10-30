@@ -191,32 +191,6 @@ export class PNPCustomStatus extends PNPStatus {
   }
 }
 
-export class FatalError extends PNPError {
-  constructor(message?: string) {
-    super(message);
-  }
-
-  public getSeverity(): number {
-    return STATUS_SEVERITY.FATAL;
-  }
-
-  public getSeverityName(): string {
-    return 'fatal';
-  }
-
-  public getName(): string {
-    return 'Fatal Error';
-  }
-
-  public getDescription(): string {
-    return 'Unrecoverable error, PNP cannot continue';
-  }
-
-  public getColor(): TRgba {
-    return TRgba.black();
-  }
-}
-
 export class NodeExecutionError extends PNPError {
   constructor(message?: string) {
     super(message);

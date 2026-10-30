@@ -42,8 +42,6 @@ export const setAIPanelOpen = (isOpen: boolean): void => {
   panelIsOpen = isOpen;
 };
 
-export const isAIPanelOpen = (): boolean => panelIsOpen;
-
 export const isAutoCaptureEnabled = (): boolean =>
   getCachedUserPreferences().aiAutoCapture !== false;
 

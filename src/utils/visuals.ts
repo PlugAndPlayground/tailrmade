@@ -1,4 +1,4 @@
-import { GlowFilter, ShockwaveFilter } from 'pixi-filters';
+import { GlowFilter } from 'pixi-filters';
 import * as PIXI from 'pixi.js';
 
 // ReactUI connections are drawn fainter so they don't visually dominate the
@@ -56,25 +56,4 @@ export async function drawExecutionFilter(
     filter.innerStrength = nextStrength / 2;
     last = nextStrength;
   }
-}
-
-export async function drawShockwaveFilter(
-  container: PIXI.Container,
-  point: PIXI.Point,
-) {
-  const filter = new ShockwaveFilter({
-    center: point,
-    wavelength: 15,
-    speed: 0.1,
-  });
-  filter.resolution = 2;
-  container.filters = [filter];
-  const start = Date.now();
-  for (let i = 0; i < 100; i++) {
-    const curr = Date.now() - start;
-
-    filter.time = curr;
-    await new Promise((r) => setTimeout(r, 16));
-  }
-  container.filters = [];
 }

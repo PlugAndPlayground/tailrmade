@@ -1,4 +1,3 @@
-import * as PIXI from 'pixi.js';
 import React, { useEffect, useState } from 'react';
 import { TRgba } from '../utils/color';
 import { createRoot, Root } from 'react-dom/client';

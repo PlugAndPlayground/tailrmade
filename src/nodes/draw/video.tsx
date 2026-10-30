@@ -1,13 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import debounce from 'lodash/debounce';
 import { TRgba } from '../../utils/color';
-import {
-  Box,
-  Button,
-  ButtonGroup,
-  ThemeProvider,
-  Typography,
-} from '@mui/material';
+import { Box, ThemeProvider, Typography } from '@mui/material';
 import CircularProgress, {
   CircularProgressProps,
 } from '@mui/material/CircularProgress';
@@ -15,7 +9,6 @@ import { ErrorBoundary } from 'react-error-boundary';
 import InterfaceController, { ListenEvent } from '../../InterfaceController';
 import PPStorage from '../../PPStorage';
 import ErrorFallback from '../../components/ErrorFallback';
-import PPGraph from '../../classes/GraphClass';
 import PPSocket from '../../classes/SocketClass';
 import HybridNode2, {
   HybridWidgetContentProps,
@@ -40,7 +33,6 @@ import {
   UNSET_VALUE,
   customTheme,
 } from '../../utils/constants';
-import { VISIBILITY_ACTION } from '../../utils/constants_shared';
 import { getFileNameFromLocalResourceId } from '../../utils/utils';
 
 export const inputResourceIdSocketName = 'Local resource ID';

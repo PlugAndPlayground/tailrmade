@@ -9,7 +9,6 @@ import { AnyType } from '../datatypes/anyType';
 import { JSONType } from '../datatypes/jsonType';
 import { StringType } from '../datatypes/stringType';
 import { dataToType } from '../datatypes/typehelper';
-import { CustomFunction } from './dataFunctions';
 import { BooleanType } from '../datatypes/booleanType';
 import {
   DynamicInputNode,

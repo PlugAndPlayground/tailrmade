@@ -8,7 +8,6 @@ import {
   SOCKET_TYPE,
   SUCCESS_COLOR,
 } from '../../utils/constants';
-import { CustomArgs } from '../../utils/interfaces';
 import { AnyType } from '../datatypes/anyType';
 import { JSONType } from '../datatypes/jsonType';
 

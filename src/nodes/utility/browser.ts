@@ -1,4 +1,3 @@
-import { CustomFunction } from '../data/dataFunctions';
 import { NODE_TYPE_COLOR, SOCKET_TYPE } from '../../utils/constants';
 import { TRgba } from '../../utils/color';
 import UpdateBehaviourClass from '../../classes/UpdateBehaviourClass';

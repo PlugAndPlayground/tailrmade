@@ -32,7 +32,6 @@ import {
   containerName,
   DynamicWidgetName,
   RootName,
-  VISIBILITY_ACTION,
 } from '../../utils/constants_shared';
 import { RightDrawerView } from '../../utils/constants';
 import { DashboardContainerName } from './DashboardContainer';

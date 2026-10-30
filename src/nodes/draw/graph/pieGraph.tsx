@@ -1,6 +1,6 @@
 import { DRAW_Base } from '../abstract';
 import Socket from '../../../classes/SocketClass';
-import { COLOR, SOCKET_TYPE } from '../../../utils/constants';
+import { SOCKET_TYPE } from '../../../utils/constants';
 import { NumberType } from '../../datatypes/numberType';
 import { BooleanType } from '../../datatypes/booleanType';
 import * as PIXI from 'pixi.js';

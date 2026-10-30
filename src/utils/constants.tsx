@@ -24,8 +24,6 @@ export const GESTUREMODE = {
   AUTO: 'Auto detect',
 } as const;
 
-export const ONCLICK_TRIPPLECLICK = 3;
-
 export const ALIGNOPTIONS = {
   ALIGN_AUTO: 'Align auto',
   ALIGN_LEFT: 'Align left',
@@ -191,7 +189,6 @@ export const SUCCESS_COLOR = TRgba.fromString('#4BB543');
 export const CANVAS_BACKGROUND_TEXTURE =
   '../assets/Pixel_grid_4000x2000.svg.png';
 export const CANVAS_BACKGROUND_ALPHA = 0.01;
-export const NINE_SLICE_SHADOW = '../assets/NineSliceShadow.png';
 
 export const COLOR_MAIN = TRgba.fromString(COLOR[0]).lighten(0.8).hex();
 export const COLOR_COMMENT = COLOR[12];
@@ -213,10 +210,6 @@ export const SOCKET_TEXTMARGIN_TOP = 4;
 export const SOCKET_TEXTSTYLE = new TextStyle({
   fontSize: 12,
   fill: COLOR_MAIN,
-});
-export const UPDATEBEHAVIOURHEADER_TEXTSTYLE = new TextStyle({
-  fontSize: 10,
-  fill: '#FFFFFF',
 });
 export const UPDATEBEHAVIOURHEADER_UPDATE =
   '../assets/Icon_UpdateBehaviour_Update.svg';
@@ -283,7 +276,6 @@ export const CONTEXTMENU_WIDTH = 288;
 export const CONTEXTMENU_GRAPH_HEIGHT = 764;
 export const TOOLTIP_WIDTH = 320;
 export const TOOLTIP_DISTANCE = 8;
-export const TOOLTIP_DELAY = 700;
 
 export const DISABLED_OPACITY = 0.75;
 
@@ -331,10 +323,6 @@ export const COMMENT_TEXTSTYLE = new TextStyle({
   fontStyle: 'italic',
 });
 
-export const CONNECTION_COLOR_HEX = new PIXI.Color(
-  TRgba.fromString(COLOR[0]).desaturate(0.3).hex(),
-).toNumber();
-
 export const SELECTION_COLOR_HEX = new PIXI.Color(
   TRgba.fromString(COLOR[4]).desaturate(0.3).hex(),
 ).toNumber();
@@ -343,11 +331,6 @@ export const SELECTION_DOWNSTREAM_TEXTURE =
   '../assets/Icon_SelectDownstream.svg';
 export const SELECTION_UPSTREAM_TEXTURE = '../assets/Icon_SelectUpstream.svg';
 export const SELECTION_WHOLE_TEXTURE = '../assets/Icon_SelectWhole.svg';
-
-export const NOTE_FONT = '../assets/Arial-normal-black.fnt';
-export const NOTE_MARGIN_STRING = '3px 0px 0px 5px';
-export const NOTE_PADDING = 12;
-export const NOTE_FONTSIZE = 32;
 export const NOTE_LINEHEIGHT_FACTOR = 1.15;
 
 export const MAX_STRING_LENGTH = 10000;
@@ -370,45 +353,6 @@ export const DEFAULT_3DVECTOR = {
 };
 
 export const MAX_LATEST_NODES_IN_SEARCH = 3;
-
-export const PIXI_PIVOT_OPTIONS: EnumStructure = [
-  {
-    text: 'top left',
-    value: { x: 0.0, y: 0.0 },
-  },
-  {
-    text: 'top center',
-    value: { x: 0.5, y: 0.0 },
-  },
-  {
-    text: 'top right',
-    value: { x: 1.0, y: 0.0 },
-  },
-  {
-    text: 'center left',
-    value: { x: 0.0, y: 0.5 },
-  },
-  {
-    text: 'center center',
-    value: { x: 0.5, y: 0.5 },
-  },
-  {
-    text: 'center right',
-    value: { x: 1.0, y: 0.5 },
-  },
-  {
-    text: 'bottom left',
-    value: { x: 0.0, y: 1.0 },
-  },
-  {
-    text: 'bottom center',
-    value: { x: 0.5, y: 1.0 },
-  },
-  {
-    text: 'bottom right',
-    value: { x: 1.0, y: 1.0 },
-  },
-];
 
 export const SIMPLE_SIZE_OPTIONS: EnumStructure = [
   { text: 'Quarter', value: 0.25 },
