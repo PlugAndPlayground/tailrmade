@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useLayoutEffect, useRef, useState } from 'react';
 import {
   ListItemText,
   MenuItem,
@@ -10,6 +10,20 @@ import {
   Typography,
 } from '@mui/material';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
+
+const WINDOW_MARGIN = 8;
+
+// A menu's height depends on its items, so it can only be fitted once rendered.
+// A menu taller than the window stays at the top and scrolls.
+export const useFitInWindow = (top: number) => {
+  const ref = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    const menu = ref.current!;
+    const lowestTop = window.innerHeight - menu.offsetHeight - WINDOW_MARGIN;
+    menu.style.top = `${Math.max(0, Math.min(top, lowestTop))}px`;
+  });
+  return ref;
+};
 
 export type SubMenuItemProps = MenuItemProps & {
   button?: true;

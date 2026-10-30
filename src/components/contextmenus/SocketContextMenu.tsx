@@ -22,6 +22,7 @@ import { SOCKET_TYPE } from '../../utils/constants';
 import { writeTextToClipboard } from '../../utils/utils';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import { URLSetSocketData } from '../../nodes/state/storage';
+import { useFitInWindow } from './ContextMenus';
 
 function constructRecommendedNodeOptions(selectedSocket: Socket): any {
   const preferredNodes = selectedSocket.getPreferredNodes();
@@ -86,17 +87,20 @@ export const SocketContextMenu = (props) => {
   const selectedSocket: Socket = props.selectedSocket;
   const node: PPNode = selectedSocket.getNode();
   const isDeletable = node.socketCanBeRemoved(selectedSocket);
+  const menuRef = useFitInWindow(props.contextMenuPosition[1]);
 
   return (
     <Paper
+      ref={menuRef}
       id="socket-contextmenu"
       sx={{
         minWidth: 240,
         maxWidth: '100%',
+        maxHeight: '100dvh',
+        overflow: 'auto',
         position: 'absolute',
         zIndex: 1230,
         left: props.contextMenuPosition[0],
-        top: props.contextMenuPosition[1],
       }}
     >
       <MenuList dense>

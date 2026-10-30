@@ -39,7 +39,7 @@ import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import CachedIcon from '@mui/icons-material/Cached';
 import { VISIBILITY_ACTION } from '../../utils/constants_shared';
 import * as styles from '../../utils/style.module.css';
-import { SubMenuItem } from './ContextMenus';
+import { SubMenuItem, useFitInWindow } from './ContextMenus';
 import DeleteIcon from '@mui/icons-material/Delete';
 import AddIcon from '@mui/icons-material/Add';
 import {
@@ -146,16 +146,20 @@ export const NodeContextMenu = (props) => {
     e.preventDefault();
   }
 
+  const menuRef = useFitInWindow(props.contextMenuPosition[1]);
+
   return (
     <Paper
+      ref={menuRef}
       id="node-contextmenu"
       sx={{
         width: CONTEXTMENU_WIDTH,
         maxWidth: '100%',
+        maxHeight: '100dvh',
+        overflow: 'auto',
         position: 'absolute',
         zIndex: 1230,
         left: props.contextMenuPosition[0],
-        top: props.contextMenuPosition[1],
       }}
     >
       <MenuList dense>
@@ -246,6 +250,9 @@ export const NodeContextMenu = (props) => {
               <img src={REMOVE_FROM_GROUP_ICON_TEXTURE} />
             </ListItemIcon>
             <ListItemText>Remove from group</ListItemText>
+            <Typography variant="body2" color="text.secondary">
+              {`${props.controlOrMetaKey}+Alt+G`}
+            </Typography>
           </MenuItem>
         )}
         <MenuItem

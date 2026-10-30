@@ -42,7 +42,7 @@ import PersonIcon from '@mui/icons-material/Person';
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
 import SensorsIcon from '@mui/icons-material/Sensors';
 import { VISIBILITY_ACTION } from '../../utils/constants_shared';
-import { SubMenuItem } from './ContextMenus';
+import { SubMenuItem, useFitInWindow } from './ContextMenus';
 
 const GestureModeMenuItem = (props) => {
   const GestureIcon = props.icon;
@@ -180,6 +180,7 @@ export function appMenuOptions(controlOrMetaKey?: string): any {
         <UploadIcon fontSize="small" />
       </ListItemIcon>
       <ListItemText>Load from file</ListItemText>
+      {shortcut('$mod+Shift+O')}
     </MenuItem>,
     <MenuItem
       key="Open help"
@@ -210,8 +211,13 @@ export const GraphContextMenu = (props) => {
     e.preventDefault();
   }
 
+  const menuRef = useFitInWindow(
+    useIsSmallScreen() ? 0 : props.contextMenuPosition[1],
+  );
+
   return (
     <Paper
+      ref={menuRef}
       id="graph-contextmenu"
       sx={{
         width: useIsSmallScreen() ? '100%' : CONTEXTMENU_WIDTH,
@@ -220,7 +226,6 @@ export const GraphContextMenu = (props) => {
         position: 'absolute',
         zIndex: 1230,
         left: useIsSmallScreen() ? 0 : props.contextMenuPosition[0],
-        top: useIsSmallScreen() ? 0 : props.contextMenuPosition[1],
         paddingLeft: useIsSmallScreen() ? '32px' : UNSET_VALUE,
       }}
     >

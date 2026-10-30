@@ -366,6 +366,23 @@ describe('node groups', () => {
     });
   });
 
+  it('removes part of a group with the shortcut', () => {
+    doWithTestController((tc) => tc.selectNodesById(['B']));
+    cy.get('body').type(`${controlOrMetaKey()}{alt}g`);
+    shouldWithTestController((tc) => {
+      expect(tc.getGraph().groupLayer.getGroup(groupId).nodeIds).to.deep.eq([
+        'A',
+      ]);
+    });
+
+    cy.get('body').type(`${controlOrMetaKey()}z`);
+    shouldWithTestController((tc) => {
+      expect(
+        tc.getGraph().groupLayer.getGroup(groupId).nodeIds,
+      ).to.have.members(['A', 'B']);
+    });
+  });
+
   it('adds an ungrouped node dropped inside the frame', () => {
     let positionBefore;
     doWithTestController((tc) => {

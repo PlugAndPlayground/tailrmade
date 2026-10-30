@@ -40,6 +40,7 @@ import {
 } from './utils/constants';
 import { findEmbeddingsOf } from './nodes/layout/surfaceSync';
 import { groupSelection, ungroupSelection } from './actions/graphActions';
+import { removeNodesFromGroups } from './classes/groups/groupActions';
 import type { UISurfaceNode } from './nodes/layout/uiSurface';
 
 export enum ListenEvent {
@@ -404,7 +405,13 @@ export default class InterfaceController {
     const modKey = isMac() ? e.metaKey : e.ctrlKey;
     if (!isEventComingFromWithinTextInput(e)) {
       if (modKey) {
-        if (!e.shiftKey) {
+        // e.code, as Option turns e.key into another character on a Mac
+        if (e.altKey && e.code === 'KeyG') {
+          void removeNodesFromGroups(
+            PPGraph.currentGraph.selection.selectedNodes,
+          );
+          e.preventDefault();
+        } else if (!e.shiftKey) {
           switch (e.key.toLowerCase()) {
             case 'a':
               PPGraph.currentGraph.selection.selectAllNodes();
@@ -462,6 +469,10 @@ export default class InterfaceController {
               break;
             case 'g':
               void ungroupSelection();
+              e.preventDefault();
+              break;
+            case 'o':
+              this.onOpenFileBrowser();
               e.preventDefault();
               break;
             case 'y':
