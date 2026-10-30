@@ -1,5 +1,6 @@
 import type { StorageType, UserData, UserPreferences } from './shared-types';
 import type { AccessType } from '../utils/interfaces';
+import type { CloudGraphOwner } from './graphSource';
 
 export interface BackendTrace {
   start(): void;
@@ -269,7 +270,10 @@ export class BackendApiClient {
     }
 
     const result: StorageResponse<StoredItem> = await response.json();
-    return result.data || undefined;
+    if (!result.success || !result.data) {
+      throw new Error(`Invalid response when retrieving ${type}`);
+    }
+    return result.data;
   }
 
   async deleteItem(
@@ -307,7 +311,7 @@ export class BackendApiClient {
     userId: string,
     location: string,
     name: string,
-  ): Promise<string> {
+  ): Promise<{ data: string; owner?: CloudGraphOwner }> {
     const response = await this.fetchPublic(
       `/graph/${encodeURIComponent(userId)}/${encodeURIComponent(location)}/${encodeURIComponent(name)}`,
     );
@@ -329,7 +333,7 @@ export class BackendApiClient {
       throw new Error('Invalid response when retrieving public graph');
     }
 
-    return result.data;
+    return { data: result.data, owner: result.owner };
   }
 
   async getApiKeys(): Promise<ApiKeySummary[]> {

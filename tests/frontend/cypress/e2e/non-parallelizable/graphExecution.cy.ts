@@ -3,6 +3,8 @@ import {
   openExistingGraph,
   openNewGraph,
   saveGraph,
+  shouldWithTestController,
+  waitForGraphToBeReady,
 } from '../helpers';
 
 // check execution mode flow working as intended
@@ -100,27 +102,25 @@ describe('graph execution', () => {
   it('verify correct behaviour of our macro execution graph', () => {
     // Read the contents of the file
     let graphData = {};
-    cy.fixture('testExecution.ppgraph').then(
-      (fileContent) => {
-        // Parse the JSON content
-        graphData = fileContent;
-        doWithTestController(async (testController) => {
-          await testController.loadStringifiedGraph(graphData);
-          await testController.waitForPendingExecution();
-        });
+    cy.fixture('testExecution.ppgraph').then((fileContent) => {
+      // Parse the JSON content
+      graphData = fileContent;
+      doWithTestController(async (testController) => {
+        await testController.loadStringifiedGraph(graphData);
+      });
+      waitForGraphToBeReady();
 
-        doWithTestController(async (testController) => {
-          expect(
-            testController.getNodeOutputValue('chilly-wombat-61', 'Added'),
-          ).to.eq(4);
-          expect(
-            testController.getNodeOutputValue('itchy-zebra-77', 'Added'),
-          ).to.eq(12);
+      shouldWithTestController((testController) => {
+        expect(
+          testController.getNodeOutputValue('chilly-wombat-61', 'Added'),
+        ).to.eq(4);
+        expect(
+          testController.getNodeOutputValue('itchy-zebra-77', 'Added'),
+        ).to.eq(12);
 
-          //console.log(fileContent);
-        });
-        // Use the parsed data in your test
-      },
-    );
+        //console.log(fileContent);
+      });
+      // Use the parsed data in your test
+    });
   });
 });

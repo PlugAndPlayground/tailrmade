@@ -1,6 +1,9 @@
 // Every persisted-text migration in one place: the props model the migrations
 // target, legacy static Text items, legacy Text nodes, and the load path that
 // runs them all.
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { inflateSync } from 'node:zlib';
 import {
   migrateLegacyStaticTextProps,
   migrateStaticTextItemsInTree,
@@ -283,7 +286,7 @@ describe('legacy Text nodes', () => {
 
     expect(
       node.socketArray.find((socket) => socket.name === 'Input'),
-    ).toMatchObject({ dataType: '{"class":"AnyType"}', data: 'stale' });
+    ).toMatchObject({ dataType: '{"class":"StringType"}', data: 'stale' });
     expect(nodeProps(node).content).toBe('{{Input}}');
     // the style link is dropped, everything else survives untouched
     expect(migrated.links).toEqual([inputLink, outputLink]);
@@ -311,6 +314,41 @@ describe('legacy Text nodes', () => {
 });
 
 describe('migrateGraphDataOnLoad', () => {
+  it('preserves the portal sign-in message input as a string dashboard widget', () => {
+    const fixture = readFileSync(
+      join(__dirname, '../cypress/fixtures/Portal.ppgraph'),
+      'utf8',
+    );
+    const { graphData } = JSON.parse(
+      inflateSync(Buffer.from(fixture.trim(), 'base64url')).toString(),
+    );
+    const migrated = migrateGraphDataOnLoad(graphData);
+    const text = migrated.nodes.find((node) => node.id === 'cold-squid-58')!;
+    const input = text.socketArray.find((socket) => socket.name === 'Input')!;
+    expect(JSON.parse(input.dataType).class).toBe('StringType');
+    expect(nodeProps(text).content).toBe('{{Input}}');
+    expect(migrated.links).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          sourceNodeId: 'massive-moose-10',
+          sourceSocketName: 'Output',
+          targetNodeId: text.id,
+          targetSocketName: input.name,
+        }),
+      ]),
+    );
+    const surface = migrated.nodes.find(
+      (node) => node.type.toLowerCase() === 'uisurfacenode',
+    )!;
+    const layout = socketData(migrated, surface.id, surfaceJsonSocketName) as {
+      tree: Record<string, { props: { id?: string } }>;
+    };
+    expect(Object.values(layout.tree).map((item) => item.props.id)).toContain(
+      `SOCKET_${text.id}::in::${input.name}`,
+    );
+    expect(migrateGraphDataOnLoad(migrated)).toEqual(migrated);
+  });
+
   const expectMigratedTree = (tree: Record<string, any>) => {
     expect(tree.t1.props).toMatchObject({
       content: 'Hello world\nnext',

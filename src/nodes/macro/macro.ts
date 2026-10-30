@@ -546,6 +546,10 @@ export class Macro extends PPNode {
 }
 
 export class ExecuteMacro extends PPNode {
+  // Pause the caller, including MapExecuteMacro, before entering its body.
+  // Pausing inside a macro would let executeMacro return an unfinished result.
+  public readonly deferUntilAppApproved: boolean = true;
+
   // Macros can be referenced by name or execute nodes with side effects.
   public getSeemsUnused(): boolean {
     return false;

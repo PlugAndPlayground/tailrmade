@@ -128,14 +128,8 @@ function migrateNode(
 
   return {
     ...node,
-    socketArray: [
-      ...kept.map((socket) =>
-        socket.name === LEGACY_INPUT && socket.socketType !== 'out'
-          ? { ...socket, dataType: JSON.stringify({ class: 'AnyType' }) }
-          : socket,
-      ),
-      ...v2Sockets,
-    ],
+    // Socket types also select the renderer for existing dashboard widgets.
+    socketArray: [...kept, ...v2Sockets],
   };
 }
 

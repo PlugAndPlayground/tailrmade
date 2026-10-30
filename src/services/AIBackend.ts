@@ -299,7 +299,9 @@ export class AIBackend {
     return this.instance;
   }
 
-  private isLocalAI(): boolean {
+  // Public so AI nodes can report the Companion as an action when the
+  // relay runs locally.
+  public isLocalAI(): boolean {
     return (
       !CLOUD_MODE ||
       getCachedUserPreferences().aiLocation === EXECUTION_LOCATION_LOCAL

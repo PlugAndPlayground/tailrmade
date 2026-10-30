@@ -32,8 +32,13 @@ import {
 import { AIBackend } from './services/AIBackend';
 import { createTokenInput } from './text/nodeInputs';
 import PPGroup from './classes/groups/GroupClass';
+import { pendingAppRun } from './services/appExecution';
 
 export default class TestController {
+  isLoadedAppRunning(): boolean {
+    return !pendingAppRun.get() && PPGraph.currentGraph.graphConfiguredAndReady;
+  }
+
   identify(): string {
     return 'its testcontroller';
   }
