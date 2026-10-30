@@ -263,7 +263,7 @@ export class Video extends HybridNode2 {
   public getWidgetContent(
     props: HybridWidgetContentProps<Video>,
   ): React.ReactElement {
-    return <VideoComponent {...props} node={this} />;
+    return <VideoComponent {...props} />;
   }
 }
 
