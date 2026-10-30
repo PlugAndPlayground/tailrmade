@@ -7,7 +7,7 @@ import {
   Typography,
   Divider,
 } from '@mui/material';
-import React, { useEffect } from 'react';
+import React from 'react';
 import PPGraph from '../../classes/GraphClass';
 import InterfaceController from '../../InterfaceController';
 import PPStorage from '../../PPStorage';
@@ -42,7 +42,11 @@ import PersonIcon from '@mui/icons-material/Person';
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
 import SensorsIcon from '@mui/icons-material/Sensors';
 import { VISIBILITY_ACTION } from '../../utils/constants_shared';
-import { SubMenuItem, useFitInWindow } from './ContextMenus';
+import {
+  SubMenuItem,
+  useFitInWindow,
+  useSuppressBrowserContextMenu,
+} from './ContextMenus';
 import FactCheckOutlinedIcon from '@mui/icons-material/FactCheckOutlined';
 import { showCurrentAppRisks } from '../AppRiskDialog';
 
@@ -209,19 +213,7 @@ export function appMenuOptions(controlOrMetaKey?: string): any {
 }
 
 export const GraphContextMenu = (props) => {
-  useEffect(() => {
-    window.addEventListener('contextmenu', handleContextMenu);
-  }, []);
-
-  useEffect(() => {
-    return () => {
-      window.removeEventListener('contextmenu', handleContextMenu);
-    };
-  }, []);
-
-  function handleContextMenu(e: Event) {
-    e.preventDefault();
-  }
+  useSuppressBrowserContextMenu();
 
   const menuRef = useFitInWindow(
     useIsSmallScreen() ? 0 : props.contextMenuPosition[1],

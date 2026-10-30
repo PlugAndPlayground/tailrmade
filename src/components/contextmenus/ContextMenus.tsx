@@ -1,4 +1,4 @@
-import React, { useLayoutEffect, useRef, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import {
   ListItemText,
   MenuItem,
@@ -23,6 +23,14 @@ export const useFitInWindow = (top: number) => {
     menu.style.top = `${Math.max(0, Math.min(top, lowestTop))}px`;
   });
   return ref;
+};
+
+export const useSuppressBrowserContextMenu = () => {
+  useEffect(() => {
+    const handleContextMenu = (e: Event) => e.preventDefault();
+    window.addEventListener('contextmenu', handleContextMenu);
+    return () => window.removeEventListener('contextmenu', handleContextMenu);
+  }, []);
 };
 
 export type SubMenuItemProps = MenuItemProps & {

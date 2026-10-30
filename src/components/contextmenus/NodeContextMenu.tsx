@@ -7,7 +7,7 @@ import {
   Typography,
   Divider,
 } from '@mui/material';
-import React, { useEffect } from 'react';
+import React from 'react';
 import PPGraph from '../../classes/GraphClass';
 import PPNode from '../../classes/NodeClass';
 import InterfaceController from '../../InterfaceController';
@@ -39,7 +39,11 @@ import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import CachedIcon from '@mui/icons-material/Cached';
 import { VISIBILITY_ACTION } from '../../utils/constants_shared';
 import * as styles from '../../utils/style.module.css';
-import { SubMenuItem, useFitInWindow } from './ContextMenus';
+import {
+  SubMenuItem,
+  useFitInWindow,
+  useSuppressBrowserContextMenu,
+} from './ContextMenus';
 import DeleteIcon from '@mui/icons-material/Delete';
 import AddIcon from '@mui/icons-material/Add';
 import {
@@ -132,19 +136,7 @@ export const NodeContextMenu = (props) => {
     group.nodeIds.some((id) => !selectedNodes.some((node) => node.id === id)),
   );
 
-  useEffect(() => {
-    window.addEventListener('contextmenu', handleContextMenu);
-  }, []);
-
-  useEffect(() => {
-    return () => {
-      window.removeEventListener('contextmenu', handleContextMenu);
-    };
-  }, []);
-
-  function handleContextMenu(e: Event) {
-    e.preventDefault();
-  }
+  useSuppressBrowserContextMenu();
 
   const menuRef = useFitInWindow(props.contextMenuPosition[1]);
 

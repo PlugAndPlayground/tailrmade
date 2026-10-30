@@ -7,7 +7,7 @@ import {
   Divider,
   Box,
 } from '@mui/material';
-import React, { useEffect } from 'react';
+import React from 'react';
 import PPGraph from '../../classes/GraphClass';
 import PPNode from '../../classes/NodeClass';
 import InterfaceController, { ListenEvent } from '../../InterfaceController';
@@ -22,7 +22,7 @@ import { SOCKET_TYPE } from '../../utils/constants';
 import { writeTextToClipboard } from '../../utils/utils';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import { URLSetSocketData } from '../../nodes/state/storage';
-import { useFitInWindow } from './ContextMenus';
+import { useFitInWindow, useSuppressBrowserContextMenu } from './ContextMenus';
 
 function constructRecommendedNodeOptions(selectedSocket: Socket): any {
   const preferredNodes = selectedSocket.getPreferredNodes();
@@ -70,19 +70,7 @@ function constructRecommendedNodeOptions(selectedSocket: Socket): any {
 }
 
 export const SocketContextMenu = (props) => {
-  useEffect(() => {
-    window.addEventListener('contextmenu', handleContextMenu);
-  }, []);
-
-  useEffect(() => {
-    return () => {
-      window.removeEventListener('contextmenu', handleContextMenu);
-    };
-  }, []);
-
-  function handleContextMenu(e: Event) {
-    e.preventDefault();
-  }
+  useSuppressBrowserContextMenu();
 
   const selectedSocket: Socket = props.selectedSocket;
   const node: PPNode = selectedSocket.getNode();
