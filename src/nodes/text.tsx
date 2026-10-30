@@ -30,6 +30,7 @@ import {
 import { TextView } from '../text/TextView';
 import { shouldAutoFocusWidgetContent } from '../utils/nodeInteractivity';
 import PPSocket from '../classes/SocketClass';
+import { StaticValue, UNKNOWN_STATIC_VALUE } from '../classes/StaticValue';
 import { TRgba } from '../utils/color';
 import { TNodeSource } from '../utils/interfaces';
 import { BackPropagation } from '../interfaces';
@@ -69,6 +70,15 @@ import {
 } from '../utils/interfaces';
 const LABEL_MAX_STRING_LENGTH = 10000;
 
+// Shared by onExecute and the risk review: a review that trimmed differently
+// from the run would show an address the app never opens.
+const labelOutputText = (value: unknown): string => {
+  const text = String(value);
+  return text.length > LABEL_MAX_STRING_LENGTH
+    ? text.substring(0, LABEL_MAX_STRING_LENGTH) + '...'
+    : text;
+};
+
 const inputSocketName = 'Input';
 const outputSocketName = 'Output';
 const fontSizeSocketName = 'Font size';
@@ -105,6 +115,19 @@ const FONT_WEIGHT_PRESETS = [
 ];
 
 export class Label extends PPNode implements Layoutable {
+  // A label displays its input and passes it on unchanged, so a constant
+  // reaching one is still a constant as far as the risk review is concerned.
+  public getStaticOutputData(
+    name: string,
+    visited: Set<PPSocket>,
+  ): StaticValue {
+    if (name !== outputSocketName) return UNKNOWN_STATIC_VALUE;
+    const input = this.getStaticInputData(inputSocketName, visited);
+    return input.known
+      ? { known: true, value: labelOutputText(input.value) }
+      : UNKNOWN_STATIC_VALUE;
+  }
+
   // Labels are visible graph content.
   public getSeemsUnused(): boolean {
     return false;
@@ -439,11 +462,7 @@ export class Label extends PPNode implements Layoutable {
   }
 
   protected async onExecute(input, output): Promise<void> {
-    let text = String(input[inputSocketName]);
-    text =
-      text.length > LABEL_MAX_STRING_LENGTH
-        ? text.substring(0, LABEL_MAX_STRING_LENGTH) + '...'
-        : text;
+    const text = labelOutputText(input[inputSocketName]);
     output[outputSocketName] = text;
 
     const width = input[widthSocketName];

@@ -13,6 +13,13 @@ import { JSONType } from '../datatypes/jsonType';
 import { StringType } from '../datatypes/stringType';
 import UpdateBehaviourClass from '../../classes/UpdateBehaviourClass';
 import {
+  NodeRisk,
+  NetworkRisk,
+  CompanionRisk,
+  ApiKeyRisk,
+  findApiKeyReferences,
+} from '../../classes/NodeRisk';
+import {
   CompanionBackend,
   CompanionRequestError,
 } from '../../services/CompanionBackend';
@@ -41,6 +48,39 @@ export interface CompanionResponse {
 }
 
 export class HTTPNode extends PPNode {
+  public getRisks(): NodeRisk[] {
+    const inputs = this.inputSocketArray.map((socket) =>
+      this.getStaticInputData(socket.name),
+    );
+    const keys = findApiKeyReferences(inputs.map((input) => input.value));
+    const companion = this.getStaticInputData(sendThroughCompanionName);
+    const usesCompanion = !companion.known || Boolean(companion.value);
+    const informational =
+      !usesCompanion &&
+      this.getStaticInputData(methodName).value === 'Get' &&
+      inputs.every((input) => input.known) &&
+      keys.length === 0;
+    const risks: NodeRisk[] = [
+      new NetworkRisk(
+        this.getStaticInputData(urlInputName).value,
+        undefined,
+        informational ? 'info' : 'warning',
+      ),
+    ];
+    if (usesCompanion) {
+      risks.push(new CompanionRisk());
+      if (
+        [urlInputName, headersInputName, bodyInputName].some(
+          (name) => !this.getStaticInputData(name).known,
+        )
+      ) {
+        risks.push(new ApiKeyRisk());
+      }
+    }
+    for (const key of keys) risks.push(new ApiKeyRisk(key));
+    return risks;
+  }
+
   // Reads only contribute their response; writes may matter without one.
   public getSeemsUnused(): boolean {
     return this.getInputData(methodName) === 'Get' && super.getSeemsUnused();

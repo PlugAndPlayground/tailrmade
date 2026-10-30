@@ -26,6 +26,7 @@ import {
   $nodesOfType,
   BLUR_COMMAND,
   COMMAND_PRIORITY_NORMAL,
+  EditorState,
   FOCUS_COMMAND,
   LexicalEditor,
 } from 'lexical';
@@ -92,6 +93,7 @@ export const textEditorAutoHeightName = 'Auto height';
 const plainOutputSocketName = 'Plain';
 const markdownOutputSocketName = 'Markdown';
 const htmlOutputSocketName = 'HTML';
+const inputSyncTag = 'text-editor-input-sync';
 const backgroundColor = TRgba.fromString(COLOR_WHITE);
 
 type PendingFocus = boolean;
@@ -330,7 +332,7 @@ export class TextEditor2 extends HybridNode2 {
 
       // Trust Lexical's own state for the initial gate; the per-frame loop
       // below waits for the DOM attribute to actually reconcile.
-      if (!editorRef.current?.isEditable?.()) {
+      if (!editorRef.current?.isEditable()) {
         node.pendingFocus = request;
         return;
       }
@@ -493,6 +495,7 @@ export class TextEditor2 extends HybridNode2 {
       if (pauseUpdate || markdown == null || !editor) return;
       editor.setEditorState(
         editor.parseEditorState(markdownToLexicalState(markdown, true)),
+        { tag: inputSyncTag },
       );
     }, [props[textEditorMarkdownName], pauseUpdate]);
 
@@ -503,10 +506,16 @@ export class TextEditor2 extends HybridNode2 {
       }
     });
 
-    const onChangeByInternal = () => {
+    const onChangeByInternal = (
+      editorState: EditorState,
+      tags: Set<string>,
+    ) => {
+      if (tags.has(inputSyncTag)) {
+        updateOutputsAndEditorHeight();
+        return;
+      }
       // EditorRefPlugin is a child, so its effect has set the ref by now
       const editor = editorRef.current!;
-      const editorState = editor.getEditorState();
       node.setInputData(
         textEditorMarkdownName,
         lexicalStateToMarkdown(editorState.toJSON()),

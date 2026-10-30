@@ -1,4 +1,5 @@
 import Socket from '../../classes/SocketClass';
+import { NodeRisk, AIUsageRisk, CompanionRisk } from '../../classes/NodeRisk';
 import PPNode from '../../classes/NodeClass';
 import UpdateBehaviourClass from '../../classes/UpdateBehaviourClass';
 import { NODE_TYPE_COLOR, SOCKET_TYPE } from '../../utils/constants';
@@ -33,6 +34,15 @@ export const AIConversationName = 'Conversation';
 export const responseName = 'Response';
 
 export class AINode extends HTTPNode {
+  // AI nodes replace the HTTP sockets entirely, so HTTPNode's risks do not
+  // apply: the provider key stays on the backend. The local relay is the one
+  // destination worth naming, because it leaves the browser for the Companion.
+  public getRisks(): NodeRisk[] {
+    const risks: NodeRisk[] = [new AIUsageRisk()];
+    if (AIBackend.getInstance().isLocalAI()) risks.push(new CompanionRisk());
+    return risks;
+  }
+
   public getSeemsUnused(): boolean {
     // Retained conversations can be advanced even when this response is unused.
     return (
