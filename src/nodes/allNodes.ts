@@ -1,11 +1,9 @@
 import PPNode from '../classes/NodeClass';
 import { RegisteredNodeTypes } from '../utils/interfaces';
-import { getNodeGroup } from '../components/nodeSearchConstants';
 
 declare const require: (path: string) => any;
 
 let allNodesCached: RegisteredNodeTypes | undefined = undefined;
-let allNodesFormatted: any[] | undefined = undefined;
 let allNodesInDetail: Promise<any[]> | undefined = undefined;
 let aiNodesInDetail: Promise<any[]> | undefined = undefined;
 let aiNodesCompactList: Promise<string> | undefined = undefined;
@@ -42,6 +40,7 @@ const getNodeCategories = () => ({
   macro: require('./macro/macro'),
   math: require('./math'),
   tailrmade: require('./utility/tailrmade'),
+  typeOf: require('./utility/typeOf'),
   theme: require('./utility/theme'),
   pixotopegateway: require('./api/pixotopeGateway'),
   shader: require('./image/shader'),
@@ -160,34 +159,6 @@ export const getAllTagNames = (): string[] => {
         .flat(),
     ),
   ].sort();
-};
-
-export const getAllNodesFormattedForInterface = (): any[] => {
-  if (allNodesFormatted === undefined) {
-    allNodesFormatted = Object.entries(getAllNodeTypes())
-      .filter(([_, obj]) => obj.showInNodeSearch)
-      .map(([title, obj]) => {
-        return {
-          title,
-          name: obj.name,
-          key: title,
-          description: obj.description,
-          hasInputs: obj.hasInputs,
-          tags: obj.tags,
-          hasExample: obj.hasExample,
-          group: getNodeGroup(obj.tags),
-        };
-      })
-      .sort((a, b) =>
-        a.name.localeCompare(b.name, 'en', { sensitivity: 'base' }),
-      )
-      .sort((a, b) =>
-        a.group.localeCompare(b.group, 'en', {
-          sensitivity: 'base',
-        }),
-      );
-  }
-  return allNodesFormatted;
 };
 
 const getDetailsForNode = (node: PPNode, key: string): any => {

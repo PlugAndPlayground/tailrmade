@@ -3,7 +3,11 @@ import debounce from 'lodash/debounce';
 import PPGraph from './GraphClass';
 import PPNode from './NodeClass';
 import Socket from './SocketClass';
-import InterfaceController from '../InterfaceController';
+import { getNodePasteSession } from '../services/nodePasteTrust';
+import {
+  appExecutionAllowed,
+  isNodeExecutionAllowed,
+} from '../services/appExecution';
 
 // Track if execution is pending and allow waiting for it
 let executionPromise: Promise<void> | null = null;
@@ -31,8 +35,20 @@ const executePendingExecution = debounce(async () => {
 // only static functions to manage flow behaviour
 export default class FlowLogic {
   static pendingExecution = new Set<string>();
+  private static pausedExecutions = new Map<string, () => Promise<void>>();
+
+  static clearPausedExecutions(): void {
+    this.pausedExecutions.clear();
+  }
+
+  static async resumePausedExecutions(): Promise<void> {
+    const paused = Array.from(this.pausedExecutions.values());
+    this.pausedExecutions.clear();
+    for (const resume of paused) await resume();
+  }
 
   static addPendingExecution(nodeId: string): void {
+    if (!appExecutionAllowed.get()) return;
     // Create a new execution promise if none exists
     if (!executionPromise) {
       executionPromise = new Promise<void>((resolve) => {
@@ -112,7 +128,14 @@ export default class FlowLogic {
     foundational: PPNode[],
     excludedParent?: string, // this sucks man
   ): Promise<void> {
+    if (!appExecutionAllowed.get()) return;
     // if it turns out that any of the foundationals are dependent on some other of them, remove from foundational (they will get called later because they apparently are part of child chain)
+    const session = getNodePasteSession();
+    const executionKey = JSON.stringify([
+      foundational.map((node) => node.id).sort(),
+      excludedParent,
+    ]);
+    this.pausedExecutions.delete(executionKey);
     const foundationalOriginalSet: Set<string> = new Set(
       foundational.map((node) => node.id),
     );
@@ -135,41 +158,47 @@ export default class FlowLogic {
     //let currentExecuting: PPNode = foundational.shift();
     const hasExecuted = new Set<string>();
 
-    foundationalPost.sort((a, b) => a.executionOrder() - b.executionOrder());
-    let currentExecuting = foundationalPost.shift();
-    while (currentExecuting) {
-      const executing = currentExecuting;
-      await executing.execute();
-      hasExecuted.add(executing.id);
-      // uncomment if you want to see the execution visually by slowing it down (to make sure order is correct)
-      //console.log('executing: ' + currentExecuting.getName());
-      //await new Promise((resolve) => setTimeout(resolve, 100));
-      Object.keys(currentExecuting.getDirectDependents()).forEach(
-        (dependentKey) => {
-          if (dependencyGraph[dependentKey] !== undefined) {
-            dependencyGraph[dependentKey].delete(executing.id);
-            if (
-              dependencyGraph[dependentKey].size == 0 &&
-              (PPGraph.currentGraph.nodes[dependentKey].updateBehaviour
-                .update ||
-                foundationalOriginalSet.has(dependentKey)) &&
-              !hasExecuted.has(dependentKey) &&
-              dependentKey !== excludedParent
-            ) {
-              foundationalPost.push(PPGraph.currentGraph.nodes[dependentKey]);
-            }
-          }
-        },
-      );
-
-      do {
+    const execute = async (): Promise<void> => {
+      const blocked: PPNode[] = [];
+      while (foundationalPost.length) {
+        if (session !== getNodePasteSession()) return;
         foundationalPost.sort(
           (a, b) => a.executionOrder() - b.executionOrder(),
         );
-        currentExecuting = foundationalPost.shift();
-      } while (currentExecuting && hasExecuted.has(currentExecuting.id));
-    }
-    return;
+        const currentExecuting = foundationalPost.shift()!;
+        if (currentExecuting.destroyed || hasExecuted.has(currentExecuting.id))
+          continue;
+        if (!isNodeExecutionAllowed(currentExecuting)) {
+          blocked.push(currentExecuting);
+          continue;
+        }
+        await currentExecuting.execute();
+        if (session !== getNodePasteSession()) return;
+        hasExecuted.add(currentExecuting.id);
+        Object.keys(currentExecuting.getDirectDependents()).forEach(
+          (dependentKey) => {
+            if (dependencyGraph[dependentKey] !== undefined) {
+              dependencyGraph[dependentKey].delete(currentExecuting.id);
+              const dependent = PPGraph.currentGraph.nodes[dependentKey];
+              if (
+                dependencyGraph[dependentKey].size == 0 &&
+                (dependent.updateBehaviour.update ||
+                  foundationalOriginalSet.has(dependentKey)) &&
+                !hasExecuted.has(dependentKey) &&
+                dependentKey !== excludedParent
+              ) {
+                foundationalPost.push(dependent);
+              }
+            }
+          },
+        );
+      }
+      if (blocked.length) {
+        foundationalPost.push(...blocked);
+        this.pausedExecutions.set(executionKey, execute);
+      }
+    };
+    await execute();
   }
 
   // filteredfoundational are passed so that if they dont have "update" enabled they will still be included here

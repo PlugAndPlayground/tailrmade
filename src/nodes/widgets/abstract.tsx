@@ -20,6 +20,32 @@ export {
   getWidgetDragControlProps,
 } from '../../utils/nodeInteractivity';
 
+// declared next door so the code editors can share it, re-exported here beside
+// getColorSocket and getSizeSocket where a widget author looks for its options
+export {
+  commitModeName,
+  commitDelayName,
+  COMMIT_WHILE_TYPING,
+  COMMIT_RATE_LIMITED,
+  COMMIT_ON_ENTER_OR_BLUR,
+  COMMIT_ON_BLUR,
+  COMMIT_AFTER_PAUSE,
+  COMMIT_WHILE_DRAGGING,
+  COMMIT_ON_RELEASE,
+  typingCommitOptions,
+  searchCommitOptions,
+  editorCommitOptions,
+  draggingCommitOptions,
+  defaultCommitDelay,
+  commitsImmediately,
+  usesCommitDelay,
+  getCommitModeSocket,
+  getCommitDelaySocket,
+  useCommitMode,
+  type CommitModeOptions,
+  type CommitModeHandle,
+} from '../commitMode';
+
 export const defaultProps: WidgetProps = {
   background: { r: 9, g: 13, b: 26, a: 0 },
   width: '100%',

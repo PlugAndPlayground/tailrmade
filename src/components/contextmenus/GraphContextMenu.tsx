@@ -7,7 +7,7 @@ import {
   Typography,
   Divider,
 } from '@mui/material';
-import React, { useEffect } from 'react';
+import React from 'react';
 import PPGraph from '../../classes/GraphClass';
 import InterfaceController from '../../InterfaceController';
 import PPStorage from '../../PPStorage';
@@ -42,7 +42,13 @@ import PersonIcon from '@mui/icons-material/Person';
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
 import SensorsIcon from '@mui/icons-material/Sensors';
 import { VISIBILITY_ACTION } from '../../utils/constants_shared';
-import { SubMenuItem } from './ContextMenus';
+import {
+  SubMenuItem,
+  useFitInWindow,
+  useSuppressBrowserContextMenu,
+} from './ContextMenus';
+import FactCheckOutlinedIcon from '@mui/icons-material/FactCheckOutlined';
+import { showCurrentAppRisks } from '../AppRiskDialog';
 
 const GestureModeMenuItem = (props) => {
   const GestureIcon = props.icon;
@@ -68,6 +74,16 @@ const GestureModeMenuItem = (props) => {
 
 function gestureModes(): any {
   return [
+    <MenuItem
+      key="Review risks"
+      data-cy="review-risks"
+      onClick={showCurrentAppRisks}
+    >
+      <ListItemIcon>
+        <FactCheckOutlinedIcon fontSize="small" />
+      </ListItemIcon>
+      <ListItemText>Review risks</ListItemText>
+    </MenuItem>,
     <GestureModeMenuItem
       icon={MouseIcon}
       key={GESTUREMODE.MOUSE}
@@ -180,6 +196,7 @@ export function appMenuOptions(controlOrMetaKey?: string): any {
         <UploadIcon fontSize="small" />
       </ListItemIcon>
       <ListItemText>Load from file</ListItemText>
+      {shortcut('$mod+Shift+O')}
     </MenuItem>,
     <MenuItem
       key="Open help"
@@ -196,22 +213,15 @@ export function appMenuOptions(controlOrMetaKey?: string): any {
 }
 
 export const GraphContextMenu = (props) => {
-  useEffect(() => {
-    window.addEventListener('contextmenu', handleContextMenu);
-  }, []);
+  useSuppressBrowserContextMenu();
 
-  useEffect(() => {
-    return () => {
-      window.removeEventListener('contextmenu', handleContextMenu);
-    };
-  }, []);
-
-  function handleContextMenu(e: Event) {
-    e.preventDefault();
-  }
+  const menuRef = useFitInWindow(
+    useIsSmallScreen() ? 0 : props.contextMenuPosition[1],
+  );
 
   return (
     <Paper
+      ref={menuRef}
       id="graph-contextmenu"
       sx={{
         width: useIsSmallScreen() ? '100%' : CONTEXTMENU_WIDTH,
@@ -220,7 +230,6 @@ export const GraphContextMenu = (props) => {
         position: 'absolute',
         zIndex: 1230,
         left: useIsSmallScreen() ? 0 : props.contextMenuPosition[0],
-        top: useIsSmallScreen() ? 0 : props.contextMenuPosition[1],
         paddingLeft: useIsSmallScreen() ? '32px' : UNSET_VALUE,
       }}
     >

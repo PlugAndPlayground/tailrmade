@@ -1,11 +1,6 @@
 import PPGraph from '../../classes/GraphClass';
 import { TRgba } from '../../utils/color';
-import { AbstractType } from './abstractType';
 import { DynamicEnumType } from './dynamicEnumType';
-
-export interface FilterTypeInterface {
-  Filters: FilterCondition[];
-}
 
 interface FilterCondition {
   Property: string;

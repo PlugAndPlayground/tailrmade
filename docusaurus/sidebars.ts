@@ -129,6 +129,11 @@ const sidebars: SidebarsConfig = {
         },
         {
           type: 'doc',
+          id: 'app-risk-review',
+          label: 'App risk review',
+        },
+        {
+          type: 'doc',
           id: 'self-hosting',
           label: 'Self-host tailrmade',
         },

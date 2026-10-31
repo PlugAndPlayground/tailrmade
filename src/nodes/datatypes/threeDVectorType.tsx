@@ -1,6 +1,6 @@
 import React from 'react';
-import { DEFAULT_2DVECTOR, DEFAULT_3DVECTOR } from '../../utils/constants';
-import { parse2DVector, parse3DVector } from '../../utils/utils';
+import { DEFAULT_3DVECTOR } from '../../utils/constants';
+import { parse3DVector } from '../../utils/utils';
 import { TRgba } from '../../utils/color';
 import type { TParseType } from '../../utils/interfaces';
 import { ThreeDNumberWidget } from '../../widgets';

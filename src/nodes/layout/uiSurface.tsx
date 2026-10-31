@@ -46,7 +46,6 @@ import {
   surfaceRadioGroupSocketName,
   surfaceElementVisibleSuffix,
   surfaceElementLayoutSuffix,
-  VISIBILITY_ACTION,
 } from '../../utils/constants_shared';
 import { SOCKET_NAME_DASHBOARD_CONTENT } from '../../utils/layoutableHelpers';
 import {

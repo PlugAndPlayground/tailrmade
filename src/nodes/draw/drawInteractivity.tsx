@@ -1,17 +1,16 @@
-import { DRAW_Base, outputPixiName } from './abstract';
+import { DRAW_Base } from './abstract';
 import { SOCKET_TYPE } from '../../utils/constants';
 import { BooleanType } from '../datatypes/booleanType';
 import {
   DeferredPixiType,
   DeferredPixiTypeInterface,
 } from '../datatypes/deferredPixiType';
-import { DynamicInputNodeFunctions } from '../abstract/DynamicInputNode';
 import * as PIXI from 'pixi.js';
 import Socket from '../../classes/SocketClass';
 import { inputGraphicsName } from './draw';
 import { StringType } from '../datatypes/stringType';
 import { DynamicEnumType } from '../datatypes/dynamicEnumType';
-import { ExecuteMacro, macroNameName } from '../macro/macro';
+import { ExecuteMacro } from '../macro/macro';
 import { ArrayType } from '../datatypes/arrayType';
 import PPGraph from '../../classes/GraphClass';
 import { ColorType } from '../datatypes/colorType';

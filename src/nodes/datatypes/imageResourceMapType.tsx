@@ -1,9 +1,4 @@
-import {
-  AbstractType,
-  Compatibility,
-  CompatibilityType,
-  DataTypeProps,
-} from './abstractType';
+import { Compatibility, CompatibilityType } from './abstractType';
 import { TRgba } from '../../utils/color';
 import { JSONType } from './jsonType';
 

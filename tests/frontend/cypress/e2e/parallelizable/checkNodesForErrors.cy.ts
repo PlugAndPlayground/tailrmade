@@ -35,6 +35,14 @@ describe('checkNodesForErrors', () => {
             `${nodeType}: expected total executions < 2, got timesExecuted=${timesExecuted} + timesExecutedChildren=${timesExecutedChildren}`,
           ).to.be.below(2);
 
+          // hybrid content renders a frame after adding, and its error boundary
+          // swallows a throw, so node status never shows it
+          await new Promise((resolve) => setTimeout(resolve, 100));
+          const renderError = Cypress.$(
+            `[id="Container-${node.id}"] [role="alert"]`,
+          ).text();
+          expect(renderError, `${nodeType}: render error`).to.eq('');
+
           await testController.removeNode(node.id);
         });
       });

@@ -1,5 +1,4 @@
 import { useEffect } from 'react';
-import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext';
 
 export default function MyOnChangePlugin({
   editorRef,
@@ -18,7 +17,7 @@ export default function MyOnChangePlugin({
         ) {
           return;
         }
-        onChange(editorState);
+        onChange(editorState, tags);
       },
     );
   }, [editorRef.current, onChange]);

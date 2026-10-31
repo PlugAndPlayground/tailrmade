@@ -31,8 +31,14 @@ import {
 } from './services/TailrmadeMCPServer';
 import { AIBackend } from './services/AIBackend';
 import { createTokenInput } from './text/nodeInputs';
+import PPGroup from './classes/groups/GroupClass';
+import { pendingAppRun } from './services/appExecution';
 
 export default class TestController {
+  isLoadedAppRunning(): boolean {
+    return !pendingAppRun.get() && PPGraph.currentGraph.graphConfiguredAndReady;
+  }
+
   identify(): string {
     return 'its testcontroller';
   }
@@ -370,6 +376,30 @@ export default class TestController {
     const nodes = nodeIDs.map((id) => this.getNodeByID(id));
     this.getGraph().selection.selectNodes(nodes, false);
     return nodes;
+  }
+
+  getGroups(): PPGroup[] {
+    return this.getGraph().groupLayer.groups;
+  }
+
+  getGroupColorIconCenter(groupId: string): [number, number] {
+    const icon = this.getGraph()
+      .groupLayer.getGroup(groupId)!
+      .getColorIconRect();
+    const point = this.getGraph().viewport.toScreen(
+      icon.x + icon.width / 2,
+      icon.y + icon.height / 2,
+    );
+    return [point.x, point.y];
+  }
+
+  getGroupHeaderCenter(groupId: string): [number, number] {
+    const header = this.getGraph().groupLayer.getGroup(groupId)!.getHeader();
+    const point = this.getGraph().viewport.toScreen(
+      header.x + header.width / 2,
+      header.y + header.height / 2,
+    );
+    return [point.x, point.y];
   }
 
   doesNodeHaveError(nodeID: string): boolean {

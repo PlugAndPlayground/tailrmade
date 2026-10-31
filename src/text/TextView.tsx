@@ -190,6 +190,7 @@ export const TextView: React.FC<TextViewProps> = ({
     <Box
       id={id}
       data-cy={dataCy}
+      className="text-block-hits"
       sx={[
         (theme) => toneCssVariables(theme),
         {

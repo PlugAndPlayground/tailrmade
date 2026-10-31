@@ -26,6 +26,7 @@ import {
   $nodesOfType,
   BLUR_COMMAND,
   COMMAND_PRIORITY_NORMAL,
+  EditorState,
   FOCUS_COMMAND,
   LexicalEditor,
 } from 'lexical';
@@ -92,6 +93,7 @@ export const textEditorAutoHeightName = 'Auto height';
 const plainOutputSocketName = 'Plain';
 const markdownOutputSocketName = 'Markdown';
 const htmlOutputSocketName = 'HTML';
+const inputSyncTag = 'text-editor-input-sync';
 const backgroundColor = TRgba.fromString(COLOR_WHITE);
 
 type PendingFocus = boolean;
@@ -330,7 +332,7 @@ export class TextEditor2 extends HybridNode2 {
 
       // Trust Lexical's own state for the initial gate; the per-frame loop
       // below waits for the DOM attribute to actually reconcile.
-      if (!editorRef.current?.isEditable?.()) {
+      if (!editorRef.current?.isEditable()) {
         node.pendingFocus = request;
         return;
       }
@@ -505,6 +507,7 @@ export class TextEditor2 extends HybridNode2 {
       if (pauseUpdate || markdown == null || !editor) return;
       editor.setEditorState(
         editor.parseEditorState(markdownToLexicalState(markdown, true)),
+        { tag: inputSyncTag },
       );
     }, [props[textEditorMarkdownName], pauseUpdate]);
 
@@ -515,15 +518,21 @@ export class TextEditor2 extends HybridNode2 {
       }
     });
 
-    const onChangeByInternal = () => {
+    const onChangeByInternal = (
+      editorState: EditorState,
+      tags: Set<string>,
+    ) => {
+      if (tags.has(inputSyncTag)) {
+        updateOutputsAndEditorHeight();
+        return;
+      }
       // EditorRefPlugin is a child, so its effect has set the ref by now
       const editor = editorRef.current!;
-      const editorState = editor.getEditorState();
       const markdown = lexicalStateToMarkdown(editorState.toJSON());
       if (props.templateInstance) {
-        // only what the viewer types is an edit; a pass updating this row's
-        // text also lands here and must not be stored as one
-        if (pauseUpdate && markdown !== props[textEditorMarkdownName]) {
+        // a pass updating this row's text arrives tagged and returned above, so
+        // what lands here is the viewer's typing
+        if (markdown !== props[textEditorMarkdownName]) {
           void node.applyWidgetEdit(
             textEditorMarkdownName,
             markdown,

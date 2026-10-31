@@ -40,7 +40,6 @@ import {
 import {
   AbstractType,
   DataTypeProps,
-  IsCompatible,
   isDirectlyCompatible,
 } from '../nodes/datatypes/abstractType';
 import { AnyType } from '../nodes/datatypes/anyType';

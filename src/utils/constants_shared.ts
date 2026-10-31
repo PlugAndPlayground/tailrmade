@@ -21,13 +21,6 @@ export const ONCLICK_DOUBLECLICK = 2;
 
 export const dashboardLayoutInputName = 'Layout';
 export const dashboardVisibilitySocketName = 'Visible';
-export const dashboardCollapseSocketName = 'Collapse Mode';
-export const dashboardCollapseNoControlText = 'No Control';
-export const COLLAPSE_OPTIONS = [
-  { text: dashboardCollapseNoControlText, value: 'none' },
-  { text: 'Collapsed', value: 'collapse' },
-  { text: 'Expanded', value: 'expand' },
-];
 
 export const surfaceJsonSocketName = 'Layout JSON';
 export const surfaceRouteSocketName = 'Route';

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import { Box, FormControl, TextField } from '@mui/material';
 import {
   WidgetHybridBase,
@@ -10,6 +10,11 @@ import {
   initialValueName,
   getLabelSocket,
   getWidgetControlProps,
+  commitDelayName,
+  commitModeName,
+  getCommitDelaySocket,
+  getCommitModeSocket,
+  useCommitMode,
   labelName,
   outName,
   sizeName,
@@ -60,8 +65,13 @@ const textFieldDefaultLabel = 'Text Field';
 // Options
 const typeOptions: EnumStructure = [{ text: 'text' }, { text: 'password' }];
 
-const getFieldEndSockets = (outType: AbstractType): Socket[] => [
+const getFieldEndSockets = (
+  node: WidgetHybridBase,
+  outType: AbstractType,
+): Socket[] => [
   new Socket(SOCKET_TYPE.IN, requiredName, new BooleanType(), false, false),
+  getCommitModeSocket(),
+  getCommitDelaySocket(node),
   getColorSocket(),
   getSizeSocket(),
   new Socket(SOCKET_TYPE.OUT, outName, outType),
@@ -126,7 +136,7 @@ export class WidgetTextField extends WidgetHybridBase {
         0,
         false,
       ),
-      ...getFieldEndSockets(new StringType()),
+      ...getFieldEndSockets(this, new StringType()),
     ];
   }
 
@@ -157,8 +167,7 @@ export class WidgetTextField extends WidgetHybridBase {
     this.setOutputData(outName, inputObject[initialValueName]);
   }
 
-  handleOnChange = async (event, instance?: TemplateInstanceHandle) => {
-    const value = event.target.value;
+  handleOnChange = async (value: string, instance?: TemplateInstanceHandle) => {
     const id = this.id;
     const prev = this.readWidgetValue(initialValueName, instance);
 
@@ -182,26 +191,20 @@ export class WidgetTextField extends WidgetHybridBase {
     );
   };
 
-  // Handle blur to finalize changes
-  handleOnBlur = async () => {
-    // This could be used to trigger additional actions when field loses focus
-  };
-
   getWidgetContent(props: WidgetContentProps): React.ReactElement {
     const node = props.node as WidgetTextField;
-    const [internalValue, setInternalValue] = useState<string>(
-      props[initialValueName],
-    );
-    const [isFocused, setIsFocused] = useState(false);
-
-    // Keep local value in sync only when not focused
-    useEffect(() => {
-      if (!isFocused && internalValue !== props[initialValueName]) {
-        setInternalValue(props[initialValueName]);
-      }
-    }, [props[initialValueName], isFocused]);
-
     const multiline = props[multilineName];
+    const commit = useCommitMode<string>(
+      props[initialValueName],
+      (value) => void node.handleOnChange(value, props.templateInstance),
+      {
+        mode: props[commitModeName],
+        delay: props[commitDelayName],
+        // a bare Enter writes a new line in a multiline field, so there it
+        // takes Cmd/Ctrl+Enter to commit
+        commitOnEnter: !multiline,
+      },
+    );
     const rows = props[rowsName] || 3;
     const maxLength = props[maxLengthName];
     const required = props[requiredName];
@@ -222,7 +225,7 @@ export class WidgetTextField extends WidgetHybridBase {
             <TextField
               {...getWidgetControlProps(props.disabled)}
               margin="none"
-              value={internalValue}
+              value={commit.value}
               label={props[labelName]}
               placeholder={placeholder}
               helperText={helperText}
@@ -240,16 +243,10 @@ export class WidgetTextField extends WidgetHybridBase {
               }}
               required={required}
               disabled={props.disabled}
-              onFocus={() => setIsFocused(true)}
-              onChange={(e) => {
-                setInternalValue(e.target.value);
-                // still update graph so outputs react immediately
-                void node.handleOnChange(e, props.templateInstance);
-              }}
-              onBlur={() => {
-                setIsFocused(false);
-                void node.handleOnBlur();
-              }}
+              onFocus={commit.beginEditing}
+              onChange={(e) => commit.edit(e.target.value)}
+              onBlur={commit.endEditing}
+              onKeyDown={commit.handleKeyDown}
               sx={{
                 pointerEvents: props.disabled ? 'none' : undefined,
                 ...sizeSx,
@@ -318,7 +315,7 @@ export class WidgetNumberField extends WidgetNumberBase {
       new Socket(SOCKET_TYPE.IN, helperTextName, new StringType(), '', false),
       new Socket(SOCKET_TYPE.IN, stepName, new NumberType(), 1, false),
       new Socket(SOCKET_TYPE.IN, steppersName, new BooleanType(), true, false),
-      ...getFieldEndSockets(new NumberType()),
+      ...getFieldEndSockets(this, new NumberType()),
     ];
   }
 
@@ -347,6 +344,11 @@ export class WidgetNumberField extends WidgetNumberBase {
 
   getWidgetContent(props: WidgetContentProps): React.ReactElement {
     const node = props.node as WidgetNumberField;
+    const commit = useCommitMode<number>(
+      props[initialValueName],
+      (value) => void node.handleValueChange(value, props.templateInstance),
+      { mode: props[commitModeName], delay: props[commitDelayName] },
+    );
     const size = useWidgetSize(props[sizeName]);
     const tokens = useSizeTokens(size);
     const sizeSx = useSizeSx(size);
@@ -360,9 +362,8 @@ export class WidgetNumberField extends WidgetNumberBase {
           {...getWidgetControlProps(props.disabled)}
           label={props[labelName]}
           value={props[initialValueName]}
-          onChange={(value) =>
-            void node.handleValueChange(value, props.templateInstance)
-          }
+          onChange={commit.edit}
+          onCommit={commit.endEditing}
           min={limitRange ? props[minValueName] : undefined}
           max={limitRange ? props[maxValueName] : undefined}
           step={Math.max(props[stepName], 10 ** -decimals)}
