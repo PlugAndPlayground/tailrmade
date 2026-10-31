@@ -1,0 +1,107 @@
+# Create reusable UI templates
+
+A UI template is a piece of user interface you build once and show as often as you need:
+
+- One card for each product in a list
+- One form for each row of a table
+- The same panel on several pages, with different values
+
+Change the template and every copy follows. Each copy still shows its own values, and whatever a user types into one copy stays in that copy.
+
+The nodes that make this work:
+
+| Node              | What it does                                   |
+| :---------------- | :--------------------------------------------- |
+| `UI Template`     | The frame you build the piece of UI inside     |
+| `Place Template`  | Shows the template once, with its own values   |
+| `Repeat Template` | Shows the template once per entry of your data |
+
+## Build a template
+
+1. Add a "UI Template" node from the node search
+2. Optionally - Give it a name in the node inspector. Placements refer to the template by this name.
+3. Add the widgets you need inside the frame, and set the values every copy should start from
+4. Add a "UI surface" node inside the frame and connect each widget's `ReactUI` output to it
+5. Connect the surface's `ReactUI` output to the template's `UI` input on the right
+6. Arrange the widgets on the surface as usual, see [Build the user interface](/help/docs/build-user-interface)
+
+The surface connected to `UI` is the body of the template. Only connect it to the template.
+
+### Add parameters
+
+A parameter is anything that should differ between copies, like a title or a price.
+
+1. Connect the `Parameter 1` output on the left of the template to the input that should change
+2. A new `Parameter 2` appears as soon as you use the last one
+
+Each parameter takes the name of the input it feeds. One parameter can feed several inputs, for example a widget and a calculation.
+
+### Hand values back
+
+To use a value from the template elsewhere in your graph, connect it to the `Output 1` input on the right of the template. Place Template gets a matching output. Repeat Template collects the values from all rows into its `Output`.
+
+### Show widgets conditionally
+
+To show a widget in some copies only, feed a parameter into a test, for example a Custom Function that returns `true` or `false`. Connect the result to that widget's `visible` input on the surface. Each copy works out its own answer.
+
+## Show a template once
+
+1. Add a "Place Template" node
+2. In the node inspector, pick your template under `Template`
+3. Set or connect the parameter inputs that appear on the node
+4. Connect its `ReactUI` output to the surface where it should appear
+
+Add one Place Template node for each copy you want.
+
+## Show a template per entry
+
+1. Add a "Repeat Template" node
+2. In the node inspector, pick your template under `Template`
+3. Connect an array or a JSON object to `Items`
+4. Connect its `ReactUI` output to the surface where it should appear
+
+### How entries fill the parameters
+
+Parameters are matched by name, so most templates need no setup:
+
+| Parameter is named         | It receives                            |
+| :------------------------- | :------------------------------------- |
+| `entry`, `item` or `value` | The whole entry                        |
+| `key` or `index`           | The object's key, or the array's index |
+| Anything else              | The entry's field with that name       |
+
+If an entry is not an object, an unmatched parameter receives the entry itself.
+
+When the name doesn't match, use the `"<parameter>" from` input on the node. Enter a field name, `key` or `entry`. If the entry has a field with the name you entered, that field is used.
+
+### Settings
+
+| Input        | What it does                                                                                  |
+| :----------- | :-------------------------------------------------------------------------------------------- |
+| `Direction`  | `column` for a list, `row` to put all entries side by side                                    |
+| `Columns`    | With more than one, entries wrap into a grid                                                  |
+| `Gap`        | The space between entries                                                                     |
+| `Key field`  | The field that identifies an entry, so edits stay with the right entry when the data reorders |
+| `Max items`  | The most entries to show, 50 by default                                                       |
+| `Empty text` | What to show when there are no entries                                                        |
+
+:::tip
+Set `Key field` whenever your data can change order. Without it, an array entry is identified by its position, so an edit stays at that position.
+:::
+
+## What users can change
+
+Widgets inside a copy work as usual in the user interface. A change stays in that copy, or that row of a Repeat Template:
+
+- It replaces what the parameter provided for that row
+- Other copies and rows are not affected
+- It is saved with the graph, in the placement's `Edits` input
+- If one parameter feeds several widgets, they share one value, so the latest change shows in all of them
+
+To change what every copy starts from, set the value on the widget inside the template frame.
+
+## Things to keep in mind
+
+- **Speed:** the template runs once for every row. Rows with slow nodes inside add up, so keep expensive work like API calls outside the template and pass in the results. A Custom Function in a worker adds a small delay per row, and turning on `Main Thread` removes it.
+- **Reading values:** the nodes inside the frame are shared, so their sockets hold whichever row ran last. Use a template's outputs to read a row's values.
+- **Placing a template inside a template:** this works, as long as a template doesn't end up placing itself. That shows an error on the node. A change a user makes in the inner template shows in every row of the outer one.

@@ -90,7 +90,12 @@ export const DynamicWidgetContainerNode: React.FunctionComponent<
     return () => InterfaceController.removeListener(listenerId);
   }, []);
 
+  // see DynamicWidgetContainerHybridNode: a placement's owner re-renders this
+  const followsSharedNode = props.templateInstance === undefined;
   useEffect(() => {
+    if (!followsSharedNode) {
+      return;
+    }
     const executionListener = () => {
       setDummyExecutionVar(Math.random);
     };
@@ -99,7 +104,7 @@ export const DynamicWidgetContainerNode: React.FunctionComponent<
     return () => {
       props.property.removeExecutionListener(executionListener);
     };
-  }, [props.property]);
+  }, [props.property, followsSharedNode]);
 
   return (
     <Box

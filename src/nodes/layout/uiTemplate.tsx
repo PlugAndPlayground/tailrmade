@@ -1,66 +1,35 @@
-import React, { useContext } from 'react';
-import { Box } from '@mui/material';
-import HybridNode2, {
-  HybridWidgetContentProps,
-} from '../../classes/HybridNode2';
-import PPGraph from '../../classes/GraphClass';
-import PPNode from '../../classes/NodeClass';
+import React, { useContext, useMemo } from 'react';
+import { HybridWidgetContentProps } from '../../classes/HybridNode2';
 import PPSocket from '../../classes/SocketClass';
 import {
   SurfaceCanvasPreviewContext,
-  SurfaceRenderer,
   SurfaceVisitedContext,
 } from '../../components/dashboard/SurfaceRenderer';
 import {
-  TemplateInstanceContext,
-  TemplateEdits,
-  emptyTemplateEdits,
+  TEMPLATE_PLACED_STATE_PROP,
   TemplateInstanceCapture,
-  TemplateRowEdits,
   emptyTemplateCapture,
 } from '../../components/dashboard/templateInstance';
-import { getPageDashboardIcon } from '../../components/dashboard/dashboardIcons';
-import { DynamicEnumType } from '../datatypes/dynamicEnumType';
-import { JSONType } from '../datatypes/jsonType';
-import { EnumStructure } from '../datatypes/enumType';
-import { TRgba } from '../../utils/color';
 import { AGENT_DOCS_HEADING } from '../../utils/nodeDocs';
-import { NODE_TYPE_COLOR, SOCKET_TYPE } from '../../utils/constants';
+import { SOCKET_TYPE } from '../../utils/constants';
 import {
   templateSocketName,
-  templateEditsSocketName,
   templateOutputPrefixName,
   templateParameterPrefixName,
-  templateUISocketName,
 } from '../../utils/constants_shared';
 import { SOCKET_NAME_DASHBOARD_CONTENT } from '../../utils/layoutableHelpers';
-import {
-  DashboardIconProps,
-  Layoutable,
-  WidgetProps,
-} from '../../utils/interfaces';
 import { deSerializeType, serializeType } from '../datatypes/typehelper';
 import { TemplateArgs, runTemplateAsInstance } from './templateInstancing';
+import {
+  getPlacementProblem,
+  TemplateBody,
+  TemplateNotice,
+  TemplatePlacementNode,
+} from './templatePlacement';
 import { SurfaceSync } from './surfaceSync';
-import { getTemplates, UITemplate } from './uiTemplateNode';
+import { UITemplate } from './uiTemplateNode';
 
 export { UITemplate } from './uiTemplateNode';
-
-const NO_TEMPLATE = '';
-
-const Notice: React.FunctionComponent<{ label: string }> = ({ label }) => (
-  <Box
-    sx={{
-      width: '100%',
-      p: 1,
-      color: 'warning.main',
-      fontSize: '12px',
-      textAlign: 'center',
-    }}
-  >
-    {label}
-  </Box>
-);
 
 export const PlaceTemplateWidget: React.FunctionComponent<
   HybridWidgetContentProps<PlaceTemplate>
@@ -71,66 +40,46 @@ export const PlaceTemplateWidget: React.FunctionComponent<
     useContext(SurfaceCanvasPreviewContext) || !props.inDashboard;
   const template = node.getTemplate();
   const body = template?.getBodySurface();
+  const bodyVisited = useMemo(
+    () => [...visited, body?.id ?? ''],
+    [visited, body?.id],
+  );
 
-  if (!template) {
-    const name = String(props[templateSocketName] ?? '');
-    return (
-      <Notice
-        label={name ? `Template "${name}" not found` : 'No template selected'}
-      />
-    );
+  const problem = getPlacementProblem(
+    props[templateSocketName],
+    template,
+    visited,
+  );
+  if (problem || !body) {
+    return <TemplateNotice label={problem ?? ''} />;
   }
 
-  if (!body) {
-    return (
-      <Notice
-        label={`"${template.nodeName}" has no UI surface plugged into its ${templateUISocketName} input`}
-      />
-    );
-  }
-
-  // the guard embedded surfaces already use, keyed on the body surface - two
-  // placements of one template are fine, a template inside itself is not
-  if (visited.includes(body.id)) {
-    return (
-      <Notice
-        label={`Recursive template (${template.nodeName}) - not rendered`}
-      />
-    );
-  }
-
-  // the tree this placement's own pass produced, overrides already applied;
-  // only before the first pass is there nothing to show but the live one
-  const tree =
-    node.capture.trees[body.id] ??
-    SurfaceSync.applyRuntimeOverrides(body, body.getSurfaceTree());
+  // nested in another template, this rendering belongs to that template's row
+  const capture: TemplateInstanceCapture =
+    props[TEMPLATE_PLACED_STATE_PROP] ?? node.capture;
 
   return (
-    <TemplateInstanceContext.Provider
-      value={{ ownerId: node.id, ...node.capture }}
-    >
-      <SurfaceCanvasPreviewContext.Provider value={isCanvasPreview}>
-        <SurfaceVisitedContext.Provider value={[...visited, body.id]}>
-          <SurfaceRenderer
-            tree={tree}
-            interactive={Boolean(props.inDashboard) && !props.disabled}
-          />
-        </SurfaceVisitedContext.Provider>
-      </SurfaceCanvasPreviewContext.Provider>
-    </TemplateInstanceContext.Provider>
+    <TemplateBody
+      ownerId={node.id}
+      capture={capture}
+      // the tree this placement's own pass produced, overrides already applied;
+      // only before the first pass is there nothing to show but the live one
+      tree={
+        capture.trees[body.id] ??
+        SurfaceSync.applyRuntimeOverrides(body, body.getSurfaceTree())
+      }
+      visited={bodyVisited}
+      isCanvasPreview={isCanvasPreview}
+      interactive={Boolean(props.inDashboard) && !props.disabled}
+    />
   );
 };
 
-export class PlaceTemplate extends HybridNode2 implements Layoutable {
+export class PlaceTemplate extends TemplatePlacementNode {
   // what this placement's widgets render from: the inner nodes' input objects
   // and the overrides-applied trees, as they stood at the end of THIS
   // placement's evaluation pass
   capture: TemplateInstanceCapture = emptyTemplateCapture();
-
-  // A placement is placed to be seen, so it is never "unused".
-  public getSeemsUnused(): boolean {
-    return false;
-  }
 
   public getName(): string {
     return 'Place Template';
@@ -149,78 +98,32 @@ grows one input per "${templateParameterPrefixName}" the template declares,
 and its "ReactUI" output connects to any UI surface like an ordinary widget.
 
 The nodes inside the template are shared between placements, so a change to
-the template shows up everywhere at once; only the parameter values differ.
-
-Placements render read-only for now: a widget inside a template does not yet
-write back per placement.
+the template shows up everywhere at once; only the parameter values differ, and
+whatever a viewer changes in a widget of this placement, which stays here.
 
 ${AGENT_DOCS_HEADING}
-The template is referenced by NAME, and template names are kept unique.`;
+The template is referenced by NAME, and template names are kept unique. See
+describe_node "UI Template" for how to build one.
+
+Setting "${templateSocketName}" with set_socket_value creates one input per
+parameter that feeds something, named like the template's ("Parameter 1"), so
+wire the template's parameters first and set or connect those inputs afterwards.
+Connect this node's ReactUI output to the surface it should appear on.
+
+"Edits" holds what viewers changed in this placement. Leave it alone: to change
+what every placement shows, set the value on the widget inside the template.`;
   }
 
   public getTags(): string[] {
     return ['Widget', 'Layout', 'Template'];
   }
 
-  public getColor(): TRgba {
-    return TRgba.fromString(NODE_TYPE_COLOR.LAYOUT);
-  }
-
-  public getMinNodeWidth(): number {
-    return 300;
-  }
-
-  public getDefaultNodeHeight(): number {
-    return 300;
-  }
-
-  static getTemplateOptions(): EnumStructure {
-    return getTemplates().map((template) => ({ text: template.nodeName }));
-  }
-
   protected getDefaultIO(): PPSocket[] {
-    return [
-      new PPSocket(
-        SOCKET_TYPE.IN,
-        templateSocketName,
-        new DynamicEnumType(
-          () => PlaceTemplate.getTemplateOptions(),
-          () => {
-            this.updateParameterSockets();
-            void this.executeOptimizedChain();
-          },
-        ),
-        NO_TEMPLATE,
-        true,
-      ),
-      new PPSocket(
-        SOCKET_TYPE.IN,
-        templateEditsSocketName,
-        new JSONType(),
-        {},
-        false,
-      ),
-    ];
+    return [this.getTemplateSelectSocket(), this.getEditsSocket()];
   }
 
-  public getTemplate(): UITemplate | undefined {
-    const name = String(this.getInputData(templateSocketName) ?? '').trim();
-    if (!name) {
-      return undefined;
-    }
-    return getTemplates().find((template) => template.nodeName === name);
-  }
-
-  public isPlacingTemplate(templateName: string): boolean {
-    return this.getInputData(templateSocketName) === templateName;
-  }
-
-  public placedTemplateChangedName(_oldName: string, newName: string): void {
-    this.setInputData(templateSocketName, newName);
-  }
-
-  public placedTemplateUpdatedMeta(_template: PPNode): void {
-    this.updateParameterSockets();
+  public getTemplateSnapshotProps(): Record<string, unknown> {
+    return { [TEMPLATE_PLACED_STATE_PROP]: this.capture };
   }
 
   // this placement's own inputs for the template's parameters
@@ -235,7 +138,7 @@ The template is referenced by NAME, and template names are kept unique.`;
    * outputs: adds what is missing, drops what is extra and unlinked, and
    * aligns the types. Modelled on ExecuteMacro.updateMacroCallSockets.
    */
-  public updateParameterSockets(): void {
+  public updateTemplateSockets(): void {
     const template = this.getTemplate();
     // a template keeps one spare (unlinked) parameter at the end; a placement
     // only wants the ones that actually feed something
@@ -344,65 +247,25 @@ The template is referenced by NAME, and template names are kept unique.`;
     );
   }
 
-  // ---- per-placement edits ---------------------------------------------
-
-  private getEdits(): TemplateEdits {
-    const stored = this.getInputData(templateEditsSocketName);
-    if (!stored || typeof stored !== 'object') {
-      return emptyTemplateEdits();
-    }
-    const edits = stored as Partial<TemplateEdits>;
-    return { baseline: edits.baseline ?? {}, rows: edits.rows ?? {} };
+  protected getRowArgs(): TemplateArgs {
+    return Object.fromEntries(
+      this.getParameterInputSockets().map((socket) => [
+        socket.name,
+        socket.data,
+      ]),
+    );
   }
 
-  public getRowEdits(rowKey: string | undefined): TemplateRowEdits {
-    const edits = this.getEdits();
-    return {
-      baseline: edits.baseline,
-      edits: edits.rows[rowKey ?? ''] ?? {},
-    };
-  }
-
-  public getTemplateEdit(
-    rowKey: string | undefined,
-    nodeId: string,
-    socketName: string,
-  ): unknown {
-    return this.getEdits().rows[rowKey ?? '']?.[nodeId]?.[socketName];
-  }
-
-  public setTemplateEdit(
-    rowKey: string | undefined,
-    nodeId: string,
-    socketName: string,
-    value: unknown,
+  protected storeRowCapture(
+    _rowKey: string | undefined,
+    capture: TemplateInstanceCapture,
   ): void {
-    const edits = structuredClone(this.getEdits());
-    // The first edit of a socket records what it held beforehand. At that
-    // moment no row has edited it, so the shared node still carries the value
-    // the template author set - which is what every unedited row must show.
-    if (edits.baseline[nodeId]?.[socketName] === undefined) {
-      const node = PPGraph.currentGraph.getNodeById(nodeId);
-      if (node?.getInputSocketByName(socketName)) {
-        (edits.baseline[nodeId] ??= {})[socketName] =
-          node.getInputData(socketName);
+    this.capture = capture;
+    Object.entries(capture.outputs).forEach(([name, value]) => {
+      if (this.getOutputSocketByName(name)) {
+        this.setOutputData(name, value);
       }
-    }
-    ((edits.rows[rowKey ?? ''] ??= {})[nodeId] ??= {})[socketName] = value;
-    this.setInputData(templateEditsSocketName, edits);
-  }
-
-  // lets surface-embedding loop detection see through this placement
-  public getTemplateBodySurface(): PPNode | undefined {
-    return this.getTemplate()?.getBodySurface();
-  }
-
-  public getWidgetProps(): WidgetProps {
-    return { ...super.getWidgetProps(), height: 'auto' };
-  }
-
-  public getDashboardIcon(_props: DashboardIconProps): React.ReactNode {
-    return getPageDashboardIcon();
+    });
   }
 
   getWidgetContent(
@@ -417,15 +280,10 @@ The template is referenced by NAME, and template names are kept unique.`;
   protected async onExecute(input: any, output: any): Promise<void> {
     const template = this.getTemplate();
     if (template) {
-      const args: TemplateArgs = Object.fromEntries(
-        this.getParameterInputSockets().map((socket) => [
-          socket.name,
-          socket.data,
-        ]),
-      );
+      this.prepareRun(template);
       this.capture = await runTemplateAsInstance(
         template,
-        args,
+        this.getRowArgs(),
         this.getRowEdits(undefined),
       );
       Object.entries(this.capture.outputs).forEach(([name, value]) => {

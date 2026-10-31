@@ -156,7 +156,7 @@ export class WidgetButton extends WidgetHybridBase {
     // No default execution behavior needed - button is event driven
   }
 
-  handleOnClick = async () => {
+  handleOnClick = async (instance?: TemplateInstanceHandle) => {
     if (
       this.isCurrentlyForceDisabled ||
       !PPGraph.currentGraph?.graphConfiguredAndReady
@@ -165,8 +165,28 @@ export class WidgetButton extends WidgetHybridBase {
     }
     this.isCurrentlyForceDisabled = true;
     const id = this.id;
-    const inputData = this.getInputData(onValueName);
-    const inputDataOff = this.getInputData(offValueName);
+    const inputData = this.readWidgetValue(onValueName, instance);
+    const inputDataOff = this.readWidgetValue(offValueName, instance);
+    const owner =
+      instance && PPGraph.currentGraph.getNodeById(instance.ownerId);
+    if (owner) {
+      // what the press triggers has to see this row's values, so it fires
+      // inside the row's pass; a shared node's sockets are not this row's to
+      // disable, and a press is not a value worth undoing
+      const fire = async (value: unknown) => {
+        await this.getOutputSocketByName(outName).setDataAndWait(value);
+        await this.executeOptimizedChain();
+      };
+      try {
+        await owner.runInTemplateRow(instance.rowKey, async () => {
+          await fire(inputData);
+          await fire(inputDataOff);
+        });
+      } finally {
+        this.isCurrentlyForceDisabled = false;
+      }
+      return;
+    }
     const disabledBefore = this.getInputData(disabledName) ? true : false;
 
     const applyFunction = async (value) => {
@@ -245,7 +265,9 @@ export class WidgetButton extends WidgetHybridBase {
                 variant === 'outlined' ? 'action.disabled' : undefined,
             },
           }}
-          onClick={() => (node as WidgetButton).handleOnClick()}
+          onClick={() =>
+            (node as WidgetButton).handleOnClick(props.templateInstance)
+          }
         >
           <Typography
             sx={{
@@ -662,7 +684,7 @@ export class WidgetSwitch extends WidgetHybridBase {
       ) as WidgetSwitch;
       const onValue = safeNode.getInputData(onValueName);
       const offValue = safeNode.getInputData(offValueName);
-      await safeNode.applyWidgetEdit(initialValueName, value, instance, {
+      await safeNode.applyWidgetEdit(initialValueName, newValue, instance, {
         [outName]: newValue ? onValue : offValue,
       });
     };

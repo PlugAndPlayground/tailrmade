@@ -73,7 +73,6 @@ import {
 } from './Action';
 import { StoredGraph } from '../utils/indexedDB';
 import PPStorage, { DEFAULT_ACCESS, DEFAULT_LOCATION } from '../PPStorage';
-import { clearTemplateInnerNodes } from '../utils/templatePass';
 
 // withtout this the compilation order breaks
 const DUMMY_IMPORT = getNodesBounds;
@@ -1574,7 +1573,6 @@ export default class PPGraph {
   }
 
   async configure(storedGraph: StoredGraph): Promise<boolean> {
-    clearTemplateInnerNodes();
     const CONFIGURE_GRAPH_SPINNER_MESSAGE = 'Configuring graph';
     InterfaceController.showSpinner(CONFIGURE_GRAPH_SPINNER_MESSAGE);
 

@@ -98,8 +98,8 @@ export const DynamicWidgetView = (viewProps: DynamicWidgetViewProps) => {
   // early cannot violate the rules of hooks
   const { localHover, handleMouseEnter, handleMouseLeave } =
     useHoverEvents(layoutableElement);
-  // set when this widget is part of a UI template instance's rendering
-  const componentInstance = useContext(TemplateInstanceContext);
+  // set when this widget is part of a UI template placement's rendering
+  const placement = useContext(TemplateInstanceContext);
   if (!layoutableElement) {
     // a widget whose graph node cannot be resolved must be visibly broken,
     // not silently blank - the stored layout still references it (e.g. a
@@ -152,16 +152,15 @@ export const DynamicWidgetView = (viewProps: DynamicWidgetViewProps) => {
 
   const style = getBasicLayoutStyles(width, height, parentDirection);
 
-  // Inside a template instance the widget renders from that instance's
+  // Inside a template placement the widget renders from that placement's
   // snapshot rather than from the shared node's live sockets - the same
   // reactUIProps channel a linked ReactUI output already uses. Without a
   // snapshot (an inner node that has not been evaluated yet) it falls back to
   // the live reading, which is what the widget would have shown anyway.
   // A value the viewer changes is routed to this placement through the handle
   // below, so it never reaches the shared node.
-  const instanceSnapshot = componentInstance
-    ? componentInstance.snapshots[layoutableElement.getRelatedNode().id]
-    : undefined;
+  const instanceSnapshot =
+    placement?.snapshots[layoutableElement.getRelatedNode().id];
 
   const widgetContent = (
     <>
@@ -175,10 +174,11 @@ export const DynamicWidgetView = (viewProps: DynamicWidgetViewProps) => {
         isEditMode,
         disabled: disabled ?? false,
         reactUIProps: instanceSnapshot,
-        templateInstance: componentInstance
+        templateInstance: placement
           ? {
-              ownerId: componentInstance.ownerId,
-              rowKey: componentInstance.rowKey,
+              ownerId: placement.ownerId,
+              rowKey: placement.rowKey,
+              snapshot: instanceSnapshot,
             }
           : undefined,
         blockInteraction,

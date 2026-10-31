@@ -364,7 +364,7 @@ export class WidgetCheckbox extends WidgetHybridBase {
     instance?: TemplateInstanceHandle,
   ) => {
     const value = event.target.value;
-    const options = this.getInputData(optionsName);
+    const options = this.readWidgetValue(optionsName, instance) as string[];
 
     if (!options.includes(value)) return;
 
@@ -430,7 +430,13 @@ export class WidgetCheckbox extends WidgetHybridBase {
                 <Checkbox
                   color={color}
                   checked={selectedOptions.includes(option)}
-                  onChange={(node as WidgetCheckbox).handleCheckboxChange}
+                  onChange={(event, checked) =>
+                    void (node as WidgetCheckbox).handleCheckboxChange(
+                      event,
+                      checked,
+                      props.templateInstance,
+                    )
+                  }
                   value={option}
                   size={getMuiSize(size)}
                   sx={{

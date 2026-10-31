@@ -155,13 +155,15 @@ export function wouldCreateSurfaceEmbeddingLoop(
   sourceNode: PPNode,
   targetNode: PPNode,
 ): boolean {
-  if (!sourceNode.isSurface() || !targetNode.isSurface()) {
+  // a template placement embeds its template's body surface
+  const sourceSurface = sourceNode.getTemplateBodySurface() ?? sourceNode;
+  if (!sourceSurface.isSurface() || !targetNode.isSurface()) {
     return false;
   }
-  if (sourceNode.id === targetNode.id) {
+  if (sourceSurface.id === targetNode.id) {
     return true;
   }
-  return getDescendantSurfaceIds(sourceNode).has(targetNode.id);
+  return getDescendantSurfaceIds(sourceSurface).has(targetNode.id);
 }
 
 // strict parser for the Layout JSON socket value; always returns a clone

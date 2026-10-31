@@ -31,11 +31,13 @@ import {
 import {
   templateParameterPrefixName,
   templateOutputPrefixName,
+  templateSocketName,
   templateUISocketName,
 } from '../../utils/constants_shared';
 import { AnyType } from '../datatypes/anyType';
 import { DeferredReactType } from '../datatypes/deferredHtmlType';
 import { deSerializeType, serializeType } from '../datatypes/typehelper';
+import type { TemplatePlacementNode } from './templatePlacement';
 import type { UISurfaceNode } from './uiSurface';
 import { isSurfaceNode } from '../../utils/interfaces';
 
@@ -44,7 +46,7 @@ const PARAM_BLOCK_SIZE = 120;
 // right block: the UI input sits on its left edge
 const UI_BLOCK_SIZE = 60;
 
-const COMPONENT_AUTOALIGN_PADDING = 100;
+const TEMPLATE_AUTOALIGN_PADDING = 100;
 const UPDATE_PLACEMENTS_INTERVAL_MILLISECONDS = 2000;
 
 export function getTemplates(): UITemplate[] {
@@ -58,6 +60,11 @@ export class UITemplate extends PPNode {
   public getSeemsUnused(): boolean {
     return false;
   }
+
+  // what this template's passes run, see registerTemplateBody
+  bodyNodes: PPNode[] = [];
+  // the end of the last pass queued, see runTemplateAsInstance
+  passQueue: Promise<unknown> = Promise.resolve();
 
   placementGraphics!: PIXI.Graphics;
   prevPlacements = '';
@@ -87,11 +94,39 @@ Place it with "Place Template", once per copy you want. Each placement has its
 own parameter values and renders on its own; the nodes inside the frame are
 shared, so a change to the template shows up in every placement.
 
-Placements render read-only for now: a widget inside a template does not yet
-write back per placement.
+To show it once per entry of an array or object, use "Repeat Template" instead.
+
+A viewer's change to a widget inside a placement stays in that placement. To show
+or hide a widget per placement, wire a test of a parameter into that widget's
+"visible" socket on the surface. A value to hand back goes into an
+"${templateOutputPrefixName}" socket on the right block, and placements expose it.
+
+A template cannot place itself, directly or through another template. Placing a
+different template inside one works, but an edit in a nested placement shows in
+every row of the outer one.
 
 ${AGENT_DOCS_HEADING}
-Templates are referenced by NAME, which is kept unique across templates.`;
+Templates are referenced by NAME, which is kept unique across templates, so give
+each a distinct name with set_node_name and read the final name back with
+inspect_nodes. Prefer a template over duplicating widgets per row or wiring
+per-row widget nodes by hand.
+
+Build order, all with the ordinary tools:
+1. add_node "UI Template", "UI surface", and the widgets. Give the widgets the
+   defaults every placement should start from.
+2. connect_sockets each widget's ReactUI to the surface, and the surface's ReactUI
+   to the template's "${templateUISocketName}". Arrange that surface as usual with
+   set_surface_layout; it is the template's body, so connect it to nothing else.
+3. connect_sockets from the template's "${templateParameterPrefixName} 1" to each
+   input that should differ. One parameter can feed several inputs, and a spare
+   "${templateParameterPrefixName} 2" appears once the first is used.
+4. add_node "Place Template" or "Repeat Template", set_socket_value its
+   "${templateSocketName}" to the template's name, then connect its ReactUI to the
+   surface the app shows.
+
+Inner nodes are shared, and run once per placement or row, so never read a row's
+value from an inner node's socket: it holds whichever row ran last. Read a Repeat
+Template's "Output" instead.`;
   }
 
   public getTags(): string[] {
@@ -198,15 +233,9 @@ Templates are referenced by NAME, which is kept unique across templates.`;
     this.notifyPlacementsOfSignatureChange();
   }
 
-  // the nodes this template's parameters reach, flagged so their socket types
-  // never drift with one row's data (see utils/templatePass.ts)
-  public registerBody(): void {
-    registerTemplateBody(this);
-  }
-
   public inputPlugged(socket: Socket): void {
     super.inputPlugged(socket);
-    this.registerBody();
+    registerTemplateBody(this);
     if (socket.name.startsWith(templateOutputPrefixName)) {
       // adopt the type of whatever feeds it, so placements get it too
       const linked = socket.links[0]?.getSource();
@@ -298,9 +327,10 @@ Templates are referenced by NAME, which is kept unique across templates.`;
     return nameToUse;
   }
 
-  public getPlacements(): PPNode[] {
-    return Object.values(PPGraph.currentGraph.nodes).filter((node) =>
-      node.isPlacingTemplate(this.nodeName),
+  public getPlacements(): TemplatePlacementNode[] {
+    return Object.values(PPGraph.currentGraph.nodes).filter(
+      (node): node is TemplatePlacementNode =>
+        node.isPlacingTemplate(this.nodeName),
     );
   }
 
@@ -345,7 +375,7 @@ Templates are referenced by NAME, which is kept unique across templates.`;
     super.outputPlugged(socket);
     // Everything a parameter reaches is shared between rows, so its sockets
     // must stop adapting to data - from this connection onwards.
-    this.registerBody();
+    registerTemplateBody(this);
 
     // EVERY link, not just the first: a parameter commonly fans out (one
     // value feeding a widget and a test of it), and looking only at links[0]
@@ -385,6 +415,7 @@ Templates are referenced by NAME, which is kept unique across templates.`;
 
   public outputUnplugged(socket: Socket): void {
     super.outputUnplugged(socket);
+    registerTemplateBody(this);
     this.updateParameterSocketCount();
     this.debounceDrawShape();
   }
@@ -590,7 +621,7 @@ Templates are referenced by NAME, which is kept unique across templates.`;
   }
 
   public getAutoAlignChromeMargin(): number {
-    return COMPONENT_AUTOALIGN_PADDING;
+    return TEMPLATE_AUTOALIGN_PADDING;
   }
 
   public getAutoAlignContentNodes(): PPNode[] {
@@ -614,7 +645,7 @@ Templates are referenced by NAME, which is kept unique across templates.`;
         relevantForMe.some((relevant) => relevant.id === node.id),
       ),
     );
-    const padding = COMPONENT_AUTOALIGN_PADDING;
+    const padding = TEMPLATE_AUTOALIGN_PADDING;
     this.setPosition(minX - 2 * padding, minY - padding);
     this.nodeWidth = maxX - minX + 4 * padding;
     this.nodeHeight = maxY - minY + 2 * padding;
@@ -624,5 +655,9 @@ Templates are referenced by NAME, which is kept unique across templates.`;
 
   onNodeResize: (width: number, height: number) => void = () => {
     this.drawPlacementGraphics(true);
+  };
+
+  onNodeRemoved: () => void = () => {
+    this.bodyNodes.forEach((node) => node.templateBodyOf.delete(this.id));
   };
 }

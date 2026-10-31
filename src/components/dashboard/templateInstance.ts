@@ -41,44 +41,29 @@ export const emptyTemplateCapture = (): TemplateInstanceCapture => ({
   outputs: {},
 });
 
+// values per inner node id, then socket name
+export type TemplateNodeValues = Record<string, Record<string, unknown>>;
+
+// What a placing node remembers: the viewer's edits, per row key ('' for a
+// single placement). They are applied for the length of that row's pass and
+// taken out again, so the shared nodes always hold what the template author set.
+export type TemplateEdits = {
+  rows: Record<string, TemplateNodeValues>;
+};
+
+// A nested placement's own state travels inside the snapshot its parent's pass
+// took of it, because the node is shared between the parent's rows.
+export const TEMPLATE_PLACED_STATE_PROP = '__templatePlacedState';
+
 /**
  * Identifies the placement a widget is being rendered inside, so an edit made
  * in it can be routed to that placement instead of the shared inner node.
  */
-// values per inner node id, then socket name
-export type TemplateNodeValues = Record<string, Record<string, unknown>>;
-
-/**
- * What a placing node remembers.
- *
- * `rows` holds the viewer's edits, per row key ('' for a single placement).
- *
- * `baseline` is the other half, and it is not optional: the inner nodes are
- * shared, so whatever one pass leaves in a socket is what the next pass starts
- * from. A row that has never been edited would inherit the previous row's
- * value. The baseline is the value a socket had before anyone edited it, and
- * every pass restores it first - so an unedited row shows what the template
- * author set, not what the row above it happens to hold.
- */
-export type TemplateEdits = {
-  baseline: TemplateNodeValues;
-  rows: Record<string, TemplateNodeValues>;
-};
-
-export const emptyTemplateEdits = (): TemplateEdits => ({
-  baseline: {},
-  rows: {},
-});
-
-// what one pass applies: the baseline, then that row's edits over it
-export type TemplateRowEdits = {
-  baseline: TemplateNodeValues;
-  edits: TemplateNodeValues;
-};
-
 export interface TemplateInstanceHandle {
   ownerId: string;
   rowKey?: string;
+  // the input object this widget was rendered from
+  snapshot?: Record<string, unknown>;
 }
 
 export interface TemplateInstanceContextValue extends TemplateInstanceCapture {

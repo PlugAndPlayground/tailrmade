@@ -99,6 +99,11 @@ const sidebars: SidebarsConfig = {
         },
         {
           type: 'doc',
+          id: 'ui-templates',
+          label: 'Create reusable UI templates',
+        },
+        {
+          type: 'doc',
           id: 'style-app',
           label: 'Style your app',
         },

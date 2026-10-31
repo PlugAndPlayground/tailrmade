@@ -162,6 +162,8 @@ export default class PPNode extends PIXI.Container implements IWarningHandler {
   onViewportPointerUpHandler: (event?: PIXI.FederatedPointerEvent) => void =
     () => {};
   onNodeRemoved: () => void = () => {}; // called when the node is removed from the graph
+  // the UI templates whose passes run this node, see registerTemplateBody
+  templateBodyOf = new Set<string>();
   onNodeResize: (width: number, height: number) => void = () => {}; // called when the node is resized
 
   public isInteractionEnabled(): boolean {
@@ -2080,53 +2082,60 @@ ${Math.round(bounds.minX)}, ${Math.round(
    * Per-placement edits, stored on the node that owns the placement (Place
    * Template, Repeat Template). No-ops elsewhere.
    */
-  public setTemplateEdit(
+  public async applyTemplateEdit(
     _rowKey: string | undefined,
     _nodeId: string,
     _socketName: string,
     _value: unknown,
-  ): void {}
+  ): Promise<void> {}
 
-  public getTemplateEdit(
+  /**
+   * Re-evaluates one row of a placement, running `action` while that row's
+   * values are in the template's shared nodes.
+   */
+  public async runInTemplateRow(
     _rowKey: string | undefined,
-    _nodeId: string,
-    _socketName: string,
-  ): unknown {
-    return undefined;
+    _action?: () => Promise<void>,
+  ): Promise<void> {}
+
+  /**
+   * What this node adds to a snapshot taken of it during a pass. A placement
+   * nested in a template renders its own state, which belongs to that pass just
+   * as much as its inputs do.
+   */
+  public getTemplateSnapshotProps(): Record<string, unknown> {
+    return {};
+  }
+
+  public isInTemplateBody(): boolean {
+    return this.templateBodyOf.size > 0;
   }
 
   /**
-   * What a widget currently shows for one of its input sockets: the
-   * placement's edited value when it is rendered inside one, otherwise the
-   * shared node's own socket.
+   * What a widget currently shows for one of its input sockets: the snapshot
+   * it was rendered from when it is inside a placement, otherwise the shared
+   * node's own socket - which, for a socket a parameter feeds, holds whichever
+   * row ran last.
    */
   public readWidgetValue(
     socketName: string,
     instance?: TemplateInstanceHandle,
   ): unknown {
-    if (instance) {
-      const owner = PPGraph.currentGraph.getNodeById(instance.ownerId);
-      const edited = owner?.getTemplateEdit(
-        instance.rowKey,
-        this.id,
-        socketName,
-      );
-      if (edited !== undefined) {
-        return edited;
-      }
-    }
-    return this.getInputData(socketName);
+    const snapshot = instance?.snapshot;
+    return snapshot && socketName in snapshot
+      ? snapshot[socketName]
+      : this.getInputData(socketName);
   }
 
   /**
    * Writes a value the viewer changed. Inside a template placement it belongs
    * to THAT placement - writing the shared node would change every placement
-   * at once, and the next evaluation pass would overwrite it anyway - so it
-   * goes to the owner's edit store and the owner re-evaluates.
+   * at once - so it goes to the owner's edit store and the owner re-evaluates
+   * the row, which recomputes its outputs.
    *
-   * An edit only sticks on a socket nothing in the graph drives; a socket fed
-   * by a template parameter is re-written on every pass, which is the same
-   * rule a linked widget socket already follows outside a template.
+   * An edit only sticks on a socket nothing in the graph drives or that a
+   * template parameter feeds; any other linked socket is re-written on every
+   * pass, which is the rule a linked widget socket follows outside a template.
    */
   public async applyWidgetEdit(
     socketName: string,
@@ -2134,14 +2143,16 @@ ${Math.round(bounds.minX)}, ${Math.round(
     instance?: TemplateInstanceHandle,
     outputs: Record<string, unknown> = {},
   ): Promise<void> {
-    if (instance) {
-      const owner = PPGraph.currentGraph.getNodeById(instance.ownerId);
-      if (owner) {
-        owner.setTemplateEdit(instance.rowKey, this.id, socketName, value);
-        // the placement re-evaluates, which recomputes its own outputs
-        await owner.executeOptimizedChain();
-        return;
-      }
+    const owner =
+      instance && PPGraph.currentGraph.getNodeById(instance.ownerId);
+    if (owner) {
+      await owner.applyTemplateEdit(
+        instance.rowKey,
+        this.id,
+        socketName,
+        value,
+      );
+      return;
     }
     this.setInputData(socketName, value);
     Object.entries(outputs).forEach(([name, outputValue]) =>
@@ -2471,7 +2482,7 @@ ${Math.round(bounds.minX)}, ${Math.round(
   public postPassForAutoAlign(nodes: PPNode[], iterations: number): void {}
 
   // Outer chrome (in px) a post-pass node draws around its content during auto
-  // align. The layout reserves this so wrapped templates keep the template gap
+  // align. The layout reserves this so wrapped components keep the component gap
   // to their neighbours instead of overlapping. 0 = no chrome.
   public getAutoAlignChromeMargin(): number {
     return 0;

@@ -218,7 +218,8 @@ export class FileDropzone extends PPNode implements Layoutable {
     inputObject: any,
     outputObject: Record<string, unknown>,
   ): Promise<void> {
-    if (inputObject[persistName]) {
+    // inside a template a row's files arrive through this input either way
+    if (inputObject[persistName] || this.isInTemplateBody()) {
       outputObject[outputFilesData] = inputObject[dataName] || [];
     }
     return Promise.resolve();
@@ -305,8 +306,9 @@ const FileDropzoneComponent: React.FC<{
       setFileInfo(newFileInfo);
       setDataArray(newDataArray);
 
-      // Persist to this placement when rendered inside one, else to the node
-      if (node.getInputData(persistName)) {
+      // A placement keeps its files in its own edits either way: without that
+      // they would be written to the node every row shares
+      if (props.templateInstance || node.getInputData(persistName)) {
         await node.applyWidgetEdit(
           dataName,
           newDataArray,
@@ -384,7 +386,7 @@ const FileDropzoneComponent: React.FC<{
     const updatedDataArray = [...dataArray, ...newDataItems];
     setDataArray(updatedDataArray);
 
-    if (node.getInputData(persistName)) {
+    if (props.templateInstance || node.getInputData(persistName)) {
       // store on input side to persist data, per placement when in one
       await node.applyWidgetEdit(
         dataName,

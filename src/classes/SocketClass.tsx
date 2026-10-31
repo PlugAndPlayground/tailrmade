@@ -43,6 +43,7 @@ import {
   IsCompatible,
   isDirectlyCompatible,
 } from '../nodes/datatypes/abstractType';
+import { AnyType } from '../nodes/datatypes/anyType';
 import { dataToType, serializeType } from '../nodes/datatypes/typehelper';
 import {
   clearDocumentSelection,
@@ -54,7 +55,6 @@ import { PNPStatus, PNPSuccess } from './ErrorClass';
 import { PNPHitArea } from './selection/PNPHitArea';
 import { getOverflowForSize } from '../utils/layoutableHelpers';
 import { serializeSocketData } from '../utils/serializeSocketData';
-import { isTemplateInnerNode } from '../utils/templatePass';
 
 export default class Socket
   extends PIXI.Container
@@ -379,9 +379,6 @@ export default class Socket
     //);
 
     const adaptationAcceptable =
-      // a template's inner nodes are shared across rows, so their sockets
-      // must not take the type of whichever row ran last (templatePass.ts)
-      !isTemplateInnerNode(this.getNode()?.id) &&
       this.getNode()?.socketShouldAutomaticallyAdapt(this) &&
       this.dataType.allowedToAutomaticallyAdapt();
     const socketWantsToAdapt = this.dataType.prefersToChangeAwayFromThisType();
@@ -392,7 +389,11 @@ export default class Socket
       adaptationAcceptable &&
       (incompatibleData || socketWantsToAdapt || this.isOutput())
     ) {
-      const proposedType = dataToType(newData);
+      // a template's inner nodes are shared across rows, so a socket there goes
+      // untyped instead of taking the type of whichever row ran last
+      const proposedType = this.getNode().isInTemplateBody()
+        ? new AnyType()
+        : dataToType(newData);
       if (this.dataType.getName() !== proposedType.getName()) {
         this.changeSocketDataType(proposedType);
       }
@@ -768,8 +769,8 @@ export default class Socket
   connectedTargetSocketChangedType(socket: Socket) {
     if (
       // inside a template this would re-type a shared socket from one row's
-      // data, behind the guard in the data setter above (templatePass.ts)
-      !isTemplateInnerNode(this.getNode()?.id) &&
+      // data, behind the guard in the data setter above
+      !this.getNode().isInTemplateBody() &&
       this.getNode().socketShouldAutomaticallyAdapt(this)
     ) {
       this.changeSocketDataType(socket.dataType);

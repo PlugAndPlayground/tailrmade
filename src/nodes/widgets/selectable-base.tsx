@@ -121,7 +121,9 @@ export abstract class WidgetSelectableBase extends WidgetHybridBase {
     newValue: unknown,
     instance?: TemplateInstanceHandle,
   ): Promise<void> {
-    const options = this.stringifyOptions(this.getInputData(optionsName));
+    const options = this.stringifyOptions(
+      this.readWidgetValue(optionsName, instance) as any[],
+    );
     const id = this.id;
     const formattedValue = this.validateAndFormatSelected(newValue, options);
     const prev = this.readWidgetValue(selectedOptionName, instance);

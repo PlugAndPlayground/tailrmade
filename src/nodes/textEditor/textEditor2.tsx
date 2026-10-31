@@ -302,7 +302,7 @@ export class TextEditor2 extends HybridNode2 {
       }
     }, []);
     const backgroundColor = TRgba.fromObject(props[SOCKETNAME_BACKGROUNDCOLOR]);
-    const tokenInputs = getTokenInputs(node, props);
+    const tokenInputs = getTokenInputs(node, props.reactUIProps);
 
     const editorConfig = useMemo(
       () => createTextEditorConfig('TextEditor2'),
@@ -401,7 +401,9 @@ export class TextEditor2 extends HybridNode2 {
           setPauseUpdate(false);
           if (props.inDashboard) {
             setIsDashboardFocused(false);
-            void node.execute();
+            if (!props.templateInstance) {
+              void node.execute();
+            }
           }
           return false;
         },
@@ -435,7 +437,12 @@ export class TextEditor2 extends HybridNode2 {
     }, [props.disabled]);
 
     useEffect(() => {
-      if (contentHeight && props[textEditorAutoHeightName]) {
+      // the canvas node is shared, a row's height says nothing about it
+      if (
+        contentHeight &&
+        props[textEditorAutoHeightName] &&
+        !props.templateInstance
+      ) {
         node.resizeAndDraw(node.nodeWidth, contentHeight + 32); // add container padding
       }
     }, [contentHeight, props[textEditorAutoHeightName]]);
@@ -478,7 +485,12 @@ export class TextEditor2 extends HybridNode2 {
     ]);
 
     const updateOutputsAndEditorHeight = () => {
-      node.updateOutputs(editorRef.current!, tokenInputs);
+      // one row rendering must not write the outputs every row shares
+      if (props.templateInstance) {
+        registerTokenInputs(editorRef.current!, tokenInputs);
+      } else {
+        node.updateOutputs(editorRef.current!, tokenInputs);
+      }
       const target = document.querySelector(`[data-cy='${props.dataCyId}']`);
       if (target?.scrollHeight) {
         setContentHeight(target.scrollHeight);
@@ -507,10 +519,20 @@ export class TextEditor2 extends HybridNode2 {
       // EditorRefPlugin is a child, so its effect has set the ref by now
       const editor = editorRef.current!;
       const editorState = editor.getEditorState();
-      node.setInputData(
-        textEditorMarkdownName,
-        lexicalStateToMarkdown(editorState.toJSON()),
-      );
+      const markdown = lexicalStateToMarkdown(editorState.toJSON());
+      if (props.templateInstance) {
+        // only what the viewer types is an edit; a pass updating this row's
+        // text also lands here and must not be stored as one
+        if (pauseUpdate && markdown !== props[textEditorMarkdownName]) {
+          void node.applyWidgetEdit(
+            textEditorMarkdownName,
+            markdown,
+            props.templateInstance,
+          );
+        }
+      } else {
+        node.setInputData(textEditorMarkdownName, markdown);
+      }
       const hasAutoLinks = editorState.read(
         () => $nodesOfType(AutoLinkNode).length > 0,
         { editor },

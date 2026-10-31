@@ -5,53 +5,38 @@
 // deliberately not "grid": columns is a setting, so the same node has to be
 // right for one column, a row and a wrapped grid - and "Widget grid array"
 // already exists in this space.
-//
-// Read-only for now. Collecting edits back out needs per-row writes, which is
-// the write path; see the design doc's step 4.
-import React, { useContext } from 'react';
+import React, { useContext, useMemo } from 'react';
 import { Box } from '@mui/material';
-import HybridNode2, {
-  HybridWidgetContentProps,
-} from '../../classes/HybridNode2';
-import PPGraph from '../../classes/GraphClass';
+import { HybridWidgetContentProps } from '../../classes/HybridNode2';
 import PPNode from '../../classes/NodeClass';
 import PPSocket from '../../classes/SocketClass';
 import {
   SurfaceCanvasPreviewContext,
-  SurfaceRenderer,
   SurfaceVisitedContext,
 } from '../../components/dashboard/SurfaceRenderer';
 import {
-  emptyTemplateCapture,
-  TemplateEdits,
-  emptyTemplateEdits,
+  TEMPLATE_PLACED_STATE_PROP,
   TemplateInstanceCapture,
-  TemplateInstanceContext,
-  TemplateRowEdits,
 } from '../../components/dashboard/templateInstance';
-import { getPageDashboardIcon } from '../../components/dashboard/dashboardIcons';
-import { DynamicEnumType } from '../datatypes/dynamicEnumType';
 import { EnumStructure, EnumType } from '../datatypes/enumType';
 import { JSONType } from '../datatypes/jsonType';
 import { NumberType } from '../datatypes/numberType';
 import { StringType } from '../datatypes/stringType';
-import { TRgba } from '../../utils/color';
 import { AGENT_DOCS_HEADING } from '../../utils/nodeDocs';
-import { NODE_TYPE_COLOR, SOCKET_TYPE } from '../../utils/constants';
+import { SOCKET_TYPE } from '../../utils/constants';
 import {
-  templateEditsSocketName,
   templateOutputPrefixName,
   templateSocketName,
-  templateUISocketName,
 } from '../../utils/constants_shared';
 import { SOCKET_NAME_DASHBOARD_CONTENT } from '../../utils/layoutableHelpers';
+import { runTemplateAsInstance, TemplateArgs } from './templateInstancing';
 import {
-  DashboardIconProps,
-  Layoutable,
-  WidgetProps,
-} from '../../utils/interfaces';
-import { runTemplateAsInstance } from './templateInstancing';
-import { getTemplates, UITemplate } from './uiTemplateNode';
+  getPlacementProblem,
+  TemplateBody,
+  TemplateNotice,
+  TemplatePlacementNode,
+} from './templatePlacement';
+import type { UITemplate } from './uiTemplateNode';
 
 const itemsSocketName = 'Items';
 const directionSocketName = 'Direction';
@@ -61,6 +46,7 @@ const maxItemsSocketName = 'Max items';
 const keyFieldSocketName = 'Key field';
 const emptyTextSocketName = 'Empty text';
 const outName = 'Output';
+const EMPTY_TREE = {};
 
 const DIRECTION_OPTIONS: EnumStructure = [{ text: 'column' }, { text: 'row' }];
 
@@ -116,6 +102,10 @@ export function bindEntryToParameters(
   entry: unknown,
   overrides: Record<string, string> = {},
 ): Record<string, unknown> {
+  const findField = (wanted: string): string | undefined =>
+    isPlainObject(entry)
+      ? Object.keys(entry).find((name) => name.trim().toLowerCase() === wanted)
+      : undefined;
   const pick = (wanted: string): unknown => {
     if (KEY_PARAMETER_NAMES.includes(wanted)) {
       return key;
@@ -124,9 +114,7 @@ export function bindEntryToParameters(
       return entry;
     }
     if (isPlainObject(entry)) {
-      const field = Object.keys(entry).find(
-        (name) => name.trim().toLowerCase() === wanted,
-      );
+      const field = findField(wanted);
       return field === undefined ? undefined : entry[field];
     }
     // a scalar entry has only itself to give
@@ -139,26 +127,18 @@ export function bindEntryToParameters(
       return;
     }
     const override = (overrides[parameter.name] ?? '').trim().toLowerCase();
-    args[parameter.name] = pick(
-      override || template.getSocketDisplayName(parameter).trim().toLowerCase(),
-    );
+    // naming a field outright means that field, even one called key or value
+    const overrideField = override ? findField(override) : undefined;
+    args[parameter.name] =
+      overrideField !== undefined
+        ? (entry as Record<string, unknown>)[overrideField]
+        : pick(
+            override ||
+              template.getSocketDisplayName(parameter).trim().toLowerCase(),
+          );
   });
   return args;
 }
-
-const Notice: React.FunctionComponent<{ label: string }> = ({ label }) => (
-  <Box
-    sx={{
-      width: '100%',
-      p: 1,
-      color: 'text.secondary',
-      fontSize: '12px',
-      textAlign: 'center',
-    }}
-  >
-    {label}
-  </Box>
-);
 
 export const RepeatTemplateWidget: React.FunctionComponent<
   HybridWidgetContentProps<RepeatTemplate>
@@ -169,33 +149,29 @@ export const RepeatTemplateWidget: React.FunctionComponent<
     useContext(SurfaceCanvasPreviewContext) || !props.inDashboard;
   const template = node.getTemplate();
   const body = template?.getBodySurface();
-  const rows = node.rows;
+  const bodyVisited = useMemo(
+    () => [...visited, body?.id ?? ''],
+    [visited, body?.id],
+  );
 
-  if (!template) {
-    const name = String(props[templateSocketName] ?? '');
-    return (
-      <Notice
-        label={name ? `Template "${name}" not found` : 'No template selected'}
-      />
-    );
+  const problem = getPlacementProblem(
+    props[templateSocketName],
+    template,
+    visited,
+  );
+  if (problem || !body) {
+    return <TemplateNotice label={problem ?? ''} />;
   }
 
-  if (!body) {
-    return (
-      <Notice
-        label={`"${template.nodeName}" has no UI surface plugged into its ${templateUISocketName} input`}
-      />
-    );
-  }
-
-  if (visited.includes(body.id)) {
-    return (
-      <Notice label={`Recursive template (${template.nodeName}) - skipped`} />
-    );
-  }
-
+  // nested in another template, this rendering belongs to that template's row
+  const rows: TemplateRow[] = props[TEMPLATE_PLACED_STATE_PROP] ?? node.rows;
   if (rows.length === 0) {
-    return <Notice label={String(props[emptyTextSocketName] ?? '')} />;
+    return (
+      <TemplateNotice
+        label={String(props[emptyTextSocketName] ?? '')}
+        color="text.secondary"
+      />
+    );
   }
 
   const direction = props[directionSocketName] === 'row' ? 'row' : 'column';
@@ -204,6 +180,7 @@ export const RepeatTemplateWidget: React.FunctionComponent<
     Math.round(Number(props[columnsSocketName]) || 1),
   );
   const gap = Math.max(0, Number(props[gapSocketName]) || 0);
+  const interactive = Boolean(props.inDashboard) && !props.disabled;
 
   return (
     <Box
@@ -212,41 +189,33 @@ export const RepeatTemplateWidget: React.FunctionComponent<
         display: 'grid',
         gap: `${gap}px`,
         width: '100%',
-        // one column is a list, several is a grid, and a row direction lays
-        // the same rows out side by side - all the same node
+        // one column is a list, several is a grid, and a row direction with one
+        // column lays every row out side by side - all the same node
         gridTemplateColumns:
           direction === 'row' && columns === 1
             ? `repeat(${rows.length}, minmax(0, 1fr))`
             : `repeat(${columns}, minmax(0, 1fr))`,
-        gridAutoFlow: direction === 'row' ? 'column' : 'row',
       }}
     >
       {rows.map((row) => (
-        <TemplateInstanceContext.Provider
+        <TemplateBody
           key={row.key}
-          value={{ ownerId: node.id, rowKey: row.key, ...row.capture }}
-        >
-          <SurfaceCanvasPreviewContext.Provider value={isCanvasPreview}>
-            <SurfaceVisitedContext.Provider value={[...visited, body.id]}>
-              <SurfaceRenderer
-                tree={row.capture.trees[body.id] ?? {}}
-                interactive={Boolean(props.inDashboard) && !props.disabled}
-              />
-            </SurfaceVisitedContext.Provider>
-          </SurfaceCanvasPreviewContext.Provider>
-        </TemplateInstanceContext.Provider>
+          ownerId={node.id}
+          rowKey={row.key}
+          capture={row.capture}
+          tree={row.capture.trees[body.id] ?? EMPTY_TREE}
+          visited={bodyVisited}
+          isCanvasPreview={isCanvasPreview}
+          interactive={interactive}
+        />
       ))}
     </Box>
   );
 };
 
-export class RepeatTemplate extends HybridNode2 implements Layoutable {
+export class RepeatTemplate extends TemplatePlacementNode {
   // one evaluated row per entry, in render order
   rows: TemplateRow[] = [];
-
-  public getSeemsUnused(): boolean {
-    return false;
-  }
 
   public getName(): string {
     return 'Repeat Template';
@@ -273,58 +242,45 @@ to configure:
 
 When a parameter's name does not match the field you want - above all when it
 should take the row's KEY but feeds a widget's "Label" socket - set its
-"<parameter> from" input to a field name, or to "key" or "entry".
+"<parameter> from" input to a field name, or to "key" or "entry". A field of that
+name wins, so a field called "key" or "value" can be asked for too.
 
 "${directionSocketName}" and "${columnsSocketName}" decide the layout: one
 column is a list, several is a grid, and a row direction puts the entries side
 by side. "${keyFieldSocketName}" names the field that identifies a row, which
-keeps rows stable when the data is reordered. "${maxItemsSocketName}" caps how
+keeps rows stable when the data is reordered; repeated values get told apart by
+position, which does not survive a reorder. "${maxItemsSocketName}" caps how
 many are rendered - every row costs one evaluation of the template, so an
 unbounded array is slow.
 
-Rows render read-only, so nothing comes back out of them yet. A template's
+Whatever a viewer changes in a row's widget stays in that row. A template's
 "${templateOutputPrefixName}" values are collected per row into this node's
 "${outName}".
 
 ${AGENT_DOCS_HEADING}
-The template is referenced by NAME, and template names are kept unique.`;
+The template is referenced by NAME, and template names are kept unique. See
+describe_node "UI Template" for how to build one.
+
+Setting "${templateSocketName}" with set_socket_value creates the "<parameter>
+from" inputs, named after the template's sockets ("Parameter 1 from"), so wire
+the template's parameters first. When a parameter's name matches no field, point
+it at one with those inputs rather than adding nodes that reshape the data. Check
+the result with inspect_ui.
+
+Connect this node's ReactUI output to the surface it should appear on, not the
+template's body surface.
+
+"Edits" holds what viewers changed, per row. Leave it alone: to change what every
+row starts from, set the value on the widget inside the template.`;
   }
 
   public getTags(): string[] {
     return ['Widget', 'Layout', 'Template', 'Array'];
   }
 
-  public getColor(): TRgba {
-    return TRgba.fromString(NODE_TYPE_COLOR.LAYOUT);
-  }
-
-  public getMinNodeWidth(): number {
-    return 300;
-  }
-
-  public getDefaultNodeHeight(): number {
-    return 300;
-  }
-
-  static getTemplateOptions(): EnumStructure {
-    return getTemplates().map((template) => ({ text: template.nodeName }));
-  }
-
   protected getDefaultIO(): PPSocket[] {
     return [
-      new PPSocket(
-        SOCKET_TYPE.IN,
-        templateSocketName,
-        new DynamicEnumType(
-          () => RepeatTemplate.getTemplateOptions(),
-          () => {
-            this.updateFieldSockets();
-            void this.executeOptimizedChain();
-          },
-        ),
-        '',
-        true,
-      ),
+      this.getTemplateSelectSocket(),
       new PPSocket(SOCKET_TYPE.IN, itemsSocketName, new JSONType(), [], true),
       new PPSocket(
         SOCKET_TYPE.IN,
@@ -368,35 +324,13 @@ The template is referenced by NAME, and template names are kept unique.`;
         'Nothing to show',
         false,
       ),
-      new PPSocket(
-        SOCKET_TYPE.IN,
-        templateEditsSocketName,
-        new JSONType(),
-        {},
-        false,
-      ),
+      this.getEditsSocket(),
       new PPSocket(SOCKET_TYPE.OUT, outName, new JSONType()),
     ];
   }
 
-  public getTemplate(): UITemplate | undefined {
-    const name = String(this.getInputData(templateSocketName) ?? '').trim();
-    if (!name) {
-      return undefined;
-    }
-    return getTemplates().find((template) => template.nodeName === name);
-  }
-
-  public isPlacingTemplate(templateName: string): boolean {
-    return this.getInputData(templateSocketName) === templateName;
-  }
-
-  public placedTemplateChangedName(_oldName: string, newName: string): void {
-    this.setInputData(templateSocketName, newName);
-  }
-
-  public placedTemplateUpdatedMeta(_template: PPNode): void {
-    this.updateFieldSockets();
+  public placedTemplateUpdatedMeta(template: PPNode): void {
+    super.placedTemplateUpdatedMeta(template);
     void this.executeOptimizedChain();
   }
 
@@ -410,7 +344,7 @@ The template is referenced by NAME, and template names are kept unique.`;
    * escape hatch, at one socket per parameter rather than MapExecuteMacro's
    * two.
    */
-  public updateFieldSockets(): void {
+  public updateTemplateSockets(): void {
     const template = this.getTemplate();
     const parameters = (template?.getParameterSockets() ?? []).filter(
       (socket) => socket.hasLink(),
@@ -473,65 +407,51 @@ The template is referenced by NAME, and template names are kept unique.`;
     return key;
   }
 
-  // ---- per-placement edits ---------------------------------------------
-
-  private getEdits(): TemplateEdits {
-    const stored = this.getInputData(templateEditsSocketName);
-    if (!stored || typeof stored !== 'object') {
-      return emptyTemplateEdits();
-    }
-    const edits = stored as Partial<TemplateEdits>;
-    return { baseline: edits.baseline ?? {}, rows: edits.rows ?? {} };
+  public getTemplateSnapshotProps(): Record<string, unknown> {
+    return { [TEMPLATE_PLACED_STATE_PROP]: this.rows };
   }
 
-  public getRowEdits(rowKey: string | undefined): TemplateRowEdits {
-    const edits = this.getEdits();
-    return {
-      baseline: edits.baseline,
-      edits: edits.rows[rowKey ?? ''] ?? {},
-    };
-  }
-
-  public getTemplateEdit(
+  protected getRowArgs(
+    template: UITemplate,
     rowKey: string | undefined,
-    nodeId: string,
-    socketName: string,
-  ): unknown {
-    return this.getEdits().rows[rowKey ?? '']?.[nodeId]?.[socketName];
+  ): TemplateArgs | undefined {
+    const row = this.rows.find((candidate) => candidate.key === rowKey);
+    return (
+      row &&
+      bindEntryToParameters(
+        template,
+        row.label,
+        row.entry,
+        this.getFieldOverrides(),
+      )
+    );
   }
 
-  public setTemplateEdit(
+  protected storeRowCapture(
     rowKey: string | undefined,
-    nodeId: string,
-    socketName: string,
-    value: unknown,
+    capture: TemplateInstanceCapture,
   ): void {
-    const edits = structuredClone(this.getEdits());
-    // The first edit of a socket records what it held beforehand. At that
-    // moment no row has edited it, so the shared node still carries the value
-    // the template author set - which is what every unedited row must show.
-    if (edits.baseline[nodeId]?.[socketName] === undefined) {
-      const node = PPGraph.currentGraph.getNodeById(nodeId);
-      if (node?.getInputSocketByName(socketName)) {
-        (edits.baseline[nodeId] ??= {})[socketName] =
-          node.getInputData(socketName);
-      }
-    }
-    ((edits.rows[rowKey ?? ''] ??= {})[nodeId] ??= {})[socketName] = value;
-    this.setInputData(templateEditsSocketName, edits);
+    this.rows = this.rows.map((row) =>
+      row.key === rowKey ? { ...row, capture } : row,
+    );
+    this.setOutputData(
+      outName,
+      this.collectOutputs(this.getInputData(itemsSocketName)),
+    );
   }
 
-  // lets surface-embedding loop detection see through this placement
-  public getTemplateBodySurface(): PPNode | undefined {
-    return this.getTemplate()?.getBodySurface();
-  }
-
-  public getWidgetProps(): WidgetProps {
-    return { ...super.getWidgetProps(), height: 'auto' };
-  }
-
-  public getDashboardIcon(_props: DashboardIconProps): React.ReactNode {
-    return getPageDashboardIcon();
+  // the template's declared Outputs, collected per row in the shape that came
+  // in: an object keeps its keys, an array stays an array
+  private collectOutputs(items: unknown): unknown {
+    const collected = this.rows.map((row) => {
+      const values = Object.values(row.capture.outputs);
+      return values.length === 1 ? values[0] : row.capture.outputs;
+    });
+    return Array.isArray(items)
+      ? collected
+      : Object.fromEntries(
+          this.rows.map((row, i) => [row.label, collected[i]]),
+        );
   }
 
   getWidgetContent(
@@ -551,18 +471,24 @@ The template is referenced by NAME, and template names are kept unique.`;
 
     const rows: TemplateRow[] = [];
     if (template) {
+      this.prepareRun(template);
       const overrides = this.getFieldOverrides();
+      const keyCounts = new Map<string, number>();
       // sequential on purpose: every row writes the same shared parameter
       // sockets, so the passes must not interleave
       for (const [key, entry] of entries) {
         const rowKey = this.getRowKey(key, entry);
+        // repeated key field values must not share React keys and edits
+        const seen = keyCounts.get(rowKey) ?? 0;
+        keyCounts.set(rowKey, seen + 1);
+        const uniqueKey = seen === 0 ? rowKey : `${rowKey}#${seen}`;
         const capture = await runTemplateAsInstance(
           template,
           bindEntryToParameters(template, key, entry, overrides),
-          this.getRowEdits(rowKey),
+          this.getRowEdits(uniqueKey),
         );
         rows.push({
-          key: rowKey,
+          key: uniqueKey,
           label: key,
           entry,
           capture,
@@ -570,16 +496,7 @@ The template is referenced by NAME, and template names are kept unique.`;
       }
     }
     this.rows = rows;
-
-    // the template's declared Outputs, collected per row in the shape that
-    // came in: an object keeps its keys, an array stays an array
-    const collected = rows.map((row) => {
-      const values = Object.values(row.capture.outputs);
-      return values.length === 1 ? values[0] : row.capture.outputs;
-    });
-    output[outName] = Array.isArray(input[itemsSocketName])
-      ? collected
-      : Object.fromEntries(rows.map((row, i) => [row.label, collected[i]]));
+    output[outName] = this.collectOutputs(input[itemsSocketName]);
 
     if (this.getOutputSocketByName(SOCKET_NAME_DASHBOARD_CONTENT)?.hasLink()) {
       output[SOCKET_NAME_DASHBOARD_CONTENT] = {

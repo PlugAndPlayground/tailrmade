@@ -24,21 +24,20 @@ export function getBindableInputSockets(node: PPNode): Socket[] {
 /**
  * Token values for a node's bindable inputs.
  *
- * `values` is the widget's own props when it has them: a widget rendered as
- * part of a UI component instance is handed that instance's snapshot instead
- * of the node's live socket data, and reading `socket.data` here would show
- * every instance the shared node's last value. Falls back to the socket for
- * any name the caller does not carry.
+ * `snapshot` is the input object the widget was handed instead of the node's
+ * live socket data, which is how a widget in a UI template placement renders:
+ * reading `socket.data` there would show every placement the shared node's
+ * last value. Falls back to the socket for any name it does not carry.
  */
 export function getTokenInputs(
   node: PPNode,
-  values?: Record<string, unknown>,
+  snapshot?: Record<string, unknown>,
 ): Record<string, unknown> {
   return Object.fromEntries(
     getBindableInputSockets(node).map((socket) => [
       socket.name,
-      values && Object.prototype.hasOwnProperty.call(values, socket.name)
-        ? values[socket.name]
+      snapshot && Object.prototype.hasOwnProperty.call(snapshot, socket.name)
+        ? snapshot[socket.name]
         : socket.data,
     ]),
   );

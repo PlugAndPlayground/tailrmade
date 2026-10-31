@@ -10,21 +10,20 @@
 // Same shape as Macro.executeMacro (write args, executeChildren, read back),
 // and worth collapsing into one shared helper once a second caller needs it.
 import FlowLogic from '../../classes/FlowLogic';
-import { AnyType } from '../datatypes/anyType';
 import PPGraph from '../../classes/GraphClass';
-import { registerTemplateInnerNodes } from '../../utils/templatePass';
 import PPNode from '../../classes/NodeClass';
+import PPSocket from '../../classes/SocketClass';
 import {
   emptyTemplateCapture,
   TemplateInstanceCapture,
   TemplateNodeValues,
-  TemplateRowEdits,
 } from '../../components/dashboard/templateInstance';
 import {
   getEmbeddedSurfaceNodes,
   getLinkedSourceNodeIds,
   SurfaceSync,
 } from './surfaceSync';
+import { getTemplates } from './uiTemplateNode';
 import type { UITemplate } from './uiTemplateNode';
 import type { UISurfaceNode } from './uiSurface';
 
@@ -33,47 +32,55 @@ import type { UISurfaceNode } from './uiSurface';
 // middle, and the spare one at the end)
 export type TemplateArgs = Record<string, unknown>;
 
-/**
- * Marks everything connected to a template as part of its body, so none of it
- * lets its socket types drift with one row's data, and clears the types of any
- * node joining for the first time.
- *
- * The clearing matters because a node is usually wired up before the template
- * knows about it: by then a socket may carry a type taken from one value that
- * happened to pass through, which describes nothing about the template. From
- * here on it will not adapt again, so this is the moment to reset it.
- *
- * Called both when a template's own sockets are plugged and at the start of
- * every pass - whichever happens first, the clearing happens with it.
- */
-export function registerTemplateBody(template: PPNode): void {
-  registerTemplateInnerNodes([
-    // the template too: its Output sockets adapt just like the inner ones
-    template.id,
-    ...FlowLogic.getAllUpDownstreamNodes(template, true, true, true).map(
-      (node) => node.id,
+// Everything a pass can run: what the parameters feed, and what a placement's
+// edits feed, which need not be reached by any parameter.
+function getPassNodes(template: UITemplate): PPNode[] {
+  const editedNodes = template
+    .getPlacements()
+    .flatMap((placement) => placement.getEditedNodeIds())
+    .map((id) => PPGraph.currentGraph.getNodeById(id))
+    .filter((node): node is PPNode => node !== undefined);
+  const nodes = new Set<PPNode>();
+  [template, ...editedNodes].forEach((root) =>
+    FlowLogic.getAllUpDownstreamNodes(root, false, true, false).forEach(
+      (node) => nodes.add(node),
     ),
-  ]).forEach((nodeId) => {
-    const node = PPGraph.currentGraph.getNodeById(nodeId);
-    node?.getAllSockets().forEach((socket) => {
-      if (
-        // only sockets carrying row data: an unlinked one holds a setting the
-        // user chose (a Custom function's "Main Thread", say), and clearing
-        // that would swap its editor for an untyped one
-        socket.hasLink() &&
-        node.socketShouldAutomaticallyAdapt(socket) &&
-        !(socket.dataType instanceof AnyType)
-      ) {
-        socket.changeSocketDataType(new AnyType());
-      }
-    });
-  });
+  );
+  return [...nodes];
 }
 
-// Passes share the template's sockets, so two of them must never interleave.
-// Macro has the same exposure today and no guard; this keeps placements honest
-// without changing macro behaviour.
-let passQueue: Promise<unknown> = Promise.resolve();
+/**
+ * Marks what a pass runs as this template's body, so none of it lets its socket
+ * types drift with one row's data, and releases whatever left since last time.
+ * Nodes that merely feed the template see no row data and keep adapting.
+ */
+export function registerTemplateBody(template: UITemplate): void {
+  template.bodyNodes.forEach((node) => node.templateBodyOf.delete(template.id));
+  template.bodyNodes = getPassNodes(template);
+  template.bodyNodes.forEach((node) => node.templateBodyOf.add(template.id));
+}
+
+// A pass that reached a placement of its own template would wait in that
+// template's queue for itself to finish.
+function placesItself(template: UITemplate, path: string[] = []): boolean {
+  if (path.includes(template.id)) {
+    return true;
+  }
+  const nextPath = [...path, template.id];
+  return getPassNodes(template).some((node) =>
+    getTemplates().some(
+      (placed) =>
+        node.isPlacingTemplate(placed.nodeName) &&
+        placesItself(placed, nextPath),
+    ),
+  );
+}
+
+/** Call once per run, not per row. False when the template cannot run. */
+export function prepareTemplateRun(template: UITemplate): boolean {
+  registerTemplateBody(template);
+  return !placesItself(template);
+}
 
 // every surface the body renders, following embedded surfaces so a template
 // built out of nested surfaces is captured whole
@@ -91,70 +98,7 @@ function getRenderedSurfaces(surface: UISurfaceNode): UISurfaceNode[] {
   return collected;
 }
 
-async function runPass(
-  template: UITemplate,
-  args: TemplateArgs,
-  edits: TemplateRowEdits,
-): Promise<TemplateInstanceCapture> {
-  template.getParameterSockets().forEach((parameter) => {
-    // A parameter SEEDS the row, and then yields to it. If the viewer has
-    // edited a socket this parameter feeds, the edit is written into the
-    // parameter itself, so it survives the propagation that executeChildren
-    // does below - otherwise the parameter would overwrite the edit on every
-    // pass and a value could be shown from data or edited, never both.
-    const edited = parameter.links
-      .map((link) => {
-        const target = link.getTarget();
-        return edits.edits[target.getNode().id]?.[target.name];
-      })
-      .find((value) => value !== undefined);
-    if (edited !== undefined) {
-      parameter.data = edited;
-      return;
-    }
-    if (Object.prototype.hasOwnProperty.call(args, parameter.name)) {
-      parameter.data = args[parameter.name];
-    }
-  });
-
-  // Baseline first, then this row's edits over it. The baseline matters as
-  // much as the edits: the inner nodes are shared, so without it a row that
-  // was never edited would start from whatever the previous row left behind.
-  //
-  // Both are written before the inner nodes run, so they propagate like any
-  // other input. A socket the graph drives is re-written during
-  // executeChildren and the edit does not stick - the same rule a linked
-  // widget socket already follows outside a template.
-  const write = (values: TemplateNodeValues) =>
-    Object.entries(values).forEach(([nodeId, bySocket]) => {
-      const node = PPGraph.currentGraph.getNodeById(nodeId);
-      if (!node) {
-        return;
-      }
-      Object.entries(bySocket).forEach(([socketName, value]) => {
-        const target = node.getInputSocketByName(socketName);
-        // A socket the graph drives takes its value from whatever feeds it.
-        // Writing the baseline here would clobber the parameter that is about
-        // to propagate - and an edit on such a socket is already carried by
-        // the parameter itself (see the seed-then-yield above).
-        if (target && !target.hasLink()) {
-          node.setInputData(socketName, value);
-        }
-      });
-    });
-  write(edits.baseline);
-  write(edits.edits);
-
-  // everything the parameters reach is shared between rows, so none of it may
-  // let its socket types drift with one row's data
-  // A node wired up before it was known to be part of a template may carry a
-  // socket type taken from one value that happened to pass through it. That
-  // type describes nothing, and from here on the socket will not adapt again,
-  // so clear it once as the node joins.
-  registerTemplateBody(template);
-
-  await template.executeChildren();
-
+function capturePass(template: UITemplate): TemplateInstanceCapture {
   const capture = emptyTemplateCapture();
   // read before the early return: a template can declare outputs without
   // rendering anything, and those are still this placement's result
@@ -176,19 +120,99 @@ async function runPass(
     getLinkedSourceNodeIds(surface).forEach((nodeId) => {
       const node = PPGraph.currentGraph.getNodeById(nodeId);
       if (node) {
-        capture.snapshots[nodeId] = PPNode.remapInput(node.inputSocketArray);
+        capture.snapshots[nodeId] = {
+          ...PPNode.remapInput(node.inputSocketArray),
+          ...node.getTemplateSnapshotProps(),
+        };
       }
     });
   });
   return capture;
 }
 
+async function runPass(
+  template: UITemplate,
+  args: TemplateArgs,
+  edits: TemplateNodeValues,
+  action?: () => Promise<void>,
+): Promise<TemplateInstanceCapture> {
+  template.getParameterSockets().forEach((parameter) => {
+    // A parameter SEEDS the row, and then yields to it. If the viewer has
+    // edited a socket this parameter feeds, the edit is written into the
+    // parameter itself, so it survives the propagation below - otherwise the
+    // parameter would overwrite the edit on every pass and a value could be
+    // shown from data or edited, never both.
+    const edited = parameter.links
+      .map((link) => {
+        const target = link.getTarget();
+        return edits[target.getNode().id]?.[target.name];
+      })
+      .find((value) => value !== undefined);
+    if (edited !== undefined) {
+      parameter.data = edited;
+      return;
+    }
+    if (Object.prototype.hasOwnProperty.call(args, parameter.name)) {
+      parameter.data = args[parameter.name];
+    }
+  });
+
+  // An edit on a socket nothing drives only holds for this pass: the shared
+  // node has to go back to what the template author set, or the next row and
+  // every other placement would start from this row's edit.
+  const authored: [PPSocket, unknown][] = [];
+  const editedNodes = new Set<PPNode>();
+  Object.entries(edits).forEach(([nodeId, bySocket]) => {
+    const node = PPGraph.currentGraph.getNodeById(nodeId);
+    Object.entries(bySocket).forEach(([socketName, value]) => {
+      const socket = node?.getInputSocketByName(socketName);
+      if (node && socket && !socket.hasLink()) {
+        authored.push([socket, socket.data]);
+        socket.data = value;
+        editedNodes.add(node);
+      }
+    });
+  });
+
+  try {
+    await FlowLogic.executeOptimizedChainBatch(
+      [
+        ...new Set([
+          ...Object.values(template.getDirectDependents()).filter(
+            (node) => node.updateBehaviour.update,
+          ),
+          ...editedNodes,
+        ]),
+      ],
+      template.id,
+    );
+    await action?.();
+    return capturePass(template);
+  } finally {
+    authored.forEach(([socket, value]) => {
+      socket.data = value;
+    });
+    // a node no parameter reaches would otherwise keep this row's outputs
+    if (editedNodes.size > 0) {
+      await FlowLogic.executeOptimizedChainBatch([...editedNodes], template.id);
+    }
+  }
+}
+
+// Passes share the template's sockets, so two of them must never interleave.
+// The queue is per template: a pass of one template can run a placement of
+// another, and prepareTemplateRun rules out that ever coming back around.
+// Macro has the same exposure today and no guard; this keeps placements honest
+// without changing macro behaviour.
 export function runTemplateAsInstance(
   template: UITemplate,
   args: TemplateArgs,
-  edits: TemplateRowEdits = { baseline: {}, edits: {} },
+  edits: TemplateNodeValues = {},
+  action?: () => Promise<void>,
 ): Promise<TemplateInstanceCapture> {
-  const pass = passQueue.then(() => runPass(template, args, edits));
-  passQueue = pass.catch(() => undefined);
+  const pass = template.passQueue.then(() =>
+    runPass(template, args, edits, action),
+  );
+  template.passQueue = pass.catch(() => undefined);
   return pass;
 }
