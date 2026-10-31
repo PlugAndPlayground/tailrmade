@@ -688,6 +688,13 @@ export class ExecuteMacro extends PPNode {
     this.updateMacroCallSockets();
   }
 
+  // Also how a macro set by the AI or undo arrives: a socket value set from
+  // outside never goes through the dropdown's onChange.
+  public socketChangedFromWidget(): void {
+    this.calledMacroUpdatedMeta();
+    super.socketChangedFromWidget();
+  }
+
   protected getDefaultIO(): Socket[] {
     return [
       new Socket(
