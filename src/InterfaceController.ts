@@ -39,7 +39,11 @@ import {
   RightDrawerView,
 } from './utils/constants';
 import { findEmbeddingsOf } from './nodes/layout/surfaceSync';
-import { groupSelection, ungroupSelection } from './actions/graphActions';
+import {
+  extractSelectionToMacro,
+  groupSelection,
+  ungroupSelection,
+} from './actions/graphActions';
 import { removeNodesFromGroups } from './classes/groups/groupActions';
 import type { UISurfaceNode } from './nodes/layout/uiSurface';
 
@@ -507,6 +511,13 @@ export default class InterfaceController {
           case 'KeyU':
             void combineSelectedLayoutablesIntoSurface();
             break;
+          case 'KeyM': {
+            const selectedNodes = PPGraph.currentGraph.selection.selectedNodes;
+            if (selectedNodes.length > 0) {
+              void extractSelectionToMacro(selectedNodes);
+            }
+            break;
+          }
         }
       } else if (e.altKey) {
         switch (e.code) {
