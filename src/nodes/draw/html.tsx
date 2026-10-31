@@ -7,6 +7,13 @@ import React, {
   useLayoutEffect,
 } from 'react';
 import Handlebars from 'handlebars/dist/handlebars';
+import {
+  NodeRisk,
+  NetworkRisk,
+  UnrestrictedCodeRisk,
+  ExternalHtmlRisk,
+  getImageSourceRisks,
+} from '../../classes/NodeRisk';
 import { TRgba } from '../../utils/color';
 import { composeDocs } from '../../utils/nodeDocs';
 import { ErrorBoundary } from 'react-error-boundary';
@@ -114,6 +121,31 @@ const parsedHtmlOutputName = 'Parsed Html';
  * Base class for HTML-rendering nodes with shared Handlebars functionality.
  */
 abstract class HtmlNodeBase extends HybridNode2 {
+  public getRisks(): NodeRisk[] {
+    if (!this.getStaticInputData(SANITIZE_NAME).value) {
+      return [new UnrestrictedCodeRisk(), new NetworkRisk()];
+    }
+    const inputs = [
+      htmlInputSocketName,
+      inputSocketNameHeader,
+      dataInputSocketName,
+      partialsInputSocketName,
+    ].filter((name) => this.getInputSocketByName(name));
+    const values = inputs.map((name) => this.getStaticInputData(name));
+    if (values.some((value) => !value.known)) return [new NetworkRisk()];
+    const markup = values
+      .map((value) =>
+        typeof value.value === 'string'
+          ? value.value
+          : JSON.stringify(value.value),
+      )
+      .join('\n');
+    const sanitized = DOMPurify.sanitize(markup);
+    const urls = sanitized.match(/(?:https?:)?\/\/[^\s<>"'()]+/g) ?? [];
+    return [...new Set(urls)]
+      .filter((url) => getImageSourceRisks(url, false).length > 0)
+      .map((url) => new ExternalHtmlRisk(url));
+  }
   protected lastTemplateError: Error | null = null;
 
   public getDocs(): string {

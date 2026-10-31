@@ -3,7 +3,6 @@
 // module free of React and node-class imports.
 import { UNSET_VALUE } from './constants';
 import { RootName, containerName } from './constants_shared';
-import { TRgba } from './color';
 import { INHERIT_COLOR } from './themeColors';
 import type { ContainerProps } from '../components/dashboard/Container';
 

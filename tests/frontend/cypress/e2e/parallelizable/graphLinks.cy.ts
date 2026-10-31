@@ -1,3 +1,5 @@
+import { approveLoadedTestApp } from '../helpers';
+
 describe('Graph Links', () => {
   it('open graph, old format', () => {
     const pnpBaseUrl = Cypress.expose('pnpBaseUrl') || 'http://127.0.0.1:8080';
@@ -19,5 +21,6 @@ describe('Graph Links', () => {
     cy.get('[data-cy="button-Button"]', { timeout: 60000 }).should(
       'be.visible',
     );
+    approveLoadedTestApp();
   });
 });

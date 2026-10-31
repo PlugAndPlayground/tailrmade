@@ -15,11 +15,6 @@ export const CONTAINER_EMPHASES: readonly ContainerEmphasis[] = [
 
 export const DEFAULT_CONTAINER_EMPHASIS: ContainerEmphasis = 'none';
 
-export const isContainerEmphasis = (
-  value: unknown,
-): value is ContainerEmphasis =>
-  CONTAINER_EMPHASES.includes(value as ContainerEmphasis);
-
 // A separate axis from emphasis, so more roles (success, warning, ...) can be
 // added without a stored value changing meaning.
 export type ContainerTone = 'neutral' | 'primary' | 'secondary';
@@ -31,9 +26,6 @@ export const CONTAINER_TONES: readonly ContainerTone[] = [
 ];
 
 export const DEFAULT_CONTAINER_TONE: ContainerTone = 'neutral';
-
-export const isContainerTone = (value: unknown): value is ContainerTone =>
-  CONTAINER_TONES.includes(value as ContainerTone);
 
 // Neutral tints with the theme's own text color - dark on a light app, light
 // on a dark one, so it flips with the mode on its own. A colored tone needs a

@@ -4,6 +4,7 @@ import {
   closeBothDrawers,
   controlOrMetaKey,
   openNewGraph,
+  shouldWithTestController,
 } from '../helpers';
 
 const openNodeSearch = () => {
@@ -128,11 +129,23 @@ describe('Node Search Functionality', () => {
     clearSearch();
     getSearchInput().type('asdf{enter}', { force: true });
     assertNodesCount(1, smokeTimeout);
+    // Selection happens after the new function's worker has initialized.
+    shouldWithTestController((controller) => {
+      expect(controller.getSelectedNodes().map((node) => node.name)).to.deep.eq(
+        ['asdf'],
+      );
+    }, smokeTimeout);
 
     openNodeSearch();
     clearSearch();
     getSearchInput().type('jkl{enter}', { force: true });
     assertNodesCount(2, smokeTimeout);
+    shouldWithTestController((controller) => {
+      expect(controller.getNodes().map((node) => node.name)).to.have.members([
+        'asdf',
+        'jkl',
+      ]);
+    }, smokeTimeout);
   });
 
   it('fuzzy search works with partial and reordered terms', () => {

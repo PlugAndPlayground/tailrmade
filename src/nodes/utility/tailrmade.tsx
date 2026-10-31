@@ -1,4 +1,3 @@
-import * as PIXI from 'pixi.js';
 import PPGraph from '../../classes/GraphClass';
 import PPNode from '../../classes/NodeClass';
 import PPSocket from '../../classes/SocketClass';
@@ -21,6 +20,11 @@ import {
 import { EnumType } from '../datatypes/enumType';
 import { DynamicEnumType } from '../datatypes/dynamicEnumType';
 import { BackendGateway } from '../../services/BackendGateway';
+import {
+  collectAppRisks,
+  getRiskLevel,
+  highestRiskLevel,
+} from '../../classes/NodeRisk';
 
 export class Tailrmade extends PPNode {
   // This node can invoke graph and application actions.
@@ -128,6 +132,12 @@ export class Tailrmade extends PPNode {
         SOCKET_TYPE.IN,
         'Output all added nodes',
         new TriggerType(TRIGGER_TYPE_OPTIONS[0].text, 'outputAllAddedNodes'),
+        0,
+      ),
+      new PPSocket(
+        SOCKET_TYPE.IN,
+        'Output app access',
+        new TriggerType(TRIGGER_TYPE_OPTIONS[0].text, 'outputAppAccess'),
         0,
       ),
       new PPSocket(
@@ -253,6 +263,37 @@ export class Tailrmade extends PPNode {
       await BackendGateway.getInstance().getExampleGraphs();
     this.setOutputData('output', remoteGraphs);
     await this.executeChildren();
+  }
+
+  // Same data the Access panel shows, so an app can display its own
+  // actions instead of asking people to open the review panel.
+  outputAppAccess(): void {
+    const graph = PPGraph.currentGraph;
+    const risks = collectAppRisks(Object.values(graph.nodes));
+    const actions = risks.map(({ risk, nodes }) => ({
+      kind: risk.kind,
+      title: risk.title,
+      description: risk.description,
+      level: getRiskLevel(risk),
+      impact: [...risk.consequences],
+      target: risk.target ?? null,
+      resolved: risk.resolved,
+      nodes,
+    }));
+    this.setOutputData('output', {
+      app: graph.name,
+      source: graph.source
+        ? {
+            ownerId: graph.source.ownerId,
+            owner: graph.source.owner,
+            verified: graph.source.ownerId === 'publicUser',
+          }
+        : null,
+      // Mirrors the panel's headline: the highest level any node reaches.
+      requiredLevel: highestRiskLevel(risks.map(({ risk }) => risk)),
+      actions,
+    });
+    void this.executeChildren();
   }
 
   outputGraphJSON(): void {

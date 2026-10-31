@@ -7,7 +7,6 @@ import {
   Paper,
   List,
   ListItem,
-  ListItemText,
   IconButton,
   Button,
 } from '@mui/material';

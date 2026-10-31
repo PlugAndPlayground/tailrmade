@@ -32,17 +32,6 @@ export function loadDrawerStateFromSession(): IDrawerState {
 }
 
 /**
- * Clear drawer state from session storage
- */
-export function clearDrawerStateFromSession(): void {
-  try {
-    sessionStorage.removeItem(DRAWER_STATE_KEY);
-  } catch (error) {
-    console.warn('Failed to clear drawer state from session storage:', error);
-  }
-}
-
-/**
  * Get default drawer state
  */
 export function getDefaultDrawerState(): IDrawerState {

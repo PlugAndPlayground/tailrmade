@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import JSON5 from 'json5';
 import * as PIXI from 'pixi.js';
 import isUrl from 'is-url';
@@ -6,6 +6,7 @@ import { useTheme } from '@mui/material';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import PPStorage, { checkForUnsavedChanges } from '../PPStorage';
 import PPGraph from '../classes/GraphClass';
+import { rememberCopiedSelection } from '../services/nodePasteTrust';
 import PPNode from '../classes/NodeClass';
 import PPSocket from '../classes/SocketClass';
 import HybridNode2 from '../classes/HybridNode2';
@@ -58,31 +59,6 @@ import { BackendGateway } from '../services/BackendGateway';
 import { ActionHandler } from '../classes/Action';
 import type { URLSetSocketData } from '../nodes/state/storage';
 import FlowLogic from '../classes/FlowLogic';
-
-export function isFunction(funcOrClass: any): boolean {
-  const propertyNames = Object.getOwnPropertyNames(funcOrClass);
-  console.log(propertyNames);
-  return (
-    !propertyNames.includes('prototype') || propertyNames.includes('arguments')
-  );
-}
-
-export function isClass(item: any): boolean {
-  console.log(item.constructor.name);
-  return (
-    item.constructor.name !== 'Function' && item.constructor.name !== 'Object'
-  );
-}
-
-export function convertToArray<T>(value: T | T[]): T[] {
-  let array: T[] = [];
-  if (Array.isArray(value)) {
-    array = value;
-  } else {
-    array.push(value);
-  }
-  return array;
-}
 
 const numberFormatter = new Intl.NumberFormat();
 
@@ -140,65 +116,12 @@ export function convertToViewableString(value: unknown): string {
   }
 }
 
-export function getElement(value: number | number[], index: number): number {
-  let array: number[] = [];
-  if (Array.isArray(value)) {
-    array = value;
-  } else {
-    array.push(value);
-  }
-  return index < array.length ? array[index] : array[array.length - 1];
-}
-
 export function getNodeCommentPosX(width: number): number {
   return width + SOCKET_WIDTH;
 }
 
 export function getNodeCommentPosY(): number {
   return NODE_PADDING_TOP + NODE_HEADER_HEIGHT + SOCKET_TEXTMARGIN_TOP - 8;
-}
-
-export function highlightText(text: string, query: string): any {
-  let lastIndex = 0;
-  const words = query
-    .split(/\s+/)
-    .filter((word) => word.length > 0)
-    .map(escapeRegExpChars);
-  if (words.length === 0) {
-    return [text];
-  }
-  const regexp = new RegExp(words.join('|'), 'gi');
-  const tokens: React.ReactNode[] = [];
-  while (true) {
-    const match = regexp.exec(text);
-    if (!match) {
-      break;
-    }
-    const length = match[0].length;
-    const before = text.slice(lastIndex, regexp.lastIndex - length);
-    if (before.length > 0) {
-      tokens.push(before);
-    }
-    lastIndex = regexp.lastIndex;
-    tokens.push(
-      React.createElement(
-        'strong',
-        {
-          key: lastIndex,
-        },
-        match[0],
-      ),
-    );
-  }
-  const rest = text.slice(lastIndex);
-  if (rest.length > 0) {
-    tokens.push(rest);
-  }
-  return tokens;
-}
-
-export function escapeRegExpChars(text: string): string {
-  return text.replace(/[.*+?^=!:${}()|[\]\/\\]/g, '\\$1');
 }
 
 export const roundNumber = (number: number, decimals = 2): number =>
@@ -266,33 +189,6 @@ export const limitRange = (
   return Math.min(Math.max(min, value), max);
 };
 
-export const mapRange = (
-  value: number,
-  low1: number,
-  high1: number,
-  low2: number,
-  high2: number,
-  returnInt = true,
-): number => {
-  // special case, prevent division by 0
-  if (high1 - low1 === 0) {
-    return 0;
-  }
-  // * 1.0 added to force float division
-  let newValue =
-    low2 + (high2 - low2) * (((value - low1) * 1.0) / (high1 - low1));
-  newValue = Math.round(newValue * 1000 + Number.EPSILON) / 1000; // rounds the number with 3 decimals
-  let limitedNewValue = Math.min(Math.max(newValue, low2), high2);
-  if (returnInt) {
-    limitedNewValue = Math.round(limitedNewValue);
-  }
-  return limitedNewValue;
-};
-
-export const fetchAsBlob = (url) => {
-  return fetch(url).then((response) => response.blob());
-};
-
 export const convertBlobToBase64 = (blob) => {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -340,16 +236,6 @@ export const getDifferenceSelection = (
     .concat(secondSelection.filter((x) => !firstSelection.includes(x)));
 };
 
-export const truncateText = (
-  inputString: string,
-  maxLength: number,
-): string => {
-  if (inputString.length > maxLength) {
-    return inputString.substring(0, maxLength) + '...';
-  }
-  return inputString;
-};
-
 export const useStateRef = (initialValue?: any) => {
   const [value, setValue] = useState(initialValue);
 
@@ -366,10 +252,6 @@ export const getFileExtension = (fileName: string): string => {
   return fileName
     .slice(((fileName.lastIndexOf('.') - 1) >>> 0) + 2)
     .toLowerCase();
-};
-
-export const removeExtension = (fileName: string): string => {
-  return fileName.replace(/\.[^/.]+$/, '');
 };
 
 export const getSetting = async (
@@ -974,16 +856,6 @@ export async function perform_action_connectNodeToSocket(
   await PPGraph.currentGraph.perform_action_Connect(output, input);
 }
 
-export const indexToAlphaNumName = (num: number) => {
-  let alpha = '';
-
-  for (; num >= 0; num = parseInt(String(num / 26), 10) - 1) {
-    alpha = String.fromCharCode((num % 26) + 0x41) + alpha;
-  }
-
-  return alpha;
-};
-
 // TODO this function sometimes returns 0,0 (before graph has gotten event), fix this (and function below)
 export function getCurrentCursorPosition(): PIXI.Point {
   if (PPGraph.currentGraph.pointerEvent) {
@@ -1046,6 +918,7 @@ export const cutOrCopyClipboard = async (e: ClipboardEvent): Promise<void> => {
   ) {
     e.preventDefault();
     const serializeSelection = PPGraph.currentGraph.serializeSelection(false);
+    rememberCopiedSelection(serializeSelection);
     writeDataToClipboard(serializeSelection);
     if (e.type === 'cut') {
       await PPGraph.currentGraph.perform_action_DeleteSelectedNodes();
@@ -1362,11 +1235,6 @@ export const getFileNameFromLocalResourceId = (localResourceId) => {
   return localResourceId.match(regex)[1];
 };
 
-export const getExtensionFromLocalResourceId = (localResourceId) => {
-  const fileName = getFileNameFromLocalResourceId(localResourceId);
-  return getFileExtension(fileName);
-};
-
 export { constructSocketId } from './elementIds';
 
 // Node ids are arbitrary unique strings (hri.random() by default, "::"
@@ -1537,9 +1405,6 @@ export const loadGraph = async (urlParams: URLSearchParams) => {
   }
   ActionHandler.setUnsavedChange(false); // reset unsaved changes after loading a graph
 };
-
-export const sortByDate = (a, b) =>
-  new Date(b.date).getTime() - new Date(a.date).getTime();
 
 export const parseValueAndAttachWarnings = (
   nodeOrSocket: IWarningHandler,
@@ -1719,27 +1584,6 @@ export function formatIfNumber(num: any): string {
   }
 }
 
-// generates a not unique name of a copy
-export function generateCopyName(name: string): string {
-  // Check for "copy N" pattern first
-  const copyNumberMatch = name.match(/^(.+) copy (\d+)$/);
-  if (copyNumberMatch) {
-    const baseName = copyNumberMatch[1];
-    const number = parseInt(copyNumberMatch[2]);
-    return `${baseName} copy ${number + 1}`;
-  }
-
-  // Check for just "copy" pattern
-  const copyMatch = name.match(/^(.+) copy$/);
-  if (copyMatch) {
-    const baseName = copyMatch[1];
-    return `${baseName} copy 2`;
-  }
-
-  // Base case: add "copy"
-  return `${name} copy`;
-}
-
 /**
  * Gets the value of an enum item from its text property
  * If the enum item doesn't have an explicit value, the text is returned as the value
@@ -1753,18 +1597,4 @@ export function getEnumValue(options: EnumItem[], text: string): any {
     return undefined; // Return undefined if no matching option found
   }
   return option.value;
-}
-
-/**
- * Gets the text of an enum item from its value
- * @param options The enum structure containing text/value pairs
- * @param value The value to look up in the enum
- * @returns The text associated with the value, or the first option's text if no match is found
- */
-export function getEnumText(options: EnumItem[], value: any): any {
-  const option = options.find((opt) => opt.value === value);
-  if (!option) {
-    return undefined; // Return undefined if no matching option found
-  }
-  return option.text;
 }

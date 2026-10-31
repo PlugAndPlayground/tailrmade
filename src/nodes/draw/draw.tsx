@@ -26,7 +26,6 @@ import {
   saveBase64AsImage,
 } from '../../utils/utils';
 import { TRgba } from '../../utils/color';
-import { TNodeSource } from '../../utils/interfaces';
 import { drawDottedLine, removeAndDestroyChild } from '../../pixi/utils-pixi';
 import {
   DRAW_Base,
@@ -39,10 +38,7 @@ import {
 import DRAW_Get_Bounds from './drawMeta';
 import { IsCompatible } from '../datatypes/abstractType';
 import InterfaceController from '../../InterfaceController';
-import {
-  addDashboardContentOutput,
-  SOCKET_NAME_DASHBOARD_CONTENT,
-} from '../../utils/layoutableHelpers';
+import { SOCKET_NAME_DASHBOARD_CONTENT } from '../../utils/layoutableHelpers';
 import { DeferredReactTypeInterface } from '../datatypes/deferredHtmlType';
 import { TwoDVectorType } from '../datatypes/twoDVectorType';
 import { DynamicInputNodeFunctions } from '../abstract/DynamicInputNode';

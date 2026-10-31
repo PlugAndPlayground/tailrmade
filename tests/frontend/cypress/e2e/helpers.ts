@@ -450,6 +450,34 @@ export const waitForGraphToBeReady = () => {
   cy.get('body')
     .contains('App was loaded', { timeout: PNP_TIMEOUT })
     .should('exist');
+  approveLoadedTestApp();
+};
+
+// Fixture tests exercise running apps. Risk-review tests load directly so they
+// can assert the paused state and choose whether to approve the app themselves.
+export const approveLoadedTestApp = () => {
+  doWithTestController((controller) => {
+    // React may not have rendered the pending banner or review yet. Check
+    // startup state rather than treating an absent banner as approval.
+    cy.get('body', { timeout: PNP_TIMEOUT })
+      .should(($body) => {
+        expect(
+          controller.isLoadedAppRunning() ||
+            $body.find('[data-cy="run-reviewed-app"]').length > 0,
+          'app started or ready for review',
+        ).to.equal(true);
+      })
+      .then(($body) => {
+        if ($body.find('[data-cy="run-reviewed-app"]').length) {
+          cy.get('[data-cy="run-reviewed-app"]').click();
+        }
+      });
+  });
+  cy.get('[data-cy="app-risk-dialog"]').should('not.exist');
+  cy.get('[data-cy="app-not-running"]').should('not.exist');
+  shouldWithTestController((controller) => {
+    expect(controller.isLoadedAppRunning()).to.equal(true);
+  }, PNP_TIMEOUT);
 };
 
 // slow visit
@@ -632,6 +660,7 @@ export const openStringifiedGraph = (graph: string) => {
     timeout: 120000,
   });
   prepareLoadedGraph();
+  waitForGraphToBeReady();
 };
 
 export const clickNode = (

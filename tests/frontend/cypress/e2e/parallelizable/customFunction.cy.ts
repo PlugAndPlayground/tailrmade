@@ -150,7 +150,7 @@ describe('customFunction', () => {
     });
   });
 
-  it('call macro from worker (non main thread)', () => {
+  it('rejects worker macros and keeps trusted main-thread macros working', () => {
     doWithTestController(async (testController) => {
       await testController.setNodeInputValue(
         'CustomFunction',
@@ -160,12 +160,26 @@ describe('customFunction', () => {
       await testController.setNodeInputValue(
         'CustomFunction',
         'Code',
-        customFunctionCode,
+        '(a) => { try { return await macro("MyMacro"); } catch (error) { return error.message; } }',
       );
       await testController.setNodeInputValue('Add', 'Addend 2', 5);
 
       await testController.executeNodeByID('CustomFunction');
       await testController.waitForPendingExecution();
+      expect(
+        testController.getNodeOutputValue('CustomFunction', 'OutData'),
+      ).to.contain('macro() is unavailable in restricted workers');
+      await testController.setNodeInputValue(
+        'CustomFunction',
+        'Main Thread',
+        true,
+      );
+      await testController.setNodeInputValue(
+        'CustomFunction',
+        'Code',
+        customFunctionCode,
+      );
+      await testController.executeNodeByID('CustomFunction');
       expect(
         testController.getNodeOutputValue('CustomFunction', 'OutData'),
       ).to.eq(5);
@@ -199,7 +213,6 @@ describe('customFunction', () => {
     });
   });
 
-  
   it('remove parameter after connecting node, socket should stay, then disconnect and socket should be gone', () => {
     doWithTestController(async (testController) => {
       // Set up custom function with parameter 'a'
@@ -209,7 +222,7 @@ describe('customFunction', () => {
         '(a) => {return a;}',
       );
       await testController.executeNodeByID('CustomFunction');
-      
+
       // Verify socket 'a' exists
       expect(testController.getInputSocketByIDandName('CustomFunction', 'a')).to
         .exist;
@@ -217,7 +230,12 @@ describe('customFunction', () => {
       // Add a Constant node and connect it to the 'a' socket
       await testController.addNode('Constant', 'Constant');
       await testController.setNodeInputValue('Constant', 'In', 5);
-      await testController.connectNodesByID('Constant', 'CustomFunction', 'Out', 'a');
+      await testController.connectNodesByID(
+        'Constant',
+        'CustomFunction',
+        'Out',
+        'a',
+      );
       await testController.waitForPendingExecution();
 
       // Remove parameter from code (change to no parameters)
@@ -241,5 +259,4 @@ describe('customFunction', () => {
         .not.exist;
     });
   });
-  
 });

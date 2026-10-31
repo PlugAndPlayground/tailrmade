@@ -1,55 +1,5 @@
 import React from 'react';
 
-export const NarrowIcon = () => (
-  <svg
-    width="24"
-    height="24"
-    viewBox="0 0 24 24"
-    fill="none"
-    xmlns="http://www.w3.org/2000/svg"
-  >
-    <g clipPath="url(#clip0_2749_690)">
-      <path
-        d="M6.01 11H2V13H6.01V16L10 12L6.01 8V11Z"
-        fill="var(--svg-fill-color)"
-      />
-      <path
-        d="M17.99 11H22V13H17.99V16L14 12L17.99 8V11Z"
-        fill="var(--svg-fill-color)"
-      />
-    </g>
-    <defs>
-      <clipPath id="clip0_2749_690">
-        <rect width="24" height="24" fill="var(--svg-fill-color)" />
-      </clipPath>
-    </defs>
-  </svg>
-);
-
-export const WidenIcon = () => (
-  <svg
-    width="24"
-    height="24"
-    viewBox="0 0 24 24"
-    fill="none"
-    xmlns="http://www.w3.org/2000/svg"
-  >
-    <g clipPath="url(#clip0_2749_696)">
-      <path
-        fillRule="evenodd"
-        clipRule="evenodd"
-        d="M16.01 11V8L20 12L16.01 16V13H7.99V16L4 12L7.99 8V11H16.01Z"
-        fill="var(--svg-fill-color)"
-      />
-    </g>
-    <defs>
-      <clipPath id="clip0_2749_696">
-        <rect width="24" height="24" fill="var(--svg-fill-color)" />
-      </clipPath>
-    </defs>
-  </svg>
-);
-
 export const TMIconNoShadow = () => (
   <svg
     width="40"

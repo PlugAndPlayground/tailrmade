@@ -130,3 +130,68 @@ This creates a connection to the first fitting socket on that node
 - **Bottom**: Align bottom edges
 - **Distribute vertically**: Evenly distribute nodes vertically
 - **Distribute horizontally**: Evenly distribute nodes horizontally
+
+:::info
+Groups are aligned as one block, so their nodes keep their arrangement inside the group.
+:::
+
+## Grouping nodes
+
+Groups put a named, coloured frame around nodes that belong together, so you and anyone exploring your app can see its logical parts at a glance. Groups don't change how the graph runs.
+
+### Create a group
+
+1. Select the nodes you want to group
+2. Right-click one of them and choose **Group**
+   - OR press `Ctrl/Cmd` + `G`
+
+A new group is called "Group" and gets the next colour from the palette.
+
+### Rename a group
+
+1. Double-click the group's header
+2. Type the new name and press `Enter`
+   - `Esc` cancels
+
+### Change the colour of a group
+
+1. Click the group's header to select the group
+2. Click the colour icon at the right end of the header
+3. Pick one of the preset colours or any other colour
+   - The picker opens next to the group, so you can see the colour change as you pick
+
+### Move a group
+
+- Drag the group's header or border to move the group with all of its nodes
+- Dragging a single node inside the group moves only that node, and the frame resizes to fit
+
+### Add nodes to a group
+
+1. Drag one or more ungrouped nodes into the group's frame
+   - The frame is outlined while you are over it
+2. Release them to add them to the group
+
+### Remove nodes from a group
+
+1. Select the nodes you want to take out, but not the whole group
+2. Right-click and choose **Remove from group**
+
+A group without any nodes left is removed.
+
+### Ungroup
+
+1. Select the group or any node in it
+2. Right-click and choose **Ungroup**
+   - OR press `Ctrl/Cmd` + `Shift` + `G`
+
+The nodes stay where they are.
+
+:::info
+
+- A node can only be in one group, and groups can't be nested yet. Ungroup first to regroup.
+- Clicking inside a group's frame still reaches the canvas, so you can draw a selection box or double-click to search for nodes there.
+- Right-click a group's header to open the menu for all of its nodes.
+- Copying or duplicating a whole group copies the group too. Copying only part of a group copies just the nodes.
+- The AI assistant can group nodes too, for example when you ask it to structure or explain your app.
+- Grouping, renaming, recolouring and ungrouping can all be undone.
+  :::

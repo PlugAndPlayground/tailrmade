@@ -7,11 +7,18 @@ import * as PIXI from 'pixi.js';
 import { StringType } from '../datatypes/stringType';
 import { AbstractType } from '../datatypes/abstractType';
 import { BackPropagation } from '../../interfaces';
+import { StaticValue, UNKNOWN_STATIC_VALUE } from '../../classes/StaticValue';
 
 const numberName = 'Number';
 const stringName = 'String';
 
 abstract class PRIMITIVE_CONSTANT extends PPNode {
+  public getStaticOutputData(name: string, visited: Set<Socket>): StaticValue {
+    return name === this.getInputName()
+      ? this.getStaticInputData(this.getInputName(), visited)
+      : UNKNOWN_STATIC_VALUE;
+  }
+
   drawnConstant: PIXI.Text | undefined = undefined;
 
   public getParallelInputsOutputs(): boolean {

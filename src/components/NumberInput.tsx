@@ -24,6 +24,7 @@ export interface NumberInputProps {
   label?: string;
   value: number | null; // null shows an empty field
   onChange?: (value: number) => void;
+  onCommit?: (value: number) => void;
   min?: number;
   max?: number;
   /** Step for the arrows and arrow keys. `'any'` disables step snapping. */
@@ -62,6 +63,7 @@ export const NumberInput = ({
   label,
   value,
   onChange,
+  onCommit,
   min,
   max,
   step,
@@ -101,7 +103,9 @@ export const NumberInput = ({
       onValueCommitted={(next) => {
         if (next === null) {
           setTyped(value);
+          return;
         }
+        onCommit?.(next);
       }}
       min={min}
       max={max}
@@ -147,7 +151,17 @@ export const NumberInput = ({
             onKeyDown={inputProps.onKeyDown}
             onFocus={inputProps.onFocus}
             onBlur={inputProps.onBlur}
-            slotProps={{ input: inputProps }}
+            slotProps={{
+              input: {
+                ...inputProps,
+                onKeyDown: (event) => {
+                  inputProps.onKeyDown?.(event);
+                  if (event.key === 'Enter' && typed !== null) {
+                    onCommit?.(typed);
+                  }
+                },
+              },
+            }}
             endAdornment={
               endAdornment || showSteppers ? (
                 <>

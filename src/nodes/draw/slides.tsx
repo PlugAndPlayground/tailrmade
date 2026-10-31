@@ -3,11 +3,18 @@ import { TRgba } from '../../utils/color';
 import { Box, BoxProps } from '@mui/material';
 import { ErrorBoundary } from 'react-error-boundary';
 import ErrorFallback from '../../components/ErrorFallback';
-import PPNode from '../../classes/NodeClass';
+import DOMPurify from 'dompurify';
+import {
+  NodeRisk,
+  UnrestrictedCodeRisk,
+  NetworkRisk,
+  ExternalHtmlRisk,
+  getImageSourceRisks,
+} from '../../classes/NodeRisk';
 import PPSocket from '../../classes/SocketClass';
 import UpdateBehaviourClass from '../../classes/UpdateBehaviourClass';
-import InterfaceController, { ListenEvent } from '../../InterfaceController';
 import { CodeType } from '../datatypes/codeType';
+import { BooleanType } from '../datatypes/booleanType';
 import { EnumStructure, EnumType } from '../datatypes/enumType';
 import { TriggerType } from '../datatypes/triggerType';
 import { DynamicImport } from '../../utils/dynamicImport';
@@ -15,6 +22,7 @@ import { TNodeSource } from '../../utils/interfaces';
 import { getCanvasWidgetPointerEvents } from '../../utils/nodeInteractivity';
 import {
   NODE_TYPE_COLOR,
+  SANITIZE_NAME,
   SOCKET_TYPE,
   TRIGGER_TYPE_OPTIONS,
 } from '../../utils/constants';
@@ -45,6 +53,25 @@ const prevSocketName = 'Previous';
 const nextSocketName = 'Next';
 
 export class Slideshow extends HybridNode2 {
+  public getRisks(): NodeRisk[] {
+    // reveal.js stylesheets always come from this one CDN path.
+    const theme = new NetworkRisk(BASEURL, undefined, 'info');
+    if (!this.getStaticInputData(SANITIZE_NAME).value) {
+      return [new UnrestrictedCodeRisk(), new NetworkRisk()];
+    }
+    const data = this.getStaticInputData(inputSocketNameData);
+    if (!data.known) return [theme, new NetworkRisk()];
+    const sanitized = sanitizeSlides(
+      typeof data.value === 'string' ? data.value : '',
+    );
+    const urls = sanitized.match(/(?:https?:)?\/\/[^\s<>"'()]+/g) ?? [];
+    return [
+      theme,
+      ...[...new Set(urls)]
+        .filter((url) => getImageSourceRisks(url, false).length > 0)
+        .map((url) => new ExternalHtmlRisk(url)),
+    ];
+  }
   eventTarget: EventTarget;
   revealModule;
 
@@ -192,6 +219,13 @@ Check out its documentation for more details.`;
       ),
       new PPSocket(
         SOCKET_TYPE.IN,
+        SANITIZE_NAME,
+        new BooleanType(),
+        true,
+        false,
+      ),
+      new PPSocket(
+        SOCKET_TYPE.IN,
         themesSocketName,
         new EnumType(themesOptions, undefined, true),
         themesOptions[0].text,
@@ -229,6 +263,24 @@ Check out its documentation for more details.`;
   // small presentational component
   getWidgetContent(props: any): React.ReactElement {
     return <MyFunctionalComponent {...props} />;
+  }
+}
+
+// Slide decks rely on <style> blocks, data-background attributes and links,
+// all of which survive sanitizing. Scripts and event handlers do not.
+export function sanitizeSlides(markup: string): string {
+  DOMPurify.addHook('afterSanitizeAttributes', (node) => {
+    if (node.tagName === 'A' && node.hasAttribute('target')) {
+      node.setAttribute('rel', 'noopener noreferrer');
+    }
+  });
+  try {
+    return DOMPurify.sanitize(markup, {
+      ADD_TAGS: ['style'],
+      ADD_ATTR: ['target'],
+    });
+  } finally {
+    DOMPurify.removeHook('afterSanitizeAttributes');
   }
 }
 
@@ -376,7 +428,11 @@ const MyFunctionalComponent = ({
     if (!initialized) return;
 
     if (props[inputSocketNameData]) {
-      setData(props[inputSocketNameData]);
+      setData(
+        props[SANITIZE_NAME]
+          ? sanitizeSlides(props[inputSocketNameData])
+          : props[inputSocketNameData],
+      );
     } else {
       setData(invalidData);
     }
@@ -384,7 +440,7 @@ const MyFunctionalComponent = ({
     setTimeout(() => {
       handleNodeResize();
     }, 100);
-  }, [initialized, props[inputSocketNameData]]);
+  }, [initialized, props[inputSocketNameData], props[SANITIZE_NAME]]);
 
   const pointerEventsInput = { ...props, node, inDashboard } as Parameters<
     typeof getCanvasWidgetPointerEvents

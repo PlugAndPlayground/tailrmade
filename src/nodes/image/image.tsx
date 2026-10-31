@@ -1,4 +1,6 @@
 import React from 'react';
+import { isNodeExecutionAllowed } from '../../services/appExecution';
+import { NodeRisk, getImageSourceRisks } from '../../classes/NodeRisk';
 import * as PIXI from 'pixi.js';
 import DOMPurify from 'dompurify';
 import { TRgba } from '../../utils/color';
@@ -83,6 +85,11 @@ const defaultProps: WidgetProps = {
 };
 
 export class Image extends PPNode implements Layoutable {
+  public getRisks(): NodeRisk[] {
+    const source = this.getStaticInputData(imageInputName);
+    return getImageSourceRisks(source.value, !source.known);
+  }
+
   // Images can be displayed without downstream consumers.
   public getSeemsUnused(): boolean {
     return false;
@@ -177,6 +184,12 @@ export class Image extends PPNode implements Layoutable {
     this.maskRef = new PIXI.Graphics();
     this._ForegroundRef.addChild(this.maskRef);
     this.sprite.mask = this.maskRef;
+
+    if (!isNodeExecutionAllowed(this)) {
+      this.maskRef.rect(0, 0, this.nodeWidth, this.nodeHeight).fill(0xffffff);
+      this.maskRef.x = NODE_MARGIN;
+      return;
+    }
 
     const texture = await this.loadTexture(this.getInputData('Image'));
     this.texture = new PIXI.Texture(texture);

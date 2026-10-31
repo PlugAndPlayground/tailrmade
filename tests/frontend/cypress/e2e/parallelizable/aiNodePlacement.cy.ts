@@ -12,6 +12,11 @@ const boxesOverlap = (
   a.y < b.y + b.nodeHeight &&
   a.y + a.nodeHeight > b.y;
 
+const getPositions = (tc, ids: string[]) =>
+  Object.fromEntries(
+    ids.map((id) => [id, { x: tc.getNodeByID(id).x, y: tc.getNodeByID(id).y }]),
+  );
+
 // The AI supplies unique ids so later calls in the same ordered tool batch can
 // refer to new nodes without a model round trip. Placement remains automatic:
 // nodes start at the viewport center (getDefaultNewNodeLocation) and
@@ -194,6 +199,14 @@ describe('AI node placement (no overlap, scoped auto-alignment)', () => {
       expect(first[0].x + first[0].nodeWidth).to.be.lessThan(first[1].x);
       expect(second[0].x + second[0].nodeWidth).to.be.lessThan(second[1].x);
 
+      expect(
+        tc.getGroups().map((group) => [group.name, group.nodeIds]),
+        'each section is framed as a group named after it',
+      ).to.deep.eq([
+        ['First', ['ai-node-20', 'ai-node-21']],
+        ['Second', ['ai-node-22', 'ai-node-23']],
+      ]);
+
       const preExisting = tc.getNodeByID('pre-existing-node');
       expect(preExisting.x, 'pre-existing node x unchanged').to.eq(
         preExistingBefore.x,
@@ -224,6 +237,7 @@ describe('AI node placement (no overlap, scoped auto-alignment)', () => {
         title: 'Data',
         node_ids: ['existing-a', 'existing-b'],
         restructure: true,
+        color: '#A45140',
       });
       expect(result.is_error, result.content).to.not.eq(true);
       await tc.finishAIAgentTurn();
@@ -234,12 +248,55 @@ describe('AI node placement (no overlap, scoped auto-alignment)', () => {
         before[0].x + a.nodeWidth,
       );
       expect(a.x + a.nodeWidth).to.be.lessThan(b.x);
+      expect(tc.getGroups().map((group) => group.name)).to.deep.eq(['Data']);
+      expect(tc.getGroups()[0].color).to.eq('#A45140');
 
       await tc.undo();
       ['existing-a', 'existing-b'].forEach((id, i) => {
         expect(tc.getNodeByID(id).x, `${id} x restored`).to.eq(before[i].x);
         expect(tc.getNodeByID(id).y, `${id} y restored`).to.eq(before[i].y);
       });
+      expect(tc.getGroups(), 'the same undo removes the group').to.have.length(
+        0,
+      );
+    });
+  });
+  it('moves an existing group as one block when placing one member', () => {
+    doWithTestController(async (tc) => {
+      await tc.addNode('Constant', 'grouped-a', 0, 0);
+      await tc.addNode('Constant', 'grouped-b', 0, 400);
+      await tc.callMCPTool('group_nodes', {
+        node_ids: ['grouped-a', 'grouped-b'],
+        name: 'Mine',
+      });
+      const before = getPositions(tc, ['grouped-a', 'grouped-b']);
+      tc.beginAIAgentTurn();
+
+      const result = await tc.callMCPTool('finish_section', {
+        title: 'Theirs',
+        node_ids: ['grouped-a'],
+        restructure: true,
+      });
+      await tc.finishAIAgentTurn();
+
+      const content = JSON.parse(result.content);
+      expect(content.group_id).to.eq(undefined);
+      expect(content.not_grouped_reason).to.be.a('string');
+      const mine = tc.getGroups().filter((group) => group.name === 'Mine');
+      expect(mine).to.have.length(1);
+      expect(mine[0].nodeIds).to.deep.eq(['grouped-a', 'grouped-b']);
+      const after = getPositions(tc, ['grouped-a', 'grouped-b']);
+      expect(after['grouped-a'].x - before['grouped-a'].x).to.be.closeTo(
+        after['grouped-b'].x - before['grouped-b'].x,
+        0.5,
+      );
+      expect(after['grouped-a'].y - before['grouped-a'].y).to.be.closeTo(
+        after['grouped-b'].y - before['grouped-b'].y,
+        0.5,
+      );
+      expect(tc.getGroups().some((group) => group.name === 'Theirs')).to.eq(
+        false,
+      );
     });
   });
 });

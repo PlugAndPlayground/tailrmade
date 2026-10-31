@@ -3,6 +3,11 @@ import { hri } from 'human-readable-ids';
 import FlowLogic from '../../classes/FlowLogic';
 import PPGraph from '../../classes/GraphClass';
 import PPNode from '../../classes/NodeClass';
+import {
+  NodeRisk,
+  StorageReadRisk,
+  StorageWriteRisk,
+} from '../../classes/NodeRisk';
 import { NodeExecutionWarning } from '../../classes/ErrorClass';
 import { NodeExecutionError } from '../../classes/ErrorClass';
 import Socket from '../../classes/SocketClass';
@@ -83,6 +88,15 @@ function getStorageSocketPrefix(options: StorageSocketOptions = {}): Socket[] {
 }
 
 abstract class AbstractStorageNode extends PPNode {
+  // Readers and mutations report different actions, so neither
+  // description has to hedge about what this particular node does.
+  protected mutatesStorage = false;
+
+  public getRisks(): NodeRisk[] {
+    return [
+      this.mutatesStorage ? new StorageWriteRisk() : new StorageReadRisk(),
+    ];
+  }
   public socketShouldAutomaticallyAdapt(socket: Socket): boolean {
     return socket.name === VALUE_NAME || socket.name === FALLBACK_VALUE_NAME;
   }
@@ -590,6 +604,8 @@ abstract class StorageNode extends AbstractStorageNode {
 }
 
 abstract class StorageMutation extends StorageNode {
+  protected mutatesStorage = true;
+
   // Storage mutations are useful even when their outputs are unused.
   public getSeemsUnused(): boolean {
     return false;
@@ -1003,8 +1019,6 @@ export class StorageBrowse extends StorageReader {
 }
 
 abstract class LegacyStorageScaffold extends AbstractStorageNode {
-  protected mutatesStorage = false;
-
   public getSeemsUnused(): boolean {
     return !this.mutatesStorage && super.getSeemsUnused();
   }
@@ -1064,6 +1078,10 @@ abstract class LegacyStorageScaffold extends AbstractStorageNode {
     delete PPGraph.currentGraph.nodes[replacementId];
     replacementNode.id = previousNodeId;
     PPGraph.currentGraph.nodes[previousNodeId] = replacementNode;
+    PPGraph.currentGraph.groupLayer.onNodeReplaced(
+      replacementId,
+      previousNodeId,
+    );
 
     this.setInputSocketValue(
       replacementNode,

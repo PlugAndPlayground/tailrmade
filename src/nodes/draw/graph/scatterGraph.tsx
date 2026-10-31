@@ -26,7 +26,6 @@ import {
 import { StringType } from '../../datatypes/stringType';
 import { prettyPrintNumber } from '../../../utils/utils';
 import { calculateTrendLine } from './trendLine';
-import PPGraph from '../../../classes/GraphClass';
 export const inputDataName = 'Input Data';
 export const inputHeightName = 'Height';
 export const inputWidthName = 'Width';
