@@ -211,6 +211,7 @@ export function getImageSourceRisks(
 
 export class NavigationRisk extends NodeRisk {
   readonly kind = 'navigation';
+  readonly severity: RiskSeverity;
   readonly title = 'Opens web pages';
   readonly description =
     'Opens pages in a new tab. Anything in the address is sent to that site.';
@@ -221,6 +222,7 @@ export class NavigationRisk extends NodeRisk {
     const destination = resolveDestination(url);
     super(destination);
     this.resolved = destination !== undefined;
+    this.severity = this.resolved ? 'info' : 'warning';
   }
 }
 
