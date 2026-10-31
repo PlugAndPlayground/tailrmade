@@ -8,7 +8,6 @@ import {
   dataTypeWidgetDefaultProps,
 } from './abstractType';
 import { TParseType } from '../../utils/interfaces';
-import { convertToViewableString } from '../../utils/utils';
 
 export interface CodeTypeProps extends DataTypeProps {
   dataType: AbstractType;

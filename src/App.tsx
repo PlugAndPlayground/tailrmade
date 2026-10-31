@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef, Suspense } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { ErrorBoundary } from 'react-error-boundary';
 import * as PIXI from 'pixi.js';
 import { Viewport } from 'pixi-viewport';

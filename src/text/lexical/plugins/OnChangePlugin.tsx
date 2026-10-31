@@ -1,5 +1,4 @@
 import { useEffect } from 'react';
-import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext';
 
 export default function MyOnChangePlugin({
   editorRef,

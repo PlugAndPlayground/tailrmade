@@ -1,8 +1,8 @@
-import PPNode, { SmallNode } from '../../classes/NodeClass';
+import PPNode from '../../classes/NodeClass';
 import Socket from '../../classes/SocketClass';
 import { TRgba } from '../../utils/color';
 import { NODE_TYPE_COLOR, SOCKET_TYPE } from '../../utils/constants';
-import { CustomArgs, TNodeSource } from '../../utils/interfaces';
+import { TNodeSource } from '../../utils/interfaces';
 import { parseValueAndAttachWarnings } from '../../utils/utils';
 import { AbstractType } from '../datatypes/abstractType';
 import { AnyType } from '../datatypes/anyType';

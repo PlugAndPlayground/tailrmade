@@ -16,7 +16,6 @@ import { TRgba } from '../../utils/color';
 import {
   COLOR_DARK,
   COLOR_WHITE_TEXT,
-  MAIN_COLOR,
   SOCKETNAME_BACKGROUNDCOLOR,
 } from '../../utils/constants';
 import {

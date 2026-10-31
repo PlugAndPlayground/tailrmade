@@ -3,7 +3,6 @@ import debounce from 'lodash/debounce';
 import PPGraph from './GraphClass';
 import PPNode from './NodeClass';
 import Socket from './SocketClass';
-import InterfaceController from '../InterfaceController';
 import { getNodePasteSession } from '../services/nodePasteTrust';
 import {
   appExecutionAllowed,

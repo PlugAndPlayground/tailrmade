@@ -2,7 +2,7 @@
 // its transformers: Handlebars tokens, [text]{.tone .nowrap} spans, escaped
 // block markers, and one paragraph per line.
 import { $generateNodesFromDOM } from '@lexical/html';
-import { $createLinkNode, $isLinkNode, LinkNode } from '@lexical/link';
+import { $isLinkNode, LinkNode } from '@lexical/link';
 import {
   $convertFromMarkdownString,
   $convertToMarkdownString,

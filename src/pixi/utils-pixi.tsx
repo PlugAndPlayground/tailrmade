@@ -9,7 +9,6 @@ import {
   CANVAS_BACKGROUND_ALPHA,
   CANVAS_BACKGROUND_TEXTURE,
   COMMENT_TEXTSTYLE,
-  GRID_SHADER,
   MAIN_COLOR,
 } from '../utils/constants';
 import {
@@ -29,43 +28,6 @@ import {
   BakedAction,
   SerializableAction,
 } from '../classes/Action';
-
-export const getTextWithLineBreaks = (node: any): string => {
-  // we only deal with TextNodes
-  if (!node || !node.parentNode || node.nodeType !== 3) return '';
-  // our Range object form which we'll get the characters positions
-  const range = document.createRange();
-  // here we'll store all our lines
-  const lines: string[] = [];
-  // begin at the first char
-  range.setStart(node, 0);
-  // initial position
-  let prevBottom = range.getBoundingClientRect().bottom;
-  const str = node.textContent;
-  let current = 1; // we already got index 0
-  let lastFound = 0;
-  let bottom = 0;
-  // iterate over all characters
-  while (current <= str.length) {
-    // move our cursor
-    range.setStart(node, current);
-    if (current < str.length - 1) range.setEnd(node, current + 1);
-    bottom = range.getBoundingClientRect().bottom;
-    if (bottom > prevBottom) {
-      // line break
-      lines.push(
-        str.substr(lastFound, current - lastFound), // text content
-      );
-      prevBottom = bottom;
-      lastFound = current;
-    }
-    current++;
-  }
-  // push the last line
-  lines.push(str.substr(lastFound));
-
-  return lines.join('\n');
-};
 
 export const getObjectsInsideBounds = (
   nodes: PPNode[],
@@ -619,37 +581,3 @@ export const createPixiApp = (
   })();
   return lastTimeTicked;
 };
-
-export function addEllipsisToText(
-  text: PIXI.Text,
-  maxWidth: number,
-  ellipsis: string = '...',
-): void {
-  const originalText = text.text;
-  text.style.wordWrap = false;
-
-  // If text fits, we're done
-  if (text.width <= maxWidth) {
-    return;
-  }
-
-  // Binary search for the right length
-  let start = 0;
-  let end = originalText.length;
-  let bestFit = '';
-
-  while (start <= end) {
-    const mid = Math.floor((start + end) / 2);
-    const truncated = originalText.slice(0, mid) + ellipsis;
-    text.text = truncated;
-
-    if (text.width <= maxWidth) {
-      bestFit = truncated;
-      start = mid + 1;
-    } else {
-      end = mid - 1;
-    }
-  }
-
-  text.text = bestFit;
-}

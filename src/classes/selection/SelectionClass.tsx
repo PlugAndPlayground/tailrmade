@@ -1,16 +1,12 @@
 import * as PIXI from 'pixi.js';
-import React, { Suspense } from 'react';
-import { Box } from '@mui/material';
 import { Viewport } from 'pixi-viewport';
 import SelectionHeaderClass from './SelectionHeaderClass';
 import PPNode from '../NodeClass';
 import {
   ALIGNOPTIONS,
   SUCCESS_COLOR,
-  PIXI_TRANSPARENT_ALPHA,
   SCALEHANDLE_SIZE,
   SELECTION_COLOR_HEX,
-  TOOLTIP_WIDTH,
   WHITE_HEX,
   PIXI_OVERLAY_ALPHA,
 } from '../../utils/constants';
@@ -19,7 +15,6 @@ import { TAlignOptions } from '../../utils/interfaces';
 import { getObjectsInsideBounds } from '../../pixi/utils-pixi';
 import {
   clearDocumentSelection,
-  getCircularReplacer,
   getDifferenceSelection,
 } from '../../utils/utils';
 import PPGraph from '../GraphClass';

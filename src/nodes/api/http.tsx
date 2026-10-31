@@ -29,7 +29,6 @@ const bodyInputName = 'Body';
 const headersInputName = 'Headers';
 export const outputContentName = 'Content';
 export const sendThroughCompanionName = 'Send Through Companion';
-export const companionDefaultAddress = 'http://localhost:6655';
 const methodName = 'Method';
 
 export const HTTPMethodOptions: EnumStructure = [
@@ -131,12 +130,7 @@ Sending through the companion app needs
         new StringType(),
         'https://tailrmade.app/public/exampleGraphs',
       ),
-      new Socket(
-        SOCKET_TYPE.IN,
-        headersInputName,
-        new JSONType(),
-        {},
-      ),
+      new Socket(SOCKET_TYPE.IN, headersInputName, new JSONType(), {}),
       new Socket(
         SOCKET_TYPE.IN,
         methodName,

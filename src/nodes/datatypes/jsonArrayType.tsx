@@ -1,5 +1,4 @@
 import React from 'react';
-import { SocketParsingWarning } from '../../classes/ErrorClass';
 import { TRgba } from '../../utils/color';
 import type { TParseType } from '../../utils/interfaces';
 import { ArrayWidget } from '../../widgets';

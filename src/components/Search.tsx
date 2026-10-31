@@ -1,4 +1,4 @@
-import React, { memo, useMemo, useRef, useCallback } from 'react';
+import React, { memo, useMemo, useCallback } from 'react';
 import { TRgba } from '../utils/color';
 import { v4 as uuid } from 'uuid';
 import {

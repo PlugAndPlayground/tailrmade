@@ -53,8 +53,6 @@ export const STORAGE_QUOTA_LIMITS: Record<AccountTier, number> = {
   admin: 1000000,
 };
 
-export const DEFAULT_QUOTA = STORAGE_QUOTA_LIMITS.free;
-
 export type StorageType = 'graph' | 'object';
 
 export type GraphSortMode = 'date' | 'name';
@@ -104,10 +102,6 @@ export function getDefaultPreferences(uid: string): UserPreferences {
     aiAgentModel: DEFAULT_MODEL,
     aiAutoCapture: true,
   };
-}
-
-export function getMaxTokensForTier(tier: AccountTier): number {
-  return TOKEN_LIMITS[tier] || 0;
 }
 
 export function getEffectiveDailyUsage(

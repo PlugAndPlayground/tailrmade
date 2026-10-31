@@ -60,9 +60,6 @@ export const getPreset = (presetId: string | undefined): ThemePreset =>
   (presetId !== undefined ? presetsById.get(presetId) : undefined) ??
   presetsById.get(DEFAULT_PRESET_ID)!;
 
-export const isKnownPresetId = (presetId: string | undefined): boolean =>
-  presetId !== undefined && presetsById.has(presetId);
-
 /**
  * Flattens a preset into the single flat token record every layer above it
  * diffs against. Colors come from the preset's entry for `mode`; everything

@@ -170,41 +170,6 @@ export const ColorControl = ({
   );
 };
 
-export const DimensionInputs = ({
-  setProp,
-  width,
-  height,
-}: {
-  setProp: any;
-  width: string;
-  height: string;
-}) => (
-  <FormWrapper>
-    <div style={{ display: 'flex', gap: '16px' }}>
-      <TextField
-        variant="filled"
-        label="Width"
-        size="small"
-        data-cy="Container-width"
-        value={width}
-        onChange={(e) =>
-          setProp((props: any) => (props.width = e.target.value))
-        }
-      />
-      <TextField
-        variant="filled"
-        label="Height"
-        size="small"
-        data-cy="Container-height"
-        value={height}
-        onChange={(e) =>
-          setProp((props: any) => (props.height = e.target.value))
-        }
-      />
-    </div>
-  </FormWrapper>
-);
-
 export const AlignmentControl = ({
   value,
   onChange,

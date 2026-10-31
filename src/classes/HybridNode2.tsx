@@ -1,4 +1,3 @@
-import * as PIXI from 'pixi.js';
 import React, { useEffect, useState } from 'react';
 import { useNodeExecutionAllowed } from '../services/appExecution';
 import { TRgba } from '../utils/color';
