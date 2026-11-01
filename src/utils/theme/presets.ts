@@ -26,6 +26,8 @@ export type ThemePreset = {
   // an unthemed dark mode
   roles: Record<ThemeMode, ColorTokens>;
   typography: {
+    // bundled (global.css) or shipped with the OS - nothing loads fonts at
+    // runtime, so any other name silently renders as the Roboto fallback
     fontFamily: string;
     fontFamilyMono: string;
     fontSizeScalar: number;

@@ -4,7 +4,10 @@ import {
   clearAppThemeCache,
   createAppTheme,
 } from '../../../src/utils/theme/muiTheme';
-import { themeToCssVariables } from '../../../src/utils/theme/cssVariables';
+import {
+  appSurfaceSx,
+  themeToCssVariables,
+} from '../../../src/utils/theme/cssVariables';
 import { resolveTheme } from '../../../src/utils/theme/resolve';
 
 const themeWith = (tokens: Record<string, unknown>) =>
@@ -32,6 +35,18 @@ describe('theme -> CSS variables', () => {
     expect(variables['--tm-paper']).toBe('#fafafa');
     expect(variables['--tm-muted-foreground']).toBe('#555555');
     expect(variables['--tm-radius']).toBe('6px');
+  });
+
+  it('gives raw markup on an app surface the theme font', () => {
+    const theme = themeWith({ fontFamily: 'Georgia' });
+    expect(appSurfaceSx(theme)['--tm-font-family']).toBe(
+      theme.typography.fontFamily,
+    );
+    const globalCss = fs.readFileSync(
+      path.join(__dirname, '../../../src/utils/global.css'),
+      'utf8',
+    );
+    expect(globalCss).toMatch(/\.MuiBox-root[^}]*var\(--tm-font-family/);
   });
 
   it('backs every variable the Tailwind theme in template.html reads', () => {

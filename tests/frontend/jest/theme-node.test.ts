@@ -125,6 +125,16 @@ describe('Theme node', () => {
     expect(getRuntimeThemeLayer()).toBeUndefined();
   });
 
+  it('drops an unknown mode and reports it instead of breaking resolution', async () => {
+    setThemeDocument({ mode: 'light' });
+    const node = makeNode();
+    const output = await run(node, { Preset: 'terminal', Mode: 'sepia' });
+    expect(getRuntimeThemeLayer()).toEqual({ presetId: 'terminal' });
+    expect(output.Theme.mode).toBe('light');
+    expect(output.Warnings).toContain('"Mode" must be light | dark | system');
+    expect(node.status.message).toContain('"Mode" must be');
+  });
+
   it('reports bad override keys on the node and on the Warnings output', async () => {
     const node = makeNode();
     const output = await run(node, {

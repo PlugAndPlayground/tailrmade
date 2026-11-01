@@ -1,7 +1,7 @@
 {
   "id": "bauhaus",
   "name": "Bauhaus",
-  "description": "Flat primaries, hard corners, generous space. Poster-like.",
+  "description": "Flat primaries, heavy poster type, hard corners, generous space.",
   "roles": {
     "light": {
       "primary": "#1B4CD8",
@@ -31,7 +31,7 @@
     }
   },
   "typography": {
-    "fontFamily": "Space Grotesk",
+    "fontFamily": "Impact",
     "fontFamilyMono": "Roboto Mono",
     "fontSizeScalar": 1
   },

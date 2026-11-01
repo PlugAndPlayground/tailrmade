@@ -29,12 +29,11 @@ const PRESET_OPTIONS = [{ text: INHERIT }].concat(
   PRESETS.map((preset) => ({ text: preset.id })),
 );
 
-const MODE_OPTIONS = [
-  { text: INHERIT },
-  { text: 'light' },
-  { text: 'dark' },
-  { text: 'system' },
-];
+const MODE_SETTINGS: ThemeModeSetting[] = ['light', 'dark', 'system'];
+
+const MODE_OPTIONS = [{ text: INHERIT }].concat(
+  MODE_SETTINGS.map((mode) => ({ text: mode })),
+);
 
 // Only one node can hold the runtime layer - it is a single slot, and the last
 // node to execute wins. Remembering who filled it is what lets a node clean up
@@ -162,7 +161,11 @@ nodes in a graph, the last one to execute wins.`;
       layer.presetId = preset;
     }
     if (mode !== INHERIT && mode !== '') {
-      layer.mode = mode as ThemeModeSetting;
+      if (MODE_SETTINGS.includes(mode as ThemeModeSetting)) {
+        layer.mode = mode as ThemeModeSetting;
+      } else {
+        rejected.push(`"${MODE_SOCKET}" must be ${MODE_SETTINGS.join(' | ')}`);
+      }
     }
     if (tokens) {
       layer.tokens = tokens;
