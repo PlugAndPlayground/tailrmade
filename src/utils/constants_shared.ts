@@ -28,12 +28,8 @@ export const surfaceRadioGroupSocketName = 'Radio Group';
 export const surfaceElementVisibleSuffix = ' visible';
 export const surfaceElementLayoutSuffix = ' layout';
 
-// A UI template's sockets. The parameters are OUTPUTS on its left block,
-// feeding the nodes inside the frame; the UI is a single INPUT on its right
-// block, taking the surface that is the template's body - the same shape as
-// Macro's parameters and its Output. Same spelling as
-// MACRO_PARAMETER_PREFIX_NAME on purpose, since it reads the same to the user,
-// but a separate constant: templates and macros stay independent features.
+// A UI template's sockets. Spelled like MACRO_PARAMETER_PREFIX_NAME because it
+// reads the same to the user, but templates and macros stay independent features.
 export const templateParameterPrefixName = 'Parameter';
 export const templateUISocketName = 'UI';
 export const templateOutputPrefixName = 'Output';

@@ -104,4 +104,5 @@ To change what every copy starts from, set the value on the widget inside the te
 
 - **Speed:** the template runs once for every row. Rows with slow nodes inside add up, so keep expensive work like API calls outside the template and pass in the results. A Custom Function in a worker adds a small delay per row, and turning on `Main Thread` removes it.
 - **Reading values:** the nodes inside the frame are shared, so their sockets hold whichever row ran last. Use a template's outputs to read a row's values.
+- **Updates during a slow row:** if something outside the template updates a node inside the frame while a row is waiting on a slow node, that row can show mixed values until it next runs.
 - **Placing a template inside a template:** this works, as long as a template doesn't end up placing itself. That shows an error on the node. A change a user makes in the inner template shows in every row of the outer one.

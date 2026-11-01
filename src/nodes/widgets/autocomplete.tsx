@@ -296,12 +296,13 @@ export class WidgetAutocomplete extends WidgetAutocompleteBase {
   protected validateAndFormatSelected(
     selected: unknown,
     options: any[],
+    instance?: TemplateInstanceHandle,
   ): unknown {
-    const freeSolo = this.getInputData(freeSoloName);
+    const freeSolo = this.readWidgetValue(freeSoloName, instance);
     if (freeSolo) {
       return this.formatSelected(selected);
     }
-    return super.validateAndFormatSelected(selected, options);
+    return super.validateAndFormatSelected(selected, options, instance);
   }
 
   protected getDefaultSelectedSocket(): Socket {
@@ -330,13 +331,14 @@ export class WidgetMultiAutocomplete extends WidgetAutocompleteBase {
   protected validateAndFormatSelected(
     selected: unknown,
     options: any[],
+    instance?: TemplateInstanceHandle,
   ): unknown {
     const formatted = this.formatSelected(selected);
-    const freeSolo = this.getInputData(freeSoloName);
+    const freeSolo = this.readWidgetValue(freeSoloName, instance);
     if (freeSolo) {
       return formatted;
     }
-    return super.validateAndFormatSelected(selected, options);
+    return super.validateAndFormatSelected(selected, options, instance);
   }
 
   protected getDefaultSelectedSocket(): Socket {

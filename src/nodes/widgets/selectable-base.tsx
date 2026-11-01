@@ -8,12 +8,6 @@ import {
   stringifyIfNeeded,
   WidgetHybridBase,
 } from './abstract';
-import {
-  ActionHandler,
-  BakedAction,
-  SerializableAction,
-  SerializableActionHandler,
-} from '../../classes/Action';
 import { BackPropagation } from '../../interfaces';
 import type { TemplateInstanceHandle } from '../../components/dashboard/templateInstance';
 import { SOCKET_TYPE } from '../../utils/constants';
@@ -48,12 +42,13 @@ export abstract class WidgetSelectableBase extends WidgetHybridBase {
   protected validateAndFormatSelected(
     selected: unknown,
     options: any[],
+    instance?: TemplateInstanceHandle,
   ): unknown {
     if (this.isSingle()) {
       const formatted = this.formatSelected(selected) as string;
       return options.includes(formatted)
         ? formatted
-        : this.getInputData(fallbackValueName);
+        : this.readWidgetValue(fallbackValueName, instance);
     }
     const formatted = this.formatSelected(selected) as string[];
     // Return options in their original order, only keeping those that were selected
@@ -124,27 +119,11 @@ export abstract class WidgetSelectableBase extends WidgetHybridBase {
     const options = this.stringifyOptions(
       this.readWidgetValue(optionsName, instance) as any[],
     );
-    const id = this.id;
-    const formattedValue = this.validateAndFormatSelected(newValue, options);
-    const prev = this.readWidgetValue(selectedOptionName, instance);
-    const applyFunction = async (val: unknown) => {
-      const safeNode = SerializableActionHandler.getSafeNode(
-        id,
-      ) as WidgetSelectableBase;
-      await safeNode.applyWidgetEdit(selectedOptionName, val, instance, {
-        [outName]: val,
-      });
-    };
-    await ActionHandler.performRawAction(
-      new BakedAction(
-        new SerializableAction(
-          applyFunction,
-          applyFunction,
-          `${this.getName()} Apply Value`,
-        ),
-        formattedValue,
-        prev,
-      ),
+    await this.commitWidgetEdit(
+      selectedOptionName,
+      this.validateAndFormatSelected(newValue, options, instance),
+      instance,
+      `${this.getName()} Apply Value`,
     );
   }
 

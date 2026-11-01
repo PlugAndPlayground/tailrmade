@@ -37,6 +37,7 @@ import {
   Layoutable,
   WidgetProps,
 } from '../../utils/interfaces';
+import type { TemplateOwner } from '../../utils/templateOwner';
 import {
   prepareTemplateRun,
   runTemplateAsInstance,
@@ -121,7 +122,7 @@ export const TemplateBody = React.memo(function TemplateBody({
 
 export abstract class TemplatePlacementNode
   extends HybridNode2
-  implements Layoutable
+  implements Layoutable, TemplateOwner
 {
   // A placement is placed to be seen, so it is never "unused".
   public getSeemsUnused(): boolean {
@@ -230,7 +231,8 @@ export abstract class TemplatePlacementNode
     nodeId: string,
     socketName: string,
     value: unknown,
-  ): Promise<void> {
+  ): Promise<TemplateNodeValues> {
+    const previous = this.getRowEdits(rowKey);
     const edits = structuredClone(this.getEdits());
     const rowEdits = (edits.rows[rowKey ?? ''] ??= {});
     // A parameter holds one value per row, so the latest edit of any socket it
@@ -245,6 +247,20 @@ export abstract class TemplatePlacementNode
         delete rowEdits[target.getNode().id]?.[target.name];
       });
     (rowEdits[nodeId] ??= {})[socketName] = value;
+    this.setInputData(templateEditsSocketName, edits);
+    await this.runInTemplateRow(rowKey);
+    return previous;
+  }
+
+  // Undo restores the whole row rather than one value: writing the old value
+  // back would be an edit that pins the row to it, and the edit being undone may
+  // have replaced another one.
+  public async restoreRowEdits(
+    rowKey: string | undefined,
+    rowEdits: TemplateNodeValues,
+  ): Promise<void> {
+    const edits = structuredClone(this.getEdits());
+    edits.rows[rowKey ?? ''] = rowEdits;
     this.setInputData(templateEditsSocketName, edits);
     await this.runInTemplateRow(rowKey);
   }

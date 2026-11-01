@@ -42,7 +42,11 @@ import {
 } from '../utils/constants';
 import { isDoubleActivation } from '../utils/touchGestures';
 import UpdateBehaviourClass from './UpdateBehaviourClass';
-import type { TemplateInstanceHandle } from '../components/dashboard/templateInstance';
+import type {
+  TemplateInstanceHandle,
+  TemplateNodeValues,
+} from '../components/dashboard/templateInstance';
+import { isTemplateOwner, TemplateOwner } from '../utils/templateOwner';
 import { isCanvasExploreOnly } from '../utils/stackLayout';
 import NodeHeaderClass from './NodeHeaderClass';
 import PPGraph from './GraphClass';
@@ -2091,7 +2095,6 @@ ${Math.round(bounds.minX)}, ${Math.round(
    * The UI template hooks, mirroring the macro ones above: a template asks
    * every node whether it places it, then tells those that do when its
    * parameters changed (Meta) or when its contents did.
-   * Overridden in PlaceTemplate; no-ops everywhere else.
    */
   public isPlacingTemplate(_templateName: string): boolean {
     return false;
@@ -2101,40 +2104,12 @@ ${Math.round(bounds.minX)}, ${Math.round(
 
   public placedTemplateUpdatedMeta(_template: PPNode): void {}
 
-  /**
-   * The surface this node renders as a UI template body, if it is one.
-   * Lets surface-embedding loop detection see through a template placement
-   * without surfaceSync.ts importing the template nodes.
-   */
+  // lets surface loop detection see through a placement without importing it
   public getTemplateBodySurface(): PPNode | undefined {
     return undefined;
   }
 
-  /**
-   * Per-placement edits, stored on the node that owns the placement (Place
-   * Template, Repeat Template). No-ops elsewhere.
-   */
-  public async applyTemplateEdit(
-    _rowKey: string | undefined,
-    _nodeId: string,
-    _socketName: string,
-    _value: unknown,
-  ): Promise<void> {}
-
-  /**
-   * Re-evaluates one row of a placement, running `action` while that row's
-   * values are in the template's shared nodes.
-   */
-  public async runInTemplateRow(
-    _rowKey: string | undefined,
-    _action?: () => Promise<void>,
-  ): Promise<void> {}
-
-  /**
-   * What this node adds to a snapshot taken of it during a pass. A placement
-   * nested in a template renders its own state, which belongs to that pass just
-   * as much as its inputs do.
-   */
+  // what a snapshot taken during a pass adds, for a placement nested in a template
   public getTemplateSnapshotProps(): Record<string, unknown> {
     return {};
   }
@@ -2143,12 +2118,8 @@ ${Math.round(bounds.minX)}, ${Math.round(
     return this.templateBodyOf.size > 0;
   }
 
-  /**
-   * What a widget currently shows for one of its input sockets: the snapshot
-   * it was rendered from when it is inside a placement, otherwise the shared
-   * node's own socket - which, for a socket a parameter feeds, holds whichever
-   * row ran last.
-   */
+  // What a widget shows for an input. In a placement that is its snapshot, since
+  // the shared socket holds whichever row ran last.
   public readWidgetValue(
     socketName: string,
     instance?: TemplateInstanceHandle,
@@ -2159,11 +2130,18 @@ ${Math.round(bounds.minX)}, ${Math.round(
       : this.getInputData(socketName);
   }
 
+  protected getTemplateOwner(
+    instance?: TemplateInstanceHandle,
+  ): TemplateOwner | undefined {
+    const owner =
+      instance && PPGraph.currentGraph.getNodeById(instance.ownerId);
+    return owner && isTemplateOwner(owner) ? owner : undefined;
+  }
+
   /**
-   * Writes a value the viewer changed. Inside a template placement it belongs
-   * to THAT placement - writing the shared node would change every placement
-   * at once - so it goes to the owner's edit store and the owner re-evaluates
-   * the row, which recomputes its outputs.
+   * Writes a value the viewer changed. Inside a placement it goes to the owner's
+   * edit store, since writing the shared node would change every placement, and
+   * resolves to the row's previous edits.
    *
    * An edit only sticks on a socket nothing in the graph drives or that a
    * template parameter feeds; any other linked socket is re-written on every
@@ -2174,23 +2152,22 @@ ${Math.round(bounds.minX)}, ${Math.round(
     value: unknown,
     instance?: TemplateInstanceHandle,
     outputs: Record<string, unknown> = {},
-  ): Promise<void> {
-    const owner =
-      instance && PPGraph.currentGraph.getNodeById(instance.ownerId);
+  ): Promise<TemplateNodeValues | undefined> {
+    const owner = this.getTemplateOwner(instance);
     if (owner) {
-      await owner.applyTemplateEdit(
-        instance.rowKey,
+      return owner.applyTemplateEdit(
+        instance?.rowKey,
         this.id,
         socketName,
         value,
       );
-      return;
     }
     this.setInputData(socketName, value);
     Object.entries(outputs).forEach(([name, outputValue]) =>
       this.setOutputData(name, outputValue),
     );
     await this.executeOptimizedChain();
+    return undefined;
   }
 
   public placedTemplateUpdated(): void {

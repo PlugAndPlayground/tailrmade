@@ -53,6 +53,12 @@ async function addPlace(tc: any, template: any, id: string) {
 const rowValues = (repeat: any, nodeId: string, socket = VALUE) =>
   repeat.rows.map((row: any) => row.capture.snapshots[nodeId]?.[socket]);
 
+const rowInstance = (repeat: any, nodeId: string, index: number) => ({
+  ownerId: repeat.id,
+  rowKey: repeat.rows[index].key,
+  snapshot: repeat.rows[index].capture.snapshots[nodeId],
+});
+
 // a hung pass would otherwise only show up as Cypress's generic timeout
 const settlesWithin = (promise: Promise<unknown>, ms = 5000) =>
   Promise.race([
@@ -222,6 +228,159 @@ describe('template placements', () => {
       await second.applyWidgetEdit(VALUE, 'second-edit', row);
       expect(rowValues(repeat, 'w0')).to.deep.equal(['second-edit', 'b']);
       expect(rowValues(repeat, 'w1')).to.deep.equal(['second-edit', 'b']);
+    });
+  });
+
+  it('puts a row back to following its data when an edit is undone', () => {
+    doWithTestController(async (tc: any) => {
+      const template = await addTemplate(tc, 't');
+      const widget = await addWidget(tc, 't', 't-w');
+      await tc.connectNodesByID('t', 't-w', 'Parameter 1', VALUE);
+      const repeat = await addRepeat(tc, template, 'rep', ['a', 'b']);
+      const setItems = async (items: string[]) => {
+        repeat.setInputData('Items', items);
+        await repeat.executeOptimizedChain();
+      };
+
+      await widget.handleOnChange('edited', rowInstance(repeat, 't-w', 1));
+      expect(rowValues(repeat, 't-w')).to.deep.equal(['a', 'edited']);
+
+      await tc.undo();
+      expect(rowValues(repeat, 't-w')).to.deep.equal(['a', 'b']);
+      await setItems(['a', 'changed']);
+      expect(rowValues(repeat, 't-w')).to.deep.equal(['a', 'changed']);
+
+      await tc.redo();
+      expect(rowValues(repeat, 't-w')).to.deep.equal(['a', 'edited']);
+      await setItems(['a', 'ignored']);
+      expect(rowValues(repeat, 't-w')).to.deep.equal(['a', 'edited']);
+
+      await tc.undo();
+      expect(rowValues(repeat, 't-w')).to.deep.equal(['a', 'ignored']);
+    });
+  });
+
+  it('puts a placement back to following its author when undone', () => {
+    doWithTestController(async (tc: any) => {
+      const template = await addTemplate(tc, 't');
+      const widget = await addWidget(tc, 't', 't-w');
+      widget.setInputData(VALUE, 'AUTHORED');
+      await widget.executeOptimizedChain();
+      const place = await addPlace(tc, template, 'place');
+
+      await widget.handleOnChange('edited', { ownerId: 'place' });
+      expect(place.capture.snapshots['t-w'][VALUE]).to.equal('edited');
+
+      await tc.undo();
+      expect(place.capture.snapshots['t-w'][VALUE]).to.equal('AUTHORED');
+      widget.setInputData(VALUE, 'CHANGED');
+      await place.executeOptimizedChain();
+      expect(place.capture.snapshots['t-w'][VALUE]).to.equal('CHANGED');
+    });
+  });
+
+  it('brings back the edit a newer one replaced when undone', () => {
+    doWithTestController(async (tc: any) => {
+      const template = await addTemplate(tc, 't');
+      const first = await addWidget(tc, 't', 'w0');
+      const second = await addWidget(tc, 't', 'w1');
+      await tc.connectNodesByID('t', 'w0', 'Parameter 1', VALUE);
+      await tc.connectNodesByID('t', 'w1', 'Parameter 1', VALUE);
+      const repeat = await addRepeat(tc, template, 'rep', ['a', 'b']);
+
+      await first.handleOnChange('first', rowInstance(repeat, 'w0', 0));
+      await second.handleOnChange('second', rowInstance(repeat, 'w1', 0));
+      expect(rowValues(repeat, 'w0')).to.deep.equal(['second', 'b']);
+
+      await tc.undo();
+      expect(rowValues(repeat, 'w0')).to.deep.equal(['first', 'b']);
+      await tc.undo();
+      expect(rowValues(repeat, 'w0')).to.deep.equal(['a', 'b']);
+    });
+  });
+
+  it('still undoes a widget outside any template', () => {
+    doWithTestController(async (tc: any) => {
+      await tc.addNode('WidgetTextField', 'plain', 0, 0);
+      const widget = tc.getNodeByID('plain');
+      widget.setInputData(VALUE, 'before');
+      await widget.handleOnChange('after');
+      expect(widget.getInputData(VALUE)).to.equal('after');
+      expect(widget.getOutputData('Out')).to.equal('after');
+
+      await tc.undo();
+      expect(widget.getInputData(VALUE)).to.equal('before');
+      expect(widget.getOutputData('Out')).to.equal('before');
+    });
+  });
+
+  it('applies the settings of the row being edited', () => {
+    doWithTestController(async (tc: any) => {
+      const slider = await addTemplate(tc, 'num');
+      const number = await addWidget(tc, 'num', 'num-w', 'WidgetSlider');
+      await tc.connectNodesByID('num', 'num-w', 'Parameter 1', 'Decimals');
+      const decimals = await addRepeat(tc, slider, 'num-rep', [3, 0]);
+      await number.handleValueChange(1.2345, rowInstance(decimals, 'num-w', 0));
+      expect(rowValues(decimals, 'num-w')[0]).to.equal(1.235);
+
+      const fallback = await addTemplate(tc, 'fall');
+      const dropdown = await addWidget(tc, 'fall', 'fall-w', 'WidgetDropdown');
+      await tc.connectNodesByID(
+        'fall',
+        'fall-w',
+        'Parameter 1',
+        'Fallback Option',
+      );
+      const fallbacks = await addRepeat(tc, fallback, 'fall-rep', ['f0', 'f1']);
+      await dropdown.handleOnChange(
+        { target: { value: 'not-an-option' } },
+        rowInstance(fallbacks, 'fall-w', 0),
+      );
+      expect(rowValues(fallbacks, 'fall-w', 'Selected Option')[0]).to.equal(
+        'f0',
+      );
+
+      const free = await addTemplate(tc, 'free');
+      const autocomplete = await addWidget(
+        tc,
+        'free',
+        'free-w',
+        'WidgetAutocomplete',
+      );
+      await tc.connectNodesByID(
+        'free',
+        'free-w',
+        'Parameter 1',
+        'Allow custom values',
+      );
+      const frees = await addRepeat(tc, free, 'free-rep', [true, false]);
+      await autocomplete.handleOnChange(
+        'custom',
+        rowInstance(frees, 'free-w', 0),
+      );
+      expect(rowValues(frees, 'free-w', 'Selected Option')[0]).to.equal(
+        'custom',
+      );
+    });
+  });
+
+  it('never gives two rows the same key', () => {
+    doWithTestController(async (tc: any) => {
+      const template = await addTemplate(tc, 't');
+      await addWidget(tc, 't', 't-w');
+      await tc.connectNodesByID('t', 't-w', 'Parameter 1', VALUE);
+      const repeat = await addRepeat(tc, template, 'rep', [
+        { id: 'x' },
+        { id: 'x#1' },
+        { id: 'x' },
+      ]);
+      repeat.setInputData('Key field', 'id');
+      await repeat.executeOptimizedChain();
+      expect(repeat.rows.map((row: any) => row.key)).to.deep.equal([
+        'x',
+        'x#1',
+        'x#2',
+      ]);
     });
   });
 

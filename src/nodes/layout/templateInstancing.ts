@@ -1,14 +1,7 @@
-// Running a UI template once "as a placement".
-//
-// The nodes inside a template frame are single shared copies, exactly as a
-// macro's are: a pass writes this placement's arguments into the template's
-// parameter output sockets, runs the nodes they feed, and then captures what
-// each node rendered by the template's body surface ended up with. That
-// capture - one input object per node - is what the placement renders from, so
-// N placements can show N different things without anything being duplicated.
-//
-// Same shape as Macro.executeMacro (write args, executeChildren, read back),
-// and worth collapsing into one shared helper once a second caller needs it.
+// Running a UI template once "as a placement": a pass writes the placement's
+// arguments into the template's parameter sockets, runs what they feed, and
+// captures what the body surface's nodes ended up with. The nodes stay single
+// shared copies, as a macro's do; same shape as Macro.executeMacro.
 import FlowLogic from '../../classes/FlowLogic';
 import PPGraph from '../../classes/GraphClass';
 import PPNode from '../../classes/NodeClass';
@@ -110,9 +103,8 @@ function capturePass(template: UITemplate): TemplateInstanceCapture {
   }
 
   getRenderedSurfaces(body).forEach((surface) => {
-    // the tree with THIS pass's visibility and per-element layout baked in -
-    // those live on the surface's own sockets, which are shared, so they have
-    // to be read now rather than at render time
+    // visibility and per-element layout live on the surface's shared sockets,
+    // so they have to be read now rather than at render time
     capture.trees[surface.id] = SurfaceSync.applyRuntimeOverrides(
       surface,
       surface.getSurfaceTree(),
@@ -137,11 +129,8 @@ async function runPass(
   action?: () => Promise<void>,
 ): Promise<TemplateInstanceCapture> {
   template.getParameterSockets().forEach((parameter) => {
-    // A parameter SEEDS the row, and then yields to it. If the viewer has
-    // edited a socket this parameter feeds, the edit is written into the
-    // parameter itself, so it survives the propagation below - otherwise the
-    // parameter would overwrite the edit on every pass and a value could be
-    // shown from data or edited, never both.
+    // A parameter seeds the row and then yields to it: an edit of a socket it
+    // feeds goes into the parameter, or the propagation below would overwrite it.
     const edited = parameter.links
       .map((link) => {
         const target = link.getTarget();
@@ -157,9 +146,8 @@ async function runPass(
     }
   });
 
-  // An edit on a socket nothing drives only holds for this pass: the shared
-  // node has to go back to what the template author set, or the next row and
-  // every other placement would start from this row's edit.
+  // An edit on a socket nothing drives only holds for this pass, or the next
+  // row and every other placement would start from it.
   const authored: [PPSocket, unknown][] = [];
   const editedNodes = new Set<PPNode>();
   Object.entries(edits).forEach(([nodeId, bySocket]) => {
@@ -202,8 +190,13 @@ async function runPass(
 // Passes share the template's sockets, so two of them must never interleave.
 // The queue is per template: a pass of one template can run a placement of
 // another, and prepareTemplateRun rules out that ever coming back around.
-// Macro has the same exposure today and no guard; this keeps placements honest
-// without changing macro behaviour.
+//
+// Known limitation, shared with Macro: this only orders passes. A graph execution
+// from outside that reaches a body node during a pass can mix its values into the
+// capture, and execute() returns at once for a node already running, so the pass
+// moves on without that node's result. The row stays wrong until it next runs.
+// Re-running the pass would repeat the body's side effects, so the fix belongs in
+// execution scheduling.
 export function runTemplateAsInstance(
   template: UITemplate,
   args: TemplateArgs,

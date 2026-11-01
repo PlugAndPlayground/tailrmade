@@ -1,24 +1,10 @@
-// The per-placement state the dashboard renderer needs.
+// What a placement renders from, captured at the end of its pass. Its widgets
+// still resolve to the single shared inner nodes, so their inputs (`snapshots`)
+// and each surface's visibility and layout overrides (`trees`) have to be read
+// then, or every placement would show the last pass's values.
 //
-// A placement renders its template's body surface through the ordinary
-// SurfaceRenderer, so every widget in it still resolves through
-// getLayoutableElement to the single shared inner node. What makes the
-// rendering belong to THIS placement is what is captured here at the end of
-// its evaluation pass:
-//
-// - `snapshots`: the input object each inner node ended up with, handed to the
-//   widget as reactUIProps instead of letting it read the shared node's live
-//   sockets.
-// - `trees`: each rendered surface's craft tree with that pass's runtime
-//   overrides already applied. Visibility and per-element layout live on the
-//   SURFACE's sockets, which are shared like everything else, so re-deriving
-//   them at render time would give every placement the last pass's answer -
-//   and a template that shows a number field for a number and a text field for
-//   a string would show the same widget in every row.
-//
-// Deliberately its own module: DynamicWidget.tsx, uiSurface.tsx and the
-// template nodes all need it, and SurfaceRenderer.tsx already imports
-// DynamicWidget, so putting it there would close an import cycle.
+// Its own module because SurfaceRenderer.tsx imports DynamicWidget, which needs
+// this.
 import React from 'react';
 import type { SerializedCraftTree } from '../../utils/surfaceTree';
 
@@ -44,9 +30,9 @@ export const emptyTemplateCapture = (): TemplateInstanceCapture => ({
 // values per inner node id, then socket name
 export type TemplateNodeValues = Record<string, Record<string, unknown>>;
 
-// What a placing node remembers: the viewer's edits, per row key ('' for a
-// single placement). They are applied for the length of that row's pass and
-// taken out again, so the shared nodes always hold what the template author set.
+// The viewer's edits, per row key ('' for a single placement). They are applied
+// for the length of that row's pass, so the shared nodes keep what the template
+// author set.
 export type TemplateEdits = {
   rows: Record<string, TemplateNodeValues>;
 };
@@ -55,10 +41,7 @@ export type TemplateEdits = {
 // took of it, because the node is shared between the parent's rows.
 export const TEMPLATE_PLACED_STATE_PROP = '__templatePlacedState';
 
-/**
- * Identifies the placement a widget is being rendered inside, so an edit made
- * in it can be routed to that placement instead of the shared inner node.
- */
+// the placement a widget is rendered inside, which its edits are routed to
 export interface TemplateInstanceHandle {
   ownerId: string;
   rowKey?: string;

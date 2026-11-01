@@ -36,12 +36,6 @@ import { BooleanType } from '../datatypes/booleanType';
 import { BackPropagation } from '../../interfaces';
 import type { TemplateInstanceHandle } from '../../components/dashboard/templateInstance';
 import { SOCKET_TYPE } from '../../utils/constants';
-import {
-  ActionHandler,
-  BakedAction,
-  SerializableAction,
-  SerializableActionHandler,
-} from '../../classes/Action';
 import { WidgetContentProps } from '../../utils/interfaces';
 
 const optionsName = 'Options';
@@ -208,26 +202,12 @@ export class WidgetRadio extends WidgetHybridBase {
   }
 
   handleOnChange = async (event, instance?: TemplateInstanceHandle) => {
-    const value = event.target.value;
-
-    const id = this.id;
-    const prev = this.readWidgetValue(selectedOptionName, instance);
-
-    const applyFunction = async (newData) => {
-      const safeNode = SerializableActionHandler.getSafeNode(id);
-      await safeNode.applyWidgetEdit(selectedOptionName, newData, instance);
-    };
-
-    await ActionHandler.performRawAction(
-      new BakedAction(
-        new SerializableAction(
-          applyFunction,
-          applyFunction,
-          'Select Radio Option',
-        ),
-        value,
-        prev,
-      ),
+    await this.commitWidgetEdit(
+      selectedOptionName,
+      event.target.value,
+      instance,
+      'Select Radio Option',
+      () => ({}),
     );
   };
 
@@ -368,7 +348,6 @@ export class WidgetCheckbox extends WidgetHybridBase {
 
     if (!options.includes(value)) return;
 
-    const id = this.id;
     const prevSelected = (this.readWidgetValue(selectedOptionsName, instance) ??
       []) as string[];
 
@@ -385,23 +364,11 @@ export class WidgetCheckbox extends WidgetHybridBase {
     // Preserve original options order
     const newSelected = options.filter((option) => newSelectedSet.has(option));
 
-    const applyFunction = async (selected) => {
-      const safeNode = SerializableActionHandler.getSafeNode(id);
-      await safeNode.applyWidgetEdit(selectedOptionsName, selected, instance, {
-        [outName]: selected,
-      });
-    };
-
-    await ActionHandler.performRawAction(
-      new BakedAction(
-        new SerializableAction(
-          applyFunction,
-          applyFunction,
-          'Update Checkbox Selection',
-        ),
-        newSelected,
-        prevSelected,
-      ),
+    await this.commitWidgetEdit(
+      selectedOptionsName,
+      newSelected,
+      instance,
+      'Update Checkbox Selection',
     );
   };
 

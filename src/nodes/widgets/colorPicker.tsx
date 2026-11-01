@@ -29,12 +29,6 @@ import { TRgba } from '../../utils/color';
 import { WidgetContentProps } from '../../utils/interfaces';
 import { PRESET_COLORS, MAIN_COLOR, SOCKET_TYPE } from '../../utils/constants';
 import { ColorType } from '../datatypes/colorType';
-import {
-  ActionHandler,
-  BakedAction,
-  SerializableAction,
-  SerializableActionHandler,
-} from '../../classes/Action';
 import { BackPropagation } from '../../interfaces';
 import type { TemplateInstanceHandle } from '../../components/dashboard/templateInstance';
 
@@ -91,8 +85,6 @@ export class WidgetColorPicker extends WidgetHybridBase {
 
   handleOnChange = throttle(
     async (color, instance?: TemplateInstanceHandle) => {
-      const id = this.id;
-      const prev = this.readWidgetValue(initialValueName, instance);
       const pickedrgb = color.rgba;
       const newColor = new TRgba(
         pickedrgb.r,
@@ -100,20 +92,11 @@ export class WidgetColorPicker extends WidgetHybridBase {
         pickedrgb.b,
         pickedrgb.a,
       );
-      const applyFunction = async (newValue) => {
-        const safeNode = SerializableActionHandler.getSafeNode(
-          id,
-        ) as WidgetColorPicker;
-        await safeNode.applyWidgetEdit(initialValueName, newValue, instance, {
-          [outName]: newValue,
-        });
-      };
-      await ActionHandler.performRawAction(
-        new BakedAction(
-          new SerializableAction(applyFunction, applyFunction, 'Change color'),
-          newColor,
-          prev,
-        ),
+      await this.commitWidgetEdit(
+        initialValueName,
+        newColor,
+        instance,
+        'Change color',
       );
     },
     100,

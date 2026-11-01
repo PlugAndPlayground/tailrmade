@@ -152,13 +152,9 @@ export const DynamicWidgetView = (viewProps: DynamicWidgetViewProps) => {
 
   const style = getBasicLayoutStyles(width, height, parentDirection);
 
-  // Inside a template placement the widget renders from that placement's
-  // snapshot rather than from the shared node's live sockets - the same
-  // reactUIProps channel a linked ReactUI output already uses. Without a
-  // snapshot (an inner node that has not been evaluated yet) it falls back to
-  // the live reading, which is what the widget would have shown anyway.
-  // A value the viewer changes is routed to this placement through the handle
-  // below, so it never reaches the shared node.
+  // In a placement the widget renders from that placement's snapshot, through
+  // the channel a linked ReactUI output already uses. An inner node that has not
+  // run yet has none and falls back to its live sockets.
   const instanceSnapshot =
     placement?.snapshots[layoutableElement.getRelatedNode().id];
 

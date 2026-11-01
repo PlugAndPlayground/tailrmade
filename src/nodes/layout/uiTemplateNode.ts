@@ -1,16 +1,6 @@
-// The UI Template frame: a block you drop nodes into, shaped and read like a
-// Macro.
-//
-// Geometry is the point. Like Macro, the sockets are inverted - the parameter
-// OUTPUTS sit on the left block and the single UI INPUT on the right - so a
-// parameter leaves the left edge, flows rightward through the nodes inside the
-// frame, and the surface they build flows back into the right edge. Nothing
-// doubles back, which is what makes a macro legible and what a parameter wired
-// out of a surface could never be.
-//
-// The template holds no layout of its own: its body is whatever UI surface is
-// plugged into "UI", so surfaces, nested surfaces and the dashboard editor all
-// work here unchanged.
+// The UI Template frame, inverted like a Macro: parameter OUTPUTS on the left
+// block and the UI INPUT on the right, so wires read left to right through the
+// nodes inside. Its body is whatever UI surface is plugged into "UI".
 import * as PIXI from 'pixi.js';
 import PPGraph from '../../classes/GraphClass';
 import PPNode from '../../classes/NodeClass';
@@ -169,8 +159,6 @@ Template's "Output" instead.`;
     ];
   }
 
-  // Inverted, exactly as Macro is: outputs (the parameters) on the left block,
-  // the UI input on the right block, so everything reads left to right.
   public getInputSocketXPos(): number {
     return this.nodeWidth - UI_BLOCK_SIZE;
   }
@@ -185,18 +173,16 @@ Template's "Output" instead.`;
     );
   }
 
-  // What one placement of this template PRODUCES. Inputs on the right block,
-  // exactly as Macro's Output is: the nodes inside feed them, and a placement
-  // exposes one output socket per declared one.
+  // What a placement produces: the nodes inside feed these, and a placement
+  // exposes one output per declared one.
   public getOutputSockets(): Socket[] {
     return this.inputSocketArray.filter((socket) =>
       socket.name.startsWith(templateOutputPrefixName),
     );
   }
 
-  // The values this pass produced, keyed by socket name. Only the WIRED
-  // outputs: the spare one at the end is an affordance, not a result, and
-  // counting it would make a single-output template look like it has two.
+  // Only the wired ones: counting the spare at the end would make a
+  // single-output template look like it has two.
   public readOutputs(): Record<string, unknown> {
     return Object.fromEntries(
       this.getOutputSockets()
@@ -274,11 +260,9 @@ Template's "Output" instead.`;
     return source && isSurfaceNode(source) ? source : undefined;
   }
 
-  // Same direction as Macro: the Output INPUTS adapt to whatever feeds them,
-  // while a parameter keeps the type it adopted from the socket it feeds (see
-  // outputPlugged). Letting a parameter adapt would make it take the type of
-  // the last VALUE pushed through it - that is one placement's data, and every
-  // placement would then inherit it.
+  // Outputs adapt to what feeds them, as Macro's do. A parameter must not: it
+  // would take the type of one placement's data, and every placement would
+  // inherit it.
   public socketShouldAutomaticallyAdapt(socket: Socket): boolean {
     return socket.isInput();
   }
@@ -373,21 +357,14 @@ Template's "Output" instead.`;
 
   public outputPlugged(socket: Socket): void {
     super.outputPlugged(socket);
-    // Everything a parameter reaches is shared between rows, so its sockets
-    // must stop adapting to data - from this connection onwards.
     registerTemplateBody(this);
 
-    // EVERY link, not just the first: a parameter commonly fans out (one
-    // value feeding a widget and a test of it), and looking only at links[0]
-    // left every target after the first typed by the placeholder below.
     const targets = socket.links.map((link) => link.target);
 
     // Connecting copies the parameter's data into the target, and a parameter
-    // that has never run carries a placeholder. A target that adapts will have
-    // just taken the placeholder's type, which says nothing about the
-    // template, so both stay untyped: a parameter feeding a socket that takes
-    // anything IS untyped, and rows carry whatever they carry - which is the
-    // whole point of a type test downstream.
+    // that has never run carries a placeholder. A target that adapts has just
+    // taken its type, which says nothing about the template, so both stay
+    // untyped and rows carry whatever they carry.
     const adapting = targets.filter((target) =>
       target.getNode().socketShouldAutomaticallyAdapt(target),
     );

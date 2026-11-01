@@ -21,12 +21,6 @@ import { BooleanType } from '../datatypes/booleanType';
 import { SOCKET_TYPE } from '../../utils/constants';
 import { useThemeTokens } from '../../utils/theme';
 import { WidgetContentProps } from '../../utils/interfaces';
-import {
-  ActionHandler,
-  BakedAction,
-  SerializableAction,
-  SerializableActionHandler,
-} from '../../classes/Action';
 import { AGENT_DOCS_HEADING } from '../../utils/nodeDocs';
 import type { TemplateInstanceHandle } from '../../components/dashboard/templateInstance';
 
@@ -122,24 +116,15 @@ are intentionally independent.`;
     newValue,
     instance?: TemplateInstanceHandle,
   ) => {
-    const id = this.id;
-    const prev = this.readWidgetValue(selectedTabIndex, instance);
-
-    const applyFunction = async (newIndex) => {
-      const safeNode = SerializableActionHandler.getSafeNode(id);
-      const selectedOption = safeNode.getInputData(tabsOptionsName)[newIndex];
-      await safeNode.applyWidgetEdit(selectedTabIndex, newIndex, instance, {
-        [outName]: selectedOption,
-        [outIndexName]: newIndex,
-      });
-    };
-
-    await ActionHandler.performRawAction(
-      new BakedAction(
-        new SerializableAction(applyFunction, applyFunction, 'Select Tab'),
-        newValue,
-        prev,
-      ),
+    await this.commitWidgetEdit(
+      selectedTabIndex,
+      newValue,
+      instance,
+      'Select Tab',
+      (index, node) => ({
+        [outName]: node.getInputData(tabsOptionsName)[index],
+        [outIndexName]: index,
+      }),
     );
   };
 

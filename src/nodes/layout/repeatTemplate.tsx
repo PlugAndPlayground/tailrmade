@@ -1,10 +1,6 @@
 // Repeat Template: one placement of a UI template per entry of an array or
-// object.
-//
-// Same evaluation engine as Place Template, run once per entry. The name is
-// deliberately not "grid": columns is a setting, so the same node has to be
-// right for one column, a row and a wrapped grid - and "Widget grid array"
-// already exists in this space.
+// object. Not called "grid": columns is a setting, and "Widget grid array"
+// already exists.
 import React, { useContext, useMemo } from 'react';
 import { Box } from '@mui/material';
 import { HybridWidgetContentProps } from '../../classes/HybridNode2';
@@ -89,12 +85,11 @@ export function toEntries(items: unknown): [string, unknown][] {
  * Binds one entry to the template's parameters by NAME, so a template needs no
  * per-column mapping UI:
  * - a parameter called entry/item/value gets the whole entry
- * - a parameter called key/label/index gets the key
+ * - a parameter called key/index gets the key
  * - any other parameter gets the entry's field of that name
  * - if the entry is not an object, an unmatched parameter gets the entry
  *
- * Matching is on the parameter's DISPLAY name (the name of the socket it
- * feeds), because that is the name the user sees and types against.
+ * Matching is on the parameter's display name, the one the user sees.
  */
 export function bindEntryToParameters(
   template: UITemplate,
@@ -334,16 +329,8 @@ row starts from, set the value on the widget inside the template.`;
     void this.executeOptimizedChain();
   }
 
-  /**
-   * One "<parameter> from" input per wired template parameter, so a parameter
-   * can be pointed at a field explicitly when its own name does not match one
-   * - above all at the row's key, which a parameter feeding a widget's Label
-   * socket cannot ask for by name.
-   *
-   * Left empty it binds by name, which covers the common case; this is the
-   * escape hatch, at one socket per parameter rather than MapExecuteMacro's
-   * two.
-   */
+  // One "<parameter> from" input per wired parameter, to point it at a field
+  // when its own name does not match one. Left empty it binds by name.
   public updateTemplateSockets(): void {
     const template = this.getTemplate();
     const parameters = (template?.getParameterSockets() ?? []).filter(
@@ -473,15 +460,17 @@ row starts from, set the value on the widget inside the template.`;
     if (template) {
       this.prepareRun(template);
       const overrides = this.getFieldOverrides();
-      const keyCounts = new Map<string, number>();
+      const usedKeys = new Set<string>();
       // sequential on purpose: every row writes the same shared parameter
       // sockets, so the passes must not interleave
       for (const [key, entry] of entries) {
         const rowKey = this.getRowKey(key, entry);
         // repeated key field values must not share React keys and edits
-        const seen = keyCounts.get(rowKey) ?? 0;
-        keyCounts.set(rowKey, seen + 1);
-        const uniqueKey = seen === 0 ? rowKey : `${rowKey}#${seen}`;
+        let uniqueKey = rowKey;
+        for (let n = 1; usedKeys.has(uniqueKey); n++) {
+          uniqueKey = `${rowKey}#${n}`;
+        }
+        usedKeys.add(uniqueKey);
         const capture = await runTemplateAsInstance(
           template,
           bindEntryToParameters(template, key, entry, overrides),

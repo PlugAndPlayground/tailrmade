@@ -1,21 +1,10 @@
 import Socket from '../../classes/SocketClass';
-import {
-  ActionHandler,
-  BakedAction,
-  SerializableAction,
-  SerializableActionHandler,
-} from '../../classes/Action';
 import { BackPropagation } from '../../interfaces';
 import { SOCKET_TYPE } from '../../utils/constants';
 import { limitRange } from '../../utils/utils';
 import { NumberType } from '../datatypes/numberType';
 import type { TemplateInstanceHandle } from '../../components/dashboard/templateInstance';
-import {
-  WidgetHybridBase,
-  initialValueName,
-  labelName,
-  outName,
-} from './abstract';
+import { WidgetHybridBase, initialValueName, labelName } from './abstract';
 
 export const minValueName = 'Min';
 export const maxValueName = 'Max';
@@ -73,30 +62,12 @@ export abstract class WidgetNumberBase extends WidgetHybridBase {
     value: number,
     instance?: TemplateInstanceHandle,
   ) => {
-    const id = this.id;
-    const prev = this.readWidgetValue(initialValueName, instance);
-    const newValue = roundToDecimals(
-      value,
-      getDecimals(this.getInputData(decimalsName)),
-    );
-
-    const applyFunction = async (data: number) => {
-      const safeNode = SerializableActionHandler.getSafeNode(id);
-      await safeNode.applyWidgetEdit(initialValueName, data, instance, {
-        [outName]: data,
-      });
-    };
-
-    await ActionHandler.performRawAction(
-      new BakedAction(
-        new SerializableAction(
-          applyFunction,
-          applyFunction,
-          `Set ${this.getName()} Value`,
-        ),
-        newValue,
-        prev,
-      ),
+    const decimals = this.readWidgetValue(decimalsName, instance) as number;
+    await this.commitWidgetEdit(
+      initialValueName,
+      roundToDecimals(value, getDecimals(decimals)),
+      instance,
+      `Set ${this.getName()} Value`,
     );
   };
 

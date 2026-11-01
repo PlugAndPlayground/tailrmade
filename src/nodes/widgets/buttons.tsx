@@ -167,8 +167,7 @@ export class WidgetButton extends WidgetHybridBase {
     const id = this.id;
     const inputData = this.readWidgetValue(onValueName, instance);
     const inputDataOff = this.readWidgetValue(offValueName, instance);
-    const owner =
-      instance && PPGraph.currentGraph.getNodeById(instance.ownerId);
+    const owner = this.getTemplateOwner(instance);
     if (owner) {
       // what the press triggers has to see this row's values, so it fires
       // inside the row's pass; a shared node's sockets are not this row's to
@@ -178,7 +177,7 @@ export class WidgetButton extends WidgetHybridBase {
         await this.executeOptimizedChain();
       };
       try {
-        await owner.runInTemplateRow(instance.rowKey, async () => {
+        await owner.runInTemplateRow(instance?.rowKey, async () => {
           await fire(inputData);
           await fire(inputDataOff);
         });
@@ -374,30 +373,19 @@ export class WidgetButtonGroup extends WidgetSelectionBase {
   }
 
   handleButtonClick = async (index, instance?: TemplateInstanceHandle) => {
-    const id = this.id;
-    const prev = this.readWidgetValue(selectedButtonIndex, instance);
-
     // If we're in regular button mode (not toggle), or we're in exclusive toggle mode
     // simply set the selected index to the clicked button
     // If we're in non-exclusive toggle mode, we'd need state to track multiple selections
     // but since we're limited to a single output, we'll still use the last clicked
-
-    const applyFunction = async (newIndex) => {
-      const safeNode = SerializableActionHandler.getSafeNode(id);
-      const options = safeNode.getInputData(buttonGroupOptionsName);
-      const selectedOption = options[newIndex];
-      await safeNode.applyWidgetEdit(selectedButtonIndex, newIndex, instance, {
-        [outName]: selectedOption,
+    await this.commitWidgetEdit(
+      selectedButtonIndex,
+      index,
+      instance,
+      'Select Button',
+      (newIndex, node) => ({
+        [outName]: node.getInputData(buttonGroupOptionsName)[newIndex],
         [outIndexName]: newIndex,
-      });
-    };
-
-    await ActionHandler.performRawAction(
-      new BakedAction(
-        new SerializableAction(applyFunction, applyFunction, 'Select Button'),
-        index,
-        prev,
-      ),
+      }),
     );
   };
 
@@ -676,24 +664,14 @@ export class WidgetSwitch extends WidgetHybridBase {
   }
 
   handleOnChange = (value, instance?: TemplateInstanceHandle) => {
-    const id = this.id;
-    const prev = this.readWidgetValue(initialValueName, instance);
-    const applyFunction = async (newValue) => {
-      const safeNode = SerializableActionHandler.getSafeNode(
-        id,
-      ) as WidgetSwitch;
-      const onValue = safeNode.getInputData(onValueName);
-      const offValue = safeNode.getInputData(offValueName);
-      await safeNode.applyWidgetEdit(initialValueName, newValue, instance, {
-        [outName]: newValue ? onValue : offValue,
-      });
-    };
-    void ActionHandler.performRawAction(
-      new BakedAction(
-        new SerializableAction(applyFunction, applyFunction, 'Toggle Switch'),
-        value,
-        prev,
-      ),
+    void this.commitWidgetEdit(
+      initialValueName,
+      value,
+      instance,
+      'Toggle Switch',
+      (newValue, node) => ({
+        [outName]: node.getInputData(newValue ? onValueName : offValueName),
+      }),
     );
   };
 

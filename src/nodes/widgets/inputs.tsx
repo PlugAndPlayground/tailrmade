@@ -31,12 +31,6 @@ import { AbstractType } from '../datatypes/abstractType';
 import { BackPropagation } from '../../interfaces';
 import type { TemplateInstanceHandle } from '../../components/dashboard/templateInstance';
 import { SOCKET_TYPE } from '../../utils/constants';
-import {
-  ActionHandler,
-  BakedAction,
-  SerializableAction,
-  SerializableActionHandler,
-} from '../../classes/Action';
 import { WidgetContentProps } from '../../utils/interfaces';
 import { useResolvedInputVariant } from '../../utils/theme';
 import { NumberInput } from '../../components/NumberInput';
@@ -168,26 +162,11 @@ export class WidgetTextField extends WidgetHybridBase {
   }
 
   handleOnChange = async (value: string, instance?: TemplateInstanceHandle) => {
-    const id = this.id;
-    const prev = this.readWidgetValue(initialValueName, instance);
-
-    const applyFunction = async (newValue) => {
-      const safeNode = SerializableActionHandler.getSafeNode(id);
-      await safeNode.applyWidgetEdit(initialValueName, newValue, instance, {
-        [outName]: newValue,
-      });
-    };
-
-    await ActionHandler.performRawAction(
-      new BakedAction(
-        new SerializableAction(
-          applyFunction,
-          applyFunction,
-          'Update Text Field',
-        ),
-        value,
-        prev,
-      ),
+    await this.commitWidgetEdit(
+      initialValueName,
+      value,
+      instance,
+      'Update Text Field',
     );
   };
 
