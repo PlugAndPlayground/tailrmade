@@ -39,6 +39,20 @@ const MonacoEditor: React.FunctionComponent<MonacoEditorProps> = ({
       ...(theme ? { theme } : {}),
     });
     editorRef.current = editor;
+    editor.addAction({
+      id: 'Copy-lines-down',
+      label: 'Copy lines down',
+      keybindings: [
+        monaco.KeyMod.Shift | monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyD,
+      ],
+      run: (copied) => {
+        editor.trigger(
+          'Copy lines down',
+          'editor.action.copyLinesDownAction',
+          copied,
+        );
+      },
+    });
     editorDidMount?.(editor, monaco);
     const subscription = editor.onDidChangeModelContent(() => {
       if (!isApplyingValueRef.current) {
