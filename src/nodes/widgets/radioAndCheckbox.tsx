@@ -34,13 +34,8 @@ import { ArrayType } from '../datatypes/arrayType';
 import { StringType } from '../datatypes/stringType';
 import { BooleanType } from '../datatypes/booleanType';
 import { BackPropagation } from '../../interfaces';
+import type { TemplateInstanceHandle } from '../../components/dashboard/templateInstance';
 import { SOCKET_TYPE } from '../../utils/constants';
-import {
-  ActionHandler,
-  BakedAction,
-  SerializableAction,
-  SerializableActionHandler,
-} from '../../classes/Action';
 import { WidgetContentProps } from '../../utils/interfaces';
 
 const optionsName = 'Options';
@@ -206,28 +201,13 @@ export class WidgetRadio extends WidgetHybridBase {
     this.setOutputData(outName, selectedValue);
   }
 
-  handleOnChange = async (event) => {
-    const value = event.target.value;
-
-    const id = this.id;
-    const prev = this.getInputData(selectedOptionName);
-
-    const applyFunction = async (newData) => {
-      const safeNode = SerializableActionHandler.getSafeNode(id);
-      safeNode.setInputData(selectedOptionName, newData);
-      await safeNode.executeOptimizedChain();
-    };
-
-    await ActionHandler.performRawAction(
-      new BakedAction(
-        new SerializableAction(
-          applyFunction,
-          applyFunction,
-          'Select Radio Option',
-        ),
-        value,
-        prev,
-      ),
+  handleOnChange = async (event, instance?: TemplateInstanceHandle) => {
+    await this.commitWidgetEdit(
+      selectedOptionName,
+      event.target.value,
+      instance,
+      'Select Radio Option',
+      () => ({}),
     );
   };
 
@@ -242,7 +222,12 @@ export class WidgetRadio extends WidgetHybridBase {
       <OptionGroupFrame props={props} tokens={tokens}>
         <RadioGroup
           value={selectedValue}
-          onChange={(node as WidgetRadio).handleOnChange}
+          onChange={(event) =>
+            void (node as WidgetRadio).handleOnChange(
+              event,
+              props.templateInstance,
+            )
+          }
           row={props[rowLayoutName]}
           sx={{
             pointerEvents: props.disabled ? 'none' : undefined,
@@ -353,14 +338,18 @@ export class WidgetCheckbox extends WidgetHybridBase {
     this.setOutputData(outName, selectedOptions);
   }
 
-  handleCheckboxChange = async (event, checked) => {
+  handleCheckboxChange = async (
+    event,
+    checked,
+    instance?: TemplateInstanceHandle,
+  ) => {
     const value = event.target.value;
-    const options = this.getInputData(optionsName);
+    const options = this.readWidgetValue(optionsName, instance) as string[];
 
     if (!options.includes(value)) return;
 
-    const id = this.id;
-    const prevSelected = this.getInputData(selectedOptionsName);
+    const prevSelected = (this.readWidgetValue(selectedOptionsName, instance) ??
+      []) as string[];
 
     // Create new array based on checked state
     let newSelectedSet;
@@ -375,23 +364,11 @@ export class WidgetCheckbox extends WidgetHybridBase {
     // Preserve original options order
     const newSelected = options.filter((option) => newSelectedSet.has(option));
 
-    const applyFunction = async (selected) => {
-      const safeNode = SerializableActionHandler.getSafeNode(id);
-      safeNode.setInputData(selectedOptionsName, selected);
-      safeNode.setOutputData(outName, selected);
-      await safeNode.executeOptimizedChain();
-    };
-
-    await ActionHandler.performRawAction(
-      new BakedAction(
-        new SerializableAction(
-          applyFunction,
-          applyFunction,
-          'Update Checkbox Selection',
-        ),
-        newSelected,
-        prevSelected,
-      ),
+    await this.commitWidgetEdit(
+      selectedOptionsName,
+      newSelected,
+      instance,
+      'Update Checkbox Selection',
     );
   };
 
@@ -420,7 +397,13 @@ export class WidgetCheckbox extends WidgetHybridBase {
                 <Checkbox
                   color={color}
                   checked={selectedOptions.includes(option)}
-                  onChange={(node as WidgetCheckbox).handleCheckboxChange}
+                  onChange={(event, checked) =>
+                    void (node as WidgetCheckbox).handleCheckboxChange(
+                      event,
+                      checked,
+                      props.templateInstance,
+                    )
+                  }
                   value={option}
                   size={getMuiSize(size)}
                   sx={{

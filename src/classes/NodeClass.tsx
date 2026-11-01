@@ -42,6 +42,11 @@ import {
 } from '../utils/constants';
 import { isDoubleActivation } from '../utils/touchGestures';
 import UpdateBehaviourClass from './UpdateBehaviourClass';
+import type {
+  TemplateInstanceHandle,
+  TemplateNodeValues,
+} from '../components/dashboard/templateInstance';
+import { isTemplateOwner, TemplateOwner } from '../utils/templateOwner';
 import { isCanvasExploreOnly } from '../utils/stackLayout';
 import NodeHeaderClass from './NodeHeaderClass';
 import PPGraph from './GraphClass';
@@ -190,6 +195,8 @@ export default class PPNode extends PIXI.Container implements IWarningHandler {
   onViewportPointerUpHandler: (event?: PIXI.FederatedPointerEvent) => void =
     () => {};
   onNodeRemoved: () => void = () => {}; // called when the node is removed from the graph
+  // the UI templates whose passes run this node, see registerTemplateBody
+  templateBodyOf = new Set<string>();
   onNodeResize: (width: number, height: number) => void = () => {}; // called when the node is resized
 
   public isInteractionEnabled(): boolean {
@@ -2082,6 +2089,95 @@ ${Math.round(bounds.minX)}, ${Math.round(
 
   public calledMacroUpdatedMeta(): void {
     this.debounceDrawShape();
+  }
+
+  /**
+   * The UI template hooks, mirroring the macro ones above: a template asks
+   * every node whether it places it, then tells those that do when its
+   * parameters changed (Meta) or when its contents did.
+   */
+  public isPlacingTemplate(_templateName: string): boolean {
+    return false;
+  }
+
+  public placedTemplateChangedName(_oldName: string, _newName: string): void {}
+
+  public placedTemplateUpdatedMeta(_template: PPNode): void {}
+
+  // lets surface loop detection see through a placement without importing it
+  public getTemplateBodySurface(): PPNode | undefined {
+    return undefined;
+  }
+
+  // what a snapshot taken during a pass adds, for a placement nested in a template
+  public getTemplateSnapshotProps(): Record<string, unknown> {
+    return {};
+  }
+
+  public isInTemplateBody(): boolean {
+    return this.templateBodyOf.size > 0;
+  }
+
+  // What a widget shows for an input. In a placement that is its snapshot, since
+  // the shared socket holds whichever row ran last.
+  public readWidgetValue(
+    socketName: string,
+    instance?: TemplateInstanceHandle,
+  ): unknown {
+    const snapshot = instance?.snapshot;
+    return snapshot && socketName in snapshot
+      ? snapshot[socketName]
+      : this.getInputData(socketName);
+  }
+
+  protected getTemplateOwner(
+    instance?: TemplateInstanceHandle,
+  ): TemplateOwner | undefined {
+    const owner =
+      instance && PPGraph.currentGraph.getNodeById(instance.ownerId);
+    return owner && isTemplateOwner(owner) ? owner : undefined;
+  }
+
+  /**
+   * Writes a value the viewer changed. Inside a placement it goes to the owner's
+   * edit store, since writing the shared node would change every placement, and
+   * resolves to the row's previous edits.
+   *
+   * An edit only sticks on a socket nothing in the graph drives or that a
+   * template parameter feeds; any other linked socket is re-written on every
+   * pass, which is the rule a linked widget socket follows outside a template.
+   */
+  public async applyWidgetEdit(
+    socketName: string,
+    value: unknown,
+    instance?: TemplateInstanceHandle,
+    outputs: Record<string, unknown> = {},
+  ): Promise<TemplateNodeValues | undefined> {
+    const owner = this.getTemplateOwner(instance);
+    if (owner) {
+      return owner.applyTemplateEdit(
+        instance?.rowKey,
+        this.id,
+        socketName,
+        value,
+      );
+    }
+    this.setInputData(socketName, value);
+    Object.entries(outputs).forEach(([name, outputValue]) =>
+      this.setOutputData(name, outputValue),
+    );
+    await this.executeOptimizedChain();
+    return undefined;
+  }
+
+  public placedTemplateUpdated(): void {
+    if (
+      this.updateBehaviour.update &&
+      PPGraph.currentGraph.graphConfiguredAndReady &&
+      !this.isExecuting
+    ) {
+      this.macroDebouncedExecution();
+    }
   }
 
   // we should migrate all nodes to use these functions instead of specifying the field themselves in constructor

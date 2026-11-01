@@ -8,13 +8,8 @@ import {
   stringifyIfNeeded,
   WidgetHybridBase,
 } from './abstract';
-import {
-  ActionHandler,
-  BakedAction,
-  SerializableAction,
-  SerializableActionHandler,
-} from '../../classes/Action';
 import { BackPropagation } from '../../interfaces';
+import type { TemplateInstanceHandle } from '../../components/dashboard/templateInstance';
 import { SOCKET_TYPE } from '../../utils/constants';
 import { ArrayType } from '../datatypes/arrayType';
 import { StringType } from '../datatypes/stringType';
@@ -47,12 +42,13 @@ export abstract class WidgetSelectableBase extends WidgetHybridBase {
   protected validateAndFormatSelected(
     selected: unknown,
     options: any[],
+    instance?: TemplateInstanceHandle,
   ): unknown {
     if (this.isSingle()) {
       const formatted = this.formatSelected(selected) as string;
       return options.includes(formatted)
         ? formatted
-        : this.getInputData(fallbackValueName);
+        : this.readWidgetValue(fallbackValueName, instance);
     }
     const formatted = this.formatSelected(selected) as string[];
     // Return options in their original order, only keeping those that were selected
@@ -116,29 +112,18 @@ export abstract class WidgetSelectableBase extends WidgetHybridBase {
     outputObject[selectedOptionName] = formattedValue;
   }
 
-  protected async performValueChange(newValue: unknown): Promise<void> {
-    const options = this.stringifyOptions(this.getInputData(optionsName));
-    const id = this.id;
-    const formattedValue = this.validateAndFormatSelected(newValue, options);
-    const prev = this.getInputData(selectedOptionName);
-    const applyFunction = async (val: unknown) => {
-      const safeNode = SerializableActionHandler.getSafeNode(
-        id,
-      ) as WidgetSelectableBase;
-      safeNode.setInputData(selectedOptionName, val);
-      safeNode.setOutputData(outName, val);
-      await safeNode.executeOptimizedChain();
-    };
-    await ActionHandler.performRawAction(
-      new BakedAction(
-        new SerializableAction(
-          applyFunction,
-          applyFunction,
-          `${this.getName()} Apply Value`,
-        ),
-        formattedValue,
-        prev,
-      ),
+  protected async performValueChange(
+    newValue: unknown,
+    instance?: TemplateInstanceHandle,
+  ): Promise<void> {
+    const options = this.stringifyOptions(
+      this.readWidgetValue(optionsName, instance) as any[],
+    );
+    await this.commitWidgetEdit(
+      selectedOptionName,
+      this.validateAndFormatSelected(newValue, options, instance),
+      instance,
+      `${this.getName()} Apply Value`,
     );
   }
 

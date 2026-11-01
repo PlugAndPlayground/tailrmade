@@ -1,7 +1,18 @@
 import * as React from 'react';
 import { Paper, Stack } from '@mui/material';
+import {
+  ActionHandler,
+  BakedAction,
+  SerializableAction,
+  SerializableActionHandler,
+} from '../../classes/Action';
 import HybridNode2 from '../../classes/HybridNode2';
+import type PPNode from '../../classes/NodeClass';
 import Socket from '../../classes/SocketClass';
+import type {
+  TemplateInstanceHandle,
+  TemplateNodeValues,
+} from '../../components/dashboard/templateInstance';
 import {
   NODE_TYPE_COLOR,
   SOCKET_TYPE,
@@ -341,6 +352,51 @@ export const CANVAS_MARGIN = 4;
 export abstract class WidgetHybridBase extends HybridNode2 {
   public getTags(): string[] {
     return ['Widget'].concat(super.getTags());
+  }
+
+  /**
+   * Applies a change the viewer made, undoably. In a placement, undo restores
+   * the row's previous edits, see TemplatePlacementNode.restoreRowEdits.
+   */
+  protected async commitWidgetEdit<T>(
+    socketName: string,
+    value: T,
+    instance: TemplateInstanceHandle | undefined,
+    actionName: string,
+    getOutputs: (value: T, node: PPNode) => Record<string, unknown> = (
+      data,
+    ) => ({ [outName]: data }),
+  ): Promise<void> {
+    const id = this.id;
+    const getNode = () =>
+      SerializableActionHandler.getSafeNode(id) as WidgetHybridBase;
+    const apply = async (data: T) => {
+      const node = getNode();
+      return node.applyWidgetEdit(
+        socketName,
+        data,
+        instance,
+        getOutputs(data, node),
+      );
+    };
+    const undo = async (previous: T | TemplateNodeValues) => {
+      const owner = getNode().getTemplateOwner(instance);
+      if (owner) {
+        await owner.restoreRowEdits(
+          instance?.rowKey,
+          previous as TemplateNodeValues,
+        );
+      } else {
+        await apply(previous as T);
+      }
+    };
+    await ActionHandler.performRawAction(
+      new BakedAction(
+        new SerializableAction(apply, undo, actionName),
+        value,
+        this.getInputData(socketName),
+      ),
+    );
   }
 
   // widgets size their content off the node, so a resize has to re-render

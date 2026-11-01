@@ -28,6 +28,15 @@ export const surfaceRadioGroupSocketName = 'Radio Group';
 export const surfaceElementVisibleSuffix = ' visible';
 export const surfaceElementLayoutSuffix = ' layout';
 
+// A UI template's sockets. Spelled like MACRO_PARAMETER_PREFIX_NAME because it
+// reads the same to the user, but templates and macros stay independent features.
+export const templateParameterPrefixName = 'Parameter';
+export const templateUISocketName = 'UI';
+export const templateOutputPrefixName = 'Output';
+export const templateSocketName = 'Template';
+// per-placement edits, kept on the placing node so they save with the graph
+export const templateEditsSocketName = 'Edits';
+
 export const modalOpenSocketName = 'Open';
 export const modalOpenTriggerSocketName = 'Open Dialog';
 export const modalCloseTriggerSocketName = 'Close Dialog';

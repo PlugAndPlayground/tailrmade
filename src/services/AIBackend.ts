@@ -1411,7 +1411,7 @@ export class AIBackend {
 
 ## General Instructions:
 1. Use describe_node before using an unfamiliar node type, especially one marked [docs].
-2. Build UIs from widget nodes wired into a "UI surface" node. Call describe_node for "UI surface" first for layout, navigation, and multi-page guidance. For navigation repeated across top-level pages, reuse ONE Tabs/dropdown node and fan its ReactUI output out to every surface.
+2. Build UIs from widget nodes wired into a "UI surface" node. Call describe_node for "UI surface" first for layout, navigation, and multi-page guidance. For navigation repeated across top-level pages, reuse ONE Tabs/dropdown node and fan its ReactUI output out to every surface. For UI repeated per data entry or reused in several places (a list of cards, one form per row), build one "UI Template" and show it with "Repeat Template" or "Place Template" instead of duplicating widgets; call describe_node for "UI Template" first.
 3. For charts and analytics, prefer "PlotlyChart" and "Statistics": these nodes lazy-load established libraries and Statistics runs calculations in a worker. Use worker-mode "CustomFunction" for small data transformations, not main-thread library loading or chart rendering. Avoid the legacy chart nodes.
 4. Use "CustomFunction" for custom JavaScript and "HTTP" for API data.
 5. Keep responses concise.

@@ -130,7 +130,7 @@ export class WidgetSlider extends WidgetNumberBase {
     const max = props[maxValueName];
     const commit = useCommitMode<number>(
       props[initialValueName],
-      (next) => void node.handleValueChange(next),
+      (next) => void node.handleValueChange(next, props.templateInstance),
       { mode: props[commitModeName] },
     );
     const value = commit.value;

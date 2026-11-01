@@ -41,6 +41,7 @@ import { StringType } from '../datatypes/stringType';
 import { EnumType, EnumStructure } from '../datatypes/enumType';
 import { BooleanType } from '../datatypes/booleanType';
 import { BackPropagation } from '../../interfaces';
+import type { TemplateInstanceHandle } from '../../components/dashboard/templateInstance';
 import { DEFAULT_UPDATE_FREQUENCY, SOCKET_TYPE } from '../../utils/constants';
 import {
   ActionHandler,
@@ -155,7 +156,7 @@ export class WidgetButton extends WidgetHybridBase {
     // No default execution behavior needed - button is event driven
   }
 
-  handleOnClick = async () => {
+  handleOnClick = async (instance?: TemplateInstanceHandle) => {
     if (
       this.isCurrentlyForceDisabled ||
       !PPGraph.currentGraph?.graphConfiguredAndReady
@@ -164,8 +165,27 @@ export class WidgetButton extends WidgetHybridBase {
     }
     this.isCurrentlyForceDisabled = true;
     const id = this.id;
-    const inputData = this.getInputData(onValueName);
-    const inputDataOff = this.getInputData(offValueName);
+    const inputData = this.readWidgetValue(onValueName, instance);
+    const inputDataOff = this.readWidgetValue(offValueName, instance);
+    const owner = this.getTemplateOwner(instance);
+    if (owner) {
+      // what the press triggers has to see this row's values, so it fires
+      // inside the row's pass; a shared node's sockets are not this row's to
+      // disable, and a press is not a value worth undoing
+      const fire = async (value: unknown) => {
+        await this.getOutputSocketByName(outName).setDataAndWait(value);
+        await this.executeOptimizedChain();
+      };
+      try {
+        await owner.runInTemplateRow(instance?.rowKey, async () => {
+          await fire(inputData);
+          await fire(inputDataOff);
+        });
+      } finally {
+        this.isCurrentlyForceDisabled = false;
+      }
+      return;
+    }
     const disabledBefore = this.getInputData(disabledName) ? true : false;
 
     const applyFunction = async (value) => {
@@ -244,7 +264,9 @@ export class WidgetButton extends WidgetHybridBase {
                 variant === 'outlined' ? 'action.disabled' : undefined,
             },
           }}
-          onClick={() => (node as WidgetButton).handleOnClick()}
+          onClick={() =>
+            (node as WidgetButton).handleOnClick(props.templateInstance)
+          }
         >
           <Typography
             sx={{
@@ -350,31 +372,20 @@ export class WidgetButtonGroup extends WidgetSelectionBase {
     return selectedButtonIndex;
   }
 
-  handleButtonClick = async (index) => {
-    const id = this.id;
-    const prev = this.getInputData(selectedButtonIndex);
-
+  handleButtonClick = async (index, instance?: TemplateInstanceHandle) => {
     // If we're in regular button mode (not toggle), or we're in exclusive toggle mode
     // simply set the selected index to the clicked button
     // If we're in non-exclusive toggle mode, we'd need state to track multiple selections
     // but since we're limited to a single output, we'll still use the last clicked
-
-    const applyFunction = async (newIndex) => {
-      const safeNode = SerializableActionHandler.getSafeNode(id);
-      safeNode.setInputData(selectedButtonIndex, newIndex);
-      const options = safeNode.getInputData(buttonGroupOptionsName);
-      const selectedOption = options[newIndex];
-      safeNode.setOutputData(outName, selectedOption);
-      safeNode.setOutputData(outIndexName, newIndex);
-      await safeNode.executeOptimizedChain();
-    };
-
-    await ActionHandler.performRawAction(
-      new BakedAction(
-        new SerializableAction(applyFunction, applyFunction, 'Select Button'),
-        index,
-        prev,
-      ),
+    await this.commitWidgetEdit(
+      selectedButtonIndex,
+      index,
+      instance,
+      'Select Button',
+      (newIndex, node) => ({
+        [outName]: node.getInputData(buttonGroupOptionsName)[newIndex],
+        [outIndexName]: newIndex,
+      }),
     );
   };
 
@@ -450,6 +461,7 @@ export class WidgetButtonGroup extends WidgetSelectionBase {
                       onClick={() =>
                         void (node as WidgetButtonGroup).handleButtonClick(
                           index,
+                          props.templateInstance,
                         )
                       }
                       disabled={props.disabled}
@@ -545,7 +557,10 @@ export class WidgetButtonGroup extends WidgetSelectionBase {
                     {...getWidgetControlProps(props.disabled)}
                     key={index}
                     onClick={() =>
-                      void (node as WidgetButtonGroup).handleButtonClick(index)
+                      void (node as WidgetButtonGroup).handleButtonClick(
+                        index,
+                        props.templateInstance,
+                      )
                     }
                     sx={{
                       fontSize: fontSize,
@@ -648,25 +663,15 @@ export class WidgetSwitch extends WidgetHybridBase {
     this.setOutputData(outName, newValue);
   }
 
-  handleOnChange = (value) => {
-    const id = this.id;
-    const prev = this.getInputData(initialValueName);
-    const applyFunction = async (newValue) => {
-      const safeNode = SerializableActionHandler.getSafeNode(
-        id,
-      ) as WidgetSwitch;
-      const onValue = safeNode.getInputData(onValueName);
-      const offValue = safeNode.getInputData(offValueName);
-      safeNode.setInputData(initialValueName, value);
-      safeNode.setOutputData(outName, newValue ? onValue : offValue);
-      await safeNode.executeOptimizedChain();
-    };
-    void ActionHandler.performRawAction(
-      new BakedAction(
-        new SerializableAction(applyFunction, applyFunction, 'Toggle Switch'),
-        value,
-        prev,
-      ),
+  handleOnChange = (value, instance?: TemplateInstanceHandle) => {
+    void this.commitWidgetEdit(
+      initialValueName,
+      value,
+      instance,
+      'Toggle Switch',
+      (newValue, node) => ({
+        [outName]: node.getInputData(newValue ? onValueName : offValueName),
+      }),
     );
   };
 
@@ -677,7 +682,7 @@ export class WidgetSwitch extends WidgetHybridBase {
 
     const handleChange = (event: React.ChangeEvent<HTMLInputElement>) => {
       const checked = event.target.checked;
-      (node as WidgetSwitch).handleOnChange(checked);
+      (node as WidgetSwitch).handleOnChange(checked, props.templateInstance);
     };
 
     return (
