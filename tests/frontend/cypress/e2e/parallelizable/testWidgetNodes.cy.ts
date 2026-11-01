@@ -402,6 +402,83 @@ describe('testWidgetNodes', () => {
       );
     });
   });
+  it('shows the slider value only where the label asks for it', () => {
+    const sliderId = 'slider-label-token';
+    const label = `#slider-label-${sliderId}`;
+    const setLabel = (value: string) =>
+      doWithTestController(async (testController) => {
+        testController.setNodeInputValue(sliderId, 'Label', value);
+        await testController.executeNodeByID(sliderId);
+      });
+
+    doWithTestController(async (testController) => {
+      await testController.addNode('WidgetSlider', sliderId, 0, -200);
+      await testController.executeNodeByID(sliderId);
+    });
+    cy.get(label).should('have.text', 'Slider: 0');
+
+    setLabel('{{value}} px');
+    cy.get(label).should('have.text', '0 px');
+
+    setLabel('Volume');
+    cy.get(label).should('have.text', 'Volume');
+
+    setLabel('');
+    cy.get(label).should('not.exist');
+    cy.get(`#Container-${sliderId} input[type="range"]`).should(
+      'have.attr',
+      'aria-label',
+      'Slider',
+    );
+  });
+  it('keeps the value on a slider created from an input socket', () => {
+    doWithTestController(async (testController) => {
+      await testController.addNode('Constant', 'target', 300, -200);
+      const slider = await testController.addNode(
+        'WidgetSlider',
+        'created',
+        0,
+        -200,
+      );
+      await slider.populateDefaults(
+        testController.getNodeByID('target').getInputSocketByName('In'),
+      );
+    });
+    shouldWithTestController((testController) => {
+      expect(testController.getNodeInputValue('created', 'Label')).to.eq(
+        'In: {{value}}',
+      );
+    });
+  });
+  it('keeps the value visible when migrating older slider labels', () => {
+    doWithTestController(async (testController) => {
+      await testController.addNode('WidgetSlider', 'named', 0, -200);
+      await testController.addNode('WidgetSlider', 'unnamed', 300, -200);
+      await testController.addNode('WidgetSlider', 'linked', 0, 0);
+      await testController.addNode('Constant', 'source', 300, 0);
+      testController.setNodeInputValue('source', 'In', 'Upstream');
+      await testController.executeNodeByID('source');
+      await testController.connectNodesByID(
+        'source',
+        'linked',
+        undefined,
+        'Label',
+      );
+
+      const stored = testController.getGraph().getSerializedStoredGraph();
+      const savedLabels = { named: 'Volume', unnamed: '', linked: 'Upstream' };
+      Object.entries(savedLabels).forEach(([id, savedLabel]) => {
+        const node = stored.graphData.nodes.find((n: any) => n.id === id);
+        node.version = 2;
+        node.socketArray.find((s: any) => s.name === 'Label').data = savedLabel;
+      });
+      await testController.getGraph().configure(stored);
+    });
+
+    cy.get('#slider-label-named').should('have.text', 'Volume: 0');
+    cy.get('#slider-label-unnamed').should('have.text', '0');
+    cy.get('#slider-label-linked').should('have.text', 'Upstream');
+  });
   it('tests tabs widget functionality in canvas and dashboard', () => {
     const tabsId = 'tabs-test-123';
 
