@@ -13,6 +13,7 @@ import {
   WidgetSelectionBase,
   WidgetPaper,
   colorOptions,
+  getColorSocket,
   getLabelSocket,
   getWidgetFontSize,
   labelName,
@@ -597,6 +598,7 @@ export class WidgetSwitch extends WidgetHybridBase {
       new Socket(SOCKET_TYPE.IN, offValueName, new BooleanType(), false, false),
       new Socket(SOCKET_TYPE.IN, onValueName, new BooleanType(), true, false),
       getLabelSocket(switchDefaultName),
+      getColorSocket(),
       getSizeSocket(),
       new Socket(SOCKET_TYPE.OUT, outName, new BooleanType()),
     ];
@@ -707,7 +709,7 @@ export class WidgetSwitch extends WidgetHybridBase {
               disabled={props.disabled}
               size="medium"
               checked={props[initialValueName]}
-              color="primary"
+              color={props[colorName]}
               onChange={handleChange}
               sx={
                 props.inDashboard
