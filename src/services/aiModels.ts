@@ -235,8 +235,3 @@ export function normalizeAIAgentModel(model?: string): string {
 export function getAIAgentProvider(model: string): AIAgentProvider {
   return getAIProviderForModel(model);
 }
-
-export function getAIAgentEndpoint(model: string): string {
-  getAIAgentProvider(model);
-  return '/auth/ai-request';
-}

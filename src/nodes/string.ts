@@ -3,10 +3,7 @@ import Socket from '../classes/SocketClass';
 import { NODE_TYPE_COLOR, SOCKET_TYPE } from '../utils/constants';
 import { TRgba } from '../utils/color';
 import { getPropertyNames } from '../utils/utils';
-import {
-  DynamicInputNode,
-  SmallDynamicInputNode,
-} from './abstract/DynamicInputNode';
+import { SmallDynamicInputNode } from './abstract/DynamicInputNode';
 import { STRING_COLOR, StringType } from './datatypes/stringType';
 import { EnumType } from './datatypes/enumType';
 import { AbstractType } from './datatypes/abstractType';

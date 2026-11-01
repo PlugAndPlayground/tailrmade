@@ -7,7 +7,7 @@ import {
   Typography,
   Divider,
 } from '@mui/material';
-import React, { useEffect } from 'react';
+import React from 'react';
 import PPGraph from '../../classes/GraphClass';
 import PPNode from '../../classes/NodeClass';
 import InterfaceController from '../../InterfaceController';
@@ -23,6 +23,9 @@ import {
   CONTEXTMENU_WIDTH,
   DISTRIBUTEHORIZONTAL_TEXTURE,
   DISTRIBUTEVERTICAL_TEXTURE,
+  GROUP_ICON_TEXTURE,
+  REMOVE_FROM_GROUP_ICON_TEXTURE,
+  UNGROUP_ICON_TEXTURE,
 } from '../../utils/constants';
 import {
   useIsSmallScreen,
@@ -36,10 +39,19 @@ import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import CachedIcon from '@mui/icons-material/Cached';
 import { VISIBILITY_ACTION } from '../../utils/constants_shared';
 import * as styles from '../../utils/style.module.css';
-import { SubMenuItem } from './ContextMenus';
+import {
+  SubMenuItem,
+  useFitInWindow,
+  useSuppressBrowserContextMenu,
+} from './ContextMenus';
 import DeleteIcon from '@mui/icons-material/Delete';
 import AddIcon from '@mui/icons-material/Add';
-import { extractSelectionToMacro } from '../../actions/graphActions';
+import {
+  extractSelectionToMacro,
+  groupSelection,
+  ungroupSelection,
+} from '../../actions/graphActions';
+import { removeNodesFromGroups } from '../../classes/groups/groupActions';
 
 const AlignOptionMenuItem = (props) => {
   return (
@@ -116,31 +128,30 @@ export const NodeContextMenu = (props) => {
     PPGraph.currentGraph.selection.selectedNodes.some((node) =>
       node.isLayoutable(),
     );
+  const selectedGroups = PPGraph.currentGraph.groupLayer.groups.filter(
+    (group) => selectedNodes.some((node) => group.nodeIds.includes(node.id)),
+  );
+  // with a whole group selected, removing its nodes would just be ungrouping
+  const isPartOfGroupSelected = selectedGroups.some((group) =>
+    group.nodeIds.some((id) => !selectedNodes.some((node) => node.id === id)),
+  );
 
-  useEffect(() => {
-    window.addEventListener('contextmenu', handleContextMenu);
-  }, []);
+  useSuppressBrowserContextMenu();
 
-  useEffect(() => {
-    return () => {
-      window.removeEventListener('contextmenu', handleContextMenu);
-    };
-  }, []);
-
-  function handleContextMenu(e: Event) {
-    e.preventDefault();
-  }
+  const menuRef = useFitInWindow(props.contextMenuPosition[1]);
 
   return (
     <Paper
+      ref={menuRef}
       id="node-contextmenu"
       sx={{
         width: CONTEXTMENU_WIDTH,
         maxWidth: '100%',
+        maxHeight: '100dvh',
+        overflow: 'auto',
         position: 'absolute',
         zIndex: 1230,
         left: props.contextMenuPosition[0],
-        top: props.contextMenuPosition[1],
       }}
     >
       <MenuList dense>
@@ -204,6 +215,38 @@ export const NodeContextMenu = (props) => {
               {alignOptions()}
             </SubMenuItem>
           ))}
+        {selectedGroups.length === 0 ? (
+          <MenuItem onClick={() => void groupSelection()}>
+            <ListItemIcon>
+              <img src={GROUP_ICON_TEXTURE} />
+            </ListItemIcon>
+            <ListItemText>Group</ListItemText>
+            <Typography variant="body2" color="text.secondary">
+              {`${props.controlOrMetaKey}+G`}
+            </Typography>
+          </MenuItem>
+        ) : (
+          <MenuItem onClick={() => void ungroupSelection()}>
+            <ListItemIcon>
+              <img src={UNGROUP_ICON_TEXTURE} />
+            </ListItemIcon>
+            <ListItemText>Ungroup</ListItemText>
+            <Typography variant="body2" color="text.secondary">
+              {`${props.controlOrMetaKey}+Shift+G`}
+            </Typography>
+          </MenuItem>
+        )}
+        {isPartOfGroupSelected && (
+          <MenuItem onClick={() => void removeNodesFromGroups(selectedNodes)}>
+            <ListItemIcon>
+              <img src={REMOVE_FROM_GROUP_ICON_TEXTURE} />
+            </ListItemIcon>
+            <ListItemText>Remove from group</ListItemText>
+            <Typography variant="body2" color="text.secondary">
+              {`${props.controlOrMetaKey}+Alt+G`}
+            </Typography>
+          </MenuItem>
+        )}
         <MenuItem
           onClick={() => {
             void PPGraph.currentGraph.duplicateSelection();

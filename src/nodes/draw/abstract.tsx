@@ -33,7 +33,6 @@ import {
   WidgetProps,
 } from '../../utils/interfaces';
 import { formatIfNumber } from '../../utils/utils';
-import { removeAndDestroyChild } from '../../pixi/utils-pixi';
 import { NodeExecutionError } from '../../classes/ErrorClass';
 import { PNPHitArea } from '../../classes/selection/PNPHitArea';
 import FlowLogic from '../../classes/FlowLogic';

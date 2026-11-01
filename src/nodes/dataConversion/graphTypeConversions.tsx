@@ -1,7 +1,5 @@
 import Socket from '../../classes/SocketClass';
-import { TRgba } from '../../utils/color';
-import { NODE_SOURCE, SOCKET_TYPE } from '../../utils/constants';
-import { TNodeSource } from '../../utils/interfaces';
+import { SOCKET_TYPE } from '../../utils/constants';
 import { arrayEntryToSelectedValue } from '../data/dataFunctions';
 import { BooleanType } from '../datatypes/booleanType';
 import { ColorType } from '../datatypes/colorType';
@@ -18,8 +16,6 @@ import InputArrayKeysType, {
   INDEX_NAME,
 } from '../datatypes/inputArrayKeysType';
 import { JSONArrayType } from '../datatypes/jsonArrayType';
-import { NumberType } from '../datatypes/numberType';
-import { TwoDVectorType } from '../datatypes/twoDVectorType';
 import { TypeConversionNode } from './conversionBase';
 
 const inputJSONArrayName = 'JSON Array';

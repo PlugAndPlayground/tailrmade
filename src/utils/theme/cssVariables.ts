@@ -34,5 +34,6 @@ export const appSurfaceSx = (
   theme: Theme,
 ): Record<string, string | number> => ({
   containerType: 'inline-size',
+  '--tm-font-family': theme.typography.fontFamily as string,
   [FONT_SCALAR_VAR]: resolveThemeOfMuiTheme(theme).tokens.fontSizeScalar,
 });

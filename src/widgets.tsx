@@ -523,10 +523,10 @@ export const SelectWidget: React.FunctionComponent<EnumTypeProps> = (props) => {
           sx={{
             mt: 1,
             '& .MuiToggleButtonGroup-grouped': {
-              padding: '4px 8px',
+              padding: '4px 6px',
               fontSize: '0.7rem',
-              lineHeight: 1,
-              height: '24px',
+              lineHeight: 1.15,
+              minHeight: '24px',
               '&:hover': {
                 backgroundColor: 'secondary.dark',
               },
@@ -548,7 +548,18 @@ export const SelectWidget: React.FunctionComponent<EnumTypeProps> = (props) => {
                 title={text}
                 disabled={disabled}
               >
-                {text}
+                <Box
+                  component="span"
+                  sx={{
+                    display: '-webkit-box',
+                    WebkitBoxOrient: 'vertical',
+                    WebkitLineClamp: 2,
+                    overflow: 'hidden',
+                    overflowWrap: 'anywhere',
+                  }}
+                >
+                  {text}
+                </Box>
               </ToggleButton>
             );
           })}

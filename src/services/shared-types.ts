@@ -19,8 +19,6 @@ export const STORAGE_QUOTA_LIMITS: Record<AccountTier, number> = {
   admin: 1000000,
 };
 
-export const DEFAULT_QUOTA = STORAGE_QUOTA_LIMITS.free;
-
 export type StorageType = 'graph' | 'object';
 
 export type GraphSortMode = 'date' | 'name';

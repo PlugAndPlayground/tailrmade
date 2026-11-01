@@ -1,4 +1,4 @@
-import PPNode, { SmallNode } from '../../classes/NodeClass';
+import { SmallNode } from '../../classes/NodeClass';
 import Socket from '../../classes/SocketClass';
 import { SOCKET_TYPE } from '../../utils/constants';
 import { TRgba } from '../../utils/color';

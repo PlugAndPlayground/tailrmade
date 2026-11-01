@@ -1,10 +1,7 @@
-import { SocketParsingWarning } from '../../classes/ErrorClass';
 import { TRgba } from '../../utils/color';
-import type { TParseType } from '../../utils/interfaces';
 import { ArrayType } from './arrayType';
 import { COLOR } from '../../utils/constants';
 import { AnyType } from './anyType';
-import PPNode from '../../classes/NodeClass';
 import { JSONArrayType } from './jsonArrayType';
 import { AbstractType, Compatibility, CompatibilityType } from './abstractType';
 // this one forces data to arrive in the form of an array of objects with specific properties

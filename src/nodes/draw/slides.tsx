@@ -3,7 +3,6 @@ import { TRgba } from '../../utils/color';
 import { Box, BoxProps } from '@mui/material';
 import { ErrorBoundary } from 'react-error-boundary';
 import ErrorFallback from '../../components/ErrorFallback';
-import PPNode from '../../classes/NodeClass';
 import DOMPurify from 'dompurify';
 import {
   NodeRisk,
@@ -14,7 +13,6 @@ import {
 } from '../../classes/NodeRisk';
 import PPSocket from '../../classes/SocketClass';
 import UpdateBehaviourClass from '../../classes/UpdateBehaviourClass';
-import InterfaceController, { ListenEvent } from '../../InterfaceController';
 import { CodeType } from '../datatypes/codeType';
 import { BooleanType } from '../datatypes/booleanType';
 import { EnumStructure, EnumType } from '../datatypes/enumType';

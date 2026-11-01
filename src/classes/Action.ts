@@ -1,7 +1,6 @@
 import PPGraph from './GraphClass';
 import PPNode from './NodeClass';
 import Socket from './SocketClass';
-import _ from 'lodash';
 import { DisplacedLink, isSurfaceNode, TSocketType } from '../utils/interfaces';
 import InterfaceController, { ListenEvent } from '../InterfaceController';
 import { hri } from 'human-readable-ids';

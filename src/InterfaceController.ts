@@ -39,6 +39,12 @@ import {
   RightDrawerView,
 } from './utils/constants';
 import { findEmbeddingsOf } from './nodes/layout/surfaceSync';
+import {
+  extractSelectionToMacro,
+  groupSelection,
+  ungroupSelection,
+} from './actions/graphActions';
+import { removeNodesFromGroups } from './classes/groups/groupActions';
 import type { UISurfaceNode } from './nodes/layout/uiSurface';
 
 export enum ListenEvent {
@@ -56,6 +62,7 @@ export enum ListenEvent {
   GraphConfigured, // data = {id,name}
   ToggleTooltipInspector, // data = {event: PIXI.FederatedPointerEvent | KeyboardEvent, open?: boolean} => void: called when tooltip inspector is toggled
   EscapeKeyUsed,
+  GroupColorPickerRequested, // data = { groupId: string; x: number; y: number }, the color icon's top right in screen pixels
   UnsavedChanges, // data = Boolean
   ResourceUpdated, // data = {id}
   OverlayStateChanged, // data = IOverlay
@@ -402,7 +409,13 @@ export default class InterfaceController {
     const modKey = isMac() ? e.metaKey : e.ctrlKey;
     if (!isEventComingFromWithinTextInput(e)) {
       if (modKey) {
-        if (!e.shiftKey) {
+        // e.code, as Option turns e.key into another character on a Mac
+        if (e.altKey && e.code === 'KeyG') {
+          void removeNodesFromGroups(
+            PPGraph.currentGraph.selection.selectedNodes,
+          );
+          e.preventDefault();
+        } else if (!e.shiftKey) {
           switch (e.key.toLowerCase()) {
             case 'a':
               PPGraph.currentGraph.selection.selectAllNodes();
@@ -447,11 +460,23 @@ export default class InterfaceController {
               zoomInOutViewport(false);
               e.preventDefault();
               break;
+            case 'g':
+              void groupSelection();
+              e.preventDefault();
+              break;
           }
         } else if (e.shiftKey) {
           switch (e.key.toLowerCase()) {
             case 'a':
               PPGraph.currentGraph.selection.deselectAllNodes();
+              e.preventDefault();
+              break;
+            case 'g':
+              void ungroupSelection();
+              e.preventDefault();
+              break;
+            case 'o':
+              this.onOpenFileBrowser();
               e.preventDefault();
               break;
             case 'y':
@@ -486,6 +511,13 @@ export default class InterfaceController {
           case 'KeyU':
             void combineSelectedLayoutablesIntoSurface();
             break;
+          case 'KeyM': {
+            const selectedNodes = PPGraph.currentGraph.selection.selectedNodes;
+            if (selectedNodes.length > 0) {
+              void extractSelectionToMacro(selectedNodes);
+            }
+            break;
+          }
         }
       } else if (e.altKey) {
         switch (e.code) {

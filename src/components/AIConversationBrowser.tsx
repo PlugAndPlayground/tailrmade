@@ -22,7 +22,6 @@ import {
   Add as AddIcon,
   DeleteOutlined as DeleteIcon,
   AutoAwesome as AutoAwesomeIcon,
-  KeyboardArrowDown as KeyboardArrowDownIcon,
   TuneOutlined as SettingsIcon,
 } from '@mui/icons-material';
 import { AIBackend } from '../services/AIBackend';

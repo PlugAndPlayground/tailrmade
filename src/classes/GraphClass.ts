@@ -75,6 +75,7 @@ import {
 import { StoredGraph } from '../utils/indexedDB';
 import { getGraphSource, GraphSource } from '../services/graphSource';
 import PPStorage, { DEFAULT_ACCESS, DEFAULT_LOCATION } from '../PPStorage';
+import GroupLayer from './groups/GroupLayer';
 import { collectAppRisks, requiresAppRiskReview } from './NodeRisk';
 import {
   cancelAppRiskReview,
@@ -155,6 +156,7 @@ export default class PPGraph {
 
   backgroundTempContainer: PIXI.Container;
   backgroundCanvas: PIXI.Container;
+  groupLayer: GroupLayer;
   connectionContainer: PIXI.Container;
   nodeContainer: PIXI.Container;
   nodes: { [key: string]: PPNode } = {};
@@ -198,6 +200,7 @@ export default class PPGraph {
     this.backgroundTempContainer.name = 'backgroundTempContainer';
     this.backgroundCanvas = new PIXI.Container();
     this.backgroundCanvas.name = 'backgroundCanvas';
+    this.groupLayer = new GroupLayer();
     this.connectionContainer = new PIXI.Container();
     this.connectionContainer.name = 'connectionContainer';
     this.nodeContainer = new PIXI.Container();
@@ -219,6 +222,7 @@ export default class PPGraph {
 
     this.viewport.addChild(
       this.backgroundCanvas,
+      this.groupLayer,
       this.backgroundTempContainer,
       this.connectionContainer,
       this.nodeContainer,
@@ -650,8 +654,8 @@ export default class PPGraph {
     return this.viewport.scale.x;
   }
 
-  // The error outline and the status badge are sized in screen pixels, so they
-  // have to be re-applied whenever the viewport scale changes.
+  // The error outline, the status badge and group headers are sized in screen
+  // pixels, so they have to be re-applied whenever the viewport scale changes.
   private lastZoomInvariantScale = 0;
 
   private refreshZoomInvariantNodeVisuals(): void {
@@ -663,6 +667,7 @@ export default class PPGraph {
     Object.values(this.nodes).forEach((node) =>
       node.refreshZoomInvariantVisuals(),
     );
+    this.groupLayer.drawAll();
   }
 
   get showExecutionVisualisation(): boolean {
@@ -895,6 +900,7 @@ export default class PPGraph {
     await newNode.executeOptimizedChain();
     this.selection.selectNodes([newNode], false);
     this.selection.drawRectanglesFromSelection();
+    this.groupLayer.onNodeReplaced(oldId, newId);
     await this.removeNode(this.nodes[oldId]);
 
     return newNode;
@@ -1427,6 +1433,11 @@ export default class PPGraph {
     data.nodes.forEach((node) => {
       idMapping[node.id] = this.nodes[node.id] ? hri.random() : node.id;
     });
+    const pastedGroups = (data.groups ?? []).map((group) => ({
+      ...group,
+      id: this.groupLayer.getGroup(group.id) ? hri.random() : group.id,
+      nodeIds: group.nodeIds.map((id) => idMapping[id]),
+    }));
 
     const action = async () => {
       if (session !== getNodePasteSession()) return;
@@ -1466,6 +1477,7 @@ export default class PPGraph {
       } catch (error) {
         console.error(error);
       }
+      pastedGroups.forEach((group) => this.groupLayer.addGroup(group));
       await FlowLogic.waitForPendingExecution();
       await Promise.all(newNodes.map(async (node) => node.pasted()));
 
@@ -1550,6 +1562,7 @@ export default class PPGraph {
       overlay: overlayForSerialization,
       nodes: nodesSerialized,
       links: linksSerialized,
+      groups: this.groupLayer.serialize(),
     };
 
     return data;
@@ -1606,6 +1619,9 @@ export default class PPGraph {
       version: GRAPH_DATA_VERSION,
       nodes: nodesSerialized,
       links: linksSerialized,
+      groups: this.groupLayer.serializeContainedIn(
+        nodes.map((node) => node.id),
+      ),
     };
 
     registerLocalSelection(data);
@@ -1748,6 +1764,10 @@ export default class PPGraph {
       console.error(error);
       return false;
     }
+    this.groupLayer.configure(
+      data.groups ?? [],
+      new Set(Object.keys(this.nodes)),
+    );
 
     // migrate all nodes that need to
     for (let i = 0; i < data.nodes.length; i++) {
@@ -1937,6 +1957,7 @@ export default class PPGraph {
     const removedSurfaceId = isSurfaceNode(node) ? node.id : undefined;
     delete this.nodes[node.id];
     node.destroy();
+    this.groupLayer.onNodeRemoved(node.id);
 
     if (removedSurfaceId) {
       InterfaceController.notifyListeners(ListenEvent.SurfaceListChanged, {
@@ -1972,6 +1993,9 @@ export default class PPGraph {
       .flat()
       .flat()
       .filter((link) => link !== undefined);
+    const groupsSerialized = this.groupLayer.serializeTouching(
+      nodesSerialized.map((node) => node.id),
+    );
     const action = async () => {
       this.selection.deselectAllNodesAndResetSelection();
       for (let i = 0; i < nodesSerialized.length; i++) {
@@ -2007,6 +2031,7 @@ export default class PPGraph {
         }
       });
 
+      groupsSerialized.forEach((group) => this.groupLayer.restoreGroup(group));
       this.selection.selectNodes(addedNodes);
       await this.executeAllSeedNodes(addedNodes);
     };

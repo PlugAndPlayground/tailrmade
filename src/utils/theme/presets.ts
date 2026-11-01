@@ -26,6 +26,8 @@ export type ThemePreset = {
   // an unthemed dark mode
   roles: Record<ThemeMode, ColorTokens>;
   typography: {
+    // bundled (global.css) or shipped with the OS - nothing loads fonts at
+    // runtime, so any other name silently renders as the Roboto fallback
     fontFamily: string;
     fontFamilyMono: string;
     fontSizeScalar: number;
@@ -59,9 +61,6 @@ const presetsById = new Map(PRESETS.map((preset) => [preset.id, preset]));
 export const getPreset = (presetId: string | undefined): ThemePreset =>
   (presetId !== undefined ? presetsById.get(presetId) : undefined) ??
   presetsById.get(DEFAULT_PRESET_ID)!;
-
-export const isKnownPresetId = (presetId: string | undefined): boolean =>
-  presetId !== undefined && presetsById.has(presetId);
 
 /**
  * Flattens a preset into the single flat token record every layer above it

@@ -1,4 +1,4 @@
-import React, { Suspense, useEffect, useRef } from 'react';
+import React, { Suspense, useCallback, useEffect, useRef } from 'react';
 import {
   Box,
   Button,
@@ -7,6 +7,7 @@ import {
   CircularProgress,
 } from '@mui/material';
 import DownloadIcon from '@mui/icons-material/Download';
+import type * as monaco from 'monaco-editor/editor/editor.api';
 import { ErrorBoundary } from 'react-error-boundary';
 import ErrorFallback from '../../components/ErrorFallback';
 import PPSocket from '../../classes/SocketClass';
@@ -17,6 +18,15 @@ import { CustomFunction } from '../data/dataFunctions';
 import { BackPropagation } from '../../interfaces';
 import { AbstractType } from '../datatypes/abstractType';
 import { WidgetContentProps } from '../../utils/interfaces';
+import {
+  commitDelayName,
+  commitModeName,
+  commitsImmediately,
+  editorCommitOptions,
+  getCommitDelaySocket,
+  getCommitModeSocket,
+  useCommitMode,
+} from '../commitMode';
 
 // Lazy load MonacoEditor
 const MonacoEditor = React.lazy(() => import('../../components/MonacoEditor'));
@@ -41,8 +51,11 @@ interface EditorComponentProps {
   value: string;
   readOnly: boolean;
   isInteractionEnabled: boolean;
-  onChange: (value: string) => Promise<void>;
+  onChange: (value: string) => void;
   onBlur?: () => void;
+  /** false while the mode commits on its own, so Cmd/Ctrl+Enter is left alone */
+  canCommitOnShortcut: boolean;
+  onCommitShortcut: () => void;
 }
 
 const EditorComponent = React.memo(
@@ -53,11 +66,20 @@ const EditorComponent = React.memo(
     isInteractionEnabled,
     onChange,
     onBlur,
+    canCommitOnShortcut,
+    onCommitShortcut,
   }: EditorComponentProps) => {
-    const editorRef = useRef<{
-      focus: () => void;
-      getDomNode?: () => HTMLElement | null;
-    } | null>(null);
+    const editorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
+    // Monaco resolves keybindings by weight and takes the first whose context
+    // holds, so clearing this hands Cmd/Ctrl+Enter back to Insert Line Below
+    const canCommitContextRef =
+      useRef<monaco.editor.IContextKey<boolean> | null>(null);
+    const onCommitShortcutRef = useRef(onCommitShortcut);
+    onCommitShortcutRef.current = onCommitShortcut;
+
+    useEffect(() => {
+      canCommitContextRef.current?.set(canCommitOnShortcut);
+    }, [canCommitOnShortcut]);
 
     useEffect(() => {
       if (!editorRef.current) {
@@ -98,8 +120,18 @@ const EditorComponent = React.memo(
             wordWrap: 'on' as const,
           }}
           onChange={onChange}
-          editorDidMount={(editor) => {
+          editorDidMount={(editor, monacoApi) => {
             editorRef.current = editor;
+            const canCommit = editor.createContextKey<boolean>(
+              'tailrmadeCanCommitEdit',
+              canCommitOnShortcut,
+            );
+            canCommitContextRef.current = canCommit;
+            editor.addCommand(
+              monacoApi.KeyMod.CtrlCmd | monacoApi.KeyCode.Enter,
+              () => onCommitShortcutRef.current(),
+              'tailrmadeCanCommitEdit',
+            );
             editor.onDidBlurEditorText(() => {
               onBlur?.();
             });
@@ -142,6 +174,8 @@ export abstract class CodeEditorAbstract extends HybridNode2 {
     return [
       new PPSocket(SOCKET_TYPE.OUT, outputSocketName, this.getSocketType()),
       new PPSocket(SOCKET_TYPE.IN, editorInputSocketName, this.getSocketType()),
+      getCommitModeSocket(editorCommitOptions),
+      getCommitDelaySocket(this),
     ];
   }
 
@@ -214,7 +248,28 @@ export abstract class CodeEditorAbstract extends HybridNode2 {
   getWidgetContent(props: WidgetContentProps): React.ReactElement {
     const node = props.node as CodeEditorAbstract;
     const inputSocket = node.getInputSocketByName(editorInputSocketName);
-    const value = inputSocket.getStringifiedData();
+    const commit = useCommitMode<string>(
+      inputSocket.getStringifiedData(),
+      (next) => void node.onChange(next),
+      { mode: props[commitModeName], delay: props[commitDelayName] },
+    );
+    const latest = useRef({ commit, node, inDashboard: props.inDashboard });
+    latest.current = { commit, node, inDashboard: props.inDashboard };
+    const handleChange = useCallback(
+      (next: string) => latest.current.commit.edit(next),
+      [],
+    );
+    const handleCommitShortcut = useCallback(
+      () => latest.current.commit.commit(),
+      [],
+    );
+    const handleBlur = useCallback(() => {
+      const current = latest.current;
+      current.commit.endEditing();
+      if (current.inDashboard) {
+        current.node.onDashboardBlur();
+      }
+    }, []);
     const isDashboardEditable = props.inDashboard && !(props.disabled ?? false);
     const isEditorInteractive = props.inDashboard
       ? isDashboardEditable
@@ -237,11 +292,13 @@ export abstract class CodeEditorAbstract extends HybridNode2 {
           >
             <EditorComponent
               language={node.getEditorLanguage()}
-              value={value}
+              value={commit.value}
               readOnly={readOnly}
               isInteractionEnabled={isEditorInteractive}
-              onChange={node.onChange}
-              onBlur={props.inDashboard ? node.onDashboardBlur : undefined}
+              onChange={handleChange}
+              onBlur={handleBlur}
+              canCommitOnShortcut={!commitsImmediately(props[commitModeName])}
+              onCommitShortcut={handleCommitShortcut}
             />
             {isEditorInteractive && !readOnly && (
               <ButtonGroup

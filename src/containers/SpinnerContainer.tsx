@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import Spinner from '../components/Spinner';
-import InterfaceController, { ListenEvent } from '../InterfaceController';
+import InterfaceController from '../InterfaceController';
 
 interface SpinnerState {
   visible: boolean;

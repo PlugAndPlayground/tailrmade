@@ -10,7 +10,6 @@ import {
   Stack,
   CircularProgress,
   Alert,
-  Chip,
   IconButton,
   Tooltip,
 } from '@mui/material';
@@ -22,7 +21,6 @@ import {
   ContentCopy as ContentCopyIcon,
 } from '@mui/icons-material';
 import PPStorage from '../PPStorage';
-import PPGraph from '../classes/GraphClass';
 
 interface ErrorFallbackProps {
   // react-error-boundary types thrown values as unknown
