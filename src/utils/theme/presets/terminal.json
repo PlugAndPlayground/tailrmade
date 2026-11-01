@@ -31,8 +31,8 @@
     }
   },
   "typography": {
-    "fontFamily": "JetBrains Mono",
-    "fontFamilyMono": "JetBrains Mono",
+    "fontFamily": "Roboto Mono",
+    "fontFamilyMono": "Roboto Mono",
     "fontSizeScalar": 0.9375
   },
   "geometry": {

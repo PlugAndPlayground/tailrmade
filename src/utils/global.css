@@ -22,7 +22,7 @@ html {
 .MuiBox-root,
 .MuiStack-root,
 .MuiDivider-root {
-  font-family: 'Roboto', 'Helvetica', 'Arial', 'sans-serif';
+  font-family: var(--tm-font-family, 'Roboto', 'Helvetica', 'Arial', sans-serif);
 }
 
 .rootClass {

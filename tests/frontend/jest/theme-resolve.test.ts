@@ -409,6 +409,26 @@ describe('presets are actually distinct', () => {
     expect(inputs.size).toBe(3);
   });
 
+  // nothing loads fonts at runtime, so a preset can only name a font we bundle
+  // (global.css) or one the OS ships. Anything else silently renders as Roboto,
+  // which makes the preset's type indistinguishable from the default.
+  const BUNDLED_FONTS = ['Roboto', 'Roboto Mono'];
+  const SYSTEM_FONTS = ['Georgia', 'Impact', 'Trebuchet MS', 'Verdana'];
+
+  it('names only fonts that actually render', () => {
+    PRESETS.forEach((preset) => {
+      expect([...BUNDLED_FONTS, ...SYSTEM_FONTS]).toContain(
+        preset.typography.fontFamily,
+      );
+      expect(BUNDLED_FONTS).toContain(preset.typography.fontFamilyMono);
+    });
+  });
+
+  it('gives every preset its own font', () => {
+    const fonts = PRESETS.map((preset) => preset.typography.fontFamily);
+    expect(new Set(fonts).size).toBe(PRESETS.length);
+  });
+
   // compared WITHIN a mode: a preset reusing one accent across both modes is
   // a legitimate choice (tailrmade keeps the brand blue), but two presets
   // sharing an accent in the same mode are not telling apart.
