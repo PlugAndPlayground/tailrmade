@@ -74,7 +74,6 @@ export class UserStatus extends PPNode {
       const ai = userData!.allowances?.ai;
       output[AIUsage] = ai?.daily.used ?? 0;
       output[AILimit] = ai?.daily.limit ?? 0;
-      // no monthly cap (limit null) reads as 0, like a missing limit
       output[AIMonthlyUsage] = ai?.monthly.used ?? 0;
       output[AIMonthlyLimit] = ai?.monthly.limit ?? 0;
     }

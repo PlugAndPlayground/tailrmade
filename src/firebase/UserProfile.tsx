@@ -353,7 +353,7 @@ const UserProfile: React.FC<UserProfileProps> = ({
               unit="tokens"
             />
 
-            {aiMonthly && aiMonthly.limit !== null && (
+            {aiMonthly && (
               <ProfileUsageCard
                 icon={<PsychologyIcon sx={PROFILE_CARD_ICON_SX} />}
                 label="AI assistance (monthly)"

@@ -46,8 +46,8 @@ export interface TokenUsage {
 // Mirrors the backend contract; limits and usage always come from /user-data.
 export interface AllowanceWindow {
   used: number;
-  limit: number | null;
-  remaining: number | null;
+  limit: number;
+  remaining: number;
   resetsAt: string; // ISO, UTC
 }
 
@@ -55,7 +55,6 @@ export interface UserAllowances {
   ai: {
     daily: AllowanceWindow;
     monthly: AllowanceWindow;
-    remaining: number | null;
   };
   companion: { daily: AllowanceWindow };
 }
