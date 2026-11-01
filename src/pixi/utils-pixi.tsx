@@ -415,6 +415,25 @@ export const createPixiApp = (
     window.addEventListener('pointerup', disarmMouseEdges, true);
     window.addEventListener('pointercancel', disarmMouseEdges, true);
 
+    // while the pointer rests, Pixi re-fires its last position on document as
+    // a fake pointermove with buttons: 0. MUI's Slider reads that as a missed
+    // pointerup and ends its drag, so hold them back during DOM presses.
+    const fakeMoveFrequency = PIXI.EventsTicker.interactionFrequency;
+    window.addEventListener(
+      'pointerdown',
+      (event: PointerEvent) => {
+        if (event.target !== pixiApp.current.canvas) {
+          PIXI.EventsTicker.interactionFrequency = Infinity;
+        }
+      },
+      true,
+    );
+    const resumeFakeMoves = () => {
+      PIXI.EventsTicker.interactionFrequency = fakeMoveFrequency;
+    };
+    window.addEventListener('pointerup', resumeFakeMoves, true);
+    window.addEventListener('pointercancel', resumeFakeMoves, true);
+
     // configure viewport
     viewport.current
       .drag({
