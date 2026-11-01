@@ -1084,7 +1084,9 @@ class ScaleHandle extends PIXI.Graphics {
   constructor(selection: PPSelection) {
     super();
 
-    this.eventMode = 'dynamic';
+    // not 'dynamic': that makes Pixi re-fire the resting pointer on document as
+    // a fake pointermove with buttons: 0, which ends any MUI Slider drag
+    this.eventMode = 'static';
 
     this.selection = selection;
 
