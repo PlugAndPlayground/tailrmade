@@ -76,6 +76,21 @@ export const CodeEditor: React.FunctionComponent<CodeEditorProps> = ({
     editorRef.current = editor;
     monacoRef.current = monaco;
 
+    editor.addAction({
+      id: 'Copy-lines-down',
+      label: 'Copy lines down',
+      keybindings: [
+        monaco.KeyMod.Shift | monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyD,
+      ],
+      run: function (copied) {
+        editor.trigger(
+          'Copy lines down',
+          'editor.action.copyLinesDownAction',
+          copied,
+        );
+      },
+    });
+
     changeEditorHeight(Math.floor(window.innerHeight * 0.25));
   };
 
