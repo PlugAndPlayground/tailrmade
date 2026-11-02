@@ -17,6 +17,7 @@ import {
   Tabs,
   ThemeProvider,
   TextField,
+  Tooltip,
   Typography,
 } from '@mui/material';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
@@ -51,6 +52,7 @@ import { createStore } from './createStore';
 import { NodeRow } from './NodeRow';
 import { TagChip } from './TagChip';
 import { pendingAppRun } from '../services/appExecution';
+import { BackendGateway } from '../services/BackendGateway';
 import InterfaceController, { ListenEvent } from '../InterfaceController';
 import { getNodesBounds, smoothMoveViewport } from '../pixi/utils-pixi';
 import { VISIBILITY_ACTION } from '../utils/constants_shared';
@@ -298,23 +300,55 @@ function AppSource(): React.ReactElement {
   const source = PPGraph.currentGraph.source;
   if (!source) {
     return (
-      <Typography variant="body2" color="text.secondary">
-        Unknown source
-      </Typography>
+      <>
+        <Typography variant="body2">Unknown publisher</Typography>
+        <Typography
+          variant="caption"
+          color="text.secondary"
+          sx={{ display: 'block' }}
+        >
+          Opened from a file or this device, so no account vouches for it.
+        </Typography>
+      </>
     );
   }
+  const isTailrmade = source.ownerId === 'publicUser';
+  if (
+    !isTailrmade &&
+    source.ownerId === BackendGateway.getInstance().getCurrentUserId()
+  ) {
+    return <Typography variant="body2">Saved in your account</Typography>;
+  }
   return (
-    <>
-      {source.ownerId === 'publicUser' ? (
-        <Chip
-          icon={<VerifiedIcon />}
-          label="Tailrmade"
-          aria-label="Verified Tailrmade"
-          color="primary"
-          size="small"
-        />
+    <Box
+      sx={{
+        display: 'flex',
+        flexWrap: 'wrap',
+        alignItems: 'center',
+        columnGap: 0.75,
+        overflowWrap: 'anywhere',
+      }}
+    >
+      <Typography variant="body2" color="text.secondary">
+        Published by
+      </Typography>
+      {isTailrmade ? (
+        <Tooltip
+          describeChild
+          enterTouchDelay={0}
+          title="Confirms the official Tailrmade account published this app, not what the app does."
+        >
+          <Chip
+            icon={<VerifiedIcon />}
+            label="Tailrmade"
+            aria-label="Verified Tailrmade"
+            color="primary"
+            size="small"
+            tabIndex={0}
+          />
+        </Tooltip>
       ) : (
-        <Typography variant="body2">
+        <Typography variant="body2" sx={{ minWidth: 0 }}>
           {source.owner.name || source.ownerId}
         </Typography>
       )}
@@ -323,7 +357,7 @@ function AppSource(): React.ReactElement {
           {source.owner.email}
         </Typography>
       )}
-    </>
+    </Box>
   );
 }
 
@@ -980,7 +1014,7 @@ export function AppRiskDialog({
               {review.risks.some(
                 ({ risk }) => risk.kind === 'unrestricted-code',
               ) &&
-                ' Some nodes also run code that is not sandboxed. Their actions cannot be determined, so this list is not complete for them — that part comes down to the source above.'}{' '}
+                ' Some nodes also run code that is not sandboxed. Their actions cannot be determined, so this list is not complete for them — that part comes down to whether you trust the publisher above.'}{' '}
               <Box
                 component="a"
                 href={HELP_URL_APP_RISK_REVIEW}
