@@ -1056,6 +1056,11 @@ export default class PPSelection extends PIXI.Container {
       ListenEvent.SelectionChanged,
       this.selectedNodes,
     );
+    // not a SelectionChanged listener: that also fires on graph pointer ups with
+    // nothing changed, which would drop a widget selected in the meantime
+    if (InterfaceController.isDashboardInEditMode) {
+      InterfaceController.selectDashboardItemForNodes(this.selectedNodes);
+    }
   }
 
   selectAllNodes(): void {
