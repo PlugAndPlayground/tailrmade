@@ -302,13 +302,6 @@ function AppSource(): React.ReactElement {
     return (
       <>
         <Typography variant="body2">Unknown publisher</Typography>
-        <Typography
-          variant="caption"
-          color="text.secondary"
-          sx={{ display: 'block' }}
-        >
-          Opened from a file or this device, so no account vouches for it.
-        </Typography>
       </>
     );
   }
@@ -336,7 +329,7 @@ function AppSource(): React.ReactElement {
         <Tooltip
           describeChild
           enterTouchDelay={0}
-          title="Confirms the official Tailrmade account published this app, not what the app does."
+          title="Confirms that the official Tailrmade account published this app."
         >
           <Chip
             icon={<VerifiedIcon />}
