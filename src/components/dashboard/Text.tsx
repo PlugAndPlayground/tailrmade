@@ -2,6 +2,7 @@ import React from 'react';
 import { useEditor, useNode } from '@craftjs/core';
 import { Box, Button } from '@mui/material';
 import InterfaceController from '../../InterfaceController';
+import { DATA_DASHBOARD_WIDGET } from '../../utils/constants';
 import { convertStaticTextToDynamic } from '../../text/conversion';
 import { InlineTextEditor } from '../../text/lexical/InlineTextEditor';
 import { STATIC_TEXT_PROFILE } from '../../text/lexical/editorConfig';
@@ -39,6 +40,7 @@ export const Text = (props: Partial<TextProps> & Record<string, unknown>) => {
       }}
       style={resolveStaticTextFrameStyle(props, parentDirection)}
       data-cy="static-text"
+      {...{ [DATA_DASHBOARD_WIDGET]: 'true' }}
     >
       {isEditMode ? (
         <InlineTextEditor

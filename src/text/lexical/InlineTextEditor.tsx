@@ -10,7 +10,12 @@ import { ListPlugin } from '@lexical/react/LexicalListPlugin';
 import { MarkdownShortcutPlugin } from '@lexical/react/LexicalMarkdownShortcutPlugin';
 import { RichTextPlugin } from '@lexical/react/LexicalRichTextPlugin';
 import { LexicalErrorBoundary } from '@lexical/react/LexicalErrorBoundary';
-import { customTheme, DATA_DASHBOARD_EDITABLE } from '../../utils/constants';
+import {
+  customTheme,
+  DASHBOARD_WIDGET_HEADER_HEIGHT,
+  DATA_DASHBOARD_EDITABLE,
+  DATA_DASHBOARD_WIDGET,
+} from '../../utils/constants';
 import { toneCssVariables } from '../TextView';
 import { registerInlineTextSanitizer } from './content';
 import { createTextEditorConfig, TextHostProfile } from './editorConfig';
@@ -45,6 +50,23 @@ export type InlineTextEditorProps = {
 };
 
 const MAX_FOCUS_FRAMES = 10;
+const TOOLBAR_GAP = 4;
+
+// on a UI surface the toolbar stays outside the widget frame and its header
+function getToolbarDistance(
+  wrapper: HTMLElement | null,
+  placement: string,
+): number {
+  const frame = wrapper?.closest(`[${DATA_DASHBOARD_WIDGET}]`);
+  if (!wrapper || !frame) {
+    return TOOLBAR_GAP;
+  }
+  const text = wrapper.getBoundingClientRect();
+  const { top, bottom } = frame.getBoundingClientRect();
+  return placement.startsWith('top')
+    ? text.top - top + DASHBOARD_WIDGET_HEADER_HEIGHT + TOOLBAR_GAP
+    : bottom - text.bottom + TOOLBAR_GAP;
+}
 
 function ContentSyncPlugin({
   content,
@@ -132,6 +154,22 @@ export function InlineTextEditor({
   const [isFocused, setIsFocused] = useState(false);
   const [isLinkEditMode, setIsLinkEditMode] = useState(false);
   const toolbarRef = useRef<HTMLDivElement>(null);
+  const toolbarModifiers = useMemo(
+    () => [
+      {
+        name: 'offset',
+        options: {
+          offset: ({ placement }: { placement: string }) => [
+            0,
+            getToolbarDistance(wrapper, placement),
+          ],
+        },
+      },
+      // a frame too tall to fit either way must not push the toolbar off screen
+      { name: 'preventOverflow', options: { altAxis: true, padding: 8 } },
+    ],
+    [wrapper],
+  );
   const initialConfig = useMemo(
     () => ({
       ...createTextEditorConfig('Text'),
@@ -201,7 +239,7 @@ export function InlineTextEditor({
               open={editable && isFocused && Boolean(wrapper)}
               anchorEl={wrapper}
               placement={toolbarPlacement}
-              modifiers={[{ name: 'offset', options: { offset: [0, 4] } }]}
+              modifiers={toolbarModifiers}
               sx={{ zIndex: 1500 }}
             >
               <Paper

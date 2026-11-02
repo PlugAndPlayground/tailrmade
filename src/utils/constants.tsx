@@ -521,5 +521,7 @@ export const parentBgWidthName = 'parentBgWidth';
 export const parentBgHeightName = 'parentBgHeight';
 
 export const DATA_DASHBOARD_EDITABLE = 'data-dashboard-editable'; // Attribute to mark HTML elements in the dashboard that are editable (isEventComingFromWithinTextInput)
+export const DATA_DASHBOARD_WIDGET = 'data-dashboard-widget'; // Attribute to mark the frame of a widget on a UI surface, which its header is anchored to
+export const DASHBOARD_WIDGET_HEADER_HEIGHT = 30;
 
 export const UNSET_VALUE = 'unset';

@@ -27,6 +27,7 @@ import {
 } from '../../utils/layoutableHelpers';
 import InterfaceController from '../../InterfaceController';
 import { useHoverEvents, useParentDirection } from './hooks';
+import { DATA_DASHBOARD_WIDGET } from '../../utils/constants';
 import { DynamicWidgetName } from '../../utils/constants_shared';
 import { dynamicWidgetDefaultProps } from '../../utils/surfaceTree';
 import { ColorSetting, colorSettingToCss } from '../../utils/themeColors';
@@ -186,6 +187,7 @@ export const DynamicWidgetView = (viewProps: DynamicWidgetViewProps) => {
     <Box
       ref={innerRef}
       data-cy={widgetDataCy}
+      {...{ [DATA_DASHBOARD_WIDGET]: 'true' }}
       id={domId}
       sx={{
         position: 'relative',
