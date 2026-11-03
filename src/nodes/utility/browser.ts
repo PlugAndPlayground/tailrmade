@@ -124,15 +124,9 @@ and the part after # are both read, and # wins when both carry a name.
 Values are text, which Number and JSON inputs convert on arrival. A name that
 appears more than once comes out as an array.
 
-"Found" is true when the address has the parameter, so use it for a flag such
-as ?debug: a Boolean input treats any text, even "false", as true. Without the
-parameter, "Value" is "Default".
+"Found" is true when the address has the parameter. Without the parameter, "Value" is "Default".
 
-Tailrmade's own parameters, such as loadGraph, are never reported.
-
-Whoever writes a link chooses these values, so treat them like typed input.
-Nodes that use them, such as HTTP or Open URL, show in the app review as
-choosing their address while running.`;
+Tailrmade's own parameters, such as loadGraph, are never reported.`;
   }
 
   public getTags(): string[] {
