@@ -104,6 +104,7 @@ export const getBasicLayoutStyles = (
 
   if (parentDirection === 'row' && width === 'auto') {
     style.minWidth = UNSET_VALUE;
+    style.flexShrink = 0;
   }
 
   // Handle height

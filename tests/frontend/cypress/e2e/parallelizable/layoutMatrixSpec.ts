@@ -10,6 +10,7 @@ import {
   widgetSelector,
   MatrixCase,
   MatrixNodeIds,
+  WRAPPABLE_LABEL,
 } from './layoutMatrixHelpers';
 
 // Shared spec body for the generated UI-surface layout matrix. The full
@@ -90,8 +91,12 @@ export function runLayoutMatrix(kindPairs: SiblingKindPair[]): void {
         // ids left to default (hri.random()) for realism; hand-picked ids
         // would work too - getLayoutableElement resolves against the ids
         // present in the graph, not a pattern
-        const nodeA = await tc.addNode('WidgetButton', undefined, 400, 0);
-        const nodeB = await tc.addNode('WidgetButton', undefined, 400, 200);
+        // switches, not buttons: a button's label never wraps, so a fill
+        // sibling could never squeeze it (see WRAPPABLE_LABEL)
+        const nodeA = await tc.addNode('WidgetSwitch', undefined, 400, 0);
+        const nodeB = await tc.addNode('WidgetSwitch', undefined, 400, 200);
+        tc.setNodeInputValue(nodeA.id, 'Label', WRAPPABLE_LABEL);
+        tc.setNodeInputValue(nodeB.id, 'Label', WRAPPABLE_LABEL);
         // two embeddable UI surfaces for the 'surface' sibling kind, each
         // given a minimal inner layout (one WidgetButton)
         const surfA = await tc.addNode('UISurfaceNode', undefined, 800, 0);

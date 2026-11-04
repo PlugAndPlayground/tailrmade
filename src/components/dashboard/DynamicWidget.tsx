@@ -201,6 +201,7 @@ export const DynamicWidgetView = (viewProps: DynamicWidgetViewProps) => {
         // may be the 'inherit' keyword, which TRgba cannot hold
         color: colorSettingToCss(color),
         padding: `${padding[0]}px ${padding[1]}px ${padding[2]}px ${padding[3]}px`,
+        minWidth,
         ...style,
       }}
       onMouseEnter={handleMouseEnter}
