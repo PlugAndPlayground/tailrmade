@@ -5,6 +5,7 @@ import {
   widgetSelector,
   MatrixNodeIds,
   SiblingSpec,
+  WRAPPABLE_LABEL,
 } from './layoutMatrixHelpers';
 
 // Visual "zoo" of every case generateMatrixCases() produces (the
@@ -32,7 +33,7 @@ describe('UI surface layout zoo (visual - run via yarn test-editor)', () => {
       await tc.addNode('UISurfaceNode', SURFACE_ID, 0, 0);
 
       let y = 0;
-      // a placeable node per sibling: WidgetButton for 'widget'/'container'
+      // a placeable node per sibling: WidgetSwitch for 'widget'/'container'
       // siblings, a fresh embeddable UI surface (one WidgetButton inside)
       // for 'surface' siblings - fresh nodes per section because one node
       // may appear only once per surface. ids left to default (hri.random())
@@ -40,7 +41,8 @@ describe('UI surface layout zoo (visual - run via yarn test-editor)', () => {
       const makeSiblingNode = async (sibling: SiblingSpec, x: number) => {
         const nodeY = (y += 90);
         if (sibling.kind !== 'surface') {
-          const node = await tc.addNode('WidgetButton', undefined, x, nodeY);
+          const node = await tc.addNode('WidgetSwitch', undefined, x, nodeY);
+          tc.setNodeInputValue(node.id, 'Label', WRAPPABLE_LABEL);
           return node.id;
         }
         const surf = await tc.addNode('UISurfaceNode', undefined, x, nodeY);

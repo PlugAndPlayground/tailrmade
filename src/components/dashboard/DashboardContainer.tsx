@@ -12,7 +12,7 @@ import {
   renderSelectNodeButton,
 } from '../../utils/layoutableHelpers';
 import { DynamicWidgetProps } from './DynamicWidget';
-import { useEditModeStyles, useHoverEvents } from './hooks';
+import { useEditModeStyles, useHoverEvents, useIsGraphOnScreen } from './hooks';
 import { getContainerDashboardIcon } from './dashboardIcons';
 import { dashboardVisibilitySocketName } from '../../utils/constants_shared';
 
@@ -134,9 +134,10 @@ export const DashboardContainer = (props: Partial<DynamicWidgetProps>) => {
     return null;
   }
   const layoutableElement = getLayoutableElement(props.id!);
-  const { localHover, handleMouseEnter, handleMouseLeave } = useHoverEvents(
+  const { handleMouseEnter, handleMouseLeave } = useHoverEvents(
     layoutableElement!,
   );
+  const graphOnScreen = useIsGraphOnScreen();
   if (!layoutableElement) {
     return null;
   }
@@ -186,10 +187,7 @@ export const DashboardContainer = (props: Partial<DynamicWidgetProps>) => {
   } = useNode();
 
   const handleSelectNode = handleNodeSelection(layoutableElement);
-  const overlayState = InterfaceController.getOverlayState();
-  const dashboardFullscreen =
-    overlayState.dashboard.fullscreen || overlayState.dashboard.maximized;
-  const showButton = localHover && !dashboardFullscreen && !isEditMode;
+  const showButton = graphOnScreen && !isEditMode;
 
   const isCollapsed = containerState.collapseMode === 'collapse';
   const shouldShow = isEditMode || containerState.visibility;

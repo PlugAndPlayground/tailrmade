@@ -844,12 +844,10 @@ describe('testWidgetNodes', () => {
       );
     });
 
-    cy.get(`[data-cy="widget of NODE_${buttonGroupId}"] button`)
-      .eq(0)
-      .should('have.class', 'MuiButton-contained');
-    cy.get(`[data-cy="widget of NODE_${buttonGroupId}"] button`)
-      .eq(1)
-      .should('not.have.class', 'MuiButton-contained');
+    // the widget also holds the select-node button, hidden until hovered
+    const optionButtons = `[data-cy="widget of NODE_${buttonGroupId}"] button:not([data-cy="select-node-button"])`;
+    cy.get(optionButtons).eq(0).should('have.class', 'MuiButton-contained');
+    cy.get(optionButtons).eq(1).should('not.have.class', 'MuiButton-contained');
     cy.get(`[data-cy="widget of NODE_${buttonGroupId}"]`).should(
       'contain.text',
       'Option 1',

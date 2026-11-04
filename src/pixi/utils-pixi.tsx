@@ -21,6 +21,7 @@ import {
   roundNumber,
 } from '../utils/utils';
 import { InputParser } from '../utils/inputParser';
+import { isStackLayout } from '../utils/stackLayout';
 import { SerializedNode } from '../utils/interfaces';
 import { VISIBILITY_ACTION } from '../utils/constants_shared';
 import {
@@ -111,6 +112,9 @@ export const getNodesBounds = (nodes: PPNode[]): PIXI.Rectangle => {
 };
 
 export const calculateOverlayOffsets = (scale?: number): number => {
+  if (isStackLayout()) {
+    return 0;
+  }
   const currentGraph = PPGraph.currentGraph;
   const overlayState = InterfaceController.getOverlayState();
   const leftDrawerWidth = overlayState.leftSide.visible
@@ -185,15 +189,48 @@ const STACK_MIN_ZOOM = 0.15;
 const STACK_MAX_ZOOM = 1;
 const STACK_FIT_PADDING = 0.2;
 
+// The centre of a width x height window placed to hold as many node centres
+// as possible
+const getBusiestCenter = (
+  nodes: PPNode[],
+  width: number,
+  height: number,
+): PIXI.Point => {
+  const centers = nodes.map(
+    (node) =>
+      new PIXI.Point(
+        node.x + node.nodeWidth / 2,
+        node.y + node.nodeHeight / 2,
+      ),
+  );
+  let busiest: PIXI.Point[] = [];
+  centers.forEach((candidate) => {
+    const inWindow = centers.filter(
+      (center) =>
+        Math.abs(center.x - candidate.x) <= width / 2 &&
+        Math.abs(center.y - candidate.y) <= height / 2,
+    );
+    if (inWindow.length > busiest.length) {
+      busiest = inWindow;
+    }
+  });
+  // centring on the spread of what was found keeps all of it in view
+  const xs = busiest.map((center) => center.x);
+  const ys = busiest.map((center) => center.y);
+  return new PIXI.Point(
+    (Math.min(...xs) + Math.max(...xs)) / 2,
+    (Math.min(...ys) + Math.max(...ys)) / 2,
+  );
+};
+
 export const frameGraphForStackLayout = (): void => {
   const currentGraph = PPGraph.currentGraph;
+  const nodes = Object.values(currentGraph.nodes);
   const bounds = currentGraph.nodeContainer.getLocalBounds().rectangle;
   // an empty graph has nothing to frame - leave the saved view alone
-  if (!bounds.width || !bounds.height) {
+  if (!nodes.length || !bounds.width || !bounds.height) {
     return;
   }
-
-  const savedCenter = currentGraph.viewport.center.clone();
 
   // fit() only sets the scale here; the centre is decided below
   currentGraph.viewport.fit(false, bounds.width, bounds.height);
@@ -201,16 +238,19 @@ export const frameGraphForStackLayout = (): void => {
   const scale = Math.min(STACK_MAX_ZOOM, Math.max(STACK_MIN_ZOOM, fitScale));
   currentGraph.viewport.setZoom(scale, true);
 
-  // deliberately not calculateOverlayOffsets: it compensates for docked panels,
-  // and the stack layout has none - but the restored overlay state can still
-  // say a drawer is open, which would shove the framing sideways
   if (fitScale >= STACK_MIN_ZOOM) {
     currentGraph.viewport.moveCenter(
       bounds.x + bounds.width / 2,
       bounds.y + bounds.height / 2,
     );
   } else {
-    currentGraph.viewport.moveCenter(savedCenter);
+    currentGraph.viewport.moveCenter(
+      getBusiestCenter(
+        nodes,
+        currentGraph.viewport.worldScreenWidth * (1 - STACK_FIT_PADDING),
+        currentGraph.viewport.worldScreenHeight * (1 - STACK_FIT_PADDING),
+      ),
+    );
   }
 
   currentGraph.selection.drawRectanglesFromSelection();

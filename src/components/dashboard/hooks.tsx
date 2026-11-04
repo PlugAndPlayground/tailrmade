@@ -15,6 +15,7 @@ import {
   Layoutable,
   MobileBehavior,
 } from '../../utils/interfaces';
+import { useIsStackLayout } from '../../utils/layoutModel';
 import { getDashboardWidth } from '../../utils/utils';
 import { getNewDirection } from '../../utils/layoutableHelpers';
 import { useEditor } from '@craftjs/core';
@@ -39,10 +40,7 @@ function useOverlayState(): IOverlay {
 export function useHoverEvents(
   layoutableElement: Layoutable | null | undefined,
 ) {
-  const [localHover, setLocalHover] = useState(false);
-
   const handleMouseEnter = async (e: React.MouseEvent) => {
-    setLocalHover(true);
     const nodeToJumpTo = layoutableElement?.getRelatedNode();
     if (nodeToJumpTo) {
       PPGraph.currentGraph.selection.drawSingleFocus(nodeToJumpTo);
@@ -50,15 +48,30 @@ export function useHoverEvents(
   };
 
   const handleMouseLeave = async (e: React.MouseEvent) => {
-    setLocalHover(false);
     PPGraph.currentGraph.selection.clearFocus();
   };
 
   return {
-    localHover,
     handleMouseEnter,
     handleMouseLeave,
   };
+}
+
+// A boolean snapshot, so a widget only re-renders when the answer changes and
+// not on every panel resize.
+const getDashboardCoversGraph = (): boolean => {
+  const { fullscreen, maximized } =
+    InterfaceController.getOverlayState().dashboard;
+  return fullscreen || maximized;
+};
+
+export function useIsGraphOnScreen(): boolean {
+  const stackLayout = useIsStackLayout();
+  const dashboardCoversGraph = useSyncExternalStore(
+    subscribeToOverlayState,
+    getDashboardCoversGraph,
+  );
+  return !stackLayout && !dashboardCoversGraph;
 }
 
 // Same width as MUI's default breakpoint used in useIsSmallScreen
