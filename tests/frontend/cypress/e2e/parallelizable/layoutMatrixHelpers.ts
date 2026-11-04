@@ -39,6 +39,13 @@ export const TESTED_GAP = 8;
 // collapsed" - well under a real widget's natural content size, well above 0
 export const MIN_HUG_SIZE = 20;
 
+// label for the WidgetSwitch siblings. It must be able to wrap: a flex item
+// cannot shrink below its min-content width, which for unwrappable content
+// (a one-word label, or a button's nowrap label) is its full width. With
+// such a fixture the matrix missed a fill sibling squeezing a hug sibling
+// (a switch whose two-word label wrapped)
+export const WRAPPABLE_LABEL = 'Hug me without wrapping';
+
 export interface SiblingSpec {
   kind: SiblingKind;
   size: SizeKind;
@@ -260,10 +267,15 @@ interface ElementMeasurement {
   clientHeight: number;
 }
 
+interface SiblingMeasurement extends ElementMeasurement {
+  // the width the sibling would have with no neighbours: its max-content
+  naturalWidth: number;
+}
+
 export interface CaseMeasurement {
   parent: ElementMeasurement;
-  siblingA: ElementMeasurement;
-  siblingB: ElementMeasurement;
+  siblingA: SiblingMeasurement;
+  siblingB: SiblingMeasurement;
 }
 
 const measureElement = (el: HTMLElement): ElementMeasurement => ({
@@ -272,6 +284,29 @@ const measureElement = (el: HTMLElement): ElementMeasurement => ({
   clientWidth: el.clientWidth,
   scrollHeight: el.scrollHeight,
   clientHeight: el.clientHeight,
+});
+
+// An out-of-flow clone in the same parent keeps the classes and inherited
+// styles but no flex neighbours, so its max-content width is the size a hug
+// sibling should keep
+const measureNaturalWidth = (el: HTMLElement): number => {
+  const clone = el.cloneNode(true) as HTMLElement;
+  clone.removeAttribute('id');
+  clone.removeAttribute('data-cy');
+  Object.assign(clone.style, {
+    position: 'absolute',
+    visibility: 'hidden',
+    width: 'max-content',
+  });
+  el.parentElement!.appendChild(clone);
+  const width = clone.getBoundingClientRect().width;
+  clone.remove();
+  return width;
+};
+
+const measureSibling = (el: HTMLElement): SiblingMeasurement => ({
+  ...measureElement(el),
+  naturalWidth: measureNaturalWidth(el),
 });
 
 // Container ids in the compiled tree are randomly generated (compileSurfaceSpec)
@@ -329,8 +364,8 @@ export const measureCaseSync = (
 
   return {
     parent: measureElement(parentEl),
-    siblingA: measureElement(elA),
-    siblingB: measureElement(elB),
+    siblingA: measureSibling(elA),
+    siblingB: measureSibling(elB),
   };
 };
 
@@ -382,7 +417,19 @@ export function assertCaseInvariants(
   ).to.be.greaterThan(0);
 
   // per-sibling contract, independent of its neighbour
-  const checkSibling = (sibling: SiblingSpec, size: number, label: string) => {
+  const checkSibling = (
+    sibling: SiblingSpec,
+    size: number,
+    naturalWidth: number,
+    label: string,
+  ) => {
+    if (sibling.size === 'hug' && axis === 'width') {
+      // hug is always its content size: a fill neighbour must not squeeze it
+      expect(
+        size,
+        `${kase.title}: ${label} hug keeps its natural width`,
+      ).to.be.closeTo(naturalWidth, 1);
+    }
     if (sibling.size === 'fixed') {
       expect(
         size,
@@ -395,8 +442,8 @@ export function assertCaseInvariants(
       ).to.be.at.least(MIN_HUG_SIZE);
     }
   };
-  checkSibling(kase.siblingA, sizeA, 'siblingA');
-  checkSibling(kase.siblingB, sizeB, 'siblingB');
+  checkSibling(kase.siblingA, sizeA, m.siblingA.naturalWidth, 'siblingA');
+  checkSibling(kase.siblingB, sizeB, m.siblingB.naturalWidth, 'siblingB');
 
   // fill+fill: together (plus the tested gap) the siblings consume the
   // parent's content box within 2px. EQUAL sizes are asserted only on the

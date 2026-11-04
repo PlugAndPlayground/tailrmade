@@ -201,6 +201,11 @@ export const DynamicWidgetView = (viewProps: DynamicWidgetViewProps) => {
         // may be the 'inherit' keyword, which TRgba cannot hold
         color: colorSettingToCss(color),
         padding: `${padding[0]}px ${padding[1]}px ${padding[2]}px ${padding[3]}px`,
+        // this Box is the flex item, and with overflow other than visible
+        // its automatic minimum is 0 - the wrapper's minWidth inside cannot
+        // stop a fill widget being crushed by a hug sibling. Before `style`,
+        // which unsets it for hug widgets in a row
+        minWidth,
         ...style,
       }}
       onMouseEnter={handleMouseEnter}

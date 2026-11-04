@@ -102,8 +102,12 @@ export const getBasicLayoutStyles = (
     style.flexShrink = 1;
   }
 
+  // hug is always its content size, like a hug Container: a fill sibling's
+  // 100% basis overflows the row, and the browser would otherwise take that
+  // space back from every item, squeezing (and wrapping) hug content
   if (parentDirection === 'row' && width === 'auto') {
     style.minWidth = UNSET_VALUE;
+    style.flexShrink = 0;
   }
 
   // Handle height
