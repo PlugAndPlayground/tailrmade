@@ -1,6 +1,7 @@
 // needs to live in a separate file due to webpack ReferenceError
 import React from 'react';
-import HighlightAltIcon from '@mui/icons-material/HighlightAlt';
+import MyLocationIcon from '@mui/icons-material/MyLocation';
+import { alpha, IconButton, Tooltip } from '@mui/material';
 import {
   FlexDirection,
   isLayoutableNode,
@@ -10,7 +11,6 @@ import {
 import { DeferredReactType } from '../nodes/datatypes/deferredHtmlType';
 import { ensureVisible } from '../pixi/utils-pixi';
 import PPGraph from '../classes/GraphClass';
-import { StyledButton } from '../components/StyledButton';
 import InterfaceController from '../InterfaceController';
 import {
   DynamicWidgetName,
@@ -216,22 +216,39 @@ export function renderSelectNodeButton(
   handleSelectNode: (e: any) => Promise<void>,
 ): React.ReactNode {
   return (
-    <StyledButton
-      data-cy="select-node-button"
-      onClick={handleSelectNode}
-      sx={{
-        position: 'absolute',
-        top: '0px',
-        right: '0px',
-        zIndex: 100,
-        width: '18px',
-        height: '18px',
-        p: 0,
-        borderRadius: 0,
-      }}
-    >
-      <HighlightAltIcon sx={{ fontSize: '16px' }} />
-    </StyledButton>
+    <Tooltip title="Show in graph" placement="left" disableInteractive>
+      <IconButton
+        data-cy="select-node-button"
+        onClick={handleSelectNode}
+        sx={(theme) => ({
+          position: 'absolute',
+          top: '2px',
+          right: '2px',
+          zIndex: 100,
+          width: 24,
+          height: 24,
+          p: 0,
+          color: 'text.secondary',
+          backgroundColor: alpha(theme.palette.background.paper, 0.85),
+          backdropFilter: 'blur(4px)',
+          border: `1px solid ${theme.palette.divider}`,
+          borderRadius: '4px',
+          '&:hover': {
+            color: 'primary.main',
+            backgroundColor: theme.palette.background.paper,
+          },
+          visibility: 'hidden',
+          opacity: 0,
+          '*:hover > &, &:focus-visible': {
+            visibility: 'visible',
+            opacity: 1,
+            transition: 'opacity 60ms ease-out 60ms',
+          },
+        })}
+      >
+        <MyLocationIcon sx={{ fontSize: 14 }} />
+      </IconButton>
+    </Tooltip>
   );
 }
 
