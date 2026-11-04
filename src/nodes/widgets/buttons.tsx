@@ -41,6 +41,7 @@ import { NumberType } from '../datatypes/numberType';
 import { StringType } from '../datatypes/stringType';
 import { EnumType, EnumStructure } from '../datatypes/enumType';
 import { BooleanType } from '../datatypes/booleanType';
+import { TriggerType } from '../datatypes/triggerType';
 import { BackPropagation } from '../../interfaces';
 import { DEFAULT_UPDATE_FREQUENCY, SOCKET_TYPE } from '../../utils/constants';
 import {
@@ -146,6 +147,16 @@ export class WidgetButton extends WidgetHybridBase {
       SocketToGetValue: this.getInputSocketByName(onValueName),
       SocketToTakeName: this.getInputSocketByName(labelName),
     };
+  }
+
+  public async populateDefaults(inputSocket: Socket): Promise<void> {
+    const onValueBefore = this.getInputData(onValueName);
+    await super.populateDefaults(inputSocket);
+    // a trigger fires on a change, so taking over its resting value as the
+    // On value would make On equal Off and the press would never fire
+    if (inputSocket.dataType instanceof TriggerType) {
+      this.setInputData(onValueName, onValueBefore);
+    }
   }
 
   protected async onExecute(
