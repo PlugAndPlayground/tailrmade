@@ -407,6 +407,82 @@ describe('Replay', () => {
     });
   });
 
+  it('picks up a change of speed while it plays', () => {
+    const steps = [
+      {
+        delay: 0,
+        tool: 'add_node',
+        input: { node_type: 'Constant', node_id: 'a', x: 0, y: 0 },
+      },
+      // an hour at the starting speed
+      {
+        delay: 3600,
+        tool: 'add_node',
+        input: { node_type: 'Constant', node_id: 'b', x: 400, y: 0 },
+      },
+    ];
+    doWithTestController(async (tc) => {
+      const settings = { speed: 1, loop: false, camera: true };
+      const playing = tc.playReplayWith(steps, () => settings);
+      await new Promise((resolve) => setTimeout(resolve, 300));
+      settings.speed = 100000;
+      const reports = await playing;
+      expect(reports[reports.length - 1].status).to.eq('Done');
+    });
+  });
+
+  it('starts over on Next after the last step when looping', () => {
+    const steps = [
+      {
+        tool: 'add_node',
+        input: { node_type: 'Constant', node_id: 'a', x: 0, y: 0 },
+      },
+      {
+        tool: 'set_socket_value',
+        input: { node_id: 'a', socket_name: 'In', value: 'Hi' },
+      },
+    ];
+    doWithTestController(async (tc) => {
+      await tc.stepReplay(steps, 'next', true);
+      await tc.stepReplay(steps, 'next', true);
+      expect(tc.getNodeInputValue('a', 'In')).to.eq('Hi');
+      expect(await tc.stepReplay(steps, 'next', true)).to.deep.eq({
+        step: 1,
+        total: 2,
+        status: 'Paused',
+      });
+      expect(tc.getNodeInputValue('a', 'In')).not.to.eq('Hi');
+      expect(tc.getNodes()).to.have.length(1);
+    });
+  });
+
+  it('leaves the camera alone with Camera off', () => {
+    let center: { x: number; y: number };
+    doWithTestController(async (tc) => {
+      tc.stopViewportAnimations();
+      center = tc.getGraph().viewport.center.clone();
+      await tc.playReplayWith(
+        [
+          {
+            tool: 'add_node',
+            input: {
+              node_type: 'Constant',
+              node_id: 'far',
+              x: Math.round(center.x + 20000),
+              y: 0,
+            },
+          },
+          { tool: 'camera', input: { fit: ['far'], duration: 0.1 } },
+        ],
+        () => ({ speed: 100, loop: false, camera: false }),
+      );
+    });
+    cy.wait(1000);
+    doWithTestController((tc) => {
+      expect(tc.getGraph().viewport.center.x).to.be.closeTo(center.x, 1);
+    });
+  });
+
   it('plays itself when an app with Autoplay opens', () => {
     doWithTestController(async (tc) => {
       await tc.addNode('Replay', 'replay', -600, 0);

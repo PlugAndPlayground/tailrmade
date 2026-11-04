@@ -34,6 +34,7 @@ import { createTokenInput } from './text/nodeInputs';
 import PPGroup from './classes/groups/GroupClass';
 import { pendingAppRun } from './services/appExecution';
 import {
+  GetReplaySettings,
   ReplayProgress,
   ReplayService,
   ReplayStep,
@@ -431,8 +432,10 @@ export default class TestController {
     loop = false,
   ): Promise<ReplayProgress[]> {
     const reports: ReplayProgress[] = [];
-    await ReplayService.getInstance().play(steps, { speed, loop }, (progress) =>
-      reports.push(progress),
+    await ReplayService.getInstance().play(
+      steps,
+      () => ({ speed, loop, camera: true }),
+      (progress) => reports.push(progress),
     );
     return reports;
   }
@@ -441,14 +444,26 @@ export default class TestController {
     return ReplayService.getInstance().stop();
   }
 
+  async playReplayWith(
+    steps: ReplayStep[],
+    getSettings: GetReplaySettings,
+  ): Promise<ReplayProgress[]> {
+    const reports: ReplayProgress[] = [];
+    await ReplayService.getInstance().play(steps, getSettings, (progress) =>
+      reports.push(progress),
+    );
+    return reports;
+  }
+
   async stepReplay(
     steps: ReplayStep[],
     direction: 'next' | 'back',
+    loop = false,
   ): Promise<ReplayProgress> {
     let last: ReplayProgress | undefined;
     await ReplayService.getInstance()[direction](
       steps,
-      100,
+      () => ({ speed: 100, loop, camera: true }),
       (progress) => (last = progress),
     );
     return last as ReplayProgress;

@@ -51,6 +51,7 @@ interface SubtitleInput {
 }
 
 const REPLAY_CALLER: ToolCaller = { source: 'replay', quiet: true };
+const STILL_REPLAY_CALLER: ToolCaller = { ...REPLAY_CALLER, keepCamera: true };
 const DEFAULT_DELAY = 0.5;
 const DEFAULT_CAMERA_DURATION = 1;
 const CAMERA_FIT_PADDING = 0.2;
@@ -89,10 +90,20 @@ export function getScriptNodeIds(steps: ReplayStep[]): string[] {
     .filter((id): id is string => typeof id === 'string');
 }
 
-export interface PlayOptions {
+// read again before every step, so they can change while a replay runs
+export interface ReplaySettings {
   speed: number;
   // starts over from a reset after the last step
-  loop?: boolean;
+  loop: boolean;
+  // camera steps, and following the edits off screen
+  camera: boolean;
+}
+
+export type GetReplaySettings = () => ReplaySettings;
+
+function readSettings(getSettings: GetReplaySettings): ReplaySettings {
+  const settings = getSettings();
+  return { ...settings, speed: settings.speed > 0 ? settings.speed : 1 };
 }
 
 type ProgressListener = (progress: ReplayProgress) => void;
@@ -137,29 +148,30 @@ export class ReplayService {
   // from where the last run stopped, or from the start once it finished
   async play(
     steps: ReplayStep[],
-    options: PlayOptions,
+    getSettings: GetReplaySettings,
     onProgress: ProgressListener,
   ): Promise<void> {
     await this.prepare(steps, true);
-    const speed = options.speed > 0 ? options.speed : 1;
-    await this.track(
-      this.runSteps(steps, speed, !!options.loop, this.runId, onProgress),
-    );
+    await this.track(this.runSteps(steps, getSettings, this.runId, onProgress));
   }
 
   // runs the next step right away, without its delay
   async next(
     steps: ReplayStep[],
-    speed: number,
+    getSettings: GetReplaySettings,
     onProgress: ProgressListener,
   ): Promise<void> {
     await this.prepare(steps, false);
-    const index = this.applied.length;
     const total = steps.length;
-    if (index >= total) {
-      onProgress({ step: total, total, status: 'Done' });
-      return;
+    const settings = readSettings(getSettings);
+    if (this.applied.length >= total) {
+      if (!settings.loop || total === 0) {
+        onProgress({ step: total, total, status: 'Done' });
+        return;
+      }
+      await this.startOver(steps);
     }
+    const index = this.applied.length;
     await this.track(
       (async () => {
         onProgress({
@@ -167,7 +179,7 @@ export class ReplayService {
           total,
           status: `Running ${steps[index].tool}`,
         });
-        const error = await this.applyStep(steps, index, speed > 0 ? speed : 1);
+        const error = await this.applyStep(steps, index, settings);
         onProgress(
           error
             ? this.failure(steps, index, error)
@@ -184,7 +196,7 @@ export class ReplayService {
   // undoes the last step that ran
   async back(
     steps: ReplayStep[],
-    speed: number,
+    getSettings: GetReplaySettings,
     onProgress: ProgressListener,
   ): Promise<void> {
     this.ensureNotRecording();
@@ -201,13 +213,14 @@ export class ReplayService {
     await this.track(
       (async () => {
         const index = this.applied.length - 1;
+        const settings = readSettings(getSettings);
         if (await this.undoStep(last)) {
           this.applied.pop();
           showSubtitle(last.caption);
-          if (steps[index].tool === CAMERA_TOOL) {
+          if (steps[index].tool === CAMERA_TOOL && settings.camera) {
             this.animateCamera(
               last.camera,
-              this.getCameraTime(steps[index].input, speed),
+              this.getCameraTime(steps[index].input, settings.speed),
             );
           }
         } else {
@@ -295,8 +308,7 @@ export class ReplayService {
 
   private async runSteps(
     steps: ReplayStep[],
-    speed: number,
-    loop: boolean,
+    getSettings: GetReplaySettings,
     runId: number,
     onProgress: ProgressListener,
   ): Promise<void> {
@@ -305,7 +317,8 @@ export class ReplayService {
       for (let index = this.applied.length; index < total; index++) {
         const step = steps[index];
         await this.waitUnlessStopped(
-          ((step.delay ?? DEFAULT_DELAY) * 1000) / speed,
+          step.delay ?? DEFAULT_DELAY,
+          getSettings,
           runId,
         );
         if (runId !== this.runId) {
@@ -313,21 +326,31 @@ export class ReplayService {
           return;
         }
         onProgress({ step: index + 1, total, status: `Running ${step.tool}` });
-        const error = await this.applyStep(steps, index, speed);
+        const error = await this.applyStep(
+          steps,
+          index,
+          readSettings(getSettings),
+        );
         if (error) {
           onProgress(this.failure(steps, index, error));
           return;
         }
       }
       onProgress({ step: total, total, status: 'Done' });
-      if (!loop || runId !== this.runId) return;
-      // the last step's delay is the only pause before the graph is cleared
-      await this.removeScriptNodes(steps);
-      this.applied = [];
-      clearSubtitle();
-      if (this.cameraBeforePlay) {
-        this.animateCamera(this.cameraBeforePlay, 0);
+      if (!readSettings(getSettings).loop || runId !== this.runId || !total) {
+        return;
       }
+      // the last step's delay is the only pause before the graph is cleared
+      await this.startOver(steps);
+    }
+  }
+
+  private async startOver(steps: ReplayStep[]): Promise<void> {
+    await this.removeScriptNodes(steps);
+    this.applied = [];
+    clearSubtitle();
+    if (this.cameraBeforePlay) {
+      this.animateCamera(this.cameraBeforePlay, 0);
     }
   }
 
@@ -347,12 +370,12 @@ export class ReplayService {
   private async applyStep(
     steps: ReplayStep[],
     index: number,
-    speed: number,
+    settings: ReplaySettings,
   ): Promise<string | undefined> {
     const before = new Set(getHistoryIds());
     const caption = getSubtitle();
     const camera = this.getCamera();
-    const error = await this.runStep(steps[index], speed);
+    const error = await this.runStep(steps[index], settings);
     if (!error) {
       this.applied.push({
         historyIds: getHistoryIds().filter((id) => !before.has(id)),
@@ -379,36 +402,40 @@ export class ReplayService {
   // the slow way back, when the history no longer matches: from a reset,
   // without delays and without moving the camera
   private async rebuild(steps: ReplayStep[], count: number): Promise<void> {
-    const camera = this.getCamera();
     await this.removeScriptNodes(steps);
     this.applied = [];
     clearSubtitle();
+    const instant = { speed: Infinity, loop: false, camera: false };
     for (let index = 0; index < count; index++) {
-      if (steps[index].tool === CAMERA_TOOL) {
-        this.applied.push({ historyIds: [], caption: getSubtitle(), camera });
-      } else if (await this.applyStep(steps, index, Infinity)) {
-        break;
-      }
+      if (await this.applyStep(steps, index, instant)) break;
     }
-    PPGraph.currentGraph.viewport.plugins.remove('animate');
-    this.animateCamera(camera, 0);
   }
 
-  // in slices, so stop doesn't have to sit out a long delay
-  private async waitUnlessStopped(ms: number, runId: number): Promise<void> {
-    const end = Date.now() + ms;
-    while (runId === this.runId && Date.now() < end) {
-      await wait(Math.min(STOP_CHECK_MS, end - Date.now()));
+  // in slices, so stop doesn't have to sit out a long delay and a change of
+  // speed counts straight away
+  private async waitUnlessStopped(
+    seconds: number,
+    getSettings: GetReplaySettings,
+    runId: number,
+  ): Promise<void> {
+    let remaining = seconds * 1000;
+    while (runId === this.runId && remaining > 0) {
+      const { speed } = readSettings(getSettings);
+      const slice = Math.min(STOP_CHECK_MS, remaining / speed);
+      await wait(slice);
+      remaining -= slice * speed;
     }
   }
 
   // returns an error message, or nothing when the step worked
   private async runStep(
     step: ReplayStep,
-    speed: number,
+    { speed, camera }: ReplaySettings,
   ): Promise<string | undefined> {
     if (step.tool === CAMERA_TOOL) {
-      return this.runCamera((step.input ?? {}) as CameraInput, speed);
+      return camera
+        ? this.runCamera((step.input ?? {}) as CameraInput, speed)
+        : undefined;
     }
     if (step.tool === SUBTITLE_TOOL) {
       const { text = '', duration = 0 } = (step.input ?? {}) as SubtitleInput;
@@ -418,7 +445,7 @@ export class ReplayService {
     const result = await TailrmadeMCPServer.getInstance().callTool(
       step.tool,
       step.input ?? {},
-      REPLAY_CALLER,
+      camera ? REPLAY_CALLER : STILL_REPLAY_CALLER,
     );
     return result.is_error ? result.content : undefined;
   }

@@ -104,6 +104,8 @@ export interface ToolCaller {
   source: ActionSource;
   // skips the spinner and the edit effect, so a filmed replay stays clean
   quiet: boolean;
+  // never moves the camera to show an edit
+  keepCamera?: boolean;
 }
 
 const AI_CALLER: ToolCaller = { source: 'ai', quiet: false };
@@ -2885,6 +2887,7 @@ export class TailrmadeMCPServer {
   // a replay keeps the camera still while what it edits is already in view,
   // otherwise every step restarts the camera animation
   private async reveal(nodes: PPNode[]): Promise<void> {
+    if (this.caller.keepCamera) return;
     if (this.caller.quiet && areNodesOnScreen(nodes)) return;
     await ensureVisible(nodes);
   }
