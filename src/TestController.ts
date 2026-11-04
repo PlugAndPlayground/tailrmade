@@ -33,6 +33,11 @@ import { AIBackend } from './services/AIBackend';
 import { createTokenInput } from './text/nodeInputs';
 import PPGroup from './classes/groups/GroupClass';
 import { pendingAppRun } from './services/appExecution';
+import {
+  ReplayProgress,
+  ReplayService,
+  ReplayStep,
+} from './services/ReplayService';
 
 export default class TestController {
   isLoadedAppRunning(): boolean {
@@ -417,6 +422,22 @@ export default class TestController {
     input: Record<string, unknown>,
   ): Promise<MCPToolResult> {
     return TailrmadeMCPServer.getInstance().callTool(name, input);
+  }
+
+  // resolves with every progress report once the replay ended
+  async playReplay(
+    steps: ReplayStep[],
+    speed = 100,
+  ): Promise<ReplayProgress[]> {
+    const reports: ReplayProgress[] = [];
+    await ReplayService.getInstance().play(steps, speed, (progress) =>
+      reports.push(progress),
+    );
+    return reports;
+  }
+
+  resetReplay(steps: ReplayStep[]): Promise<void> {
+    return ReplayService.getInstance().reset(steps);
   }
 
   beginAIAgentTurn(): void {

@@ -63,6 +63,7 @@ const MUTATION_TOOL_NAMES = new Set([
 // behaviour or what the app renders (so they don't trigger an auto-capture).
 const LAYOUT_TOOL_NAMES = new Set([
   'finish_section',
+  'move_nodes',
   'group_nodes',
   'ungroup',
   'update_group',
