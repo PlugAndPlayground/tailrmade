@@ -162,6 +162,88 @@ describe('Replay', () => {
     captionHidden();
   });
 
+  it('records editing, and plays it back after a reset', () => {
+    type ReplayNode = {
+      record(): Promise<void>;
+      stop(): Promise<void>;
+      reset(): Promise<void>;
+      play(): Promise<void>;
+    };
+    doWithTestController(async (tc) => {
+      await tc.addNode('Replay', 'replay', -800, 0);
+      const replay = tc.getNodeByID('replay') as unknown as ReplayNode;
+      tc.setNodeInputValue('replay', 'Speed', 4);
+      await replay.record();
+
+      // by hand, and through the AI's tools, which recording treats alike
+      await tc.addNodeAction('Constant', 'city', 0, 0);
+      await tc.addNodeAction('Label', 'title', 300, 0);
+      await tc.connectNodesByIDAction('city', 'title', 'Out', 'Input');
+      for (const value of ['V', 'Vi', 'Vienna']) {
+        await tc.callMCPTool('set_socket_value', {
+          node_id: 'city',
+          socket_name: 'In',
+          value,
+        });
+      }
+      await tc.callMCPTool('move_nodes', {
+        nodes: [{ node_id: 'title', x: 700, y: 100 }],
+      });
+      await tc.callMCPTool('group_nodes', {
+        node_ids: ['city', 'title'],
+        name: 'Weather',
+        group_id: 'weather',
+      });
+      // undone before stopping, so it is not in the replay
+      await tc.addNodeAction('Constant', 'mistake', 0, 300);
+      await tc.undo();
+      const city = tc.getNodeByID('city');
+      const recordedCity = [city.x, city.y];
+
+      let refusal = '';
+      try {
+        await tc.playReplay([]);
+      } catch (error) {
+        refusal = (error as Error).message;
+      }
+      expect(refusal).to.eq('Stop recording first');
+
+      await replay.stop();
+      expect(tc.getNodeOutputValue('replay', 'Status')).to.match(
+        /^Recorded \d+ steps$/,
+      );
+      const recorded = tc.getNodeInputValue('replay', 'Script') as {
+        tool: string;
+        input: Record<string, unknown>;
+      }[];
+      // the burst of typing is one step
+      expect(
+        recorded.filter((step) => step.tool === 'set_socket_value'),
+      ).to.have.length(1);
+
+      await replay.reset();
+      expect(tc.getNodes().map((node) => node.id)).to.deep.eq(['replay']);
+
+      await replay.play();
+      expect(tc.getNodeOutputValue('replay', 'Status')).to.eq('Done');
+      expect(
+        tc
+          .getNodes()
+          .map((node) => node.id)
+          .sort(),
+      ).to.deep.eq(['city', 'replay', 'title']);
+      expect([tc.getNodeByID('city').x, tc.getNodeByID('city').y]).to.deep.eq(
+        recordedCity,
+      );
+      expect([tc.getNodeByID('title').x, tc.getNodeByID('title').y]).to.deep.eq(
+        [700, 100],
+      );
+      expect(tc.getNodeInputValue('city', 'In')).to.eq('Vienna');
+      expect(tc.getInputLinkSourceNodeID('title', 'Input')).to.eq('city');
+      expect(tc.getGroups().map((group) => group.name)).to.deep.eq(['Weather']);
+    });
+  });
+
   it('plays the Replay node example script from its Play trigger', () => {
     doWithTestController(async (tc) => {
       await tc.addNode('Replay', 'replay', -600, 0);

@@ -8,6 +8,7 @@ import {
 } from '../pixi/utils-pixi';
 import { TailrmadeMCPServer, ToolCaller } from './TailrmadeMCPServer';
 import { clearSubtitle, showSubtitle } from './subtitles';
+import { ReplayRecorder } from './ReplayRecorder';
 
 /**
  * Plays a script of MCP tool calls back at a watchable pace, e.g. to film an
@@ -107,6 +108,9 @@ export class ReplayService {
     speed: number,
     onProgress: (progress: ReplayProgress) => void,
   ): Promise<void> {
+    if (ReplayRecorder.getInstance().isRecording()) {
+      throw new Error('Stop recording first');
+    }
     await this.stop();
     // never replaces nodes silently: they may be ones an AI built under the
     // same ids, so clearing them is left to an explicit reset

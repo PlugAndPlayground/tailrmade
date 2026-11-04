@@ -1,3 +1,8 @@
+import {
+  ACTIONS,
+  PNPAction,
+  SetSocketValueActionArgs,
+} from '../../classes/Action';
 import PPNode from '../../classes/NodeClass';
 import Socket from '../../classes/SocketClass';
 import UpdateBehaviourClass from '../../classes/UpdateBehaviourClass';
@@ -9,6 +14,7 @@ import {
   ReplayService,
   ReplayStep,
 } from '../../services/ReplayService';
+import { ReplayRecorder } from '../../services/ReplayRecorder';
 import { JSONType } from '../datatypes/jsonType';
 import { NumberType } from '../datatypes/numberType';
 import { StringType } from '../datatypes/stringType';
@@ -18,6 +24,7 @@ const scriptName = 'Script';
 const playName = 'Play';
 const stopName = 'Stop';
 const resetName = 'Reset';
+const recordName = 'Record';
 const speedName = 'Speed';
 const statusName = 'Status';
 const stepName = 'Step';
@@ -72,7 +79,9 @@ export class Replay extends PPNode {
 - **camera** is a replay-only step: \`{ "fit": ["ai-node-1"] }\` frames nodes (an empty list frames the whole graph), \`{ "x", "y", "zoom" }\` moves to a point. \`duration\` is in seconds.
 - **subtitle** is a replay-only step: \`{ "text": "...", "duration": 3 }\` shows a caption without holding up the next steps. Empty text hides it, and a duration of 0 keeps it until the next one.
 - Give \`add_node\` an x and y so every run lays out the same.
-- **Reset** removes the nodes the script adds and puts the camera back. Play refuses to start while they still exist.`;
+- **Reset** removes the nodes the script adds and puts the camera back. Play refuses to start while they still exist.
+
+**Record** turns your editing into a script: build as usual (by hand or with the AI), then press **Stop** and the script replaces this one (undo brings the old one back). Pauses are shortened to 2s, and a drag or a burst of typing becomes one step. To film it, press Reset, then Play.`;
   }
 
   public getTags(): string[] {
@@ -104,6 +113,12 @@ export class Replay extends PPNode {
         new TriggerType(undefined, 'reset'),
         0,
       ),
+      new Socket(
+        SOCKET_TYPE.IN,
+        recordName,
+        new TriggerType(undefined, 'record'),
+        0,
+      ),
       new Socket(SOCKET_TYPE.IN, speedName, new NumberType(false, 0.1, 4), 1),
       new Socket(SOCKET_TYPE.OUT, statusName, new StringType()),
       new Socket(SOCKET_TYPE.OUT, stepName, new NumberType(true)),
@@ -128,7 +143,39 @@ export class Replay extends PPNode {
   }
 
   public async stop(): Promise<void> {
+    const recorder = ReplayRecorder.getInstance();
+    if (recorder.isRecording()) {
+      await this.saveRecording();
+      return;
+    }
     await ReplayService.getInstance().stop();
+  }
+
+  public async record(): Promise<void> {
+    await ReplayService.getInstance().stop();
+    ReplayRecorder.getInstance().start(this.id);
+    this.showProgress({ step: 0, total: 0, status: 'Recording' });
+  }
+
+  private async saveRecording(): Promise<void> {
+    const { steps, warnings } = ReplayRecorder.getInstance().stop();
+    const args: SetSocketValueActionArgs = {
+      nodeID: this.id,
+      socketName: scriptName,
+      socketType: SOCKET_TYPE.IN,
+      newValue: steps,
+    };
+    await PNPAction(ACTIONS.SET_SOCKET_VALUE, args, {
+      ...args,
+      newValue: this.getInputData(scriptName),
+    });
+    const skipped =
+      warnings.length > 0 ? `. Not recorded: ${warnings.join('; ')}` : '';
+    this.showProgress({
+      step: 0,
+      total: steps.length,
+      status: `Recorded ${steps.length} steps${skipped}`,
+    });
   }
 
   public async reset(): Promise<void> {

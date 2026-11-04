@@ -1709,7 +1709,8 @@ export class TailrmadeMCPServer {
     if (!input.node_id) {
       throw new Error('add_node requires node_id');
     }
-    if (!/^ai-node-\d+$/.test(input.node_id)) {
+    // the format keeps the AI's ids apart; a replay brings back recorded ids
+    if (this.caller.source === 'ai' && !/^ai-node-\d+$/.test(input.node_id)) {
       return {
         content:
           'Invalid node_id. Use the format ai-node-UNIQUENUMBER, for example ai-node-1.',
@@ -2063,7 +2064,9 @@ export class TailrmadeMCPServer {
 
     // A surface's layout has a dedicated, validated tool pair; a raw write to
     // its craft-tree socket bypasses spec validation and widget auto-connect.
+    // A replay writes back a tree recorded from the editor, so it may.
     if (
+      this.caller.source === 'ai' &&
       targetNode?.isSurface() &&
       input.socket_name === surfaceJsonSocketName
     ) {
