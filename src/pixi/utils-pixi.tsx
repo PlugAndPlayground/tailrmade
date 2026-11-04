@@ -110,8 +110,8 @@ export const getNodesBounds = (nodes: PPNode[]): PIXI.Rectangle => {
   return bounds;
 };
 
-export const calculateOverlayOffsets = (scale?: number): number => {
-  const currentGraph = PPGraph.currentGraph;
+// screen pixels the docked panels cover on each side of the canvas
+const getOverlayCover = (): { left: number; right: number } => {
   const overlayState = InterfaceController.getOverlayState();
   const leftDrawerWidth = overlayState.leftSide.visible
     ? overlayState.leftSide.width
@@ -126,19 +126,15 @@ export const calculateOverlayOffsets = (scale?: number): number => {
   const dashboardWidth = overlayState.dashboard.visible
     ? getDashboardWidth(overlayState)
     : 0;
-  const dashboardDrawerOffset = dashboardWidth / 2;
 
-  const leftDrawerOffset = leftDrawerWidth / 2;
-  const rightDrawerOffset = rightDrawerWidth / 2;
+  return { left: leftDrawerWidth + dashboardWidth, right: rightDrawerWidth };
+};
 
+export const calculateOverlayOffsets = (scale?: number): number => {
+  const cover = getOverlayCover();
   // Use provided scale or current scale
-  const viewportScale = scale || currentGraph.viewportScaleX;
-
-  // Calculate the combined offset
-  return (
-    (leftDrawerOffset + dashboardDrawerOffset - rightDrawerOffset) /
-    viewportScale
-  );
+  const viewportScale = scale || PPGraph.currentGraph.viewportScaleX;
+  return (cover.left - cover.right) / 2 / viewportScale;
 };
 
 export const zoomToFitNodes = (
@@ -241,6 +237,24 @@ export function emitMoved() {
     type: 'pinch',
   });
 }
+
+// whether the nodes are wholly inside the part of the canvas no panel covers
+export const areNodesOnScreen = (nodes: PPNode[]): boolean => {
+  const viewport = PPGraph.currentGraph.viewport;
+  const cover = getOverlayCover();
+  const topLeft = viewport.toWorld(cover.left, 0);
+  const bottomRight = viewport.toWorld(
+    viewport.screenWidth - cover.right,
+    viewport.screenHeight,
+  );
+  const bounds = getNodesBounds(nodes);
+  return (
+    bounds.left >= topLeft.x &&
+    bounds.top >= topLeft.y &&
+    bounds.right <= bottomRight.x &&
+    bounds.bottom <= bottomRight.y
+  );
+};
 
 export const ensureVisible = async (
   nodes: PPNode[],

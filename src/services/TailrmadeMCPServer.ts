@@ -29,7 +29,11 @@ import Socket from '../classes/SocketClass';
 import { PNPStatus } from '../classes/ErrorClass';
 import InterfaceController from '../InterfaceController';
 import { getAllNodeTypes, getAINodesInDetail } from '../nodes/allNodes';
-import { ensureVisible, zoomToFitNodes } from '../pixi/utils-pixi';
+import {
+  areNodesOnScreen,
+  ensureVisible,
+  zoomToFitNodes,
+} from '../pixi/utils-pixi';
 import { TRIGGER_TYPE_OPTIONS } from '../utils/constants';
 import {
   dashboardLayoutInputName,
@@ -1696,7 +1700,7 @@ export class TailrmadeMCPServer {
       this.caller.source,
     );
     nodes.forEach((node) => this.spawnEditEffect(node));
-    await ensureVisible(nodes);
+    await this.reveal(nodes);
     return {
       content: JSON.stringify({ moved: nodeIds, status: 'moved' }),
     };
@@ -1773,7 +1777,7 @@ export class TailrmadeMCPServer {
     }
     if (addedNode) {
       this.spawnEditEffect(addedNode);
-      await ensureVisible([addedNode]);
+      await this.reveal([addedNode]);
     }
 
     return {
@@ -1847,7 +1851,7 @@ export class TailrmadeMCPServer {
       .filter((node): node is PPNode => Boolean(node));
     affectedNodes.forEach((node) => this.spawnEditEffect(node));
     if (affectedNodes.length > 0) {
-      await ensureVisible(affectedNodes);
+      await this.reveal(affectedNodes);
     }
 
     return {
@@ -1948,7 +1952,7 @@ export class TailrmadeMCPServer {
       .filter((node): node is PPNode => Boolean(node));
     affectedNodes.forEach((node) => this.spawnEditEffect(node));
     if (affectedNodes.length > 0) {
-      await ensureVisible(affectedNodes);
+      await this.reveal(affectedNodes);
     }
 
     return {
@@ -2125,7 +2129,7 @@ export class TailrmadeMCPServer {
     const node = PPGraph.currentGraph.nodes[input.node_id];
     if (node) {
       this.spawnEditEffect(node);
-      await ensureVisible([node]);
+      await this.reveal([node]);
     }
 
     return {
@@ -2822,7 +2826,7 @@ export class TailrmadeMCPServer {
     );
 
     this.spawnEditEffect(node);
-    await ensureVisible([node]);
+    await this.reveal([node]);
 
     const { root } = decompileSurfaceTree(surface.getSurfaceTree());
 
@@ -2876,6 +2880,13 @@ export class TailrmadeMCPServer {
     if (!this.caller.quiet) {
       InterfaceController.hideSpinner(label);
     }
+  }
+
+  // a replay keeps the camera still while what it edits is already in view,
+  // otherwise every step restarts the camera animation
+  private async reveal(nodes: PPNode[]): Promise<void> {
+    if (this.caller.quiet && areNodesOnScreen(nodes)) return;
+    await ensureVisible(nodes);
   }
 
   private spawnEditEffect(node: PPNode): void {

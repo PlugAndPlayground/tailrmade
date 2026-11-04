@@ -84,6 +84,53 @@ describe('Replay', () => {
     });
   });
 
+  it('keeps the camera still while what it edits is in view', () => {
+    let center: { x: number; y: number };
+    doWithTestController(async (tc) => {
+      tc.stopViewportAnimations();
+      center = tc.getGraph().viewport.center.clone();
+      const x = Math.round(center.x - 150);
+      const y = Math.round(center.y - 50);
+      await tc.playReplay([
+        {
+          tool: 'add_node',
+          input: { node_type: 'Constant', node_id: 'near', x, y },
+        },
+        {
+          tool: 'set_socket_value',
+          input: { node_id: 'near', socket_name: 'In', value: 1 },
+        },
+      ]);
+    });
+    // longer than ensureVisible's animation
+    cy.wait(1000);
+    doWithTestController((tc) => {
+      const now = tc.getGraph().viewport.center;
+      expect(now.x).to.be.closeTo(center.x, 1);
+      expect(now.y).to.be.closeTo(center.y, 1);
+    });
+
+    doWithTestController(async (tc) => {
+      await tc.playReplay([
+        {
+          tool: 'add_node',
+          input: {
+            node_type: 'Constant',
+            node_id: 'far',
+            x: Math.round(center.x + 20000),
+            y: Math.round(center.y),
+          },
+        },
+      ]);
+    });
+    cy.wait(1000);
+    doWithTestController((tc) => {
+      expect(tc.getGraph().viewport.center.x).to.be.greaterThan(
+        center.x + 10000,
+      );
+    });
+  });
+
   it('refuses to play over its own nodes, and reset removes only those', () => {
     doWithTestController(async (tc) => {
       await tc.addNode('Constant', 'keeper');
