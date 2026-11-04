@@ -15,6 +15,7 @@ import {
   ReplayStep,
 } from '../../services/ReplayService';
 import { ReplayRecorder } from '../../services/ReplayRecorder';
+import { BooleanType } from '../datatypes/booleanType';
 import { JSONType } from '../datatypes/jsonType';
 import { NumberType } from '../datatypes/numberType';
 import { StringType } from '../datatypes/stringType';
@@ -25,7 +26,11 @@ const playName = 'Play';
 const stopName = 'Stop';
 const resetName = 'Reset';
 const recordName = 'Record';
+const nextName = 'Next';
+const backName = 'Back';
 const speedName = 'Speed';
+const loopName = 'Loop';
+const autoplayName = 'Autoplay';
 const statusName = 'Status';
 const stepName = 'Step';
 
@@ -57,6 +62,9 @@ const exampleScript: ReplayStep[] = [
 ];
 
 export class Replay extends PPNode {
+  // autoplay builds nodes, so it waits until the app may run
+  public readonly deferUntilAppApproved: boolean = true;
+
   // it builds the graph it lives in
   public getSeemsUnused(): boolean {
     return false;
@@ -80,6 +88,10 @@ export class Replay extends PPNode {
 - **subtitle** is a replay-only step: \`{ "text": "...", "duration": 3 }\` shows a caption without holding up the next steps. Empty text hides it, and a duration of 0 keeps it until the next one.
 - Give \`add_node\` an x and y so every run lays out the same.
 - **Reset** removes the nodes the script adds and puts the camera back. Play refuses to start while they still exist.
+- **Stop** pauses: Play carries on from there.
+- **Next** runs the next step straight away, **Back** undoes the last one. For a talk, link a Keyboard node through a Compare node (key == "ArrowRight") to Next.
+- **Loop** resets and starts over after the last step. The last step's delay is how long the finished graph stays up.
+- **Autoplay** resets and plays when the app opens. Turn it off to edit the app.
 
 **Record** turns your editing into a script: build as usual (by hand or with the AI), then press **Stop** and the script replaces this one (undo brings the old one back). Pauses are shortened to 2s, and a drag or a burst of typing becomes one step. To film it, press Reset, then Play.`;
   }
@@ -119,24 +131,76 @@ export class Replay extends PPNode {
         new TriggerType(undefined, 'record'),
         0,
       ),
+      new Socket(
+        SOCKET_TYPE.IN,
+        nextName,
+        new TriggerType(undefined, 'next'),
+        0,
+      ),
+      new Socket(
+        SOCKET_TYPE.IN,
+        backName,
+        new TriggerType(undefined, 'back'),
+        0,
+      ),
       new Socket(SOCKET_TYPE.IN, speedName, new NumberType(false, 0.1, 4), 1),
+      new Socket(SOCKET_TYPE.IN, loopName, new BooleanType(), false),
+      new Socket(SOCKET_TYPE.IN, autoplayName, new BooleanType(), false),
       new Socket(SOCKET_TYPE.OUT, statusName, new StringType()),
       new Socket(SOCKET_TYPE.OUT, stepName, new NumberType(true)),
     ];
   }
 
   public getUpdateBehaviour(): UpdateBehaviourClass {
-    return new UpdateBehaviourClass(false, false, false, 1000, this);
+    // runs on load only, for Autoplay
+    return new UpdateBehaviourClass(true, false, false, 1000, this);
+  }
+
+  protected async onExecute(input: Record<string, unknown>): Promise<void> {
+    if (input[autoplayName]) {
+      // not awaited: a looping replay never finishes
+      void this.reset().then(() => this.play());
+    }
   }
 
   public async play(): Promise<void> {
-    try {
-      const steps = parseReplayScript(this.getInputData(scriptName));
-      await ReplayService.getInstance().play(
+    await this.withScript((steps) =>
+      ReplayService.getInstance().play(
+        steps,
+        {
+          speed: this.getInputData(speedName),
+          loop: this.getInputData(loopName),
+        },
+        (progress) => this.showProgress(progress),
+      ),
+    );
+  }
+
+  public async next(): Promise<void> {
+    await this.withScript((steps) =>
+      ReplayService.getInstance().next(
         steps,
         this.getInputData(speedName),
         (progress) => this.showProgress(progress),
-      );
+      ),
+    );
+  }
+
+  public async back(): Promise<void> {
+    await this.withScript((steps) =>
+      ReplayService.getInstance().back(
+        steps,
+        this.getInputData(speedName),
+        (progress) => this.showProgress(progress),
+      ),
+    );
+  }
+
+  private async withScript(
+    run: (steps: ReplayStep[]) => Promise<void>,
+  ): Promise<void> {
+    try {
+      await run(parseReplayScript(this.getInputData(scriptName)));
     } catch (error) {
       this.showStatus((error as Error).message);
     }
@@ -179,13 +243,10 @@ export class Replay extends PPNode {
   }
 
   public async reset(): Promise<void> {
-    try {
-      const steps = parseReplayScript(this.getInputData(scriptName));
+    await this.withScript(async (steps) => {
       await ReplayService.getInstance().reset(steps);
       this.showProgress({ step: 0, total: steps.length, status: 'Ready' });
-    } catch (error) {
-      this.showStatus((error as Error).message);
-    }
+    });
   }
 
   private showProgress(progress: ReplayProgress): void {

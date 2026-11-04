@@ -1,4 +1,8 @@
-import { doWithTestController, openNewGraph } from '../helpers';
+import {
+  doWithTestController,
+  openNewGraph,
+  waitForGraphToBeReady,
+} from '../helpers';
 
 const script = [
   {
@@ -288,6 +292,167 @@ describe('Replay', () => {
       expect(tc.getNodeInputValue('city', 'In')).to.eq('Vienna');
       expect(tc.getInputLinkSourceNodeID('title', 'Input')).to.eq('city');
       expect(tc.getGroups().map((group) => group.name)).to.deep.eq(['Weather']);
+    });
+  });
+
+  it('steps forward and back one step at a time', () => {
+    const steps = [
+      { tool: 'subtitle', input: { text: 'Step by step' } },
+      {
+        tool: 'add_node',
+        input: { node_type: 'Constant', node_id: 'a', x: 0, y: 0 },
+      },
+      {
+        tool: 'set_socket_value',
+        input: { node_id: 'a', socket_name: 'In', value: 'Hi' },
+      },
+      {
+        tool: 'add_node',
+        input: { node_type: 'Label', node_id: 'b', x: 400, y: 0 },
+      },
+      {
+        tool: 'connect_sockets',
+        input: {
+          from_node: 'a',
+          from_socket: 'Out',
+          to_node: 'b',
+          to_socket: 'Input',
+        },
+      },
+    ];
+    doWithTestController(async (tc) => {
+      for (let i = 1; i < steps.length; i++) {
+        const progress = await tc.stepReplay(steps, 'next');
+        expect(progress).to.deep.eq({ step: i, total: 5, status: 'Paused' });
+      }
+      expect((await tc.stepReplay(steps, 'next')).status).to.eq('Done');
+      expect((await tc.stepReplay(steps, 'next')).status).to.eq('Done');
+      expect(tc.getInputLinkSourceNodeID('b', 'Input')).to.eq('a');
+    });
+    // stepping keeps the caption up
+    captionShows('Step by step');
+
+    doWithTestController(async (tc) => {
+      expect((await tc.stepReplay(steps, 'back')).step).to.eq(4);
+      expect(tc.getInputLinkSourceNodeID('b', 'Input')).to.eq(undefined);
+      await tc.stepReplay(steps, 'back');
+      expect(tc.getGraph().nodes['b']).to.eq(undefined);
+      await tc.stepReplay(steps, 'back');
+      expect(tc.getNodeInputValue('a', 'In')).not.to.eq('Hi');
+      await tc.stepReplay(steps, 'back');
+      expect(tc.getNodes()).to.have.length(0);
+      expect((await tc.stepReplay(steps, 'back')).step).to.eq(0);
+      expect((await tc.stepReplay(steps, 'back')).status).to.eq('At the start');
+    });
+    captionHidden();
+
+    // after an edit of its own the history no longer matches, so back rebuilds
+    doWithTestController(async (tc) => {
+      for (let i = 0; i < steps.length; i++) {
+        await tc.stepReplay(steps, 'next');
+      }
+      await tc.addNodeAction('Constant', 'mine', 0, 400);
+      await tc.stepReplay(steps, 'back');
+      expect(tc.getInputLinkSourceNodeID('b', 'Input')).to.eq(undefined);
+      expect(tc.getNodeInputValue('a', 'In')).to.eq('Hi');
+      expect(tc.getGraph().nodes['mine']).not.to.eq(undefined);
+    });
+  });
+
+  it('carries on from where it was stopped', () => {
+    const steps = [
+      {
+        delay: 0,
+        tool: 'add_node',
+        input: { node_type: 'Constant', node_id: 'a', x: 0, y: 0 },
+      },
+      {
+        delay: 100,
+        tool: 'add_node',
+        input: { node_type: 'Constant', node_id: 'b', x: 400, y: 0 },
+      },
+    ];
+    doWithTestController(async (tc) => {
+      const playing = tc.playReplay(steps);
+      await new Promise((resolve) => setTimeout(resolve, 300));
+      await tc.stopReplay();
+      const stopped = await playing;
+      expect(stopped[stopped.length - 1]).to.deep.eq({
+        step: 1,
+        total: 2,
+        status: 'Stopped',
+      });
+      const resumed = await tc.playReplay(steps);
+      expect(resumed[resumed.length - 1].status).to.eq('Done');
+      expect(tc.getGraph().nodes['b']).not.to.eq(undefined);
+    });
+  });
+
+  it('starts over after the last step when looping', () => {
+    const steps = [
+      {
+        tool: 'add_node',
+        input: { node_type: 'Constant', node_id: 'a', x: 0, y: 0 },
+      },
+    ];
+    doWithTestController(async (tc) => {
+      const playing = tc.playReplay(steps, 10, true);
+      await new Promise((resolve) => setTimeout(resolve, 600));
+      await tc.stopReplay();
+      const reports = await playing;
+      expect(
+        reports.filter((report) => report.status === 'Done').length,
+      ).to.be.greaterThan(1);
+      expect(tc.getNodes()).to.have.length.at.most(1);
+    });
+  });
+
+  it('plays itself when an app with Autoplay opens', () => {
+    doWithTestController(async (tc) => {
+      await tc.addNode('Replay', 'replay', -600, 0);
+      tc.setNodeInputValue('replay', 'Speed', 4);
+      tc.setNodeInputValue('replay', 'Autoplay', true);
+      // saved half built, as an edited app would be
+      await tc.callAITool('add_node', {
+        node_type: 'Constant',
+        node_id: 'ai-node-1',
+      });
+      await tc.loadStringifiedGraph(JSON.stringify(tc.getGraph().serialize()));
+    });
+    waitForGraphToBeReady();
+    doWithTestController(async (tc) => {
+      for (let tries = 0; tries < 100; tries++) {
+        if (tc.getNodeOutputValue('replay', 'Status') === 'Done') break;
+        await new Promise((resolve) => setTimeout(resolve, 100));
+      }
+      expect(tc.getNodeOutputValue('replay', 'Status')).to.eq('Done');
+      expect(tc.getInputLinkSourceNodeID('ai-node-2', 'Input')).to.eq(
+        'ai-node-1',
+      );
+    });
+  });
+
+  it('steps forward when a key press is linked to Next', () => {
+    doWithTestController(async (tc) => {
+      await tc.addNode('Replay', 'replay', -600, 0);
+      await tc.addNode('Keyboard', 'keyboard', -1400, 0);
+      await tc.addNode('Comparison', 'compare', -1000, 0);
+      tc.setNodeInputValue('compare', 'B', 'ArrowRight');
+      tc.setNodeInputValue('compare', 'Operator', 'Equal (==)');
+      await tc.connectNodesByID('keyboard', 'compare', 'key', 'A');
+      await tc.connectNodesByID('compare', 'replay', 'Output', 'Next');
+    });
+    cy.get('body').trigger('keydown', { key: 'ArrowRight' });
+    cy.get('body').trigger('keyup', { key: 'ArrowRight' });
+    doWithTestController((tc) => {
+      expect(tc.getNodeOutputValue('replay', 'Step')).to.eq(1);
+    });
+    captionShows('A value and a label');
+    cy.get('body').trigger('keydown', { key: 'ArrowRight' });
+    cy.get('body').trigger('keyup', { key: 'ArrowRight' });
+    doWithTestController((tc) => {
+      expect(tc.getNodeOutputValue('replay', 'Step')).to.eq(2);
+      expect(tc.getGraph().nodes['ai-node-1']).not.to.eq(undefined);
     });
   });
 

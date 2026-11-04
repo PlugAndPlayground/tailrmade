@@ -428,12 +428,30 @@ export default class TestController {
   async playReplay(
     steps: ReplayStep[],
     speed = 100,
+    loop = false,
   ): Promise<ReplayProgress[]> {
     const reports: ReplayProgress[] = [];
-    await ReplayService.getInstance().play(steps, speed, (progress) =>
+    await ReplayService.getInstance().play(steps, { speed, loop }, (progress) =>
       reports.push(progress),
     );
     return reports;
+  }
+
+  stopReplay(): Promise<void> {
+    return ReplayService.getInstance().stop();
+  }
+
+  async stepReplay(
+    steps: ReplayStep[],
+    direction: 'next' | 'back',
+  ): Promise<ReplayProgress> {
+    let last: ReplayProgress | undefined;
+    await ReplayService.getInstance()[direction](
+      steps,
+      100,
+      (progress) => (last = progress),
+    );
+    return last as ReplayProgress;
   }
 
   resetReplay(steps: ReplayStep[]): Promise<void> {
