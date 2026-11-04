@@ -41,6 +41,7 @@ const getNodeCategories = () => ({
   math: require('./math'),
   tailrmade: require('./utility/tailrmade'),
   replay: require('./utility/replay'),
+  subtitle: require('./utility/subtitle'),
   typeOf: require('./utility/typeOf'),
   theme: require('./utility/theme'),
   pixotopegateway: require('./api/pixotopeGateway'),

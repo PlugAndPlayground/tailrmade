@@ -7,6 +7,7 @@ import {
   getNodesBounds,
 } from '../pixi/utils-pixi';
 import { TailrmadeMCPServer, ToolCaller } from './TailrmadeMCPServer';
+import { clearSubtitle, showSubtitle } from './subtitles';
 
 /**
  * Plays a script of MCP tool calls back at a watchable pace, e.g. to film an
@@ -28,6 +29,7 @@ export interface ReplayProgress {
 
 // steps the replay handles itself instead of the MCP server
 const CAMERA_TOOL = 'camera';
+const SUBTITLE_TOOL = 'subtitle';
 
 interface CameraInput {
   // node ids to frame; an empty list frames the whole graph
@@ -35,6 +37,13 @@ interface CameraInput {
   x?: number;
   y?: number;
   zoom?: number;
+  duration?: number;
+}
+
+// shown without holding up the steps after it
+interface SubtitleInput {
+  text?: string;
+  // seconds; 0 keeps it until the next subtitle
   duration?: number;
 }
 
@@ -125,6 +134,7 @@ export class ReplayService {
   async stop(): Promise<void> {
     this.runId++;
     await this.running;
+    clearSubtitle();
   }
 
   // removes what the script added and puts the camera back
@@ -189,6 +199,11 @@ export class ReplayService {
   ): Promise<string | undefined> {
     if (step.tool === CAMERA_TOOL) {
       return this.runCamera((step.input ?? {}) as CameraInput, speed);
+    }
+    if (step.tool === SUBTITLE_TOOL) {
+      const { text = '', duration = 0 } = (step.input ?? {}) as SubtitleInput;
+      showSubtitle(String(text), (duration * 1000) / speed);
+      return undefined;
     }
     const result = await TailrmadeMCPServer.getInstance().callTool(
       step.tool,

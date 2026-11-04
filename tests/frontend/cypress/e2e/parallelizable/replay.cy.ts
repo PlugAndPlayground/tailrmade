@@ -42,6 +42,19 @@ const script = [
   { tool: 'camera', input: { fit: ['ai-node-1', 'ai-node-2'], duration: 1 } },
 ];
 
+// the caption lets pointer events through, which Cypress's visibility check
+// reads as being covered by the canvas, so check its fade state instead
+const captionShows = (text: string) =>
+  cy
+    .get('[data-cy="subtitle-overlay"]')
+    .should('have.css', 'opacity', '1')
+    .and('have.text', text);
+
+const captionHidden = () =>
+  cy
+    .get('[data-cy="subtitle-overlay"]')
+    .should('have.css', 'visibility', 'hidden');
+
 describe('Replay', () => {
   beforeEach(() => {
     openNewGraph();
@@ -53,8 +66,10 @@ describe('Replay', () => {
       expect(reports[reports.length - 1].status).to.eq('Done');
 
       const label = tc.getNodeByID('ai-node-2');
-      expect([tc.getNodeByID('ai-node-1').x, tc.getNodeByID('ai-node-1').y])
-        .to.deep.eq([100, 200]);
+      expect([
+        tc.getNodeByID('ai-node-1').x,
+        tc.getNodeByID('ai-node-1').y,
+      ]).to.deep.eq([100, 200]);
       expect([label.x, label.y]).to.deep.eq([500, 300]);
       expect(tc.getNodeInputValue('ai-node-1', 'In')).to.eq('Hello');
       expect(tc.getInputLinkSourceNodeID('ai-node-2', 'Input')).to.eq(
@@ -113,12 +128,47 @@ describe('Replay', () => {
     });
   });
 
+  it('shows subtitle steps over the canvas until stop clears them', () => {
+    doWithTestController(async (tc) => {
+      await tc.playReplay([
+        { tool: 'subtitle', input: { text: 'First we fetch the weather' } },
+        script[0],
+      ]);
+    });
+    captionShows('First we fetch the weather');
+    doWithTestController((tc) => tc.resetReplay(script));
+    captionHidden();
+  });
+
+  it('hides a subtitle step after its duration', () => {
+    doWithTestController((tc) =>
+      tc.playReplay(
+        [{ tool: 'subtitle', input: { text: 'Briefly', duration: 2 } }],
+        1,
+      ),
+    );
+    captionShows('Briefly');
+    captionHidden();
+  });
+
+  it('shows the Subtitle node text until the node is removed', () => {
+    doWithTestController(async (tc) => {
+      await tc.addNode('Subtitle', 'subtitle');
+      tc.setNodeInputValue('subtitle', 'Text', 'From a node');
+      await tc.executeNodeByID('subtitle');
+    });
+    captionShows('From a node');
+    doWithTestController((tc) => tc.removeNode('subtitle'));
+    captionHidden();
+  });
+
   it('plays the Replay node example script from its Play trigger', () => {
     doWithTestController(async (tc) => {
       await tc.addNode('Replay', 'replay', -600, 0);
       tc.setNodeInputValue('replay', 'Speed', 4);
-      await (tc.getNodeByID('replay') as unknown as { play(): Promise<void> })
-        .play();
+      await (
+        tc.getNodeByID('replay') as unknown as { play(): Promise<void> }
+      ).play();
       expect(tc.getNodeOutputValue('replay', 'Status')).to.eq('Done');
       expect(tc.getInputLinkSourceNodeID('ai-node-2', 'Input')).to.eq(
         'ai-node-1',

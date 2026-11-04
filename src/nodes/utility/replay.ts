@@ -23,8 +23,8 @@ const statusName = 'Status';
 const stepName = 'Step';
 
 const exampleScript: ReplayStep[] = [
+  { delay: 0, tool: 'subtitle', input: { text: 'A value and a label' } },
   {
-    delay: 0,
     tool: 'add_node',
     input: { node_type: 'Constant', node_id: 'ai-node-1', x: 0, y: 0 },
   },
@@ -46,6 +46,7 @@ const exampleScript: ReplayStep[] = [
     },
   },
   { tool: 'camera', input: { fit: ['ai-node-1', 'ai-node-2'] } },
+  { delay: 1.5, tool: 'subtitle', input: { text: '' } },
 ];
 
 export class Replay extends PPNode {
@@ -69,6 +70,7 @@ export class Replay extends PPNode {
 
 - **delay** is waited after the previous step has finished (default 0.5s), divided by Speed.
 - **camera** is a replay-only step: \`{ "fit": ["ai-node-1"] }\` frames nodes (an empty list frames the whole graph), \`{ "x", "y", "zoom" }\` moves to a point. \`duration\` is in seconds.
+- **subtitle** is a replay-only step: \`{ "text": "...", "duration": 3 }\` shows a caption without holding up the next steps. Empty text hides it, and a duration of 0 keeps it until the next one.
 - Give \`add_node\` an x and y so every run lays out the same.
 - **Reset** removes the nodes the script adds and puts the camera back. Play refuses to start while they still exist.`;
   }
