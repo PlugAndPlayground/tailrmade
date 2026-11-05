@@ -222,7 +222,13 @@ export const RenderNode = ({ render }) => {
         : null;
     if (layoutableElement) {
       return handleNodeSelection(layoutableElement, {
-        ensureVisibility,
+        // a widget selected from the graph: its node was just clicked, moving
+        // it would pull it out from under the pointer
+        ensureVisibility:
+          ensureVisibility &&
+          !PPGraph.currentGraph.selection.isOnlySelectedNodeIgnoringPendingSelection(
+            layoutableElement.getRelatedNode(),
+          ),
         select,
         stopPropagation: false,
       })();

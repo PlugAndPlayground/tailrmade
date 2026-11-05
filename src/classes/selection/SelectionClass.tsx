@@ -841,10 +841,6 @@ export default class PPSelection extends PIXI.Container {
       console.log('deselectAllNodesAndResetSelection');
       this.deselectAllNodesAndResetSelection();
     }
-    InterfaceController.notifyListeners(
-      ListenEvent.SelectionChanged,
-      this.selectedNodes,
-    );
   }
   ROUNDNESS = 5;
 
