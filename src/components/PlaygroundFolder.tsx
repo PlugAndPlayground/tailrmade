@@ -11,7 +11,6 @@ import {
 import { ChevronRight, ExpandMore } from '@mui/icons-material';
 import { IGraphSearch } from '../utils/interfaces';
 import { PlaygroundLocation } from '../components/PlaygroundLocation';
-import { EXAMPLE_APPS_LABEL } from '../containers/LeftsideContainer';
 import { GraphItem } from './GraphItem';
 
 export interface IPlaygroundLocationData {
@@ -22,6 +21,7 @@ export interface IPlaygroundLocationData {
 export interface IPlaygroundFolderProps {
   label: string;
   locations: IPlaygroundLocationData[];
+  defaultOpen: boolean;
 }
 
 const STICKY_FOLDER_HEADER_HEIGHT = 58;
@@ -29,8 +29,9 @@ const STICKY_FOLDER_HEADER_HEIGHT = 58;
 export const PlaygroundFolder: React.FC<IPlaygroundFolderProps> = ({
   label,
   locations,
+  defaultOpen,
 }) => {
-  const [open, setOpen] = useState(label !== EXAMPLE_APPS_LABEL);
+  const [open, setOpen] = useState(defaultOpen);
 
   const handleClick = () => {
     setOpen(!open);
