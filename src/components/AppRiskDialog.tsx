@@ -516,6 +516,7 @@ function AccessOverview({
   const levels = nodes.map((node) => highestRiskLevel(node.risks));
   const access = highestRiskLevel(nodes.flatMap((node) => node.risks));
   const [legendOpen, setLegendOpen] = useState(false);
+  const stacked = useIsStackLayout();
   return (
     <Box
       data-cy="required-access-score"
@@ -594,7 +595,7 @@ function AccessOverview({
             data-cy="inspect-all-risk-nodes"
             onClick={onInspectAll}
           >
-            Inspect all {nodes.length}
+            {stacked ? 'Show' : 'Inspect'} all {nodes.length}
           </Button>
         )}
       </Box>
@@ -661,6 +662,7 @@ function ActionGroup({
 }: AppAction & { onInspect: (ids: string[]) => void }): React.ReactElement {
   const level = getRiskLevel(risk);
   const Icon = actionIcons[risk.kind] ?? InfoOutlinedIcon;
+  const stacked = useIsStackLayout();
   const ids = [
     ...new Set(destinations.flatMap(({ nodes }) => nodes.map((n) => n.id))),
   ];
@@ -703,7 +705,7 @@ function ActionGroup({
             data-cy="inspect-risk-group"
             onClick={() => onInspect(ids)}
           >
-            Inspect {ids.length}
+            {stacked ? 'Show' : 'Inspect'} {ids.length}
           </Button>
         </Box>
         <Typography sx={{ fontWeight: 600 }}>{risk.title}</Typography>
