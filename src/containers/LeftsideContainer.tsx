@@ -60,6 +60,7 @@ export interface IPlaygroundFolderData {
   id: string;
   label: string;
   locations: IPlaygroundLocationData[];
+  defaultOpen: boolean;
 }
 
 function mapCloudGraphsToSearchItems(cloudGraph: any): IGraphSearch {
@@ -131,6 +132,7 @@ async function loadAllGraphs(
       id: 'local',
       label: 'Local apps',
       locations: groupGraphsByLocation(localGraphs, sortMode, sortDirection),
+      defaultOpen: true,
     },
   ]);
   if (!CLOUD_MODE) {
@@ -157,6 +159,7 @@ async function loadAllGraphs(
         sortMode,
         sortDirection,
       ),
+      defaultOpen: true,
     });
   }
 
@@ -172,6 +175,7 @@ async function loadAllGraphs(
         sortMode,
         sortDirection,
       ),
+      defaultOpen: true,
     });
   }
 
@@ -187,6 +191,8 @@ async function loadAllGraphs(
         sortMode,
         sortDirection,
       ),
+      // first-time users see the examples expanded, everyone else their own apps
+      defaultOpen: cloudGraphItems.length + filteredLocalGraphs.length === 0,
     });
   }
   setGraphs(allFolders);
@@ -497,6 +503,7 @@ const GraphsContent = () => {
               key={folder.id}
               label={folder.label}
               locations={folder.locations}
+              defaultOpen={folder.defaultOpen}
             />
           ))
         ) : (
