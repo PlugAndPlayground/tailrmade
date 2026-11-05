@@ -2420,10 +2420,6 @@ ${Math.round(bounds.minX)}, ${Math.round(
     return false;
   }
 
-  public shouldExecuteOnStateValueChanged(key: string): boolean {
-    return false;
-  }
-
   socketCanBeRemoved(selectedSocket: Socket) {
     return !this.hasSocketNameInDefaultIO(
       selectedSocket.name,

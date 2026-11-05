@@ -1,4 +1,3 @@
-import FlowLogic from '../../classes/FlowLogic';
 import PPGraph from '../../classes/GraphClass';
 import PPNode from '../../classes/NodeClass';
 import Socket from '../../classes/SocketClass';
@@ -16,38 +15,30 @@ import { JSONType } from '../datatypes/jsonType';
 import { NumberType } from '../datatypes/numberType';
 import { StringType } from '../datatypes/stringType';
 import { TriggerType } from '../datatypes/triggerType';
+import {
+  StorageRead,
+  StorageWrite,
+  readSessionState,
+  writeSessionState,
+} from './storage';
 import { BackPropagation } from '../../interfaces';
 import {
-  FALLBACK_VALUE_NAME,
   getExecuteTriggerSocket,
-  hasValueChanged,
   INPUT_SOCKET_NAME,
   KEY_NAME,
   VALUE_NAME,
 } from './storage';
 
-// Shared in-memory key-value store for StateRead/StateWrite nodes
-const stateStore = new Map<string, any>();
-
-async function notifyStateReadNodes(key: string): Promise<void> {
-  const graph = PPGraph.currentGraph;
-  if (!graph.nodes) {
-    return;
-  }
-
-  const nodesToExecute = Object.values(graph.nodes).filter((node) =>
-    node.shouldExecuteOnStateValueChanged(key),
-  );
-
-  if (nodesToExecute.length === 0) {
-    return;
-  }
-
-  await FlowLogic.executeOptimizedChainBatch(nodesToExecute);
-}
-
 function getStateSocketPair(stateType: AbstractType): Socket[] {
   return [
+    new Socket(
+      SOCKET_TYPE.IN,
+      'Location',
+      new StringType(),
+      PPGraph.currentGraph?.id ?? 'State',
+      false,
+    ),
+    new Socket(SOCKET_TYPE.IN, 'State key', new StringType(), '', false),
     new Socket(
       SOCKET_TYPE.IN,
       'State',
@@ -85,6 +76,9 @@ function trimArrayToMaxSize(values: any[], maxSize: number): void {
 }
 
 abstract class StateNode extends PPNode {
+  public showInNodeSearch(): boolean {
+    return false;
+  }
   // A linked State input writes back to its source, even with unused outputs.
   public getSeemsUnused(): boolean {
     return (
@@ -111,17 +105,46 @@ abstract class StateNode extends PPNode {
     );
   }
 
-  protected onExecute = this.passThrough;
-  protected clear(): void {
-    void this.updateState(this.getStateType().getDefaultValue());
+  private stateAddress(): [string, string] {
+    return [
+      this.getInputData('Location'),
+      this.getInputData('State key') || this.id,
+    ];
+  }
+
+  public shouldExecuteOnStorageValueChanged(
+    backend: string,
+    location: string,
+    key: string,
+  ): boolean {
+    const [ownLocation, ownKey] = this.stateAddress();
+    return (
+      this.updateBehaviour.update &&
+      backend === 'Session' &&
+      location === ownLocation &&
+      key === ownKey
+    );
+  }
+
+  protected onExecute = async (input, output): Promise<void> => {
+    const linked = this.getInputSocketByName('State').hasLink();
+    const state = linked
+      ? input.State
+      : readSessionState(...this.stateAddress(), input.State);
+    if (!linked) this.setInputData('State', structuredClone(state));
+    output.State = structuredClone(state);
+  };
+  protected async clear(): Promise<void> {
+    await this.updateState(this.getStateType().getDefaultValue());
   }
 
   protected abstract getStateType(): AbstractType;
   protected abstract getDefaultInput(): any;
-  protected abstract add(): void;
-  protected abstract remove(): void;
+  protected abstract add(): Promise<void>;
+  protected abstract remove(): Promise<void>;
 
   protected async updateState(state: any): Promise<void> {
+    await writeSessionState(...this.stateAddress(), state, this);
     this.setInputData('State', state);
     const stateSocket = this.getInputSocketByName('State');
     // this backward propagation thing is so that nodes can connect their output to this state socket and have this state node manage their state (for example table), might be deprecated its a bit convoluted
@@ -139,7 +162,7 @@ abstract class StateNode extends PPNode {
 }
 
 export class State extends StateNode {
-  protected remove(): void {
+  protected async remove(): Promise<void> {
     // no-op: State only supports add/clear
   }
 
@@ -169,8 +192,8 @@ export class State extends StateNode {
   protected getStateType(): AbstractType {
     return new AnyType();
   }
-  protected add(): void {
-    void this.updateState(this.getInputData(VALUE_NAME));
+  protected async add(): Promise<void> {
+    await this.updateState(this.getInputData(VALUE_NAME));
   }
   protected getDefaultInput(): any {
     return 'Example';
@@ -192,18 +215,18 @@ export class ArrayState extends StateNode {
     ].concat(super.getDefaultIO());
   }
 
-  protected add(): void {
-    const state: any[] = this.getInputData('State');
+  protected async add(): Promise<void> {
+    const state: any[] = structuredClone(this.getInputData('State'));
     state.push(structuredClone(this.getInputData('Input')));
     const maxSize = this.getInputData('MaxSize');
     trimArrayToMaxSize(state, maxSize);
-    void this.updateState(state);
+    await this.updateState(state);
   }
 
-  protected remove(): void {
-    const state: any[] = this.getInputData('State');
+  protected async remove(): Promise<void> {
+    const state: any[] = structuredClone(this.getInputData('State'));
     state.pop();
-    void this.updateState(state);
+    await this.updateState(state);
   }
 
   protected getStateType(): AbstractType {
@@ -231,8 +254,8 @@ export class ObjectState extends StateNode {
       ]);
   }
 
-  protected add(): void {
-    const state = this.getInputData('State');
+  protected async add(): Promise<void> {
+    const state = structuredClone(this.getInputData('State'));
     const key = this.getInputData(KEY_NAME);
     if (state[key] === undefined) {
       state[key] = [];
@@ -240,15 +263,15 @@ export class ObjectState extends StateNode {
     state[key].push(structuredClone(this.getInputData('Input')));
     const maxSize = this.getInputData('MaxSize');
     trimArrayToMaxSize(state[key], maxSize);
-    void this.updateState(state);
+    await this.updateState(state);
   }
 
-  protected remove(): void {
-    const state: any[] = this.getInputData('State');
+  protected async remove(): Promise<void> {
+    const state: any[] = structuredClone(this.getInputData('State'));
     const key = this.getInputData(KEY_NAME);
     if (state[key] !== undefined) {
       state[key].pop();
-      void this.updateState(state);
+      await this.updateState(state);
     }
   }
 
@@ -293,13 +316,13 @@ export class NumberState extends StateNode {
   protected getStateType(): AbstractType {
     return new NumberType();
   }
-  protected remove(): void {
-    void this.updateState(
+  protected async remove(): Promise<void> {
+    await this.updateState(
       this.getInputData('State') - this.getInputData('Remove Amount'),
     );
   }
-  protected add(): void {
-    void this.updateState(
+  protected async add(): Promise<void> {
+    await this.updateState(
       this.getInputData('State') + this.getInputData('Add Amount'),
     );
   }
@@ -309,110 +332,46 @@ export class NumberState extends StateNode {
   }
 }
 
-export class StateWrite extends PPNode {
-  // State can be updated or consumed outside the output connections.
-  public getSeemsUnused(): boolean {
+// Storage-backed adapters preserve the old trigger and socket contract.
+export class StorageState extends State {}
+export class StorageNumberState extends NumberState {}
+export class StorageArrayState extends ArrayState {}
+export class StorageObjectState extends ObjectState {}
+
+// Compatibility aliases for saved graphs. New graphs use Storage Read/Write.
+export class StateWrite extends StorageWrite {
+  public showInNodeSearch(): boolean {
     return false;
   }
-
-  getColor(): TRgba {
-    return TRgba.fromString(NODE_TYPE_COLOR.OUTPUT);
-  }
-
-  public getName(): string {
-    return 'State Write';
-  }
-
-  public getDescription(): string {
-    return 'Writes a value by key to the in-memory state store';
-  }
-
-  public getTags(): string[] {
-    return ['State'].concat(super.getTags());
-  }
-
-  public socketShouldAutomaticallyAdapt(socket: Socket): boolean {
-    return socket.name === VALUE_NAME;
-  }
-
   protected getDefaultIO(): Socket[] {
-    return [
-      new Socket(SOCKET_TYPE.IN, KEY_NAME, new StringType(), 'myKey'),
-      new Socket(SOCKET_TYPE.IN, VALUE_NAME, new AnyType()),
-      new Socket(
-        SOCKET_TYPE.TRIGGER,
-        'Execute',
-        new TriggerType(TRIGGER_TYPE_OPTIONS[0].text),
-      ),
-    ];
-  }
-
-  public getUpdateBehaviour(): UpdateBehaviourClass {
-    return new UpdateBehaviourClass(false, false, false, 1000, this);
-  }
-
-  protected async onExecute(
-    input: Record<string, any>,
-    output: Record<string, any>,
-  ): Promise<void> {
-    const key = input[KEY_NAME];
-    const hadPreviousValue = stateStore.has(key);
-    const previousValue = hadPreviousValue ? stateStore.get(key) : undefined;
-    const nextValue = structuredClone(input[VALUE_NAME]);
-
-    stateStore.set(key, nextValue);
-
-    if (hasValueChanged(hadPreviousValue, previousValue, true, nextValue)) {
-      await notifyStateReadNodes(key);
-    }
+    return sessionDefaults(super.getDefaultIO());
   }
 }
-
-export class StateRead extends PPNode {
-  getColor(): TRgba {
-    return TRgba.fromString(NODE_TYPE_COLOR.INPUT);
+export class StateRead extends StorageRead {
+  public showInNodeSearch(): boolean {
+    return false;
   }
-
-  public shouldExecuteOnStateValueChanged(key: string): boolean {
-    return this.updateBehaviour.update && this.getInputData(KEY_NAME) === key;
-  }
-
-  public getName(): string {
-    return 'State Read';
-  }
-
-  public getDescription(): string {
-    return 'Reads a value by key from the in-memory state store';
-  }
-
-  public getTags(): string[] {
-    return ['State'].concat(super.getTags());
-  }
-
-  public socketShouldAutomaticallyAdapt(socket: Socket): boolean {
-    return socket.name === FALLBACK_VALUE_NAME;
-  }
-
   protected getDefaultIO(): Socket[] {
-    return [
-      new Socket(SOCKET_TYPE.IN, KEY_NAME, new StringType(), 'myKey'),
-      new Socket(SOCKET_TYPE.IN, FALLBACK_VALUE_NAME, new AnyType()),
-      new Socket(SOCKET_TYPE.OUT, VALUE_NAME, new AnyType()),
-    ];
+    return sessionDefaults(super.getDefaultIO());
   }
-
-  protected onExecute(input, output): Promise<void> {
-    const key = input[KEY_NAME];
-    if (stateStore.has(key)) {
-      output[VALUE_NAME] = stateStore.get(key);
-    } else {
-      output[VALUE_NAME] = input[FALLBACK_VALUE_NAME];
-    }
-    return Promise.resolve();
+}
+function sessionDefaults(sockets: Socket[]): Socket[] {
+  for (const socket of sockets) {
+    const value = {
+      'Storage type': 'Session',
+      Location: 'State',
+      Key: 'myKey',
+      'Non-empty only': false,
+    }[socket.name];
+    if (value !== undefined) socket.data = socket.defaultData = value;
   }
+  return sockets;
 }
 
 export class CopySocketValue extends PPNode {
+  public showInNodeSearch(): boolean {
+    return false;
+  }
   public getName() {
     return 'Trigger Copy Socket Value';
   }

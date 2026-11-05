@@ -95,6 +95,7 @@ const getAINodeCategories = () => {
     array: categories.array,
     constants: categories.constants,
     stateNodes: categories.stateNodes,
+    storage: categories.storage,
     statistics: categories.statistics,
     plotlyChart: categories.plotlyChart,
   };

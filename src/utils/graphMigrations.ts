@@ -36,7 +36,13 @@ import { migrateLegacyMentions } from '../text/tokens';
 import { migrateStaticTextItemsInTree } from '../text/migrations';
 import { migrateLegacyTextNodes } from '../text/nodeMigrations';
 
-export const GRAPH_DATA_VERSION = 7;
+import {
+  migrateStateNodes,
+  migrateCopySocketNodes,
+  migrateStorageBackends,
+} from '../nodes/state/migrations';
+
+export const GRAPH_DATA_VERSION = 10;
 const LEGACY_GRAPH_DATA_VERSION = 0.1;
 
 type GraphMigration = {
@@ -990,6 +996,21 @@ function migrateSurfaceDefaultsV6ToV7(
 }
 
 const GRAPH_MIGRATIONS: GraphMigration[] = [
+  {
+    fromVersion: 9,
+    toVersion: 10,
+    migrate: (graph) => ({ ...migrateStorageBackends(graph), version: 10 }),
+  },
+  {
+    fromVersion: 8,
+    toVersion: 9,
+    migrate: (graph) => ({ ...migrateCopySocketNodes(graph), version: 9 }),
+  },
+  {
+    fromVersion: 7,
+    toVersion: 8,
+    migrate: (graph) => ({ ...migrateStateNodes(graph), version: 8 }),
+  },
   {
     fromVersion: LEGACY_GRAPH_DATA_VERSION,
     toVersion: 2,
