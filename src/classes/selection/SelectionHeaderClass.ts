@@ -2,6 +2,7 @@ import * as PIXI from 'pixi.js';
 import PPGraph from '../GraphClass';
 import Button from '../ButtonClass';
 import { TAlignOptions } from '../../utils/interfaces';
+import { isCanvasExploreOnly } from '../../utils/stackLayout';
 import {
   ALIGNOPTIONS,
   ALIGNLEFT_TEXTURE,
@@ -94,6 +95,7 @@ export default class SelectionHeaderClass extends PIXI.Container {
     event: PIXI.FederatedPointerEvent,
     alignAndDistribute: TAlignOptions,
   ): Promise<void> {
+    if (isCanvasExploreOnly()) return;
     event.stopPropagation();
     await PPGraph.currentGraph.selection.perform_action_alignNodes(
       alignAndDistribute,
