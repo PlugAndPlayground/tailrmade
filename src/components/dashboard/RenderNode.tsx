@@ -27,11 +27,14 @@ import {
   RootName,
   VISIBILITY_ACTION,
 } from '../../utils/constants_shared';
-import { RightDrawerView } from '../../utils/constants';
+import {
+  DASHBOARD_WIDGET_HEADER_HEIGHT,
+  RightDrawerView,
+} from '../../utils/constants';
 
 const IndicatorBox = styled(Box)<{ isActive?: boolean }>(
   ({ theme, isActive }) => ({
-    height: '30px',
+    height: `${DASHBOARD_WIDGET_HEADER_HEIGHT}px`,
     fontSize: '12px',
     lineHeight: '12px',
     pointerEvents: isActive ? 'auto' : 'none',
@@ -463,12 +466,6 @@ export const RenderNode = ({ render }) => {
               options: {
                 boundary: 'viewport',
                 padding: 8,
-              },
-            },
-            {
-              name: 'offset',
-              options: {
-                offset: [0, -4],
               },
             },
           ]}
