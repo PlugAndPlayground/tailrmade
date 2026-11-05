@@ -161,6 +161,11 @@ const config: import('webpack').Configuration = {
           from: 'pnp-webassembly-nodes/**',
           to: path.resolve(__dirname, 'dist'),
         },
+        {
+          // Root-level files such as robots.txt and favicon.ico
+          from: 'public',
+          to: path.resolve(__dirname, 'dist'),
+        },
       ],
     }),
     new webpack.ProvidePlugin({
