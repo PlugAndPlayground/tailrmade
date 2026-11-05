@@ -73,3 +73,10 @@ export const graphHasUI = (graph: GraphWithNodes): boolean =>
 
 export const goToOpenedApp = (graph: GraphWithNodes): void =>
   setStackView(graphHasUI(graph) ? 'ui' : 'graph');
+
+// A graph loaded straight into stack view (a link, a reload, a switch while on
+// the UI view) would otherwise land on the default UI view even when it has no
+// UI, and show an empty screen. The apps list is left to goToOpenedApp.
+export const leaveEmptyUIView = (graph: GraphWithNodes): void => {
+  if (getStackView() === 'ui' && !graphHasUI(graph)) setStackView('graph');
+};
