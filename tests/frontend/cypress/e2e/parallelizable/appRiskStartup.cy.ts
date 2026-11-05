@@ -54,7 +54,7 @@ describe('app startup after risk review', () => {
     });
   };
 
-  it('starts Portal after one acceptance without rewriting rendered Markdown', () => {
+  it('starts Portal without approval or rewriting rendered Markdown', () => {
     let markdown: string;
     cy.fixture('Portal.ppgraph').then((raw) => {
       doWithTestController(async (controller) => {
@@ -64,15 +64,13 @@ describe('app startup after risk review', () => {
           .getInputData('Markdown');
       });
     });
-    cy.get('[data-cy="app-risk-dialog"]').should('be.visible');
+    cy.get('[data-cy="app-risk-dialog"]').should('not.exist');
     cy.get('[data-cy="good-liger-25-dashboard"]').should('contain', 'Tobias');
     doWithTestController((controller) => {
       expect(
         controller.getNodeByID('good-liger-25').getInputData('Markdown'),
       ).to.equal(markdown);
     });
-    cy.get('[data-cy="run-reviewed-app"]').click();
-    cy.get('[data-cy="app-risk-dialog"]').should('not.exist');
     cy.get('[data-cy="app-not-running"]').should('not.exist');
   });
 
@@ -142,7 +140,7 @@ describe('app startup after risk review', () => {
           'true',
         );
       }
-cy.get('[data-cy="risk-nodes-tab"]').click();
+      cy.get('[data-cy="risk-nodes-tab"]').click();
       cy.get(
         '[data-cy="go-to-risk-node"][data-node-id="startup-code"]',
       ).click();

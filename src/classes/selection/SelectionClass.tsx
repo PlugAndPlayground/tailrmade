@@ -841,10 +841,6 @@ export default class PPSelection extends PIXI.Container {
       console.log('deselectAllNodesAndResetSelection');
       this.deselectAllNodesAndResetSelection();
     }
-    InterfaceController.notifyListeners(
-      ListenEvent.SelectionChanged,
-      this.selectedNodes,
-    );
   }
   ROUNDNESS = 5;
 
@@ -1084,7 +1080,9 @@ class ScaleHandle extends PIXI.Graphics {
   constructor(selection: PPSelection) {
     super();
 
-    this.eventMode = 'dynamic';
+    // not 'dynamic': that makes Pixi re-fire the resting pointer on document as
+    // a fake pointermove with buttons: 0, which ends any MUI Slider drag
+    this.eventMode = 'static';
 
     this.selection = selection;
 

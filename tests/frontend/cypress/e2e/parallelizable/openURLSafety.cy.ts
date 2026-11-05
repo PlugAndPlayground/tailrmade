@@ -72,7 +72,7 @@ describe('Open URL safety', () => {
     cy.get('@openWindow').should('not.have.been.called');
   });
 
-  it('discloses navigation before running a loaded app', () => {
+  it('runs a fixed URL without requiring approval', () => {
     doWithTestController(async (controller) => {
       const graph = controller.getGraph();
       const stored = graph.getSerializedStoredGraph();
@@ -90,13 +90,18 @@ describe('Open URL safety', () => {
       stored.graphData.links = [];
       await graph.configure(stored);
     });
-    cy.get('[data-cy="app-risk-dialog"]')
-      .should('contain', 'Opens web pages')
-      .and('contain', 'https://example.com/path')
-      .and('not.contain', 'secret');
-    cy.get('@openWindow').should('not.have.been.called');
-    cy.get('[data-cy="app-risk-dialog"]')
-      .contains('button', 'Keep inspecting')
-      .click();
+    cy.get('[data-cy="app-risk-dialog"]').should('not.exist');
+    cy.get('[data-cy="app-not-running"]').should('not.exist');
+    doWithTestController((controller) => {
+      const risk = controller.getNodeByID('url').getRisks()[0];
+      expect(risk.severity).to.equal('info');
+      expect(risk.target).to.equal('https://example.com/path?token=…');
+    });
+    cy.get('@openWindow').should(
+      'have.been.calledWithExactly',
+      'https://user:secret@example.com/path?token=secret#secret',
+      '_blank',
+      'noopener,noreferrer',
+    );
   });
 });

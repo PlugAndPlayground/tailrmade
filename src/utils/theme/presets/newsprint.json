@@ -31,9 +31,9 @@
     }
   },
   "typography": {
-    "fontFamily": "Source Serif 4",
-    "fontFamilyMono": "IBM Plex Mono",
-    "fontSizeScalar": 1.0625
+    "fontFamily": "Georgia",
+    "fontFamilyMono": "Roboto Mono",
+    "fontSizeScalar": 1
   },
   "geometry": {
     "radius": 0,

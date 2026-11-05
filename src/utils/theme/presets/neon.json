@@ -31,9 +31,9 @@
     }
   },
   "typography": {
-    "fontFamily": "Space Grotesk",
-    "fontFamilyMono": "JetBrains Mono",
-    "fontSizeScalar": 1
+    "fontFamily": "Verdana",
+    "fontFamilyMono": "Roboto Mono",
+    "fontSizeScalar": 0.9375
   },
   "geometry": {
     "radius": 20,

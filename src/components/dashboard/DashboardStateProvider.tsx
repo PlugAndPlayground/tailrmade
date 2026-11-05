@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import { useEditor } from '@craftjs/core';
-import InterfaceController from '../../InterfaceController';
+import InterfaceController, { ListenEvent } from '../../InterfaceController';
+import type PPNode from '../../classes/NodeClass';
 import { RootName } from '../../utils/constants_shared';
 import { getNodeIdFromElementId } from '../../utils/utils';
 
@@ -39,10 +40,47 @@ export const DashboardStateProvider: React.FC<{
       }
     };
 
+    // While editing, the widget selection follows the graph: the widget of the
+    // only selected node, else none, so that Delete acts on what was selected last
+    const selectWidgetForNodes = (nodes: PPNode[]) => {
+      if (!InterfaceController.isDashboardInEditMode) {
+        return;
+      }
+      const widgets = query.getNodes();
+      // ROOT stands for the surface being edited; static widgets have no id
+      const getWidgetNodeId = (widgetId: string) => {
+        if (widgetId === RootName) {
+          return InterfaceController.displayedSurfaceNodeId;
+        }
+        const elementId = widgets[widgetId].data.props.id;
+        return elementId && getNodeIdFromElementId(elementId);
+      };
+
+      const selectedWidget = query.getEvent('selected').first();
+      const nodeId = nodes.length === 1 ? nodes[0].id : null;
+      // a node can have several widgets, any of them may stay selected
+      const nextWidget =
+        nodeId === null
+          ? undefined
+          : selectedWidget && getWidgetNodeId(selectedWidget) === nodeId
+            ? selectedWidget
+            : Object.keys(widgets).find(
+                (widgetId) => getWidgetNodeId(widgetId) === nodeId,
+              );
+      if (nextWidget !== selectedWidget) {
+        actions.selectNode(nextWidget);
+      }
+    };
+    const listenerId = InterfaceController.addListener(
+      ListenEvent.SelectionChanged,
+      selectWidgetForNodes,
+    );
+
     // Cleanup on unmount
     return () => {
       InterfaceController.getDashboardState = () => ({});
       InterfaceController.selectDashboardItemByElementId = () => {};
+      InterfaceController.removeListener(listenerId);
     };
   }, [query, actions]);
 
