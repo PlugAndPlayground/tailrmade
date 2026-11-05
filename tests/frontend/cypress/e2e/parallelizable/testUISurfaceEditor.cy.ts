@@ -152,6 +152,50 @@ describe('UI surface editing in the dashboard', () => {
       .should('exist');
   });
 
+  it('selecting an embedded surface shows its parents; several parents get a menu', () => {
+    // selected directly (not dived into): the path comes from the links
+    doWithTestController((testController) => {
+      testController.showSurface('ui-surface-2');
+    });
+    cy.get('[data-cy="surface-crumb-ui-surface-1"]').should('exist');
+    cy.get('[data-cy="surface-crumb-ui-surface-2"]').should('exist');
+    cy.get('[data-cy="surface-crumb-parents-ui-surface-2"]').should(
+      'not.exist',
+    );
+
+    // embed surface 2 in a second surface: the path is unchanged, but the
+    // parent crumb now offers both parents
+    doWithTestController(async (testController) => {
+      await testController.addNode('UISurfaceNode', 'ui-surface-3', 1200, 500);
+      await testController.waitForPendingExecution();
+      await testController.connectNodesByID(
+        'ui-surface-2',
+        'ui-surface-3',
+        'ReactUI',
+      );
+      await testController.waitForPendingExecution();
+    });
+    cy.get('[data-cy="surface-crumb-ui-surface-1"]').should('exist');
+    cy.get('[data-cy="surface-crumb-parents-ui-surface-2"]').click({
+      force: true,
+    });
+    cy.get('[data-cy="surface-crumb-parent-option-ui-surface-1"]').should(
+      'exist',
+    );
+    cy.get('[data-cy="surface-crumb-parent-option-ui-surface-3"]').click();
+    cy.get('[data-cy="surface-crumb-ui-surface-3"]').should('exist');
+    cy.get('[data-cy="surface-crumb-ui-surface-2"]').should('not.exist');
+
+    // back to editing surface 1 for the following tests
+    doWithTestController(async (testController) => {
+      testController.showSurface('ui-surface-1');
+      await testController.removeNode('ui-surface-3');
+      await testController.waitForPendingExecution();
+    });
+    cy.get('[data-cy="surface-crumb-ui-surface-3"]').should('not.exist');
+    cy.get('[data-cy="surface-crumb-ui-surface-1"]').should('exist');
+  });
+
   it('embedded surface is read-only in edit mode, interactive in view mode', () => {
     // editing surface-1, which embeds surface-2. Give surface-2 a widget of
     // its own: an empty surface renders with no area, so "can a pointer reach

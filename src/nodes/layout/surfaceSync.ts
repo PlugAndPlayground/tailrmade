@@ -139,6 +139,55 @@ export function getDescendantSurfaceIds(surface: PPNode): Set<string> {
   return descendants;
 }
 
+// surfaces the given node is embedded in, i.e. those with an element socket
+// linked to one of its outputs (deduped, in link order)
+export function getParentSurfaceNodes(node: PPNode): UISurfaceNode[] {
+  const parents = new Map<string, UISurfaceNode>();
+  node.outputSocketArray.forEach((socket) => {
+    socket.links.forEach((link) => {
+      const target = link.getTarget();
+      const targetNode = target.getNode();
+      if (isElementSocket(target) && isSurfaceNode(targetNode)) {
+        parents.set(targetNode.id, targetNode);
+      }
+    });
+  });
+  return [...parents.values()];
+}
+
+// surface ids from a top-level surface down to the given one, following
+// embedding links upward. Where a surface is embedded in several places, the
+// parent leading up to preferredRootId wins, otherwise the first link.
+export function getSurfaceAncestorPath(
+  surface: PPNode,
+  preferredRootId: string | undefined,
+): string[] {
+  const leadsToPreferredRoot = (node: PPNode, seen: Set<string>): boolean => {
+    if (node.id === preferredRootId) {
+      return true;
+    }
+    seen.add(node.id);
+    return getParentSurfaceNodes(node).some(
+      (parent) => !seen.has(parent.id) && leadsToPreferredRoot(parent, seen),
+    );
+  };
+
+  const path = [surface.id];
+  let current = surface;
+  for (;;) {
+    const parents = getParentSurfaceNodes(current).filter(
+      (parent) => !path.includes(parent.id),
+    );
+    if (parents.length === 0) {
+      return path;
+    }
+    current =
+      parents.find((parent) => leadsToPreferredRoot(parent, new Set(path))) ??
+      parents[0];
+    path.unshift(current.id);
+  }
+}
+
 // Connecting sourceNode's ReactUI output into targetNode would embed source
 // inside target. That creates a loop if they are the same surface, or if
 // source already (transitively) contains target.

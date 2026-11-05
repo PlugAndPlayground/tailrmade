@@ -47,6 +47,8 @@ import {
 import { normalizeTreeString } from './surfaceTreeNormalization';
 import {
   getLinkedSourceNodeIds,
+  getParentSurfaceNodes,
+  getSurfaceAncestorPath,
   SurfaceSync,
 } from '../../nodes/layout/surfaceSync';
 import type { UISurfaceNode } from '../../nodes/layout/uiSurface';
@@ -317,11 +319,11 @@ export function addNodeWithPlacement(
   });
 }
 
-// breadcrumb of dived-into surfaces; first entry is the top-level selected
-// surface, last entry is always the currently displayed one. 'dive' pushes
-// onto the existing path, 'crumb' truncates back to a clicked ancestor,
-// anything else ('select', a fresh InterfaceController.showSurface call,
-// etc.) starts a new path at the given surface.
+// breadcrumb of nested surfaces; first entry is a top-level surface, last
+// entry is always the currently displayed one. 'dive' pushes onto the existing
+// path, 'crumb' truncates back to a clicked ancestor, anything else ('select',
+// a fresh InterfaceController.showSurface call, etc.) derives the path from
+// the embedding links.
 function nextSurfaceBreadcrumb(
   prev: string[],
   nodeId: string | null,
@@ -335,9 +337,44 @@ function nextSurfaceBreadcrumb(
   }
   if (source === 'crumb') {
     const index = prev.indexOf(nodeId);
-    return index >= 0 ? prev.slice(0, index + 1) : [nodeId];
+    if (index >= 0) {
+      return prev.slice(0, index + 1);
+    }
   }
-  return [nodeId];
+  return getDerivedSurfaceBreadcrumb(nodeId);
+}
+
+function getDerivedSurfaceBreadcrumb(nodeId: string): string[] {
+  const node = PPGraph.currentGraph.getNodeById(nodeId);
+  if (!node) {
+    return [];
+  }
+  return getSurfaceAncestorPath(
+    node,
+    PPGraph.currentGraph.defaultUISurfaceNodeId,
+  );
+}
+
+// after embedding links changed: keep the current path (e.g. a dive path)
+// while it still matches the links, otherwise derive it afresh
+function refreshSurfaceBreadcrumb(prev: string[]): string[] {
+  const displayedId = InterfaceController.displayedSurfaceNodeId;
+  if (!displayedId) {
+    return [];
+  }
+  const nodes = prev.map((id) => PPGraph.currentGraph.getNodeById(id));
+  const isStillValid =
+    prev[prev.length - 1] === displayedId &&
+    nodes.every((node) => node !== undefined) &&
+    getParentSurfaceNodes(nodes[0]).length === 0 &&
+    nodes.every(
+      (node, index) =>
+        index === 0 ||
+        getParentSurfaceNodes(node).some(
+          (parent) => parent.id === prev[index - 1],
+        ),
+    );
+  return isStillValid ? prev : getDerivedSurfaceBreadcrumb(displayedId);
 }
 
 interface DashboardEditorProps {
@@ -588,6 +625,14 @@ export const DashboardEditor: React.FC<DashboardEditorProps> = ({
             deserializeTree(treeString);
           }
         },
+      ),
+      // embedding links changed (the parent's layout syncs to its links) or a
+      // surface was added/removed: the breadcrumb path may be stale
+      ...[ListenEvent.SurfaceLayoutChanged, ListenEvent.SurfaceListChanged].map(
+        (event) =>
+          InterfaceController.addListener(event, () =>
+            setSurfaceStack(refreshSurfaceBreadcrumb),
+          ),
       ),
     ];
 

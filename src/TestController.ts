@@ -476,6 +476,10 @@ export default class TestController {
     InterfaceController.unselectDashboardItems();
   }
 
+  showSurface(nodeId: string) {
+    InterfaceController.showSurface(nodeId);
+  }
+
   getDashboardState() {
     return InterfaceController.getDashboardState();
   }
