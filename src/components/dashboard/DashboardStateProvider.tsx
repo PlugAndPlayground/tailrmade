@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import { useEditor } from '@craftjs/core';
-import InterfaceController from '../../InterfaceController';
+import InterfaceController, { ListenEvent } from '../../InterfaceController';
 import type PPNode from '../../classes/NodeClass';
 import { RootName } from '../../utils/constants_shared';
 import { getNodeIdFromElementId } from '../../utils/utils';
@@ -42,7 +42,10 @@ export const DashboardStateProvider: React.FC<{
 
     // While editing, the widget selection follows the graph: the widget of the
     // only selected node, else none, so that Delete acts on what was selected last
-    InterfaceController.selectDashboardItemForNodes = (nodes: PPNode[]) => {
+    const selectWidgetForNodes = (nodes: PPNode[]) => {
+      if (!InterfaceController.isDashboardInEditMode) {
+        return;
+      }
       const widgets = query.getNodes();
       // ROOT stands for the surface being edited; static widgets have no id
       const getWidgetNodeId = (widgetId: string) => {
@@ -68,12 +71,16 @@ export const DashboardStateProvider: React.FC<{
         actions.selectNode(nextWidget);
       }
     };
+    const listenerId = InterfaceController.addListener(
+      ListenEvent.SelectionChanged,
+      selectWidgetForNodes,
+    );
 
     // Cleanup on unmount
     return () => {
       InterfaceController.getDashboardState = () => ({});
       InterfaceController.selectDashboardItemByElementId = () => {};
-      InterfaceController.selectDashboardItemForNodes = () => {};
+      InterfaceController.removeListener(listenerId);
     };
   }, [query, actions]);
 

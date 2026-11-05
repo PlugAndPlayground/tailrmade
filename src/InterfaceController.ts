@@ -46,7 +46,6 @@ import {
 } from './actions/graphActions';
 import { removeNodesFromGroups } from './classes/groups/groupActions';
 import type { UISurfaceNode } from './nodes/layout/uiSurface';
-import type PPNode from './classes/NodeClass';
 
 export enum ListenEvent {
   SelectionChanged, // data = PPNode[]
@@ -175,7 +174,6 @@ export default class InterfaceController {
   static isDashboardInEditMode = false;
   static unselectDashboardItems: () => void = () => {};
   static selectDashboardItemByElementId: (elementId: string) => void = () => {};
-  static selectDashboardItemForNodes: (nodes: PPNode[]) => void = () => {};
   static onMadeChangeToGraphList: () => void = () => {};
   static getDashboardState: () => any = () => null;
 
