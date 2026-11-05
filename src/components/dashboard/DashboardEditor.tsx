@@ -1073,10 +1073,8 @@ export const DashboardEditor: React.FC<DashboardEditorProps> = ({
                       width: `${devicePreviewWidth}px`,
                       maxWidth: 'calc(100% - 28px)',
                       minWidth: 0,
-                      border: '10px solid #262a36',
+                      border: '12px solid #555b6e',
                       borderRadius: '18px',
-                      boxShadow:
-                        '0 0 0 1px rgba(255, 255, 255, 0.3), 0 16px 48px rgba(0, 0, 0, 0.7)',
                       overflow: 'auto',
                     }
                   : {

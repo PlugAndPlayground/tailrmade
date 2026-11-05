@@ -521,7 +521,7 @@ export const SelectWidget: React.FunctionComponent<EnumTypeProps> = (props) => {
           size="small"
           fullWidth
           sx={{
-            mt: 1,
+            mt: props.inDashboard ? 0 : 1,
             '& .MuiToggleButtonGroup-grouped': {
               padding: '4px 6px',
               fontSize: '0.7rem',

@@ -24,6 +24,8 @@ let b1: string;
 let b2: string;
 let b3: string;
 let b4: string;
+let s1: string;
+let s2: string;
 let embeddedSurfaceId: string;
 
 const applyLayout = (
@@ -110,6 +112,14 @@ describe('UI surface targeted layout suites', () => {
       b2 = (await tc.addNode('WidgetButton', undefined, 400, 150)).id;
       b3 = (await tc.addNode('WidgetButton', undefined, 400, 300)).id;
       b4 = (await tc.addNode('WidgetButton', undefined, 400, 450)).id;
+      // switches, whose labels can wrap (a button's never does)
+      s1 = (await tc.addNode('WidgetSwitch', undefined, 400, 600)).id;
+      s2 = (await tc.addNode('WidgetSwitch', undefined, 400, 750)).id;
+      tc.setNodeInputValue(
+        s2,
+        'Label',
+        'Hug me without wrapping, even on a phone',
+      );
       // one embeddable surface (one inner button) for the embedded case
       const surf = await tc.addNode('UISurfaceNode', undefined, 800, 0);
       const inner = await tc.addNode('WidgetButton', undefined, 1200, 0);
@@ -497,6 +507,32 @@ describe('UI surface targeted layout suites', () => {
         expect(
           m.parent.scrollWidth,
           'parent overflows (scrollable) instead of violating the floors',
+        ).to.be.greaterThan(m.parent.clientWidth + 1);
+      });
+    });
+
+    it('a fill widget next to a wider hug widget stops at its minWidth', () => {
+      // a row that stays a row on a narrow dashboard, where the hug label
+      // alone is wider than the row: hug keeps its size (it never shrinks),
+      // so fill gives way - but only down to its default 48px floor, not
+      // to the few px a fill widget used to collapse to
+      cy.viewport(NARROW_VIEWPORT.width, NARROW_VIEWPORT.height);
+      applyLayout([
+        {
+          direction: 'row',
+          gap: GAP,
+          mobileBehavior: 'row',
+          children: [widgetItem(s1), widgetItem(s2, { width: 'auto' })],
+        },
+      ]);
+      cy.document({ timeout: 5000 }).should((doc) => {
+        const m = measureRow(doc, [{ id: s1 }, { id: s2 }]);
+        const [fill, hug] = m.rects;
+        expect(fill.width, 'fill stops at its minWidth').to.be.closeTo(48, 1);
+        expect(hug.height, 'hug label stays on one line').to.be.below(60);
+        expect(
+          m.parent.scrollWidth,
+          'parent overflows instead of crushing fill below its floor',
         ).to.be.greaterThan(m.parent.clientWidth + 1);
       });
     });
