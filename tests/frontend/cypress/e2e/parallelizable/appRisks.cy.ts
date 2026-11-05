@@ -246,21 +246,13 @@ describe('app risk review', () => {
         codeNode(),
         { ...codeNode(), id: 'second-code', x: 5000, y: 5000 },
       ]);
-      // Mobile starts in the dashboard, where review is a modal. Selecting
-      // a node switches to the graph and its non-modal review panel.
-      if (width < 900) {
-        cy.get('[data-cy="app-risk-dialog"] [role="dialog"]').should(
-          'have.attr',
-          'aria-modal',
-          'true',
-        );
-      } else {
-        cy.get('[data-cy="app-risk-dialog"]').should(
-          'have.attr',
-          'aria-modal',
-          'false',
-        );
-      }
+      // An app without a UI opens on the graph, also on mobile, so the
+      // review is the non-modal panel from the start
+      cy.get('[data-cy="app-risk-dialog"]').should(
+        'have.attr',
+        'aria-modal',
+        'false',
+      );
       cy.get(
         '[aria-label="Center review"], [aria-label="Inspect alongside graph"]',
       ).should('not.exist');
