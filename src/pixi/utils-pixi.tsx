@@ -1,7 +1,7 @@
 import * as PIXI from 'pixi.js';
-import { TRgba } from '../utils/color';
 import { Viewport } from 'pixi-viewport';
 import CanvasScenery from './canvasScenery';
+import CanvasMode from './canvasMode';
 import PPGraph from '../classes/GraphClass';
 import PPNode from '../classes/NodeClass';
 import PPStorage, { checkForUnsavedChanges } from '../PPStorage';
@@ -10,7 +10,6 @@ import {
   CANVAS_BACKGROUND_ALPHA,
   CANVAS_BACKGROUND_TEXTURE,
   COMMENT_TEXTSTYLE,
-  MAIN_COLOR,
 } from '../utils/constants';
 import {
   cutOrCopyClipboard,
@@ -381,13 +380,9 @@ export const createPixiApp = (
   console.log('CREATING PIXI');
   pixiApp.current = new PIXI.Application();
 
-  const mainColorLightHex = new PIXI.Color(
-    TRgba.fromString(MAIN_COLOR).mix(TRgba.white(), 0.9).hex(),
-  ).toNumber();
-
   void (async () => {
     await pixiApp.current.init({
-      backgroundColor: mainColorLightHex,
+      backgroundColor: CanvasMode.palette().background,
       backgroundAlpha: 1,
       width: window.innerWidth,
       height: window.innerHeight,
@@ -526,8 +521,15 @@ export const createPixiApp = (
 
     background.alpha = CANVAS_BACKGROUND_ALPHA;
 
-    // parallax space backdrop behind the viewport, off until toggled with Shift+B
+    // parallax space backdrop behind the viewport, shown in space mode
     new CanvasScenery(pixiApp.current, viewport.current);
+    COMMENT_TEXTSTYLE.fill = CanvasMode.palette().commentText;
+    CanvasMode.onChange(() => {
+      const palette = CanvasMode.palette();
+      pixiApp.current.renderer.background.color = palette.background;
+      COMMENT_TEXTSTYLE.fill = palette.commentText;
+      PPGraph.currentGraph?.applyCanvasMode();
+    });
 
     // add graph to pixiApp
     viewport.current.label = 'Viewport';

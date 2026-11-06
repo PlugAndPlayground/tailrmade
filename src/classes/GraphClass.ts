@@ -105,16 +105,20 @@ import {
   isAppApproved,
   rememberAppApproval,
 } from '../services/appTrust';
+import CanvasMode from '../pixi/canvasMode';
 
 // withtout this the compilation order breaks
 const DUMMY_IMPORT = getNodesBounds;
 const EMPTY_DEFAULT_MACRO_NAME = 'EmptyDefaultMacro';
 
-const EMPTY_CANVAS_TEXT = `<span style="color:#0c1122;">Add data and logic</span>
+const heading = (text: string): string =>
+  `<span style="color:${CanvasMode.palette().emptyCanvasHeading};">${text}</span>`;
+
+const getEmptyCanvasText = (): string => `${heading('Add data and logic')}
   Double click canvas or drag files in
   Then connect the nodes
 
-  <span style="color:#0c1122;">Create user interface</span>
+  ${heading('Create user interface')}
   Press 2 to open the panel
   Then add widgets/nodes
 
@@ -122,9 +126,11 @@ const EMPTY_CANVAS_TEXT = `<span style="color:#0c1122;">Add data and logic</span
 
 // the canvas cannot be edited by hand in the stack layout, so point to AI,
 // which is only offered once signed in
-const EMPTY_CANVAS_TEXT_EXPLORE_ONLY = `<span style="color:#0c1122;">This app is empty</span>
+const getEmptyCanvasTextExploreOnly = (): string =>
+  `${heading('This app is empty')}
   Open AI to build it`;
-const EMPTY_CANVAS_TEXT_SIGNED_OUT = `<span style="color:#0c1122;">This app is empty</span>
+const getEmptyCanvasTextSignedOut = (): string =>
+  `${heading('This app is empty')}
   Sign in to build it with AI`;
 
 type LongPressTarget = {
@@ -2135,6 +2141,19 @@ export default class PPGraph {
     this.updateEmptyCanvasVisibility();
   }
 
+  // Colors from the canvas palette are read while drawing, so a mode switch
+  // only needs everything drawn on the canvas to draw once more.
+  applyCanvasMode(): void {
+    Object.values(this.nodes).forEach((node) => {
+      node.drawNodeShape();
+      node.nodeSelectionHeader.refreshTint();
+      node.updateBehaviour.graphics?.redrawAnythingChanging();
+    });
+    this.getLinks().forEach((link) => link.updateConnectionDrawing());
+    this.selection.selectionHeader.refreshTint();
+    this.updateEmptyCanvasVisibility();
+  }
+
   updateEmptyCanvasVisibility(): void {
     // Show text only when there are no nodes
     const nodeCount = Object.keys(this.nodes).length;
@@ -2145,14 +2164,14 @@ export default class PPGraph {
       // chosen here rather than once at init, as resizing can cross into the
       // stack layout and signing in can happen after the graph loads
       if (!isCanvasExploreOnly()) {
-        this.emptyCanvasText.text = EMPTY_CANVAS_TEXT;
+        this.emptyCanvasText.text = getEmptyCanvasText();
       } else if (
         CLOUD_MODE &&
         BackendGateway.getInstance().getCurrentUser() === null
       ) {
-        this.emptyCanvasText.text = EMPTY_CANVAS_TEXT_SIGNED_OUT;
+        this.emptyCanvasText.text = getEmptyCanvasTextSignedOut();
       } else {
-        this.emptyCanvasText.text = EMPTY_CANVAS_TEXT_EXPLORE_ONLY;
+        this.emptyCanvasText.text = getEmptyCanvasTextExploreOnly();
       }
       const centerX = window.innerWidth / 2;
       const centerY = window.innerHeight / 2;

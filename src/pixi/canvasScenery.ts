@@ -1,5 +1,6 @@
 import * as PIXI from 'pixi.js';
 import { Viewport } from 'pixi-viewport';
+import CanvasMode, { CANVAS_MODE } from './canvasMode';
 
 // Space backdrop: a parallax star field that turns panning and zooming the
 // graph into flying through space. It is one full-screen quad drawn with one
@@ -11,7 +12,6 @@ import { Viewport } from 'pixi-viewport';
 // that layer's depth. This keeps far layers slow, near layers fast, and avoids
 // the drift you get from multiplying a large world position by a zoom factor.
 
-const STORAGE_KEY = 'spaceBackdrop';
 const FADE_MS = 250;
 
 const STAR_LAYERS = 6;
@@ -120,13 +120,10 @@ const starCellPx = (z: number): number => CELL_PX * 2 ** (z * 3);
 const nebulaPx = (scale: number): number => NEBULA_PX * scale ** 0.12;
 
 export default class CanvasScenery {
-  static instance: CanvasScenery | undefined;
-
   mesh: PIXI.Mesh<PIXI.MeshGeometry, PIXI.Shader>;
   private app: PIXI.Application;
   private viewport: Viewport;
   private uniforms: PIXI.UniformGroup;
-  private enabled = false;
   private fade = 0;
   private warmedUp = false;
   private stars = new Float32Array(STAR_LAYERS * 4);
@@ -168,24 +165,12 @@ export default class CanvasScenery {
     // startup instead of stuttering the first time the backdrop is turned on
     app.stage.addChildAt(this.mesh, 0);
     app.ticker.add(this.update);
-    CanvasScenery.instance = this;
-
-    this.enabled = localStorage.getItem(STORAGE_KEY) === 'true';
-    this.fade = this.enabled ? 1 : 0;
+    this.fade = this.isEnabled() ? 1 : 0;
     this.resetLayers();
   }
 
-  static isEnabled(): boolean {
-    return CanvasScenery.instance?.enabled ?? false;
-  }
-
-  static toggle(): void {
-    CanvasScenery.instance?.setEnabled(!CanvasScenery.isEnabled());
-  }
-
-  setEnabled(enabled: boolean): void {
-    this.enabled = enabled;
-    localStorage.setItem(STORAGE_KEY, String(enabled));
+  private isEnabled(): boolean {
+    return CanvasMode.get() === CANVAS_MODE.SPACE;
   }
 
   private resetLayers(): void {
@@ -199,7 +184,7 @@ export default class CanvasScenery {
 
   // runs before each render, as the ticker renders at low priority
   private update = (ticker: PIXI.Ticker): void => {
-    const target = this.enabled ? 1 : 0;
+    const target = this.isEnabled() ? 1 : 0;
     const step = ticker.deltaMS / FADE_MS;
     this.fade =
       target > this.fade

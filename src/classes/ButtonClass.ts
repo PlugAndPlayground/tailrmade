@@ -6,7 +6,8 @@ import { TRgba } from '../utils/color';
 
 type ButtonOptions = {
   badge?: boolean;
-  tint?: number;
+  // a function is re-read by refreshTint, e.g. when the canvas mode changes
+  tint?: number | (() => number);
   defaultAlpha?: number;
   hoverAlpha?: number;
   svgResolution?: number;
@@ -22,6 +23,7 @@ export default class Button extends PIXI.Container {
   up!: boolean;
   down!: boolean;
   private icon: PIXI.Sprite;
+  private getTint: () => number;
   private defaultAlpha: number;
   private hoverAlpha: number;
 
@@ -31,6 +33,7 @@ export default class Button extends PIXI.Container {
     const tint =
       options.tint ??
       new PIXI.Color(TRgba.fromString(MAIN_COLOR).darken(0.7).hex()).toNumber();
+    this.getTint = typeof tint === 'function' ? tint : () => tint;
 
     this.defaultAlpha = options.defaultAlpha ?? 0.5;
     this.hoverAlpha = options.hoverAlpha ?? 1.0;
@@ -45,7 +48,7 @@ export default class Button extends PIXI.Container {
     this.icon = this.addChild(new PIXI.Sprite(texture));
     this.icon.width = size;
     this.icon.height = size;
-    this.icon.tint = tint;
+    this.icon.tint = this.getTint();
     this.icon.alpha = this.defaultAlpha;
 
     this.eventMode = 'static';
@@ -74,6 +77,10 @@ export default class Button extends PIXI.Container {
 
     const texture = PIXI.Texture.from(imageURL);
     return new Button(texture, size, options);
+  }
+
+  refreshTint(): void {
+    this.icon.tint = this.getTint();
   }
 
   // SETUP

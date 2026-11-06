@@ -9,8 +9,7 @@ import {
 import { AnyType } from './anyType';
 import { TRgba } from '../../utils/color';
 import type { DashboardWidgetProps } from '../../utils/interfaces';
-import { NODE_TYPE_COLOR } from '../../utils/constants';
-import { REACT_UI_CONNECTION_ALPHA } from '../../utils/visuals';
+import CanvasMode from '../../pixi/canvasMode';
 
 // its a composite type, a function that will draw onto a container, and a hash (so that the caller knows if it needs to be redrawn)
 export interface DeferredReactTypeInterface {
@@ -33,11 +32,11 @@ export class DeferredReactType extends AbstractType {
   }
 
   getColor(): TRgba {
-    return TRgba.fromString(NODE_TYPE_COLOR.LAYOUT);
+    return TRgba.fromString(CanvasMode.palette().layoutWire);
   }
 
   getConnectionAlpha(): number {
-    return REACT_UI_CONNECTION_ALPHA;
+    return CanvasMode.palette().layoutWireAlpha;
   }
 
   getDefaultValue(): DeferredReactTypeInterface {

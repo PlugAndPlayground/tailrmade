@@ -3,13 +3,13 @@ import PPGraph from './GraphClass';
 import InterfaceController, { ListenEvent } from '../InterfaceController';
 import { PNPStatus } from './ErrorClass';
 import {
-  DARK_HEX,
   ERROR_BOUNDARY_SCREEN_OFFSET,
   NODE_MARGIN,
   STATUS_SEVERITY,
 } from '../utils/constants';
 import { TNodeId } from '../utils/interfaces';
 import { getStatusIconTexture } from '../utils/statusIcons';
+import CanvasMode from '../pixi/canvasMode';
 
 const STATUS_BADGE_RADIUS = 12;
 const UNUSED_BADGE_RADIUS = 7;
@@ -103,7 +103,7 @@ export class NodeStatusBadges {
         texture: commentIcon,
         name: COMMENT_BADGE_NAME,
         kind: 'comment',
-        tint: DARK_HEX,
+        tint: CanvasMode.palette().iconTint,
         offsetX,
       });
     }

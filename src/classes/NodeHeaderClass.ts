@@ -8,7 +8,6 @@ import {
   ICON_BADGE_GAP,
   ICON_BADGE_BUTTON_DEFAULT_ALPHA,
   ICON_BADGE_BUTTON_HOVER_ALPHA,
-  ICON_BADGE_ICON_TINT,
   ICON_BADGE_SIZE,
   ICON_BADGE_SVG_RESOLUTION,
   SELECTION_DOWNSTREAM_TEXTURE,
@@ -19,10 +18,11 @@ import {
 } from '../utils/constants';
 import { VISIBILITY_ACTION } from '../utils/constants_shared';
 import FlowLogic from './FlowLogic';
+import CanvasMode from '../pixi/canvasMode';
 
 const HEADER_BUTTON_OPTIONS = {
   badge: true,
-  tint: ICON_BADGE_ICON_TINT,
+  tint: () => CanvasMode.palette().iconTint,
   defaultAlpha: ICON_BADGE_BUTTON_DEFAULT_ALPHA,
   hoverAlpha: ICON_BADGE_BUTTON_HOVER_ALPHA,
   svgResolution: ICON_BADGE_SVG_RESOLUTION,
@@ -126,6 +126,14 @@ export default class NodeHeaderClass extends PIXI.Container {
     this._confirmAddToDashboardButton.x = this.getButtonX(4);
 
     this.redrawAnythingChanging();
+  }
+
+  refreshTint(): void {
+    this.children.forEach((child) => {
+      if (child instanceof Button) {
+        child.refreshTint();
+      }
+    });
   }
 
   public redrawAnythingChanging(hoverNode = false): void {

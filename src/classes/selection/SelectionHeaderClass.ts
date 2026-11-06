@@ -1,6 +1,7 @@
 import * as PIXI from 'pixi.js';
 import PPGraph from '../GraphClass';
 import Button from '../ButtonClass';
+import CanvasMode from '../../pixi/canvasMode';
 import { TAlignOptions } from '../../utils/interfaces';
 import { isCanvasExploreOnly } from '../../utils/stackLayout';
 import {
@@ -82,13 +83,23 @@ export default class SelectionHeaderClass extends PIXI.Container {
     ];
 
     for (const button of buttonsToCreate) {
-      const buttonInstance = await Button.create(button.texture, 16);
+      const buttonInstance = await Button.create(button.texture, 16, {
+        tint: () => CanvasMode.palette().selectionButtonTint,
+      });
       buttonInstance.addEventListener('pointerdown', (e) =>
         this.onPointerDown(e, button.alignOption),
       );
       this.addChild(buttonInstance);
       buttonInstance.x = button.x;
     }
+  }
+
+  refreshTint(): void {
+    this.children.forEach((child) => {
+      if (child instanceof Button) {
+        child.refreshTint();
+      }
+    });
   }
 
   async onPointerDown(

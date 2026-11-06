@@ -1,9 +1,9 @@
 import * as PIXI from 'pixi.js';
 import UpdateBehaviourClass from './UpdateBehaviourClass';
+import CanvasMode from '../pixi/canvasMode';
 import {
   ICON_BADGE_BACKGROUND,
   ICON_BADGE_GAP,
-  ICON_BADGE_ICON_TINT,
   ICON_BADGE_SIZE,
   ICON_BADGE_STATIC_ICON_ALPHA,
   ICON_BADGE_SVG_RESOLUTION,
@@ -19,7 +19,6 @@ const BADGE_SIZE = ICON_BADGE_SIZE;
 const BADGE_GAP = ICON_BADGE_GAP;
 const BADGE_BG = ICON_BADGE_BACKGROUND;
 const ICON_ALPHA = ICON_BADGE_STATIC_ICON_ALPHA;
-const ICON_COLOR = ICON_BADGE_ICON_TINT;
 const ICON_SIZE = ICON_BADGE_SIZE;
 const SVG_ICON_RESOLUTION = ICON_BADGE_SVG_RESOLUTION;
 type BadgeIconType = 'stop' | 'noLoad' | 'interval' | 'execute';
@@ -158,11 +157,12 @@ export default class UpdateBehaviourGraphics extends PIXI.Container {
     if (!this._intervalText) {
       this._intervalText = new PIXI.Text({
         text: '',
-        style: new PIXI.TextStyle({ fontSize: 10, fill: ICON_COLOR }),
+        style: new PIXI.TextStyle({ fontSize: 10 }),
         resolution: TEXT_RESOLUTION,
       });
       this.addChild(this._intervalText);
     }
+    this._intervalText.style.fill = CanvasMode.palette().iconTint;
 
     return this._intervalText;
   }
@@ -194,6 +194,7 @@ export default class UpdateBehaviourGraphics extends PIXI.Container {
   private layoutIcon(type: BadgeIconType, x: number, width: number): void {
     const sprite = this._iconSprites[type];
     sprite.visible = true;
+    sprite.tint = CanvasMode.palette().iconTint;
     sprite.width = ICON_SIZE;
     sprite.height = ICON_SIZE;
     sprite.x = x + (width - ICON_SIZE) / 2;
@@ -203,7 +204,6 @@ export default class UpdateBehaviourGraphics extends PIXI.Container {
   private createIconSprite(texture: string): PIXI.Sprite {
     const sprite = PIXI.Sprite.from(texture);
     sprite.visible = false;
-    sprite.tint = ICON_COLOR;
     sprite.alpha = ICON_ALPHA;
     this.addChild(sprite);
     return sprite;

@@ -2,7 +2,7 @@ import React from 'react';
 import PPNode from '../../classes/NodeClass';
 import { TRgba } from '../../utils/color';
 import { DashboardIconProps, Layoutable, WidgetProps, DashboardWidgetProps, WidgetContentProps } from '../../utils/interfaces';
-import { NODE_TYPE_COLOR } from '../../utils/constants';
+import CanvasMode from '../../pixi/canvasMode';
 import { DEFAULT_DASHBOARD_ICON } from '../../components/dashboard/dashboardIcons';
 import {
   SOCKET_NAME_DASHBOARD_CONTENT,
@@ -28,7 +28,7 @@ export abstract class LayoutableNodeBase extends PPNode implements Layoutable {
   }
 
   public getColor(): TRgba {
-    return TRgba.fromString(NODE_TYPE_COLOR.LAYOUT);
+    return TRgba.fromString(CanvasMode.palette().layoutNode);
   }
 
   public getDashboardId(): string {

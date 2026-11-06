@@ -49,7 +49,19 @@ import {
 } from './ContextMenus';
 import FactCheckOutlinedIcon from '@mui/icons-material/FactCheckOutlined';
 import { showCurrentAppRisks } from '../AppRiskDialog';
-import CanvasScenery from '../../pixi/canvasScenery';
+import CheckIcon from '@mui/icons-material/Check';
+import CanvasMode, { CANVAS_MODE } from '../../pixi/canvasMode';
+
+function canvasModes(): any {
+  return Object.values(CANVAS_MODE).map((mode) => (
+    <MenuItem key={mode} onClick={() => CanvasMode.set(mode)}>
+      <ListItemIcon>
+        {CanvasMode.get() === mode && <CheckIcon fontSize="small" />}
+      </ListItemIcon>
+      <ListItemText>{mode}</ListItemText>
+    </MenuItem>
+  ));
+}
 
 const GestureModeMenuItem = (props) => {
   const GestureIcon = props.icon;
@@ -400,16 +412,9 @@ export const GraphContextMenu = (props) => {
             {gestureModes()}
           </SubMenuItem>
         )}
-        <MenuItem onClick={() => CanvasScenery.toggle()}>
-          <ListItemText>
-            {CanvasScenery.isEnabled()
-              ? 'Hide space backdrop'
-              : 'Show space backdrop'}
-          </ListItemText>
-          <Typography variant="body2" color="text.secondary">
-            Shift+B
-          </Typography>
-        </MenuItem>
+        <SubMenuItem autoFocus={false} label="Canvas" shortcut="Shift+B">
+          {canvasModes()}
+        </SubMenuItem>
         <MenuItem
           onClick={() => {
             PPGraph.currentGraph.showExecutionVisualisation =

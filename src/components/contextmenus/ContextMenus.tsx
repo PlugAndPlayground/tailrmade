@@ -36,9 +36,10 @@ export const useSuppressBrowserContextMenu = () => {
 export type SubMenuItemProps = MenuItemProps & {
   button?: true;
   label: string;
+  shortcut?: string;
 } & Pick<PopperProps, 'placement'>;
 
-export const SubMenuItem = (props: SubMenuItemProps) => {
+export const SubMenuItem = ({ shortcut, ...props }: SubMenuItemProps) => {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLLIElement | null>(null);
 
@@ -51,6 +52,11 @@ export const SubMenuItem = (props: SubMenuItemProps) => {
       onMouseLeave={() => setOpen(false)}
     >
       <ListItemText sx={{ ml: 4.5 }}>{props.label}</ListItemText>
+      {shortcut && (
+        <Typography variant="body2" color="text.secondary">
+          {shortcut}
+        </Typography>
+      )}
       <Typography variant="body2" color="text.secondary">
         <ChevronRightIcon fontSize="medium" />
       </Typography>

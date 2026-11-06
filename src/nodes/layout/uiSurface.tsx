@@ -31,10 +31,10 @@ import {
   WidgetProps,
 } from '../../utils/interfaces';
 import { TRgba } from '../../utils/color';
+import CanvasMode from '../../pixi/canvasMode';
 import { AGENT_DOCS_HEADING } from '../../utils/nodeDocs';
 import {
   NODE_SOURCE,
-  NODE_TYPE_COLOR,
   RightDrawerView,
   SOCKET_TYPE,
 } from '../../utils/constants';
@@ -243,7 +243,7 @@ everything to keep. Omitted connected widgets are appended with a warning.
   }
 
   public getColor(): TRgba {
-    return TRgba.fromString(NODE_TYPE_COLOR.LAYOUT);
+    return TRgba.fromString(CanvasMode.palette().layoutNode);
   }
 
   public isSurface(): boolean {
