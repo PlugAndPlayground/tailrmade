@@ -34,6 +34,11 @@ import { SOCKET_TYPE } from '../../utils/constants';
 import { TOUCH_TARGET_PX } from '../../utils/theme';
 import { WidgetContentProps } from '../../utils/interfaces';
 
+const valueToken = '{{value}}';
+
+const withValueToken = (label: string): string =>
+  label === '' ? valueToken : `${label}: ${valueToken}`;
+
 export class WidgetSlider extends WidgetNumberBase {
   prevMinValue = -1;
   prevMaxValue = -1;
@@ -48,13 +53,25 @@ export class WidgetSlider extends WidgetNumberBase {
     return 'Number slider';
   }
 
+  public getDocs(): string {
+    return `"Label" is the text above the slider. Write ${valueToken} where the
+current value should appear, for example "Volume: ${valueToken}" or
+"${valueToken} px". Leave it empty to show no text at all.`;
+  }
+
   protected getDefaultIO(): Socket[] {
     return [
       new Socket(SOCKET_TYPE.IN, initialValueName, new NumberType(), 0, false),
       new Socket(SOCKET_TYPE.IN, minValueName, new NumberType(), 0, false),
       new Socket(SOCKET_TYPE.IN, maxValueName, new NumberType(), 100, false),
       getDecimalsSocket(),
-      new Socket(SOCKET_TYPE.IN, labelName, new StringType(), 'Slider', false),
+      new Socket(
+        SOCKET_TYPE.IN,
+        labelName,
+        new StringType(),
+        withValueToken('Slider'),
+        false,
+      ),
       getCommitModeSocket(draggingCommitOptions),
       getColorSocket(),
       getSizeSocket(),
@@ -71,7 +88,7 @@ export class WidgetSlider extends WidgetNumberBase {
   }
 
   public getVersion(): number {
-    return 2;
+    return 3;
   }
 
   public async migrate(previousVersion: number): Promise<void> {
@@ -84,6 +101,19 @@ export class WidgetSlider extends WidgetNumberBase {
         this.getInputSocketByName(decimalsName),
       );
     }
+    const labelSocket = this.getInputSocketByName(labelName);
+    if (
+      previousVersion < 3 &&
+      labelSocket.links.length === 0 &&
+      !labelSocket.data.includes(valueToken)
+    ) {
+      this.setInputData(labelName, withValueToken(labelSocket.data));
+    }
+  }
+
+  public async populateDefaults(socket: Socket): Promise<void> {
+    await super.populateDefaults(socket);
+    this.setInputData(labelName, withValueToken(socket.name));
   }
 
   protected async onExecute(
@@ -148,7 +178,10 @@ export class WidgetSlider extends WidgetNumberBase {
       (TOUCH_TARGET_PX - sliderHeight) / 2,
     );
 
-    const displayValue = roundToDecimals(value, decimals);
+    const label = props[labelName].replaceAll(
+      valueToken,
+      String(roundToDecimals(value, decimals)),
+    );
 
     return (
       <WidgetPaper node={node} inDashboard={props.inDashboard}>
@@ -159,27 +192,30 @@ export class WidgetSlider extends WidgetNumberBase {
             overflow: 'hidden',
           }}
         >
-          <Typography
-            id={`slider-label-${node.id}`}
-            gutterBottom={!props.inDashboard}
-            sx={{
-              fontSize: props.inDashboard
-                ? `${tokens.fontSize}px`
-                : `${(node.nodeHeight / 8) * tokens.scale}px`,
-              fontWeight: 500,
-              textAlign: 'center',
-            }}
-          >
-            {props[labelName]}
-            {`${props[labelName] !== '' ? ': ' : ''} `}
-            {displayValue}
-          </Typography>
+          {label !== '' && (
+            <Typography
+              id={`slider-label-${node.id}`}
+              gutterBottom={!props.inDashboard}
+              sx={{
+                fontSize: props.inDashboard
+                  ? `${tokens.fontSize}px`
+                  : `${(node.nodeHeight / 8) * tokens.scale}px`,
+                fontWeight: 500,
+                textAlign: 'center',
+              }}
+            >
+              {label}
+            </Typography>
+          )}
           <Slider
             {...getWidgetDragControlProps(props.disabled)}
             color={color}
             disabled={props.disabled}
             size={getMuiSize(size)}
-            aria-labelledby={`slider-label-${node.id}`}
+            aria-label={label === '' ? node.getName() : undefined}
+            aria-labelledby={
+              label === '' ? undefined : `slider-label-${node.id}`
+            }
             value={value}
             min={min}
             max={max}

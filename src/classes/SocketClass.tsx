@@ -834,6 +834,7 @@ export const DashboardSocketWidgetContainer: React.FunctionComponent<
         minWidth: props.minWidth,
         minHeight: props.minHeight,
         overflow: getOverflowForSize(props.width, props.height),
+        '& .MuiFormControl-marginDense': { marginTop: 0 },
       }}
     >
       <DashboardContentGate

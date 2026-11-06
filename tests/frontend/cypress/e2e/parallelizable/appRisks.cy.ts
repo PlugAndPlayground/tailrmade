@@ -1,5 +1,6 @@
 import { inflate } from 'pako';
 import {
+  approveLoadedTestApp,
   openNewGraph,
   doWithTestController,
   shouldWithTestController,
@@ -246,21 +247,13 @@ describe('app risk review', () => {
         codeNode(),
         { ...codeNode(), id: 'second-code', x: 5000, y: 5000 },
       ]);
-      // Mobile starts in the dashboard, where review is a modal. Selecting
-      // a node switches to the graph and its non-modal review panel.
-      if (width < 900) {
-        cy.get('[data-cy="app-risk-dialog"] [role="dialog"]').should(
-          'have.attr',
-          'aria-modal',
-          'true',
-        );
-      } else {
-        cy.get('[data-cy="app-risk-dialog"]').should(
-          'have.attr',
-          'aria-modal',
-          'false',
-        );
-      }
+      // An app without a UI opens on the graph, also on mobile, so the
+      // review is the non-modal panel from the start
+      cy.get('[data-cy="app-risk-dialog"]').should(
+        'have.attr',
+        'aria-modal',
+        'false',
+      );
       cy.get(
         '[aria-label="Center review"], [aria-label="Inspect alongside graph"]',
       ).should('not.exist');
@@ -702,7 +695,7 @@ describe('app risk review', () => {
     cy.get('[data-cy="app-risk-summary"]')
       .should('contain', 'No access')
       .and('not.contain', 'to review')
-      .and('contain', 'Unknown source');
+      .and('contain', 'Unknown publisher');
     cy.get('[data-cy="app-risk-dialog"]').should('not.exist');
     beginLoad([codeNode()]);
     cy.get('[data-cy="run-reviewed-app"]').click();
@@ -748,7 +741,49 @@ describe('app risk review', () => {
       stored.graphData.nodes = [codeNode()];
       await controller.loadStringifiedGraph(JSON.stringify(stored));
     });
-    cy.get('[data-cy="app-risk-source"]').should('contain', 'Unknown source');
+    cy.get('[data-cy="app-risk-source"]').should(
+      'contain',
+      'Unknown publisher',
+    );
+    cy.get('[aria-label="Verified Tailrmade"]').should('not.exist');
+  });
+
+  it('names the publisher of an app loaded from a cloud account', () => {
+    const pnpBaseUrl = Cypress.expose('pnpBaseUrl') || 'http://127.0.0.1:8080';
+    const openPublicApp = (ownerId: string, owner?: object) => {
+      cy.readFile('tests/frontend/cypress/fixtures/button.ppgraph').then(
+        (data) => {
+          cy.intercept('GET', `/public/graph/${ownerId}/Test/TestPublic`, {
+            success: true,
+            data,
+            owner,
+          });
+          cy.visit(
+            `${pnpBaseUrl}/?loadGraph=${ownerId};;TestPublic;;Test;;public`,
+          );
+        },
+      );
+      approveLoadedTestApp();
+      cy.viewport(1280, 900);
+      cy.get('[data-cy="inspector-column"]').then(($column) => {
+        if ($column.width() === 0)
+          cy.get('[data-cy="right-drawer-toggle-btn"]').click();
+      });
+      cy.get('[data-cy="app-info-tab"]').click();
+    };
+
+    openPublicApp('publicUser');
+    cy.get('[data-cy="app-risk-source"]').should('contain', 'Published by');
+    cy.get('[aria-label="Verified Tailrmade"]').should('be.visible');
+
+    openPublicApp('test-owner', {
+      name: 'Jane Doe',
+      email: 'jane@example.com',
+    });
+    cy.get('[data-cy="app-risk-source"]')
+      .should('contain', 'Published by')
+      .and('contain', 'Jane Doe')
+      .and('contain', 'jane@example.com');
     cy.get('[aria-label="Verified Tailrmade"]').should('not.exist');
   });
 

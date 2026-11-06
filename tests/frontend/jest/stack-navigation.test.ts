@@ -2,6 +2,7 @@ import {
   getStackView,
   goToOpenedApp,
   graphHasUI,
+  leaveEmptyUIView,
   setStackView,
 } from '../../../src/utils/layoutModel';
 import { RootName } from '../../../src/utils/constants_shared';
@@ -43,5 +44,28 @@ describe('the view an opened app lands on', () => {
 
     goToOpenedApp({ nodes: { a: plainNode } });
     expect(getStackView()).toBe('graph');
+  });
+});
+
+describe('the view a graph loaded straight into stack view lands on', () => {
+  afterEach(() => setStackView('ui'));
+
+  it('leaves the UI view for the graph when there is no UI to show', () => {
+    setStackView('ui');
+    leaveEmptyUIView({ nodes: { a: plainNode, b: surface(0) } });
+    expect(getStackView()).toBe('graph');
+  });
+
+  it('stays on the UI view when the graph has a UI', () => {
+    setStackView('ui');
+    leaveEmptyUIView({ nodes: { a: surface(1) } });
+    expect(getStackView()).toBe('ui');
+  });
+
+  // opening from the apps list is goToOpenedApp's handover, not this one
+  it('does not touch any other view', () => {
+    setStackView('apps');
+    leaveEmptyUIView({ nodes: { a: plainNode } });
+    expect(getStackView()).toBe('apps');
   });
 });

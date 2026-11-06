@@ -1612,12 +1612,6 @@ ${Math.round(bounds.minX)}, ${Math.round(
         }
       }
 
-      // Keep dashboard widget selection in sync while editing
-      if (InterfaceController.isDashboardInEditMode) {
-        const elementId = `NODE_${this.id}`;
-        InterfaceController.selectDashboardItemByElementId(elementId);
-      }
-
       const isDashboardVisible = Boolean(
         InterfaceController.getOverlayState().dashboard.visible,
       );

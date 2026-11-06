@@ -4,6 +4,7 @@ import {
   closeBothDrawers,
   controlOrMetaKey,
   doWithTestController,
+  exitDashboardEditMode,
   getSocketCenterByNodeIDAndSocketName,
   logCypressStep,
   openExistingGraph,
@@ -400,6 +401,42 @@ describe('Test dashboard', () => {
     cy.get('[data-cy="dashboard"]').should('be.visible');
     cy.get('[data-cy="app-view-exit-button"]').should('not.exist');
     cy.get('[data-cy="toggle-dashboard-btn"]').should('be.visible');
+  });
+
+  it('Offers the jump to the graph only while the graph is on screen', () => {
+    const selectNodeButton = '[data-cy="select-node-button"]';
+    addDashboardContent();
+    exitDashboardEditMode();
+
+    getVisibleNodeWidget().realHover();
+    cy.get(selectNodeButton).should('be.visible');
+    // the widget holds an iframe, and crossing from it onto the button must
+    // not make the button flicker: the tooltip never opens if it does
+    cy.get(selectNodeButton).realHover();
+    cy.contains('[role="tooltip"]', 'Show in graph').should('be.visible');
+
+    cy.get('[data-cy="maximise-dashboard-btn"]').first().click({ force: true });
+    cy.get(selectNodeButton).should('not.exist');
+    getVisibleNodeWidget().realHover();
+    cy.get(selectNodeButton).should('not.exist');
+
+    cy.get('[data-cy="shrink-dashboard-btn"]').first().click({ force: true });
+    getVisibleNodeWidget().realHover();
+    cy.get(selectNodeButton).should('be.visible');
+
+    cy.get('[data-cy="toggle-app-button"]').click({ force: true });
+    cy.get('[data-cy="app-view-exit-button"]').should('be.visible');
+    getVisibleNodeWidget().realHover();
+    cy.get(selectNodeButton).should('not.exist');
+
+    cy.get('[data-cy="app-view-exit-button"]').click({ force: true });
+    getVisibleNodeWidget().realHover();
+    cy.get(selectNodeButton).should('be.visible');
+
+    cy.viewport(390, 844);
+    cy.get(selectNodeButton).should('not.exist');
+    getVisibleNodeWidget().realHover();
+    cy.get(selectNodeButton).should('not.exist');
   });
 
   it('Clears the dashboard', () => {
