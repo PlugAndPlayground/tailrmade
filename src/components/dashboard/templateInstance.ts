@@ -50,9 +50,9 @@ export interface TemplateInstanceHandle {
 }
 
 export interface TemplateInstanceContextValue extends TemplateInstanceCapture {
-  // the node this rendering belongs to (Place Template, or Repeat Template)
+  // the node this rendering belongs to (Place template, or Repeat template)
   ownerId: string;
-  // distinguishes rows of one Repeat Template; undefined for a single placement
+  // distinguishes rows of one Repeat template; undefined for a single placement
   rowKey?: string;
 }
 

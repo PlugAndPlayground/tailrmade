@@ -137,7 +137,7 @@ export function getDescendantSurfaceIds(surface: PPNode): Set<string> {
     }
     const like = current as unknown as SurfaceLikeNode;
     getEmbeddedSurfaceNodes(like).forEach(visit);
-    // a Place/Repeat Template on this surface pulls in its template's body
+    // a Place/Repeat template on this surface pulls in its template's body
     getElementSockets(like).forEach((socket) =>
       socket.links.forEach((link) =>
         visit(link.getSource().getNode().getTemplateBodySurface()),

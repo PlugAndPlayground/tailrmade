@@ -579,7 +579,7 @@ describe('template placements', () => {
       ) =>
         call('connect_sockets', { from_node, from_socket, to_node, to_socket });
 
-      await add('UI Template', 'ai-node-1');
+      await add('UI template', 'ai-node-1');
       await add('UI surface', 'ai-node-2');
       await add('WidgetTextField', 'ai-node-3');
       await call('set_node_name', { node_id: 'ai-node-1', name: 'Card' });
@@ -587,7 +587,7 @@ describe('template placements', () => {
       await connect('ai-node-2', 'ReactUI', 'ai-node-1', 'UI');
       await connect('ai-node-1', 'Parameter 1', 'ai-node-3', VALUE);
 
-      await add('Place Template', 'ai-node-4');
+      await add('Place template', 'ai-node-4');
       await call('set_socket_value', {
         node_id: 'ai-node-4',
         socket_name: 'Template',
@@ -602,7 +602,7 @@ describe('template placements', () => {
         tc.getNodeByID('ai-node-4').capture.snapshots['ai-node-3'][VALUE],
       ).to.equal('placed');
 
-      await add('Repeat Template', 'ai-node-5');
+      await add('Repeat template', 'ai-node-5');
       await call('set_socket_value', {
         node_id: 'ai-node-5',
         socket_name: 'Template',
@@ -631,7 +631,7 @@ describe('template placements', () => {
       });
       expect(refused.is_error).to.equal(true);
 
-      const docs = await call('describe_node', { node_type: 'UI Template' });
+      const docs = await call('describe_node', { node_type: 'UI template' });
       expect(docs.content).to.contain('Build order');
     });
   });

@@ -12,13 +12,13 @@ The nodes that make this work:
 
 | Node              | What it does                                   |
 | :---------------- | :--------------------------------------------- |
-| `UI Template`     | The frame you build the piece of UI inside     |
-| `Place Template`  | Shows the template once, with its own values   |
-| `Repeat Template` | Shows the template once per entry of your data |
+| `UI template`     | The frame you build the piece of UI inside     |
+| `Place template`  | Shows the template once, with its own values   |
+| `Repeat template` | Shows the template once per entry of your data |
 
 ## Build a template
 
-1. Add a "UI Template" node from the node search
+1. Add a "UI template" node from the node search
 2. Optionally - Give it a name in the node inspector. Placements refer to the template by this name.
 3. Add the widgets you need inside the frame, and set the values every copy should start from
 4. Add a "UI surface" node inside the frame and connect each widget's `ReactUI` output to it
@@ -38,7 +38,7 @@ Each parameter takes the name of the input it feeds. One parameter can feed seve
 
 ### Hand values back
 
-To use a value from the template elsewhere in your graph, connect it to the `Output 1` input on the right of the template. Place Template gets a matching output. Repeat Template collects the values from all rows into its `Output`.
+To use a value from the template elsewhere in your graph, connect it to the `Output 1` input on the right of the template. Place template gets a matching output. Repeat template collects the values from all rows into its `Output`.
 
 ### Show widgets conditionally
 
@@ -46,16 +46,16 @@ To show a widget in some copies only, feed a parameter into a test, for example 
 
 ## Show a template once
 
-1. Add a "Place Template" node
+1. Add a "Place template" node
 2. In the node inspector, pick your template under `Template`
 3. Set or connect the parameter inputs that appear on the node
 4. Connect its `ReactUI` output to the surface where it should appear
 
-Add one Place Template node for each copy you want.
+Add one Place template node for each copy you want.
 
 ## Show a template per entry
 
-1. Add a "Repeat Template" node
+1. Add a "Repeat template" node
 2. In the node inspector, pick your template under `Template`
 3. Connect an array or a JSON object to `Items`
 4. Connect its `ReactUI` output to the surface where it should appear
@@ -91,7 +91,7 @@ Set `Key field` whenever your data can change order. Without it, an array entry 
 
 ## What users can change
 
-Widgets inside a copy work as usual in the user interface. A change stays in that copy, or that row of a Repeat Template:
+Widgets inside a copy work as usual in the user interface. A change stays in that copy, or that row of a Repeat template:
 
 - It replaces what the parameter provided for that row
 - Other copies and rows are not affected

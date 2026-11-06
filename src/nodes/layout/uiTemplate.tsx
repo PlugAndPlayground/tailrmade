@@ -82,7 +82,7 @@ export class PlaceTemplate extends TemplatePlacementNode {
   capture: TemplateInstanceCapture = emptyTemplateCapture();
 
   public getName(): string {
-    return 'Place Template';
+    return 'Place template';
   }
 
   public getDescription(): string {
@@ -90,7 +90,7 @@ export class PlaceTemplate extends TemplatePlacementNode {
   }
 
   public getDocs(): string {
-    return `One placement of a "UI Template". Place it as often as you like -
+    return `One placement of a "UI template". Place it as often as you like -
 each placement keeps its own values.
 
 Pick the template under "${templateSocketName}". This node then
@@ -103,7 +103,7 @@ whatever a viewer changes in a widget of this placement, which stays here.
 
 ${AGENT_DOCS_HEADING}
 The template is referenced by NAME, and template names are kept unique. See
-describe_node "UI Template" for how to build one.
+describe_node "UI template" for how to build one.
 
 Setting "${templateSocketName}" with set_socket_value creates one input per
 parameter that feeds something, named like the template's ("Parameter 1"), so

@@ -1,4 +1,4 @@
-// The UI Template frame, inverted like a Macro: parameter OUTPUTS on the left
+// The UI template frame, inverted like a Macro: parameter OUTPUTS on the left
 // block and the UI INPUT on the right, so wires read left to right through the
 // nodes inside. Its body is whatever UI surface is plugged into "UI".
 import * as PIXI from 'pixi.js';
@@ -61,7 +61,7 @@ export class UITemplate extends PPNode {
   prevTimeUpdated = 0;
 
   public getName(): string {
-    return 'UI Template';
+    return 'UI template';
   }
 
   public getDescription(): string {
@@ -80,11 +80,11 @@ of a "${templateParameterPrefixName}" socket on the left: wire it into the
 input that should change. A fresh parameter appears as soon as you use the last
 one, and each takes the name of the socket it feeds.
 
-Place it with "Place Template", once per copy you want. Each placement has its
+Place it with "Place template", once per copy you want. Each placement has its
 own parameter values and renders on its own; the nodes inside the frame are
 shared, so a change to the template shows up in every placement.
 
-To show it once per entry of an array or object, use "Repeat Template" instead.
+To show it once per entry of an array or object, use "Repeat template" instead.
 
 A viewer's change to a widget inside a placement stays in that placement. To show
 or hide a widget per placement, wire a test of a parameter into that widget's
@@ -102,7 +102,7 @@ inspect_nodes. Prefer a template over duplicating widgets per row or wiring
 per-row widget nodes by hand.
 
 Build order, all with the ordinary tools:
-1. add_node "UI Template", "UI surface", and the widgets. Give the widgets the
+1. add_node "UI template", "UI surface", and the widgets. Give the widgets the
    defaults every placement should start from.
 2. connect_sockets each widget's ReactUI to the surface, and the surface's ReactUI
    to the template's "${templateUISocketName}". Arrange that surface as usual with
@@ -110,7 +110,7 @@ Build order, all with the ordinary tools:
 3. connect_sockets from the template's "${templateParameterPrefixName} 1" to each
    input that should differ. One parameter can feed several inputs, and a spare
    "${templateParameterPrefixName} 2" appears once the first is used.
-4. add_node "Place Template" or "Repeat Template", set_socket_value its
+4. add_node "Place template" or "Repeat template", set_socket_value its
    "${templateSocketName}" to the template's name, then connect its ReactUI to the
    surface the app shows.
 
@@ -296,7 +296,7 @@ Template's "Output" instead.`;
     let nameToUse = text;
     for (
       let i = 0;
-      nameToUse === 'UI Template' ||
+      nameToUse === 'UI template' ||
       others.some((template) => template.nodeName === nameToUse);
       i++
     ) {

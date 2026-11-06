@@ -1,4 +1,4 @@
-// Repeat Template: one placement of a UI template per entry of an array or
+// Repeat template: one placement of a UI template per entry of an array or
 // object. Not called "grid": columns is a setting, and "Widget grid array"
 // already exists.
 import React, { useContext, useMemo } from 'react';
@@ -213,7 +213,7 @@ export class RepeatTemplate extends TemplatePlacementNode {
   rows: TemplateRow[] = [];
 
   public getName(): string {
-    return 'Repeat Template';
+    return 'Repeat template';
   }
 
   public getDescription(): string {
@@ -221,7 +221,7 @@ export class RepeatTemplate extends TemplatePlacementNode {
   }
 
   public getDocs(): string {
-    return `Repeats a "UI Template" over data: one placement per entry of an
+    return `Repeats a "UI template" over data: one placement per entry of an
 array or an object, each with its own values.
 
 Pick the template under "${templateSocketName}" and feed "${itemsSocketName}"
@@ -254,7 +254,7 @@ Whatever a viewer changes in a row's widget stays in that row. A template's
 
 ${AGENT_DOCS_HEADING}
 The template is referenced by NAME, and template names are kept unique. See
-describe_node "UI Template" for how to build one.
+describe_node "UI template" for how to build one.
 
 Setting "${templateSocketName}" with set_socket_value creates the "<parameter>
 from" inputs, named after the template's sockets ("Parameter 1 from"), so wire
