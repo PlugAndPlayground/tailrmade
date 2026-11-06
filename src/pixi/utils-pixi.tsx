@@ -1,6 +1,7 @@
 import * as PIXI from 'pixi.js';
 import { TRgba } from '../utils/color';
 import { Viewport } from 'pixi-viewport';
+import CanvasScenery from './canvasScenery';
 import PPGraph from '../classes/GraphClass';
 import PPNode from '../classes/NodeClass';
 import PPStorage, { checkForUnsavedChanges } from '../PPStorage';
@@ -524,6 +525,9 @@ export const createPixiApp = (
     });
 
     background.alpha = CANVAS_BACKGROUND_ALPHA;
+
+    // parallax space backdrop behind the viewport, off until toggled with Shift+B
+    new CanvasScenery(pixiApp.current, viewport.current);
 
     // add graph to pixiApp
     viewport.current.label = 'Viewport';

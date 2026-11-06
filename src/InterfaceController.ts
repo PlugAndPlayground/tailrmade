@@ -46,6 +46,7 @@ import {
 } from './actions/graphActions';
 import { removeNodesFromGroups } from './classes/groups/groupActions';
 import type { UISurfaceNode } from './nodes/layout/uiSurface';
+import CanvasScenery from './pixi/canvasScenery';
 
 export enum ListenEvent {
   SelectionChanged, // data = PPNode[]
@@ -504,6 +505,9 @@ export default class InterfaceController {
             break;
           case 'KeyA':
             void combineToArray();
+            break;
+          case 'KeyB':
+            CanvasScenery.toggle();
             break;
           case 'KeyC':
             void combineSelectedDrawNodes();

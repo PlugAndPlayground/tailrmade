@@ -49,6 +49,7 @@ import {
 } from './ContextMenus';
 import FactCheckOutlinedIcon from '@mui/icons-material/FactCheckOutlined';
 import { showCurrentAppRisks } from '../AppRiskDialog';
+import CanvasScenery from '../../pixi/canvasScenery';
 
 const GestureModeMenuItem = (props) => {
   const GestureIcon = props.icon;
@@ -399,6 +400,16 @@ export const GraphContextMenu = (props) => {
             {gestureModes()}
           </SubMenuItem>
         )}
+        <MenuItem onClick={() => CanvasScenery.toggle()}>
+          <ListItemText>
+            {CanvasScenery.isEnabled()
+              ? 'Hide space backdrop'
+              : 'Show space backdrop'}
+          </ListItemText>
+          <Typography variant="body2" color="text.secondary">
+            Shift+B
+          </Typography>
+        </MenuItem>
         <MenuItem
           onClick={() => {
             PPGraph.currentGraph.showExecutionVisualisation =
