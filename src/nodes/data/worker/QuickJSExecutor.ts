@@ -13,6 +13,7 @@ type CachedFunction = {
   vm: QuickJSContext;
   fn: QuickJSHandle;
   classify: QuickJSHandle;
+  keys: QuickJSHandle;
   define: QuickJSHandle;
 };
 
@@ -46,6 +47,7 @@ export class QuickJSExecutor {
     }
     const vm = this.runtime.newContext();
     let classify: QuickJSHandle | undefined;
+    let keys: QuickJSHandle | undefined;
     let define: QuickJSHandle | undefined;
     let fn: QuickJSHandle | undefined;
     try {
@@ -61,6 +63,15 @@ export class QuickJSExecutor {
         return value => isArray(value) ? 'array' : (getPrototypeOf(value) === prototype || getPrototypeOf(value) === null) ? 'object' : 'unsupported';
       })()`),
       );
+      // Not vm.getOwnPropertyNames: in quickjs-emscripten 0.32 each call takes
+      // a block off the runtime's allocation count, which wraps around after
+      // about a thousand objects and fails every allocation from then on.
+      keys = vm.unwrapResult(
+        vm.evalCode(`(() => {
+        const keys = Object.keys;
+        return value => keys(value);
+      })()`),
+      );
       define = vm.unwrapResult(
         vm.evalCode(`(() => {
         const defineProperty = Object.defineProperty;
@@ -68,12 +79,13 @@ export class QuickJSExecutor {
       })()`),
       );
       fn = vm.unwrapResult(vm.evalCode(`(${code})`, 'custom-function.js'));
-      const entry = { vm, fn, classify, define };
+      const entry = { vm, fn, classify, keys, define };
       this.functions.set(code, entry);
       return entry;
     } catch (error) {
       fn?.dispose();
       define?.dispose();
+      keys?.dispose();
       classify?.dispose();
       vm.dispose();
       throw error;
@@ -82,7 +94,7 @@ export class QuickJSExecutor {
 
   execute(code: string, data: unknown, timeout = 30000): unknown {
     this.deadline = Date.now() + timeout;
-    const { vm, fn, classify, define } = this.compile(code);
+    const { vm, fn, classify, keys, define } = this.compile(code);
     return Scope.withScope((scope) => {
       const input = toQuickJS(vm, data, scope, define);
       const output = scope.manage(
@@ -111,13 +123,14 @@ export class QuickJSExecutor {
           'QuickJS promise did not settle; browser async APIs are unavailable',
         );
       const settled = scope.manage(vm.unwrapResult(state));
-      return fromQuickJS(vm, settled, classify);
+      return fromQuickJS(vm, settled, classify, keys);
     });
   }
 
   private release(entry: CachedFunction): void {
     entry.fn.dispose();
     entry.classify.dispose();
+    entry.keys.dispose();
     entry.define.dispose();
     entry.vm.dispose();
   }
