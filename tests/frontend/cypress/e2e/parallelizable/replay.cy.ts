@@ -139,6 +139,7 @@ describe('Replay', () => {
     doWithTestController(async (tc) => {
       await tc.addNode('Constant', 'keeper');
       await tc.playReplay(script);
+      tc.selectNodesById(['keeper', 'ai-node-1']);
 
       let refusal = '';
       try {
@@ -151,6 +152,10 @@ describe('Replay', () => {
       await tc.resetReplay(script);
       expect(tc.getNodes().map((node) => node.id)).to.deep.eq(['keeper']);
       expect(tc.getGroups()).to.have.length(0);
+      // only the removed node leaves the selection
+      expect(tc.getSelectedNodes().map((node) => node.id)).to.deep.eq([
+        'keeper',
+      ]);
 
       const reports = await tc.playReplay(script);
       expect(reports[reports.length - 1].status).to.eq('Done');
