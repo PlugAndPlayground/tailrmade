@@ -36,6 +36,7 @@ export const templateOutputPrefixName = 'Output';
 export const templateSocketName = 'Template';
 // per-placement edits, kept on the placing node so they save with the graph
 export const templateEditsSocketName = 'Edits';
+export const templateClearEditsSocketName = 'Clear edits';
 
 export const modalOpenSocketName = 'Open';
 export const modalOpenTriggerSocketName = 'Open Dialog';

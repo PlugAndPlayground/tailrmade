@@ -95,10 +95,12 @@ Widgets inside a copy work as usual in the user interface. A change stays in tha
 
 - It replaces what the parameter provided for that row
 - Other copies and rows are not affected
-- It is saved with the graph, in the placement's `Edits` input
+- It is saved with the graph, in the placement's `Edits` input, until the `Clear edits` trigger fires
 - If one parameter feeds several widgets, they share one value, so the latest change shows in all of them
 
 To change what every copy starts from, set the value on the widget inside the template frame.
+
+A button in a row can also change the list itself, for example to remove that row or open a nested level. Wire the row's value into a `State Write` and the button into its `Execute`, and feed the Repeat template's `Items` from a `State Read` of the same key. The list updates once the press has finished.
 
 ## Things to keep in mind
 

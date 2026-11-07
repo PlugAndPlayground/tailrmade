@@ -25,9 +25,15 @@ import { getPageDashboardIcon } from '../../components/dashboard/dashboardIcons'
 import { DynamicEnumType } from '../datatypes/dynamicEnumType';
 import { EnumStructure } from '../datatypes/enumType';
 import { JSONType } from '../datatypes/jsonType';
+import { TriggerType } from '../datatypes/triggerType';
 import { TRgba } from '../../utils/color';
-import { NODE_TYPE_COLOR, SOCKET_TYPE } from '../../utils/constants';
 import {
+  NODE_TYPE_COLOR,
+  SOCKET_TYPE,
+  TRIGGER_TYPE_OPTIONS,
+} from '../../utils/constants';
+import {
+  templateClearEditsSocketName,
   templateEditsSocketName,
   templateSocketName,
   templateUISocketName,
@@ -174,12 +180,38 @@ export abstract class TemplatePlacementNode
     );
   }
 
+  protected getClearEditsSocket(): PPSocket {
+    return new PPSocket(
+      SOCKET_TYPE.TRIGGER,
+      templateClearEditsSocketName,
+      new TriggerType(TRIGGER_TYPE_OPTIONS[0].text, 'clearEdits'),
+    );
+  }
+
+  // back to what the parameters provide, for example after loading new data
+  public async clearEdits(): Promise<void> {
+    this.setInputData(templateEditsSocketName, {});
+    await this.executeOptimizedChain();
+  }
+
   public getTemplate(): UITemplate | undefined {
     const name = String(this.getInputData(templateSocketName) ?? '').trim();
     if (!name) {
       return undefined;
     }
     return getTemplates().find((template) => template.nodeName === name);
+  }
+
+  // A run asked for while its template is mid-pass - a row's button writing
+  // state that this placement reads - would wait in the template's queue behind
+  // the very pass that is waiting for it. It runs once the queue drains instead.
+  public async execute(): Promise<void> {
+    const template = this.getTemplate();
+    if (template?.passRunning) {
+      void template.passQueue.then(() => this.executeOptimizedChain());
+      return;
+    }
+    await super.execute();
   }
 
   public isPlacingTemplate(templateName: string): boolean {

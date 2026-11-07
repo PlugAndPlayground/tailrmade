@@ -196,6 +196,24 @@ describe('template placements', () => {
     });
   });
 
+  it('drops every row edit when Clear edits fires', () => {
+    doWithTestController(async (tc: any) => {
+      const template = await addTemplate(tc, 't');
+      const widget = await addWidget(tc, 't', 't-w');
+      await tc.connectNodesByID('t', 't-w', 'Parameter 1', VALUE);
+      const repeat = await addRepeat(tc, template, 'rep', ['a', 'b']);
+      await widget.applyWidgetEdit(VALUE, 'B!', { ownerId: 'rep', rowKey: '1' });
+      expect(rowValues(repeat, 't-w')).to.deep.equal(['a', 'B!']);
+
+      // a trigger ignores the first value it ever gets
+      const clear = repeat.getNodeTriggerSocketByName('Clear edits');
+      await clear.setDataAndWait(0);
+      await clear.setDataAndWait(1);
+      expect(repeat.getInputData('Edits')).to.deep.equal({});
+      expect(rowValues(repeat, 't-w')).to.deep.equal(['a', 'b']);
+    });
+  });
+
   it('re-evaluates only the edited row', () => {
     doWithTestController(async (tc: any) => {
       const template = await addTemplate(tc, 't');
@@ -423,6 +441,38 @@ describe('template placements', () => {
       });
       expect(fired).to.deep.equal(['a', 0]);
       expect(button.getInputData('On value')).to.equal('a');
+    });
+  });
+
+  it('lets a row button change the items of its own repeat', () => {
+    doWithTestController(async (tc: any) => {
+      const template = await addTemplate(tc, 't');
+      const button = await addWidget(tc, 't', 't-b', 'WidgetButton');
+      await tc.addNode('StateWrite', 'write', -200, 300);
+      const write = tc.getNodeByID('write');
+      write.setInputData('Key', 'picked');
+      await tc.connectNodesByID('t', 'write', 'Parameter 1', 'Value');
+      await tc.connectNodesByID('t-b', 'write', 'Out', 'Execute');
+      await tc.addNode('StateRead', 'read', 400, 300);
+      const read = tc.getNodeByID('read');
+      read.setInputData('Key', 'picked');
+      read.setInputData('Fallback value', ['a', 'b']);
+      const repeat = await addRepeat(tc, template, 'rep', []);
+      await tc.connectNodesByID('read', 'rep', 'Value', 'Items');
+      await read.executeOptimizedChain();
+      expect(repeat.rows.map((row: any) => row.entry)).to.deep.equal([
+        'a',
+        'b',
+      ]);
+
+      // the press writes state the repeat reads, from inside row b's pass
+      const pressed = button.handleOnClick({ ownerId: 'rep', rowKey: '1' });
+      expect(await settlesWithin(pressed)).to.equal(true);
+    });
+    shouldWithTestController((tc: any) => {
+      expect(
+        tc.getNodeByID('rep').rows.map((row: any) => row.entry),
+      ).to.deep.equal(['b']);
     });
   });
 

@@ -203,9 +203,14 @@ export function runTemplateAsInstance(
   edits: TemplateNodeValues = {},
   action?: () => Promise<void>,
 ): Promise<TemplateInstanceCapture> {
-  const pass = template.passQueue.then(() =>
-    runPass(template, args, edits, action),
-  );
+  const pass = template.passQueue.then(async () => {
+    template.passRunning = true;
+    try {
+      return await runPass(template, args, edits, action);
+    } finally {
+      template.passRunning = false;
+    }
+  });
   template.passQueue = pass.catch(() => undefined);
   return pass;
 }

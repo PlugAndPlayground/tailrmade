@@ -55,6 +55,8 @@ export class UITemplate extends PPNode {
   bodyNodes: PPNode[] = [];
   // the end of the last pass queued, see runTemplateAsInstance
   passQueue: Promise<unknown> = Promise.resolve();
+  // true while a pass runs, see TemplatePlacementNode.execute
+  passRunning = false;
 
   placementGraphics!: PIXI.Graphics;
   prevPlacements = '';

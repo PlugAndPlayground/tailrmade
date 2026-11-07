@@ -248,6 +248,10 @@ position, which does not survive a reorder. "${maxItemsSocketName}" caps how
 many are rendered - every row costs one evaluation of the template, so an
 unbounded array is slow.
 
+A button in a row can change "${itemsSocketName}" itself (remove a row, open a
+nested level): wire the row's value into a State Write and the button's Out into
+its Execute, and feed "${itemsSocketName}" from a State Read of the same key.
+
 Whatever a viewer changes in a row's widget stays in that row. A template's
 "${templateOutputPrefixName}" values are collected per row into this node's
 "${outName}".
@@ -266,7 +270,8 @@ Connect this node's ReactUI output to the surface it should appear on, not the
 template's body surface.
 
 "Edits" holds what viewers changed, per row. Leave it alone: to change what every
-row starts from, set the value on the widget inside the template.`;
+row starts from, set the value on the widget inside the template. Fire
+"Clear edits" to drop every row's changes, for example when new data arrives.`;
   }
 
   public getTags(): string[] {
@@ -320,6 +325,7 @@ row starts from, set the value on the widget inside the template.`;
         false,
       ),
       this.getEditsSocket(),
+      this.getClearEditsSocket(),
       new PPSocket(SOCKET_TYPE.OUT, outName, new JSONType()),
     ];
   }

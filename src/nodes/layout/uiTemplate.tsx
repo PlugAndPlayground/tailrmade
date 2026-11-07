@@ -111,7 +111,8 @@ wire the template's parameters first and set or connect those inputs afterwards.
 Connect this node's ReactUI output to the surface it should appear on.
 
 "Edits" holds what viewers changed in this placement. Leave it alone: to change
-what every placement shows, set the value on the widget inside the template.`;
+what every placement shows, set the value on the widget inside the template. Fire
+"Clear edits" to drop this placement's changes.`;
   }
 
   public getTags(): string[] {
@@ -119,7 +120,11 @@ what every placement shows, set the value on the widget inside the template.`;
   }
 
   protected getDefaultIO(): PPSocket[] {
-    return [this.getTemplateSelectSocket(), this.getEditsSocket()];
+    return [
+      this.getTemplateSelectSocket(),
+      this.getEditsSocket(),
+      this.getClearEditsSocket(),
+    ];
   }
 
   public getTemplateSnapshotProps(): Record<string, unknown> {
