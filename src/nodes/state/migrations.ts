@@ -1,6 +1,6 @@
 // Headless: runs before nodes and links are deserialized.
 import type {
-  SerializedGraph,
+  SerializedSelection,
   SerializedSocket,
   SerializedNode,
   SerializedLink,
@@ -27,7 +27,7 @@ const input = (
   dependentSocketName: undefined,
 });
 
-export function migrateStateNodes(graph: SerializedGraph): SerializedGraph {
+export function migrateStateNodes<T extends SerializedSelection>(graph: T): T {
   return {
     ...graph,
     nodes: graph.nodes.map((node) => {
@@ -64,88 +64,106 @@ export function migrateStateNodes(graph: SerializedGraph): SerializedGraph {
 }
 
 /** Replace fixed socket mutation with explicit reader connections. */
-export function migrateCopySocketNodes(
-  graph: SerializedGraph,
-): SerializedGraph {
-  const nodes: SerializedNode[] = [];
-  const readers: SerializedNode[] = [];
-  const links: SerializedLink[] = [];
-  const removed = new Set<string>();
-  const occupied = new Set<string>();
+export function migrateCopySocketNodes<T extends SerializedSelection>(
+  graph: T,
+): T {
+  const copies = graph.nodes.filter(
+    (node) => String(node.type).toLowerCase() === 'copysocketvalue',
+  );
+  if (!copies.length) return graph;
+  const copyIds = new Set(copies.map((node) => node.id));
   const ids = new Set(graph.nodes.map((node) => node.id));
+  const readers = new Map<string, SerializedNode>();
+  const writes = new Map<string, SerializedNode>();
+  const links: SerializedLink[] = [];
   const additions = new Map<string, string[]>();
   const targetId = (node: string, socket: string) =>
     JSON.stringify([node, socket]);
-  const plans = graph.nodes
-    .filter((node) => String(node.type).toLowerCase() === 'copysocketvalue')
-    .map((node) => {
-      const configured =
-        node.socketArray.find(
-          (socket) =>
-            socket.name === 'Input Socket' && socket.socketType === 'in',
-        )?.data ?? 'Input';
-      // Dynamic socket selection was never part of the replacement contract.
-      const socketName = typeof configured === 'string' ? configured : 'Input';
-      const destinations = new Map<
-        string,
-        { node: SerializedNode; socket: string }
-      >();
-      for (const link of graph.links) {
-        if (link.sourceNodeId !== node.id || link.sourceSocketName !== 'Value')
-          continue;
-        const target = graph.nodes.find(
-          (candidate) => candidate.id === link.targetNodeId,
-        );
-        if (!target) continue;
-        // The old node set the named input, then also propagated Value along its wire.
-        for (const name of new Set([socketName, link.targetSocketName])) {
-          if (
-            name !== link.targetSocketName &&
-            !target.socketArray.some(
-              (socket) => socket.socketType === 'in' && socket.name === name,
-            )
+  const address = (key: string) => [
+    input('Storage type', 'Session', 'EnumType'),
+    input('Key', key),
+  ];
+  for (const node of copies) {
+    const socketName =
+      node.socketArray.find(
+        (socket) =>
+          socket.socketType === 'in' && socket.name === 'Input Socket',
+      )?.data ?? 'Input';
+    const destinations = new Map<
+      string,
+      { node: SerializedNode; socket: string }
+    >();
+    for (const link of graph.links) {
+      if (link.sourceNodeId !== node.id || link.sourceSocketName !== 'Value')
+        continue;
+      const target = graph.nodes.find(
+        (candidate) => candidate.id === link.targetNodeId,
+      );
+      if (!target) continue;
+      // Preserve both the explicitly copied input and normal output propagation.
+      for (const name of new Set([String(socketName), link.targetSocketName])) {
+        if (
+          name !== link.targetSocketName &&
+          !target.socketArray.some(
+            (socket) => socket.socketType === 'in' && socket.name === name,
           )
-            continue;
-          destinations.set(targetId(target.id, name), {
-            node: target,
-            socket: name,
-          });
-        }
+        )
+          continue;
+        destinations.set(targetId(target.id, name), {
+          node: target,
+          socket: name,
+        });
       }
-      return {
-        node,
-        destinations,
-        signature: JSON.stringify([...destinations.keys()].sort()),
-      };
-    });
-  const shared = new Map<string, { key: string; readers: string[] }>();
-  for (const node of graph.nodes) {
-    const plan = plans.find((plan) => plan.node.id === node.id);
-    // Partial overlaps cannot use a single key without changing the other targets.
-    // Keep those uncommon graphs on the compatibility node instead of losing links.
-    if (
-      !plan ||
-      plans.some(
-        (other) =>
-          other !== plan &&
-          other.signature !== plan.signature &&
-          [...other.destinations.keys()].some((key) =>
-            plan.destinations.has(key),
-          ),
-      )
-    ) {
-      nodes.push(node);
-      continue;
     }
-    const { destinations, signature } = plan;
-    removed.add(node.id);
-    const existing = shared.get(signature);
-    const key = existing?.key ?? `Copy/${node.id}`;
-    const address = [
-      input('Storage type', 'Session', 'EnumType'),
-      input('Key', key),
-    ];
-    nodes.push({
+    const keys: string[] = [];
+    const readerIds: string[] = [];
+    for (const [destination, target] of destinations) {
+      const key = `Copy/${destination}`;
+      keys.push(key);
+      let reader = readers.get(destination);
+      if (!reader) {
+        let id = `${node.id}-read-${readers.size + 1}`;
+        while (ids.has(id)) id += '-1';
+        ids.add(id);
+        const original = target.node.socketArray.find(
+          (socket) =>
+            socket.socketType === 'in' && socket.name === target.socket,
+        );
+        reader = {
+          ...node,
+          id,
+          name: undefined,
+          type: 'StorageRead',
+          x: target.node.x - 220,
+          y: target.node.y + readers.size * 40,
+          updateBehaviour: {
+            ...node.updateBehaviour,
+            load: true,
+            update: true,
+            interval: false,
+          },
+          socketArray: [
+            ...address(key),
+            {
+              ...input('Fallback value', original?.data, 'AnyType'),
+              dataType:
+                original?.dataType ?? input('', null, 'AnyType').dataType,
+            },
+            { ...input('Value', original?.data, 'AnyType'), socketType: 'out' },
+          ],
+        };
+        readers.set(destination, reader);
+        links.push({
+          sourceNodeId: id,
+          sourceSocketName: 'Value',
+          targetNodeId: target.node.id,
+          targetSocketName: target.socket,
+        });
+      }
+      readerIds.push(reader.id);
+    }
+    additions.set(node.id, readerIds);
+    writes.set(node.id, {
       ...node,
       type: 'StorageWrite',
       socketArray: [
@@ -154,70 +172,30 @@ export function migrateCopySocketNodes(
             socket.name === 'Execute' ||
             (socket.name === 'Value' && socket.socketType === 'in'),
         ),
-        ...address,
+        ...address(keys[0] ?? `Copy/${node.id}`),
         input('Non-empty only', false, 'BooleanType'),
+        // Hidden migration input lets one old trigger update several independent keys.
+        ...(keys.length > 1
+          ? [input('Additional keys', keys.slice(1), 'ArrayType')]
+          : []),
       ],
     });
-    if (existing) {
-      additions.set(node.id, existing.readers);
-      continue;
-    }
-    const readerIds: string[] = [];
-    shared.set(signature, { key, readers: readerIds });
-    for (const [destination, target] of destinations) {
-      let id = `${node.id}-read-${readers.length + 1}`;
-      while (ids.has(id)) id += '-1';
-      ids.add(id);
-      const original = target.node.socketArray.find(
-        (socket) => socket.socketType === 'in' && socket.name === target.socket,
-      );
-      const fallback = {
-        ...input('Fallback value', original?.data, 'AnyType'),
-        dataType: original?.dataType ?? input('', null, 'AnyType').dataType,
-      };
-      readers.push({
-        ...node,
-        id,
-        name: undefined,
-        type: 'StorageRead',
-        x: target.node.x - 220,
-        y: target.node.y + readers.length * 40,
-        updateBehaviour: {
-          ...node.updateBehaviour,
-          load: true,
-          update: true,
-          interval: false,
-        },
-        socketArray: [
-          ...address,
-          fallback,
-          { ...input('Value', original?.data, 'AnyType'), socketType: 'out' },
-        ],
-      });
-      occupied.add(destination);
-      links.push({
-        sourceNodeId: id,
-        sourceSocketName: 'Value',
-        targetNodeId: target.node.id,
-        targetSocketName: target.socket,
-      });
-      readerIds.push(id);
-      additions.set(node.id, readerIds);
-    }
   }
-  if (!removed.size) return graph;
   return {
     ...graph,
-    nodes: [...nodes, ...readers],
+    nodes: [
+      ...graph.nodes.map((node) => writes.get(node.id) ?? node),
+      ...readers.values(),
+    ],
     links: [
       ...graph.links.filter(
         (link) =>
-          !removed.has(link.sourceNodeId) &&
+          !copyIds.has(link.sourceNodeId) &&
           !(
-            removed.has(link.targetNodeId) &&
+            copyIds.has(link.targetNodeId) &&
             link.targetSocketName === 'Input Socket'
           ) &&
-          !occupied.has(targetId(link.targetNodeId, link.targetSocketName)),
+          !readers.has(targetId(link.targetNodeId, link.targetSocketName)),
       ),
       ...links,
     ],
@@ -234,9 +212,9 @@ export function migrateCopySocketNodes(
 }
 
 /** Flatten the former Local storage / Persistence choice into Storage type. */
-export function migrateStorageBackends(
-  graph: SerializedGraph,
-): SerializedGraph {
+export function migrateStorageBackends<T extends SerializedSelection>(
+  graph: T,
+): T {
   const changed = new Set<string>();
   const nodes = graph.nodes.map((node) => {
     if (
@@ -282,4 +260,87 @@ export function migrateStorageBackends(
         ),
     ),
   };
+}
+
+export function migrateDeprecatedStorageNodes<T extends SerializedSelection>(
+  graph: T,
+): T {
+  const renamed = new Map<string, Record<string, string>>();
+  const nodes = graph.nodes.map((node) => {
+    const kind = String(node.type).toLowerCase();
+    const target = {
+      localstoragewrite: 'StorageWrite',
+      localstoragedelete: 'StorageDelete',
+      localstoragebrowse: 'StorageRead',
+      userstoragewrite: 'StorageWrite',
+      userstorageread: 'StorageRead',
+      userstoragedelete: 'StorageDelete',
+      userstoragebrowse: 'StorageBrowse',
+    }[kind];
+    if (!target) return node;
+    const local = kind.startsWith('local');
+    const names: Record<string, string> = local
+      ? {
+          'Local Storage Key': 'Location',
+          ...(kind === 'localstoragebrowse'
+            ? { Selected: 'Key', 'Fallback Value': 'Fallback value' }
+            : { 'Object Key': 'Key' }),
+        }
+      : {};
+    renamed.set(node.id, names);
+    const sockets = node.socketArray.map((socket) => ({
+      ...socket,
+      name:
+        socket.socketType === 'out'
+          ? socket.name
+          : (names[socket.name] ?? socket.name),
+    }));
+    const defaults = [
+      input('Storage type', local ? 'IndexedDB' : 'Cloud', 'EnumType'),
+    ];
+    if (local || kind === 'userstorageread')
+      defaults.push(input('Show Toast Notification', false, 'BooleanType'));
+    if (target === 'StorageWrite')
+      defaults.push(
+        input('Non-empty only', false, 'BooleanType'),
+        input('Insert only', false, 'BooleanType'),
+      );
+    return {
+      ...node,
+      type: target,
+      version: undefined,
+      socketArray: [
+        ...sockets,
+        ...defaults.filter(
+          (value) =>
+            !sockets.some(
+              (socket) =>
+                socket.name === value.name &&
+                socket.socketType === value.socketType,
+            ),
+        ),
+      ],
+    };
+  });
+  return {
+    ...graph,
+    nodes,
+    links: graph.links.map((link) => ({
+      ...link,
+      targetSocketName:
+        renamed.get(link.targetNodeId)?.[link.targetSocketName] ??
+        link.targetSocketName,
+    })),
+  };
+}
+
+/** Normalize legacy types before creating nodes, including clipboard selections. */
+export function migrateLegacyStorageNodes<T extends SerializedSelection>(
+  graph: T,
+): T {
+  return migrateStorageBackends(
+    migrateDeprecatedStorageNodes(
+      migrateCopySocketNodes(migrateStateNodes(graph)),
+    ),
+  );
 }

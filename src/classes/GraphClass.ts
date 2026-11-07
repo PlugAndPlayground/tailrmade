@@ -4,6 +4,7 @@ import { hri } from 'human-readable-ids';
 import { v4 as uuid } from 'uuid';
 
 import { NODE_SOURCE, NODE_WIDTH, SOCKET_TYPE } from '../utils/constants';
+import { migrateLegacyStorageNodes } from '../nodes/state/migrations';
 import { GRAPH_DATA_VERSION } from '../utils/graphMigrations';
 import { serializeSocketData } from '../utils/serializeSocketData';
 import SocketFocus from './SocketFocus';
@@ -1425,6 +1426,7 @@ export default class PPGraph {
       if (!(await reviewNodePaste(data.nodes.length))) return [];
       if (session !== getNodePasteSession()) return [];
     }
+    data = migrateLegacyStorageNodes(data);
     const newNodes: PPNode[] = [];
     const mappingOfOldAndNewNodes: { [key: string]: PPNode } = {};
 
@@ -1644,6 +1646,10 @@ export default class PPGraph {
     source = getGraphSource(storedGraph),
   ): Promise<boolean> {
     if (this.isConfiguring) return false;
+    storedGraph = {
+      ...storedGraph,
+      graphData: migrateLegacyStorageNodes(storedGraph.graphData),
+    };
     FlowLogic.clearPausedExecutions();
     PNPWorker.resetSession();
     resetNodePasteTrust();

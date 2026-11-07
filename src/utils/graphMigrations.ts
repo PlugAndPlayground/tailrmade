@@ -40,9 +40,10 @@ import {
   migrateStateNodes,
   migrateCopySocketNodes,
   migrateStorageBackends,
+  migrateLegacyStorageNodes,
 } from '../nodes/state/migrations';
 
-export const GRAPH_DATA_VERSION = 10;
+export const GRAPH_DATA_VERSION = 12;
 const LEGACY_GRAPH_DATA_VERSION = 0.1;
 
 type GraphMigration = {
@@ -996,6 +997,16 @@ function migrateSurfaceDefaultsV6ToV7(
 }
 
 const GRAPH_MIGRATIONS: GraphMigration[] = [
+  {
+    fromVersion: 11,
+    toVersion: 12,
+    migrate: (graph) => ({ ...migrateLegacyStorageNodes(graph), version: 12 }),
+  },
+  {
+    fromVersion: 10,
+    toVersion: 11,
+    migrate: (graph) => ({ ...migrateCopySocketNodes(graph), version: 11 }),
+  },
   {
     fromVersion: 9,
     toVersion: 10,

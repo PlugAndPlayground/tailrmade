@@ -29,7 +29,6 @@ describe('unused node status', () => {
         'WidgetButton',
         'UISurfaceNode',
         'ConsolePrint',
-        'StateWrite',
         'StorageWrite',
         'Macro',
         'ExecuteMacro',

@@ -1,5 +1,4 @@
 import { TRgba } from '../../utils/color';
-import { hri } from 'human-readable-ids';
 import FlowLogic from '../../classes/FlowLogic';
 import PPGraph from '../../classes/GraphClass';
 import PPNode from '../../classes/NodeClass';
@@ -25,7 +24,6 @@ import { AnyType } from '../datatypes/anyType';
 import { ArrayType } from '../datatypes/arrayType';
 import { BooleanType } from '../datatypes/booleanType';
 import { EnumType } from '../datatypes/enumType';
-import { JSONType } from '../datatypes/jsonType';
 import { StringType } from '../datatypes/stringType';
 import { TriggerType } from '../datatypes/triggerType';
 import { CLOUD_MODE } from '../../services/shared-types';
@@ -40,7 +38,6 @@ const INSERT_ONLY_NAME = 'Insert only';
 export const FALLBACK_VALUE_NAME = 'Fallback value';
 const SUCCESS_NAME = 'Success';
 const ERROR_NAME = 'Error';
-export const INPUT_SOCKET_NAME = 'Input Socket';
 const FILTER_BY_LOCATION_NAME = 'Filter by Location';
 const DEFAULT_LOCATION = 'Default';
 const OUTPUT_OBJECT_NAMES_NAME = 'Objects';
@@ -57,11 +54,6 @@ const STORAGE_BACKEND_OPTIONS = [
   { text: STORAGE_BACKEND_INDEXED_DB },
   { text: SESSION },
 ];
-const LEGACY_LOCAL_STORAGE_KEY_NAME = 'Local Storage Key';
-const LEGACY_OBJECT_KEY_NAME = 'Object Key';
-const LEGACY_SELECTED_NAME = 'Selected';
-const LEGACY_FALLBACK_VALUE_NAME = 'Fallback Value';
-
 export interface URLSetSocketData {
   node: string;
   socket: string;
@@ -426,9 +418,10 @@ async function serializeMutation<T>(
 async function notifyStorageReadNodes(
   storageBackend: string,
   location: string,
-  key: string,
+  key: string | string[],
   exclude?: PPNode,
 ): Promise<void> {
+  const keys = Array.isArray(key) ? key : [key];
   const graph = PPGraph.currentGraph;
   if (!graph.nodes) {
     return;
@@ -437,15 +430,19 @@ async function notifyStorageReadNodes(
   const nodesToExecute = Object.values(graph.nodes).filter(
     (node) =>
       node !== exclude &&
-      node.shouldExecuteOnStorageValueChanged(storageBackend, location, key),
+      keys.some((key) =>
+        node.shouldExecuteOnStorageValueChanged(storageBackend, location, key),
+      ),
   );
 
-  const address = storageAddress(storageBackend, location, key);
-  notifying.add(address);
+  const addresses = keys.map((key) =>
+    storageAddress(storageBackend, location, key),
+  );
+  addresses.forEach((address) => notifying.add(address));
   try {
     await FlowLogic.executeOptimizedChainBatch(nodesToExecute);
   } finally {
-    notifying.delete(address);
+    addresses.forEach((address) => notifying.delete(address));
   }
 }
 
@@ -723,53 +720,63 @@ export class StorageWrite extends StorageMutation {
     try {
       const storageBackend = getStorageBackend(input);
       const location: string = input[LOCATION_NAME];
-      const key: string = input[KEY_NAME];
-      const changed = await serializeMutation(
-        storageAddress(storageBackend, location, key),
-        async () => {
-          const previousValue = await readStorageValue(
-            storageBackend,
-            location,
-            key,
-          );
-          const value = this.nextValue(previousValue, input);
-          const nonEmptyOnly = input[NON_EMPTY_ONLY_NAME];
-          const insertOnly = input[INSERT_ONLY_NAME];
-          const nextValue = structuredClone(value);
-
-          if (nonEmptyOnly && isStorageValueEmpty(value)) {
-            setStorageWriteSkippedWarning(
-              this,
-              output,
-              STORAGE_WRITE_SKIPPED_VALUE_EMPTY,
+      const additionalKeys = input['Additional keys'] ?? [];
+      if (
+        !Array.isArray(additionalKeys) ||
+        !additionalKeys.every((key) => typeof key === 'string')
+      )
+        throw new Error('Additional keys must be an array of strings');
+      const changedKeys: string[] = [];
+      for (const key of new Set<string>([input[KEY_NAME], ...additionalKeys])) {
+        const changed = await serializeMutation(
+          storageAddress(storageBackend, location, key),
+          async () => {
+            const previousValue = await readStorageValue(
+              storageBackend,
+              location,
+              key,
             );
-            return;
-          }
+            const value = this.nextValue(previousValue, input);
+            const nonEmptyOnly = input[NON_EMPTY_ONLY_NAME];
+            const insertOnly = input[INSERT_ONLY_NAME];
+            const nextValue = structuredClone(value);
 
-          const hadPreviousValue = previousValue !== undefined;
-          if (insertOnly && hadPreviousValue) {
-            setStorageWriteSkippedWarning(
-              this,
+            if (nonEmptyOnly && isStorageValueEmpty(value)) {
+              setStorageWriteSkippedWarning(
+                this,
+                output,
+                STORAGE_WRITE_SKIPPED_VALUE_EMPTY,
+              );
+              return;
+            }
+
+            const hadPreviousValue = previousValue !== undefined;
+            if (insertOnly && hadPreviousValue) {
+              setStorageWriteSkippedWarning(
+                this,
+                output,
+                STORAGE_WRITE_SKIPPED_KEY_EXISTS,
+              );
+              return;
+            }
+            await mutateStorage(storageBackend, location, key, nextValue);
+            this.completeMutation(
+              input,
               output,
-              STORAGE_WRITE_SKIPPED_KEY_EXISTS,
+              `Wrote "${key}" to ${describeStorageBackend(storageBackend)}`,
             );
-            return;
-          }
-          await mutateStorage(storageBackend, location, key, nextValue);
-          this.completeMutation(
-            input,
-            output,
-            `Wrote "${key}" to ${describeStorageBackend(storageBackend)}`,
-          );
-          return hasValueChanged(
-            hadPreviousValue,
-            previousValue,
-            true,
-            nextValue,
-          );
-        },
-      );
-      if (changed) await notifyStorageReadNodes(storageBackend, location, key);
+            return hasValueChanged(
+              hadPreviousValue,
+              previousValue,
+              true,
+              nextValue,
+            );
+          },
+        );
+        if (changed) changedKeys.push(key);
+      }
+      if (changedKeys.length)
+        await notifyStorageReadNodes(storageBackend, location, changedKeys);
     } catch (err) {
       this.setStorageExecutionError(output, err, 'Failed to write to storage');
     }
@@ -1025,295 +1032,5 @@ export class StorageBrowse extends StorageReader {
         [],
       );
     }
-  }
-}
-
-abstract class LegacyStorageScaffold extends AbstractStorageNode {
-  public getSeemsUnused(): boolean {
-    return !this.mutatesStorage && super.getSeemsUnused();
-  }
-
-  protected setInputSocketValue(
-    node: PPNode,
-    socketName: string,
-    value: any,
-  ): void {
-    const socket = node.getInputSocketByName(socketName);
-
-    if (!socket) {
-      return;
-    }
-
-    socket.data = value;
-    socket.defaultData = value;
-  }
-
-  protected async renameInputSocket(
-    oldName: string,
-    newName: string,
-    dataType: AnyType | BooleanType | EnumType | JSONType | StringType,
-  ): Promise<void> {
-    const oldSocket = this.getInputSocketByName(oldName);
-
-    if (!oldSocket || this.getInputSocketByName(newName)) {
-      return;
-    }
-
-    await this.replaceSocketWithOtherSocket(
-      oldSocket,
-      new Socket(SOCKET_TYPE.IN, newName, dataType, oldSocket.data),
-    );
-  }
-
-  protected async migrateToStorageNode(
-    targetType: string,
-    storageBackend: string,
-    configureReplacement?: (replacementNode: PPNode) => void,
-  ): Promise<void> {
-    const previousNodeId = this.id;
-    const replacementId = hri.random();
-    const serializedNode = this.serialize();
-    const migratedSerializedNode: SerializedNode = {
-      ...serializedNode,
-      type: targetType,
-    };
-    const replacementNode = await PPGraph.currentGraph.replaceNode(
-      serializedNode,
-      previousNodeId,
-      replacementId,
-      undefined,
-      migratedSerializedNode,
-    );
-
-    delete PPGraph.currentGraph.nodes[replacementId];
-    replacementNode.id = previousNodeId;
-    PPGraph.currentGraph.nodes[previousNodeId] = replacementNode;
-    PPGraph.currentGraph.groupLayer.onNodeReplaced(
-      replacementId,
-      previousNodeId,
-    );
-
-    this.setInputSocketValue(
-      replacementNode,
-      STORAGE_BACKEND_NAME,
-      storageBackend,
-    );
-    this.setInputSocketValue(
-      replacementNode,
-      SHOW_TOAST_NOTIFICATION_NAME,
-      false,
-    );
-    configureReplacement?.(replacementNode);
-  }
-}
-
-abstract class LocalStorageScaffold extends LegacyStorageScaffold {
-  protected async renameLegacyKeySockets(): Promise<void> {
-    await this.renameInputSocket(
-      LEGACY_LOCAL_STORAGE_KEY_NAME,
-      LOCATION_NAME,
-      new StringType(),
-    );
-    await this.renameInputSocket(
-      LEGACY_OBJECT_KEY_NAME,
-      KEY_NAME,
-      new StringType(),
-    );
-  }
-
-  public getVersion(): number {
-    return 2;
-  }
-
-  public showInNodeSearch(): boolean {
-    return false;
-  }
-
-  public getTags(): string[] {
-    return ['LocalStorage', 'Storage', 'Legacy'].concat(super.getTags());
-  }
-}
-
-abstract class UserStorageScaffold extends LegacyStorageScaffold {
-  protected async migrateStorageMutation(
-    targetType: string,
-    configureReplacement?: (replacementNode: PPNode) => void,
-  ): Promise<void> {
-    const showToastNotification = this.getInputData(
-      SHOW_TOAST_NOTIFICATION_NAME,
-    );
-    await this.migrateToStorageNode(
-      targetType,
-      STORAGE_BACKEND_CLOUD,
-      (replacementNode) => {
-        this.setInputSocketValue(
-          replacementNode,
-          SHOW_TOAST_NOTIFICATION_NAME,
-          showToastNotification,
-        );
-        configureReplacement?.(replacementNode);
-      },
-    );
-  }
-
-  public getVersion(): number {
-    return 2;
-  }
-
-  public showInNodeSearch(): boolean {
-    return false;
-  }
-
-  public getTags(): string[] {
-    return ['Storage', 'Cloud', 'Legacy'].concat(super.getTags());
-  }
-}
-
-export class LocalStorageWrite extends LocalStorageScaffold {
-  protected mutatesStorage = true;
-
-  public getName() {
-    return 'Local Storage Write (Deprecated)';
-  }
-
-  public async migrate(previousVersion: number): Promise<void> {
-    if (previousVersion >= this.getVersion()) {
-      return;
-    }
-
-    await this.renameLegacyKeySockets();
-    await this.migrateToStorageNode(
-      'StorageWrite',
-      STORAGE_BACKEND_INDEXED_DB,
-      (replacementNode) => {
-        this.setInputSocketValue(replacementNode, NON_EMPTY_ONLY_NAME, false);
-        this.setInputSocketValue(replacementNode, INSERT_ONLY_NAME, false);
-      },
-    );
-  }
-}
-
-export class LocalStorageDelete extends LocalStorageScaffold {
-  protected mutatesStorage = true;
-
-  public getName() {
-    return 'Local Storage Delete (Deprecated)';
-  }
-
-  public async migrate(previousVersion: number): Promise<void> {
-    if (previousVersion >= this.getVersion()) {
-      return;
-    }
-
-    await this.renameLegacyKeySockets();
-    await this.migrateToStorageNode(
-      'StorageDelete',
-      STORAGE_BACKEND_INDEXED_DB,
-    );
-  }
-}
-
-export class LocalStorageBrowse extends LocalStorageScaffold {
-  public getName() {
-    return 'Browse Object in Local Storage (Deprecated)';
-  }
-
-  public async migrate(previousVersion: number): Promise<void> {
-    if (previousVersion >= this.getVersion()) {
-      return;
-    }
-
-    await this.renameInputSocket(
-      LEGACY_LOCAL_STORAGE_KEY_NAME,
-      LOCATION_NAME,
-      new StringType(),
-    );
-    await this.renameInputSocket(
-      LEGACY_SELECTED_NAME,
-      KEY_NAME,
-      new StringType(),
-    );
-    await this.renameInputSocket(
-      LEGACY_FALLBACK_VALUE_NAME,
-      FALLBACK_VALUE_NAME,
-      new AnyType(),
-    );
-    await this.migrateToStorageNode('StorageRead', STORAGE_BACKEND_INDEXED_DB);
-  }
-}
-
-export class UserStorageWrite extends UserStorageScaffold {
-  protected mutatesStorage = true;
-
-  public getName() {
-    return 'User Storage Write (Deprecated)';
-  }
-
-  public async migrate(previousVersion: number): Promise<void> {
-    if (previousVersion >= this.getVersion()) {
-      return;
-    }
-
-    await this.migrateStorageMutation('StorageWrite', (replacementNode) => {
-      this.setInputSocketValue(replacementNode, NON_EMPTY_ONLY_NAME, false);
-      this.setInputSocketValue(replacementNode, INSERT_ONLY_NAME, false);
-    });
-  }
-}
-
-export class UserStorageRead extends UserStorageScaffold {
-  public getName() {
-    return 'User Storage Read (Deprecated)';
-  }
-
-  public async migrate(previousVersion: number): Promise<void> {
-    if (previousVersion >= this.getVersion()) {
-      return;
-    }
-
-    await this.migrateToStorageNode('StorageRead', STORAGE_BACKEND_CLOUD);
-  }
-}
-
-export class UserStorageDelete extends UserStorageScaffold {
-  protected mutatesStorage = true;
-
-  public getName() {
-    return 'User Storage Delete (Deprecated)';
-  }
-
-  public async migrate(previousVersion: number): Promise<void> {
-    if (previousVersion >= this.getVersion()) {
-      return;
-    }
-
-    await this.migrateStorageMutation('StorageDelete');
-  }
-}
-
-export class UserStorageBrowse extends UserStorageScaffold {
-  public getName() {
-    return 'Browse User Storage (Deprecated)';
-  }
-
-  public async migrate(previousVersion: number): Promise<void> {
-    if (previousVersion >= this.getVersion()) {
-      return;
-    }
-
-    const filterByLocation = this.getInputData(FILTER_BY_LOCATION_NAME);
-    const location = this.getInputData(LOCATION_NAME);
-    await this.migrateToStorageNode(
-      'StorageBrowse',
-      STORAGE_BACKEND_CLOUD,
-      (replacementNode) => {
-        this.setInputSocketValue(
-          replacementNode,
-          FILTER_BY_LOCATION_NAME,
-          filterByLocation,
-        );
-        this.setInputSocketValue(replacementNode, LOCATION_NAME, location);
-      },
-    );
   }
 }

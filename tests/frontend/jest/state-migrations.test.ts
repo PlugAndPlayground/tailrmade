@@ -2,6 +2,7 @@ import {
   migrateStateNodes,
   migrateCopySocketNodes,
   migrateStorageBackends,
+  migrateLegacyStorageNodes,
 } from '../../../src/nodes/state/migrations';
 import {
   migrateGraphDataOnLoad,
@@ -270,9 +271,7 @@ test('copy migration wires readers to fixed inputs and former output destination
   expect(
     readers.every(
       (node) =>
-        data(node, 'Key') === 'Copy/copy' &&
-        data(node, 'Storage type') === 'Session' &&
-        node.updateBehaviour.update,
+        data(node, 'Storage type') === 'Session' && node.updateBehaviour.update,
     ),
   ).toBe(true);
   expect(migrated.links.some((link) => link.sourceNodeId === 'copy')).toBe(
@@ -310,8 +309,9 @@ test('multiple copy buttons for the same destinations share readers and storage'
   ).toHaveLength(3);
 });
 
-test('partially overlapping copy destinations keep compatibility wiring intact', () => {
+test('overlapping copies migrate with independent keys for each destination', () => {
   const original = copyGraph();
+  original.version = 10; // Previously saved after the incomplete migration.
   original.nodes.push({ ...original.nodes[0], id: 'copy2' });
   original.links.push({
     sourceNodeId: 'copy2',
@@ -319,8 +319,26 @@ test('partially overlapping copy destinations keep compatibility wiring intact',
     targetNodeId: 'target',
     targetSocketName: 'Input',
   });
-  const migrated = migrateCopySocketNodes(original);
-  expect(migrated).toBe(original);
+  const migrated = migrateGraphDataOnLoad(original);
+  expect(migrated.version).toBe(GRAPH_DATA_VERSION);
+  expect(
+    migrated.nodes.some(
+      (node) => node.type.toLowerCase() === 'copysocketvalue',
+    ),
+  ).toBe(false);
+  const keys = (node) => [
+    data(node, 'Key'),
+    ...(data(node, 'Additional keys') ?? []),
+  ];
+  const first = keys(migrated.nodes.find((node) => node.id === 'copy'));
+  const second = keys(migrated.nodes.find((node) => node.id === 'copy2'));
+  expect(first).toHaveLength(3);
+  expect(second).toHaveLength(2);
+  expect(second.every((key) => first.includes(key))).toBe(true);
+  expect(
+    migrated.nodes.filter((node) => node.type === 'StorageRead'),
+  ).toHaveLength(3);
+  expect(migrateGraphDataOnLoad(migrated)).toBe(migrated);
 });
 
 test('v9 storage backend migration replaces Local storage and removes Persistence', () => {
@@ -361,4 +379,101 @@ test('v9 storage backend migration replaces Local storage and removes Persistenc
     ),
   ).toBe(true);
   expect(migrateStorageBackends(migrated)).toEqual(migrated);
+});
+
+test('legacy local/cloud classes migrate as data, preserving renamed inputs and wiring', () => {
+  const types = [
+    'LocalStorageWrite',
+    'LocalStorageDelete',
+    'LocalStorageBrowse',
+    'UserStorageWrite',
+    'UserStorageRead',
+    'UserStorageDelete',
+    'UserStorageBrowse',
+  ];
+  const original = {
+    version: 11,
+    nodes: types.map((type, i) => ({
+      id: String(i),
+      type,
+      version: 2,
+      socketArray: [
+        socket('Local Storage Key', 'namespace'),
+        socket('Object Key', 'item'),
+        socket('Selected', 'chosen'),
+        socket('Fallback Value', 'fallback'),
+        socket('Value', 'value'),
+        socket('Show Toast Notification', true),
+        socket('Filter by Location', true),
+      ],
+    })),
+    links: [
+      {
+        sourceNodeId: '3',
+        sourceSocketName: 'Value',
+        targetNodeId: '0',
+        targetSocketName: 'Object Key',
+      },
+      {
+        sourceNodeId: '3',
+        sourceSocketName: 'Value',
+        targetNodeId: '2',
+        targetSocketName: 'Selected',
+      },
+    ],
+  } as any;
+  const snapshot = structuredClone(original);
+  const migrated = migrateLegacyStorageNodes(original);
+  expect(migrated.nodes.map((node) => node.type)).toEqual([
+    'StorageWrite',
+    'StorageDelete',
+    'StorageRead',
+    'StorageWrite',
+    'StorageRead',
+    'StorageDelete',
+    'StorageBrowse',
+  ]);
+  expect(migrated.nodes.map((node) => data(node, 'Storage type'))).toEqual([
+    'IndexedDB',
+    'IndexedDB',
+    'IndexedDB',
+    'Cloud',
+    'Cloud',
+    'Cloud',
+    'Cloud',
+  ]);
+  expect(data(migrated.nodes[0], 'Location')).toBe('namespace');
+  expect(data(migrated.nodes[0], 'Key')).toBe('item');
+  expect(data(migrated.nodes[2], 'Key')).toBe('chosen');
+  expect(data(migrated.nodes[2], 'Fallback value')).toBe('fallback');
+  expect(data(migrated.nodes[0], 'Non-empty only')).toBe(false);
+  expect(data(migrated.nodes[3], 'Show Toast Notification')).toBe(true);
+  expect(data(migrated.nodes[6], 'Filter by Location')).toBe(true);
+  expect(migrated.links.map((link) => link.targetSocketName)).toEqual([
+    'Key',
+    'Key',
+  ]);
+  expect(migrateLegacyStorageNodes(migrated)).toEqual(migrated);
+  expect(original).toEqual(snapshot);
+});
+
+test('normalization handles legacy clipboard selections without graph settings', () => {
+  const original = copyGraph();
+  const selection = {
+    version: GRAPH_DATA_VERSION,
+    nodes: original.nodes,
+    links: original.links,
+    groups: original.groups,
+  };
+  const migrated = migrateLegacyStorageNodes(selection);
+  expect(migrated.nodes.some((node) => node.type === 'CopySocketValue')).toBe(
+    false,
+  );
+  expect(migrated.nodes.some((node) => node.type === 'StorageWrite')).toBe(
+    true,
+  );
+  expect(
+    migrated.nodes.filter((node) => node.type === 'StorageRead'),
+  ).toHaveLength(3);
+  expect(migrateLegacyStorageNodes(migrated)).toEqual(migrated);
 });

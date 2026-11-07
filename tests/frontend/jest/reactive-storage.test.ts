@@ -308,7 +308,7 @@ import {
   StorageNumberState,
   StorageArrayState,
   StorageObjectState,
-} from '../../../src/nodes/state/stateNodes';
+} from '../../../src/nodes/state/storageAccumulator';
 
 test('migrated accumulator reads its saved state, updates shared storage and clears', async () => {
   const accumulator = node(StorageNumberState, {
@@ -395,4 +395,74 @@ test('loading a saved storage node replaces obsolete backend enum choices', asyn
     'IndexedDB',
     'Session',
   ]);
+});
+
+import { migrateCopySocketNodes } from '../../../src/nodes/state/migrations';
+
+test('migrated overlapping copy triggers update only their own destinations in one batch', async () => {
+  const input = (name, data) => ({
+    name,
+    data,
+    socketType: 'in',
+    dataType: JSON.stringify({ class: 'AnyType' }),
+  });
+  const original = {
+    nodes: [
+      ...['first', 'second'].map((id, i) => ({
+        id,
+        type: 'CopySocketValue',
+        socketArray: [input('Value', i + 1), input('Input Socket', 'Value')],
+      })),
+      ...['a', 'b', 'c'].map((id) => ({
+        id,
+        type: 'Constant',
+        socketArray: [input('Value', 0)],
+      })),
+    ],
+    links: [
+      ['first', 'a'],
+      ['first', 'b'],
+      ['second', 'b'],
+      ['second', 'c'],
+    ].map(([sourceNodeId, targetNodeId]) => ({
+      sourceNodeId,
+      targetNodeId,
+      sourceSocketName: 'Value',
+      targetSocketName: 'Value',
+    })),
+  } as any;
+  const migrated = migrateCopySocketNodes(original);
+  const instances = Object.fromEntries(
+    migrated.nodes
+      .filter((node) => ['StorageRead', 'StorageWrite'].includes(node.type))
+      .map((serialized) => [
+        serialized.id,
+        node(serialized.type === 'StorageWrite' ? StorageWrite : StorageRead, {
+          ...Object.fromEntries(
+            serialized.socketArray
+              .filter((socket) => socket.socketType === 'in')
+              .map((socket) => [socket.name, socket.data]),
+          ),
+          Location: 'overlapping-copy-runtime',
+        }),
+      ]),
+  );
+  PPGraph.currentGraph.nodes = Object.fromEntries(
+    Object.entries(instances).filter(
+      ([id]) => !['first', 'second'].includes(id),
+    ),
+  );
+  const value = (target) =>
+    instances[
+      migrated.links.find((link) => link.targetNodeId === target).sourceNodeId
+    ].output.Value;
+  for (const reader of Object.values(PPGraph.currentGraph.nodes) as any[])
+    await reader.run();
+  (FlowLogic.executeOptimizedChainBatch as jest.Mock).mockClear();
+  await instances.first.run();
+  expect([value('a'), value('b'), value('c')]).toEqual([1, 1, 0]);
+  expect(FlowLogic.executeOptimizedChainBatch).toHaveBeenCalledTimes(1);
+  await instances.second.run();
+  expect([value('a'), value('b'), value('c')]).toEqual([1, 2, 2]);
+  expect(FlowLogic.executeOptimizedChainBatch).toHaveBeenCalledTimes(2);
 });
