@@ -2001,9 +2001,19 @@ export default class PPGraph {
     const groupsSerialized = this.groupLayer.serializeTouching(
       nodesSerialized.map((node) => node.id),
     );
-    // removeNode drops each node from the selection, so a selected node that
-    // is not deleted (by a replay reset, say) stays selected
+    const deletedIds = new Set(nodesSerialized.map((node) => node.id));
     const action = async () => {
+      // in one go rather than node by node, so selection listeners never see
+      // a node that is about to go; a selected node that is not deleted (by a
+      // replay reset, say) stays selected
+      const remaining = this.selection.selectedNodes.filter(
+        (node) => !deletedIds.has(node.id),
+      );
+      if (remaining.length > 0) {
+        this.selection.selectNodes(remaining);
+      } else {
+        this.selection.deselectAllNodesAndResetSelection();
+      }
       for (let i = 0; i < nodesSerialized.length; i++) {
         await this.removeNode(this.nodes[nodesSerialized[i].id]);
       }
