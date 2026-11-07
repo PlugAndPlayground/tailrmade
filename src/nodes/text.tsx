@@ -718,7 +718,7 @@ const TextNodeSettings: React.FC<{ nodeId: string }> = ({ nodeId }) => {
 const TextNodeWidget: React.FC<HybridWidgetContentProps<Text>> = (props) => {
   const node = props.node;
   const textProps = textPropsFromSocketValues(props);
-  const inputs = getTokenInputs(node);
+  const inputs = getTokenInputs(node, props.reactUIProps);
   if (props.inDashboard && (!props.isEditMode || props.isSurfacePreview)) {
     return <TextView {...textProps} inputs={inputs} />;
   }

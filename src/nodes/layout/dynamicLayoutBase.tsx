@@ -1,12 +1,16 @@
 import React from 'react';
 import PPNode from '../../classes/NodeClass';
 import { TRgba } from '../../utils/color';
-import { DashboardIconProps, Layoutable, WidgetProps, DashboardWidgetProps, WidgetContentProps } from '../../utils/interfaces';
+import {
+  DashboardIconProps,
+  Layoutable,
+  WidgetProps,
+  DashboardWidgetProps,
+  WidgetContentProps,
+} from '../../utils/interfaces';
 import { NODE_TYPE_COLOR } from '../../utils/constants';
 import { DEFAULT_DASHBOARD_ICON } from '../../components/dashboard/dashboardIcons';
-import {
-  SOCKET_NAME_DASHBOARD_CONTENT,
-} from '../../utils/layoutableHelpers';
+import { SOCKET_NAME_DASHBOARD_CONTENT } from '../../utils/layoutableHelpers';
 import { DynamicWidgetContainerNode } from './dynamicLayout';
 import { DeferredReactTypeInterface } from '../datatypes/deferredHtmlType';
 

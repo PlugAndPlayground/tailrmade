@@ -829,26 +829,31 @@ const DynamicWidgetContainerHybridNodeInner: React.FunctionComponent<
         setShowDashboard(newState.dashboard.visible);
       },
     );
-    const myRenderID = uniqueId();
-    props.property.dashboardRenderFunctions[myRenderID] = () => {
-      setDummyExecutionVar(Math.random());
-    };
     return () => {
       InterfaceController.removeListener(listenerId);
-      delete props.property.dashboardRenderFunctions[myRenderID];
     };
   }, []);
 
+  // A widget in a template placement renders from a snapshot its owner hands
+  // it, so the shared node running has nothing to tell it - and that node runs
+  // once per row, which would re-render every mounted row for every row.
+  const followsSharedNode = props.templateInstance === undefined;
   useEffect(() => {
-    const executionListener = () => {
+    if (!followsSharedNode) {
+      return;
+    }
+    const rerender = () => {
       setDummyExecutionVar(Math.random());
     };
-    props.property.addExecutionListener(executionListener);
+    const myRenderID = uniqueId();
+    props.property.dashboardRenderFunctions[myRenderID] = rerender;
+    props.property.addExecutionListener(rerender);
 
     return () => {
-      props.property.removeExecutionListener(executionListener);
+      delete props.property.dashboardRenderFunctions[myRenderID];
+      props.property.removeExecutionListener(rerender);
     };
-  }, [props.property]);
+  }, [props.property, followsSharedNode]);
 
   return (
     <Box
@@ -884,6 +889,8 @@ const DynamicWidgetContainerHybridNodeInner: React.FunctionComponent<
               inDashboard={true}
               isEditMode={props.isEditMode}
               isSurfacePreview={props.isSurfacePreview}
+              templateInstance={props.templateInstance}
+              reactUIProps={props.reactUIProps}
               dataCyId={`${props.property.id}-dashboard${props.isSurfacePreview ? '-preview' : ''}`}
               disabled={props.disabled}
               showDashboard={showDashboard}

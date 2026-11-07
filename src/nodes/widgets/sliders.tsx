@@ -126,7 +126,10 @@ current value should appear, for example "Volume: ${valueToken}" or
 
     let valueToSet = this.getOutputValue(inputObject, true);
     // if we just changed our min or max value, we might want to also adjust the actual value (if it was previously at a limit)
+    // Not in a template: the previous run was another row, and following its
+    // limit would move this row and the value every row starts from.
     if (
+      !this.isInTemplateBody() &&
       this.hasSetPrevValues &&
       (minValue !== this.prevMinValue || maxValue !== this.prevMaxValue) &&
       this.prevMinValue !== this.prevMaxValue &&
@@ -160,7 +163,7 @@ current value should appear, for example "Volume: ${valueToken}" or
     const max = props[maxValueName];
     const commit = useCommitMode<number>(
       props[initialValueName],
-      (next) => void node.handleValueChange(next),
+      (next) => void node.handleValueChange(next, props.templateInstance),
       { mode: props[commitModeName] },
     );
     const value = commit.value;

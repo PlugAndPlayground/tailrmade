@@ -42,6 +42,7 @@ import {
   DataTypeProps,
   isDirectlyCompatible,
 } from '../nodes/datatypes/abstractType';
+import { AnyType } from '../nodes/datatypes/anyType';
 import { dataToType, serializeType } from '../nodes/datatypes/typehelper';
 import {
   clearDocumentSelection,
@@ -387,7 +388,11 @@ export default class Socket
       adaptationAcceptable &&
       (incompatibleData || socketWantsToAdapt || this.isOutput())
     ) {
-      const proposedType = dataToType(newData);
+      // a template's inner nodes are shared across rows, so a socket there goes
+      // untyped instead of taking the type of whichever row ran last
+      const proposedType = this.getNode().isInTemplateBody()
+        ? new AnyType()
+        : dataToType(newData);
       if (this.dataType.getName() !== proposedType.getName()) {
         this.changeSocketDataType(proposedType);
       }
@@ -761,7 +766,12 @@ export default class Socket
 
   // if the socket we are connecting to changed type then so do we (assuming we care)
   connectedTargetSocketChangedType(socket: Socket) {
-    if (this.getNode().socketShouldAutomaticallyAdapt(this)) {
+    if (
+      // inside a template this would re-type a shared socket from one row's
+      // data, behind the guard in the data setter above
+      !this.getNode().isInTemplateBody() &&
+      this.getNode().socketShouldAutomaticallyAdapt(this)
+    ) {
       this.changeSocketDataType(socket.dataType);
     }
     this.getNode().connectedTargetSocketChangedType(socket);
