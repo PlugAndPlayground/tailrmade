@@ -158,7 +158,10 @@ export const tokensToThemeOptions = (resolved: ResolvedTheme): ThemeOptions => {
       },
       // the low-level input parts only know 'dense' - undefined leaves them on
       // the MUI default, which is what the roomier steps want anyway
-      MuiInputBase: { defaultProps: { margin: denseOnly } },
+      MuiInputBase: {
+        // see global.css: the autofill keyframes are defined there once
+        defaultProps: { margin: denseOnly, disableInjectingGlobalStyles: true },
+      },
       MuiInputLabel: { defaultProps: { margin: denseOnly } },
       MuiFormHelperText: { defaultProps: { margin: denseOnly } },
     },

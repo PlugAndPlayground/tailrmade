@@ -155,6 +155,10 @@ export const customTheme = createTheme(darkThemeOverride, {
       default: `${randomColor.darken(0.85)}`,
     },
   },
+  components: {
+    // see global.css: the autofill keyframes are defined there once
+    MuiInputBase: { defaultProps: { disableInjectingGlobalStyles: true } },
+  },
 });
 
 export const PRESET_COLORS = [
