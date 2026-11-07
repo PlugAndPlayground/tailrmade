@@ -5,6 +5,8 @@ import {
   dragFromAtoB,
   enterDashboardEditMode,
   exitDashboardEditMode,
+  getNodeCenterById,
+  getSocketCenterByNodeIDAndSocketName,
   openNewGraph,
   serializedGraph,
   serializedNode,
@@ -531,6 +533,57 @@ describe('dynamic Text node', () => {
       });
       expect(inputNames(testController, 'legacy-plain')).to.not.include(
         'Input',
+      );
+    });
+  });
+  it('shows a value dragged into it by putting its token into the content', () => {
+    doWithTestController(async (testController) => {
+      await testController.addNode('Constant', 'dragged-value', -400, 0);
+      testController.setNodeInputValue('dragged-value', 'In', 'Hello');
+      await testController.executeNodeByID('dragged-value');
+    });
+
+    // dropped on the canvas: the picked Text node shows the value alone
+    getSocketCenterByNodeIDAndSocketName('dragged-value', 'Out').then(
+      ([startX, startY]) => {
+        dragFromAtoB(startX, startY, startX + 300, startY + 200, true);
+      },
+    );
+    // typing "Text" would turn into the Text tag filter, so pick the option
+    cy.get('input#node-search:visible').should('be.visible');
+    cy.contains(
+      'li',
+      'Rich text that shows live values from its inputs',
+    ).click();
+    shouldWithTestController((testController) => {
+      const [node] = textNodes(testController);
+      expect(testController.getNodeInputValue(node.id, 'Content')).to.eq(
+        '{{Out}}',
+      );
+      expect(testController.getNodeOutputValue(node.id, 'Output')).to.eq(
+        'Hello',
+      );
+    });
+
+    // dropped on a Text node with edited content: the token is appended
+    doWithTestController(async (testController) => {
+      await testController.addNode('Text', 'edited-text', -100, -250);
+      testController.setNodeInputValue('edited-text', 'Content', 'Say:');
+      await testController.executeNodeByID('edited-text');
+    });
+    getSocketCenterByNodeIDAndSocketName('dragged-value', 'Out').then(
+      ([startX, startY]) => {
+        getNodeCenterById('edited-text').then(([endX, endY]) => {
+          dragFromAtoB(startX, startY, endX, endY, true);
+        });
+      },
+    );
+    shouldWithTestController((testController) => {
+      expect(testController.getNodeInputValue('edited-text', 'Content')).to.eq(
+        'Say: {{Out}}',
+      );
+      expect(testController.getNodeOutputValue('edited-text', 'Output')).to.eq(
+        'Say: Hello',
       );
     });
   });
