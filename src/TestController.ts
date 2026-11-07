@@ -447,11 +447,13 @@ export default class TestController {
   async playReplayWith(
     steps: ReplayStep[],
     getSettings: GetReplaySettings,
+    onProgress?: (progress: ReplayProgress) => void,
   ): Promise<ReplayProgress[]> {
     const reports: ReplayProgress[] = [];
-    await ReplayService.getInstance().play(steps, getSettings, (progress) =>
-      reports.push(progress),
-    );
+    await ReplayService.getInstance().play(steps, getSettings, (progress) => {
+      reports.push(progress);
+      onProgress?.(progress);
+    });
     return reports;
   }
 

@@ -443,14 +443,21 @@ describe('Replay', () => {
       },
     ];
     doWithTestController(async (tc) => {
-      const playing = tc.playReplay(steps, 10, true);
-      await new Promise((resolve) => setTimeout(resolve, 600));
-      await tc.stopReplay();
-      const reports = await playing;
+      // stops on the second pass, not after a set time a slow run can miss
+      let done = 0;
+      const reports = await tc.playReplayWith(
+        steps,
+        () => ({ speed: 10, loop: true, camera: true }),
+        (report) => {
+          if (report.status === 'Done' && ++done === 2) {
+            void tc.stopReplay();
+          }
+        },
+      );
       expect(
         reports.filter((report) => report.status === 'Done').length,
-      ).to.be.greaterThan(1);
-      expect(tc.getNodes()).to.have.length.at.most(1);
+      ).to.eq(2);
+      expect(tc.getNodes()).to.have.length(1);
     });
   });
 
