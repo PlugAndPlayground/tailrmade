@@ -116,8 +116,8 @@ describe('multi-node editing - triggers', () => {
   it('add two State nodes', () => {
     openNewGraph();
     doWithTestController(async (testController) => {
-      await testController.addNode('State', 'State1', 0, 0);
-      await testController.addNode('State', 'State2', 200, 0);
+      await testController.addNode('StorageState', 'State1', 0, 0);
+      await testController.addNode('StorageState', 'State2', 200, 0);
     });
   });
 
