@@ -92,31 +92,35 @@ const data = (node, name) =>
     (socket) => socket.name === name && socket.socketType === 'in',
   )?.data;
 
-test('v7 apps migrate every old state type without changing ids, sockets or wiring', () => {
-  const original = graph();
-  const snapshot = structuredClone(original);
-  const migrated = migrateGraphDataOnLoad(original);
-  expect(migrated.version).toBe(GRAPH_DATA_VERSION);
-  expect(migrated.nodes.map((node) => node.type)).toEqual([
-    'StorageRead',
-    'StorageWrite',
-    'StorageState',
-    'StorageNumberState',
-    'StorageArrayState',
-    'StorageObjectState',
-    'Constant',
-  ]);
-  expect(migrated.links).toEqual(original.links);
-  expect(migrated.groups).toEqual(original.groups);
-  migrated.nodes.forEach((node, i) => {
-    expect(node.id).toBe(original.nodes[i].id);
-    expect(
-      node.socketArray.slice(0, original.nodes[i].socketArray.length),
-    ).toEqual(original.nodes[i].socketArray);
-    expect(node.updateBehaviour).toEqual(original.nodes[i].updateBehaviour);
-  });
-  expect(original).toEqual(snapshot);
-});
+test.each([7, 8, 9, 10, 11])(
+  'v%s apps migrate every old state type without changing ids, sockets or wiring',
+  (version) => {
+    const original = graph();
+    original.version = version;
+    const snapshot = structuredClone(original);
+    const migrated = migrateGraphDataOnLoad(original);
+    expect(migrated.version).toBe(GRAPH_DATA_VERSION);
+    expect(migrated.nodes.map((node) => node.type)).toEqual([
+      'StorageRead',
+      'StorageWrite',
+      'StorageState',
+      'StorageNumberState',
+      'StorageArrayState',
+      'StorageObjectState',
+      'Constant',
+    ]);
+    expect(migrated.links).toEqual(original.links);
+    expect(migrated.groups).toEqual(original.groups);
+    migrated.nodes.forEach((node, i) => {
+      expect(node.id).toBe(original.nodes[i].id);
+      expect(
+        node.socketArray.slice(0, original.nodes[i].socketArray.length),
+      ).toEqual(original.nodes[i].socketArray);
+      expect(node.updateBehaviour).toEqual(original.nodes[i].updateBehaviour);
+    });
+    expect(original).toEqual(snapshot);
+  },
+);
 
 test('read/write share session storage; accumulator addresses are isolated', () => {
   const migrated = migrateStateNodes(graph());

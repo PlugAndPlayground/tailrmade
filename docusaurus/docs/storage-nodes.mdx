@@ -20,8 +20,6 @@ The **Storage** nodes are a unified set of nodes for reading, writing, deleting,
 
 The **Storage type** defaults to **IndexedDB**. Change it to **Session** for temporary in-memory state, or **Cloud** when the data should be stored for the signed-in user. Session uses the same Read, Write, Update, Delete, and Browse nodes; writes notify matching readers. Session data resets on page reload and does not use the browser `sessionStorage` API.
 
-Older Local storage configurations select IndexedDB; previously stored localStorage values are not imported. The former Local storage / Persistence = Session setting migrates to Storage type = Session.
-
 ## Common patterns
 
 All storage tiers share a consistent socket naming convention:
