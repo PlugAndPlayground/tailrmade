@@ -1,4 +1,5 @@
 import {
+  addToDashboard,
   clearGraph,
   closeBothDrawers,
   doWithTestController,
@@ -615,6 +616,46 @@ describe('dynamic Text node', () => {
     shouldWithTestController((testController) => {
       expect(testController.getNodeByID('drag-text').x).to.be.greaterThan(
         startX + 100,
+      );
+    });
+  });
+
+  it('keeps the caret on the canvas while the UI edits the same text', () => {
+    cy.viewport(1600, 900);
+    doWithTestController(async (testController) => {
+      await testController.addNode('Text', 'shared-caret', -400, 0);
+      testController.setNodeInputValue(
+        'shared-caret',
+        'Content',
+        'Hello world',
+      );
+      await testController.executeNodeByID('shared-caret');
+    });
+    addToDashboard('shared-caret');
+    // the UI editor keeps its selection once it has been edited
+    cy.get('[data-cy="shared-caret-dashboard"] p').first().realClick();
+    doWithTestController(async (testController) => {
+      testController.toggleRightSideDrawer('CLOSE');
+      testController.zoomToFitNodesById(['shared-caret']);
+      testController.selectNodesById(['shared-caret']);
+      await testController.getNodeByID('shared-caret').enableInteraction();
+    });
+    canvasEditor('shared-caret').should('have.attr', 'contenteditable', 'true');
+    cy.window().then((win) => {
+      const text = win.document.querySelector(
+        '[data-cy="shared-caret-canvas"] p span',
+      ).firstChild;
+      const range = win.document.createRange();
+      range.setStart(text, 'Hello'.length);
+      range.collapse(true);
+      win.getSelection().removeAllRanges();
+      win.getSelection().addRange(range);
+    });
+    cy.realType('ABC', { delay: 150 });
+
+    shouldWithTestController((testController) => {
+      expect(testController.getNodeInputValue('shared-caret', 'Content')).to.eq(
+        'HelloABC world',
       );
     });
   });
