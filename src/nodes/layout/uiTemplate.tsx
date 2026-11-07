@@ -1,10 +1,6 @@
-import React, { useContext, useMemo } from 'react';
+import React from 'react';
 import { HybridWidgetContentProps } from '../../classes/HybridNode2';
 import PPSocket from '../../classes/SocketClass';
-import {
-  SurfaceCanvasPreviewContext,
-  SurfaceVisitedContext,
-} from '../../components/dashboard/SurfaceRenderer';
 import {
   TEMPLATE_PLACED_STATE_PROP,
   TemplateInstanceCapture,
@@ -12,6 +8,7 @@ import {
 } from '../../components/dashboard/templateInstance';
 import { AGENT_DOCS_HEADING } from '../../utils/nodeDocs';
 import { SOCKET_TYPE } from '../../utils/constants';
+import { TSocketType } from '../../utils/interfaces';
 import {
   templateSocketName,
   templateOutputPrefixName,
@@ -21,10 +18,10 @@ import { SOCKET_NAME_DASHBOARD_CONTENT } from '../../utils/layoutableHelpers';
 import { deSerializeType, serializeType } from '../datatypes/typehelper';
 import { TemplateArgs, runTemplateAsInstance } from './templateInstancing';
 import {
-  getPlacementProblem,
   TemplateBody,
   TemplateNotice,
   TemplatePlacementNode,
+  usePlacedBody,
 } from './templatePlacement';
 import { SurfaceSync } from './surfaceSync';
 import { UITemplate } from './uiTemplateNode';
@@ -35,21 +32,7 @@ export const PlaceTemplateWidget: React.FunctionComponent<
   HybridWidgetContentProps<PlaceTemplate>
 > = (props) => {
   const node = props.node;
-  const visited = useContext(SurfaceVisitedContext);
-  const isCanvasPreview =
-    useContext(SurfaceCanvasPreviewContext) || !props.inDashboard;
-  const template = node.getTemplate();
-  const body = template?.getBodySurface();
-  const bodyVisited = useMemo(
-    () => [...visited, body?.id ?? ''],
-    [visited, body?.id],
-  );
-
-  const problem = getPlacementProblem(
-    props[templateSocketName],
-    template,
-    visited,
-  );
+  const { body, bodyVisited, isCanvasPreview, problem } = usePlacedBody(props);
   if (problem || !body) {
     return <TemplateNotice label={problem ?? ''} />;
   }
@@ -150,35 +133,48 @@ what every placement shows, set the value on the widget inside the template. Fir
     const parameters = (template?.getParameterSockets() ?? []).filter(
       (socket) => socket.hasLink(),
     );
-    const wantedNames = parameters.map((socket) => socket.name);
+    this.syncSockets(
+      SOCKET_TYPE.IN,
+      this.getParameterInputSockets(),
+      parameters,
+    );
+    this.updateOutputSockets();
+    this.resizeAndDraw();
+  }
 
-    this.getParameterInputSockets()
+  // Adds a socket per declared one, drops the unlinked ones of own nobody
+  // declares any more, and aligns the types.
+  private syncSockets(
+    socketType: TSocketType,
+    own: PPSocket[],
+    declared: PPSocket[],
+  ): void {
+    const wantedNames = declared.map((socket) => socket.name);
+    own
       .filter(
         (socket) => !wantedNames.includes(socket.name) && !socket.hasLink(),
       )
       .forEach((socket) => this.removeSocket(socket));
 
-    parameters.forEach((parameter) => {
-      const existing = this.getInputSocketByName(parameter.name);
+    declared.forEach((declaredSocket) => {
+      const dataType = deSerializeType(serializeType(declaredSocket.dataType));
+      const existing = own.find(
+        (socket) => socket.name === declaredSocket.name,
+      );
       if (!existing) {
         this.addSocket(
           new PPSocket(
-            SOCKET_TYPE.IN,
-            parameter.name,
-            deSerializeType(serializeType(parameter.dataType)),
+            socketType,
+            declaredSocket.name,
+            dataType,
             undefined,
             true,
           ),
         );
-      } else if (existing.dataType.getName() !== parameter.dataType.getName()) {
-        existing.changeSocketDataType(
-          deSerializeType(serializeType(parameter.dataType)),
-        );
+      } else if (existing.dataType.getName() !== dataType.getName()) {
+        existing.changeSocketDataType(dataType);
       }
     });
-
-    this.updateOutputSockets();
-    this.resizeAndDraw();
   }
 
   /**
@@ -190,37 +186,13 @@ what every placement shows, set the value on the widget inside the template. Fir
     const declared = (template?.getOutputSockets() ?? []).filter((socket) =>
       socket.hasLink(),
     );
-    const wantedNames = declared.map((socket) => socket.name);
-
-    this.outputSocketArray
-      .filter(
-        (socket) =>
-          socket.name.startsWith(templateOutputPrefixName) &&
-          !wantedNames.includes(socket.name) &&
-          !socket.hasLink(),
-      )
-      .forEach((socket) => this.removeSocket(socket));
-
-    declared.forEach((declaredSocket) => {
-      const existing = this.getOutputSocketByName(declaredSocket.name);
-      if (!existing) {
-        this.addSocket(
-          new PPSocket(
-            SOCKET_TYPE.OUT,
-            declaredSocket.name,
-            deSerializeType(serializeType(declaredSocket.dataType)),
-            undefined,
-            true,
-          ),
-        );
-      } else if (
-        existing.dataType.getName() !== declaredSocket.dataType.getName()
-      ) {
-        existing.changeSocketDataType(
-          deSerializeType(serializeType(declaredSocket.dataType)),
-        );
-      }
-    });
+    this.syncSockets(
+      SOCKET_TYPE.OUT,
+      this.outputSocketArray.filter((socket) =>
+        socket.name.startsWith(templateOutputPrefixName),
+      ),
+      declared,
+    );
   }
 
   // a parameter's name means nothing on its own, so show the name the

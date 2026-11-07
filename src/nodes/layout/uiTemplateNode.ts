@@ -1,23 +1,13 @@
 // The UI template frame, inverted like a Macro: parameter OUTPUTS on the left
 // block and the UI INPUT on the right, so wires read left to right through the
 // nodes inside. Its body is whatever UI surface is plugged into "UI".
-import * as PIXI from 'pixi.js';
 import PPGraph from '../../classes/GraphClass';
 import PPNode from '../../classes/NodeClass';
 import Socket from '../../classes/SocketClass';
-import UpdateBehaviourClass from '../../classes/UpdateBehaviourClass';
-import { PNPHitArea } from '../../classes/selection/PNPHitArea';
-import PPSelection from '../../classes/selection/SelectionClass';
-import FlowLogic from '../../classes/FlowLogic';
 import { registerTemplateBody } from './templateInstancing';
-import { ensureVisible } from '../../pixi/utils-pixi';
 import { TRgba } from '../../utils/color';
 import { AGENT_DOCS_HEADING } from '../../utils/nodeDocs';
-import {
-  NODE_MARGIN,
-  NODE_TYPE_COLOR,
-  SOCKET_TYPE,
-} from '../../utils/constants';
+import { NODE_TYPE_COLOR, SOCKET_TYPE } from '../../utils/constants';
 import {
   templateParameterPrefixName,
   templateOutputPrefixName,
@@ -30,14 +20,7 @@ import { deSerializeType, serializeType } from '../datatypes/typehelper';
 import type { TemplatePlacementNode } from './templatePlacement';
 import type { UISurfaceNode } from './uiSurface';
 import { isSurfaceNode } from '../../utils/interfaces';
-
-// left block: the parameters leave from its right edge
-const PARAM_BLOCK_SIZE = 120;
-// right block: the UI input sits on its left edge
-const UI_BLOCK_SIZE = 60;
-
-const TEMPLATE_AUTOALIGN_PADDING = 100;
-const UPDATE_PLACEMENTS_INTERVAL_MILLISECONDS = 2000;
+import { MacroFrame } from '../macro/macroFrame';
 
 export function getTemplates(): UITemplate[] {
   return Object.values(PPGraph.currentGraph?.nodes ?? {}).filter(
@@ -45,22 +28,13 @@ export function getTemplates(): UITemplate[] {
   );
 }
 
-export class UITemplate extends PPNode {
-  // A template exists to be placed; it never looks unused.
-  public getSeemsUnused(): boolean {
-    return false;
-  }
-
+export class UITemplate extends MacroFrame {
   // what this template's passes run, see registerTemplateBody
   bodyNodes: PPNode[] = [];
   // the end of the last pass queued, see runTemplateAsInstance
   passQueue: Promise<unknown> = Promise.resolve();
   // true while a pass runs, see TemplatePlacementNode.execute
   passRunning = false;
-
-  placementGraphics!: PIXI.Graphics;
-  prevPlacements = '';
-  prevTimeUpdated = 0;
 
   public getName(): string {
     return 'UI template';
@@ -125,22 +99,6 @@ Template's "Output" instead.`;
     return ['Template', 'Layout', 'UI'];
   }
 
-  public getMinNodeWidth(): number {
-    return PARAM_BLOCK_SIZE * 3;
-  }
-
-  public getDefaultNodeWidth(): number {
-    return 1000;
-  }
-
-  public getDefaultNodeHeight(): number {
-    return 300;
-  }
-
-  public getUpdateBehaviour(): UpdateBehaviourClass {
-    return new UpdateBehaviourClass(false, true, false, 1000, this);
-  }
-
   getColor(): TRgba {
     return TRgba.fromString(NODE_TYPE_COLOR.LAYOUT);
   }
@@ -159,14 +117,6 @@ Template's "Output" instead.`;
         new AnyType(),
       ),
     ];
-  }
-
-  public getInputSocketXPos(): number {
-    return this.nodeWidth - UI_BLOCK_SIZE;
-  }
-
-  public getOutputSocketXPos(): number {
-    return PARAM_BLOCK_SIZE;
   }
 
   public getParameterSockets(): Socket[] {
@@ -193,32 +143,34 @@ Template's "Output" instead.`;
     );
   }
 
-  private shouldRemoveLastOutput(outputs: Socket[]): boolean {
-    return (
-      outputs.length >= 2 &&
-      outputs[outputs.length - 1].links.length === 0 &&
-      outputs[outputs.length - 2].links.length === 0
-    );
-  }
-
-  // keeps one spare Output at the end, the same way parameters work
-  private updateOutputSocketCount(): void {
-    const outputs = this.getOutputSockets();
-    if (outputs.length > 0 && outputs[outputs.length - 1].hasLink()) {
-      this.addInput(
-        this.constructSocketName(
-          templateOutputPrefixName,
-          this.inputSocketArray,
-        ),
-        new AnyType(),
-      );
+  // keeps exactly one spare (unlinked) socket at the end, as Macro does
+  private keepOneSpareSocket(
+    getSockets: () => Socket[],
+    addSpare: () => void,
+  ): void {
+    if (getSockets().at(-1)?.hasLink()) {
+      addSpare();
     }
-    let remaining = this.getOutputSockets();
-    while (this.shouldRemoveLastOutput(remaining)) {
+    let remaining = getSockets();
+    while (this.shouldRemoveLastSocket(remaining)) {
       this.removeSocket(remaining[remaining.length - 1]);
       remaining = remaining.slice(0, -1);
     }
     this.notifyPlacementsOfSignatureChange();
+  }
+
+  private updateOutputSocketCount(): void {
+    this.keepOneSpareSocket(
+      () => this.getOutputSockets(),
+      () =>
+        this.addInput(
+          this.constructSocketName(
+            templateOutputPrefixName,
+            this.inputSocketArray,
+          ),
+          new AnyType(),
+        ),
+    );
   }
 
   public inputPlugged(socket: Socket): void {
@@ -262,30 +214,11 @@ Template's "Output" instead.`;
     return source && isSurfaceNode(source) ? source : undefined;
   }
 
-  // Outputs adapt to what feeds them, as Macro's do. A parameter must not: it
-  // would take the type of one placement's data, and every placement would
-  // inherit it.
-  public socketShouldAutomaticallyAdapt(socket: Socket): boolean {
-    return socket.isInput();
-  }
-
   // Every pass runs the template, so it is always in its own body - also before
   // the first registerTemplateBody. Otherwise a load, which copies each source's
   // last row into the Outputs it feeds, would re-type them from that row.
   public isInTemplateBody(): boolean {
     return true;
-  }
-
-  // mirrors the fed socket's name onto the parameter, as Macro does
-  public getSocketDesiredDisplayName(socket: Socket): string {
-    if (socket == undefined) {
-      return '';
-    }
-    return socket.isOutput() && socket.hasLink()
-      ? socket.links[0].target
-          .getNode()
-          .getSocketDisplayName(socket.links[0].target)
-      : socket.name;
   }
 
   public getSocketDisplayName(socket: Socket): string {
@@ -320,6 +253,14 @@ Template's "Output" instead.`;
     return nameToUse;
   }
 
+  protected getReferrers(): PPNode[] {
+    return this.getPlacements();
+  }
+
+  protected getReferrersHeading(): string {
+    return 'Placed by';
+  }
+
   public getPlacements(): TemplatePlacementNode[] {
     return Object.values(PPGraph.currentGraph.nodes).filter(
       (node): node is TemplatePlacementNode =>
@@ -327,32 +268,18 @@ Template's "Output" instead.`;
     );
   }
 
-  private shouldRemoveLastParameter(parameters: Socket[]): boolean {
-    return (
-      parameters.length >= 2 &&
-      parameters[parameters.length - 1].links.length === 0 &&
-      parameters[parameters.length - 2].links.length === 0
-    );
-  }
-
-  // keeps exactly one spare parameter at the end, as Macro does
   private updateParameterSocketCount(): void {
-    const parameters = this.getParameterSockets();
-    if (parameters.length > 0 && parameters[parameters.length - 1].hasLink()) {
-      this.addOutput(
-        this.constructSocketName(
-          templateParameterPrefixName,
-          this.outputSocketArray,
+    this.keepOneSpareSocket(
+      () => this.getParameterSockets(),
+      () =>
+        this.addOutput(
+          this.constructSocketName(
+            templateParameterPrefixName,
+            this.outputSocketArray,
+          ),
+          new AnyType(),
         ),
-        new AnyType(),
-      );
-    }
-    let remaining = this.getParameterSockets();
-    while (this.shouldRemoveLastParameter(remaining)) {
-      this.removeSocket(remaining[remaining.length - 1]);
-      remaining = remaining.slice(0, -1);
-    }
-    this.notifyPlacementsOfSignatureChange();
+    );
   }
 
   private notifyPlacementsOfSignatureChange(): void {
@@ -406,13 +333,6 @@ Template's "Output" instead.`;
     this.debounceDrawShape();
   }
 
-  public connectedTargetSocketChangedType(socket: Socket): void {
-    const mySocket = socket.links[0].getSource();
-    mySocket.changeSocketDataType(
-      deSerializeType(serializeType(socket.dataType)),
-    );
-  }
-
   protected socketAdded(): void {
     this.notifyPlacementsOfSignatureChange();
   }
@@ -434,214 +354,6 @@ Template's "Output" instead.`;
       });
     }
   }
-
-  // execution never flows through the frame itself
-  public shouldPropagateExecutionThrough(_socket: Socket): boolean {
-    return false;
-  }
-
-  // ---- canvas chrome, adapted from Macro -------------------------------
-
-  async tick(currentTime: number, deltaTime: number): Promise<void> {
-    await super.tick(currentTime, deltaTime);
-    if (
-      currentTime >
-      UPDATE_PLACEMENTS_INTERVAL_MILLISECONDS + this.prevTimeUpdated
-    ) {
-      this.prevTimeUpdated = currentTime;
-      if (this.isVisible()) {
-        this.drawPlacementGraphics();
-      }
-    }
-  }
-
-  private drawPlacementGraphics(force = false): void {
-    const placements = this.getPlacements();
-    const names = placements.map((node) => node.getNodeTextString(false)[0]);
-    const nameString = names.join('');
-    if (nameString === this.prevPlacements && !force) {
-      return;
-    }
-    this.prevPlacements = nameString;
-    this.placementGraphics.removeChildren();
-    this.placementGraphics.clear();
-    if (placements.length === 0) {
-      return;
-    }
-
-    const distPerUnit = 15;
-    let currentPos = this.nodeHeight - distPerUnit * placements.length;
-    const heading = new PIXI.Text({ text: 'Placed by' });
-    heading.y = currentPos - 20;
-    heading.x = 10;
-    heading.style.fill = new TRgba(128, 128, 128).hexNumber();
-    heading.style.fontSize = 12;
-    heading.anchor.y = 1;
-    this.placementGraphics.addChild(heading);
-
-    placements.forEach((placement) => {
-      const text = placement.getNodeTextString(false)[0];
-      const label = new PIXI.Text({
-        text: text.length > 20 ? `${text.substring(0, 17)}...` : text,
-      });
-      label.x = 10;
-      label.y = currentPos;
-      label.style.fill = TRgba.white().hexNumber();
-      label.style.fontSize = 12;
-      label.anchor.y = 1;
-      label.interactive = true;
-      label.addListener('pointerover', () => {
-        document.body.style.cursor = 'pointer';
-      });
-      label.addListener('pointerout', () => {
-        document.body.style.cursor = 'default';
-      });
-      label.addListener('click', () => {
-        void ensureVisible([PPGraph.currentGraph.nodes[placement.id]], true);
-      });
-      label.on('destroyed', () => label.removeAllListeners());
-      this.placementGraphics.addChild(label);
-      currentPos += distPerUnit;
-    });
-    this.placementGraphics.fill({ color: this.getColor().hexNumber() });
-  }
-
-  public drawBackground(): void {
-    if (this.placementGraphics == undefined) {
-      this.placementGraphics = new PIXI.Graphics();
-      this.drawPlacementGraphics();
-    }
-    this._BackgroundGraphicsRef.removeChildren();
-    const nameRef = new PIXI.Text({ text: this.nodeName });
-    nameRef.y = -50;
-    nameRef.x = this.nodeWidth / 2;
-    nameRef.anchor.x = 0.5;
-    nameRef.style.fill = new TRgba(56, 56, 56).hexNumber();
-    nameRef.style.fontSize = 48;
-    this._BackgroundGraphicsRef.addChild(nameRef);
-    this._BackgroundGraphicsRef.addChild(this.placementGraphics);
-
-    this._BackgroundGraphicsRef.moveTo(10, 1.5);
-    this._BackgroundGraphicsRef.lineTo(this.nodeWidth - 20, 1.5);
-    this._BackgroundGraphicsRef.moveTo(10, this.nodeHeight - 1.5);
-    this._BackgroundGraphicsRef.lineTo(
-      this.nodeWidth - 20,
-      this.nodeHeight - 1.5,
-    );
-    this._BackgroundGraphicsRef.stroke({
-      width: 3,
-      color: this.getColor(),
-      alpha: 0.5,
-    });
-
-    this.drawBlock(this.getLeftBlock());
-    this.drawBlock(this.getRightBlock());
-
-    this._BackgroundGraphicsRef.fill({
-      color: this.getColor().hexNumber(),
-      alpha: this.getOpacity(),
-    });
-  }
-
-  private getLeftBlock(): PIXI.Rectangle {
-    return new PIXI.Rectangle(
-      NODE_MARGIN,
-      0,
-      PARAM_BLOCK_SIZE,
-      this.nodeHeight,
-    );
-  }
-
-  private getRightBlock(): PIXI.Rectangle {
-    return new PIXI.Rectangle(
-      NODE_MARGIN + this.nodeWidth - UI_BLOCK_SIZE,
-      0,
-      UI_BLOCK_SIZE,
-      this.nodeHeight,
-    );
-  }
-
-  private drawBlock(block: PIXI.Rectangle): void {
-    this._BackgroundGraphicsRef.roundRect(
-      block.x,
-      block.y,
-      block.width,
-      block.height,
-      this.getCornerRadius(),
-    );
-  }
-
-  public getSelectionBounds(): PIXI.Rectangle[] {
-    const adjustMargins = (bounds: PIXI.Rectangle) => {
-      bounds.x += this.x;
-      bounds.y += this.y;
-      return PPNode.boundsToSelectionBounds(bounds);
-    };
-    return [this.getLeftBlock(), this.getRightBlock()].map(adjustMargins);
-  }
-
-  // only the two blocks are grabbable, so the middle stays click-through for
-  // the nodes living inside the frame
-  protected getHitArea(): PNPHitArea {
-    const leftBlock = PPNode.boundsToSelectionBounds(this.getLeftBlock());
-    const rightBlock = PPNode.boundsToSelectionBounds(this.getRightBlock());
-    return new PNPHitArea(
-      (x, y) =>
-        leftBlock.contains(x, y) ||
-        rightBlock.contains(x, y) ||
-        this.statusBadges.containsPoint(x, y) ||
-        this.isPointNearVisibleSocket(x, y),
-    );
-  }
-
-  public getShrinkOnSocketRemove(): boolean {
-    return false;
-  }
-
-  public allowOverlap(): boolean {
-    return true;
-  }
-
-  public isPostPassForAutoAlign(): boolean {
-    return true;
-  }
-
-  public getAutoAlignChromeMargin(): number {
-    return TEMPLATE_AUTOALIGN_PADDING;
-  }
-
-  public getAutoAlignContentNodes(): PPNode[] {
-    return FlowLogic.getAllUpDownstreamNodes(this, true, true, true).filter(
-      (node) => node.id !== this.id,
-    );
-  }
-
-  public postPassForAutoAlign(nodes: PPNode[], _iterations: number): void {
-    const relevantForMe = FlowLogic.getAllUpDownstreamNodes(
-      this,
-      true,
-      true,
-      true,
-    );
-    if (relevantForMe.length === 1) {
-      return;
-    }
-    const { minX, minY, maxX, maxY } = PPSelection.getNodesMinMax(
-      nodes.filter((node) =>
-        relevantForMe.some((relevant) => relevant.id === node.id),
-      ),
-    );
-    const padding = TEMPLATE_AUTOALIGN_PADDING;
-    this.setPosition(minX - 2 * padding, minY - padding);
-    this.nodeWidth = maxX - minX + 4 * padding;
-    this.nodeHeight = maxY - minY + 2 * padding;
-    this.resizeAndDraw();
-    this.updateConnectionPosition();
-  }
-
-  onNodeResize: (width: number, height: number) => void = () => {
-    this.drawPlacementGraphics(true);
-  };
 
   onNodeRemoved: () => void = () => {
     this.bodyNodes.forEach((node) => node.templateBodyOf.delete(this.id));

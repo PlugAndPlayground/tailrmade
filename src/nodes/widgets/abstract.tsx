@@ -431,6 +431,9 @@ export abstract class WidgetHybridBase extends HybridNode2 {
   }
 }
 
+export const clampSelectedIndex = (options: unknown[], index: number): number =>
+  Math.max(0, Math.min(options.length - 1, index));
+
 export abstract class WidgetSelectionBase extends WidgetHybridBase {
   protected abstract getOptionsSocketName(): string;
   protected abstract getSelectedIndexSocketName(): string;
@@ -454,16 +457,31 @@ export abstract class WidgetSelectionBase extends WidgetHybridBase {
     await super.onExecute(inputObject, outputObject);
 
     const options = inputObject[this.getOptionsSocketName()];
-    const selectedIndex = Math.max(
-      0,
-      Math.min(
-        options.length - 1,
-        inputObject[this.getSelectedIndexSocketName()],
-      ),
+    const selectedIndex = clampSelectedIndex(
+      options,
+      inputObject[this.getSelectedIndexSocketName()],
     );
 
     this.setOutputData(outName, options[selectedIndex]);
     this.setOutputData(outIndexName, selectedIndex);
+  }
+
+  protected async commitSelectedIndex(
+    index: number,
+    instance: TemplateInstanceHandle | undefined,
+    actionName: string,
+  ): Promise<void> {
+    const optionsSocketName = this.getOptionsSocketName();
+    await this.commitWidgetEdit(
+      this.getSelectedIndexSocketName(),
+      index,
+      instance,
+      actionName,
+      (newIndex, node) => ({
+        [outName]: node.getInputData(optionsSocketName)[newIndex],
+        [outIndexName]: newIndex,
+      }),
+    );
   }
 }
 

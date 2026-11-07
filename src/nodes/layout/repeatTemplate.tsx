@@ -1,15 +1,11 @@
 // Repeat template: one placement of a UI template per entry of an array or
 // object. Not called "grid": columns is a setting, and "Widget grid array"
 // already exists.
-import React, { useContext, useMemo } from 'react';
+import React from 'react';
 import { Box } from '@mui/material';
 import { HybridWidgetContentProps } from '../../classes/HybridNode2';
 import PPNode from '../../classes/NodeClass';
 import PPSocket from '../../classes/SocketClass';
-import {
-  SurfaceCanvasPreviewContext,
-  SurfaceVisitedContext,
-} from '../../components/dashboard/SurfaceRenderer';
 import {
   TEMPLATE_PLACED_STATE_PROP,
   TemplateInstanceCapture,
@@ -27,10 +23,10 @@ import {
 import { SOCKET_NAME_DASHBOARD_CONTENT } from '../../utils/layoutableHelpers';
 import { runTemplateAsInstance, TemplateArgs } from './templateInstancing';
 import {
-  getPlacementProblem,
   TemplateBody,
   TemplateNotice,
   TemplatePlacementNode,
+  usePlacedBody,
 } from './templatePlacement';
 import type { UITemplate } from './uiTemplateNode';
 
@@ -139,21 +135,7 @@ export const RepeatTemplateWidget: React.FunctionComponent<
   HybridWidgetContentProps<RepeatTemplate>
 > = (props) => {
   const node = props.node;
-  const visited = useContext(SurfaceVisitedContext);
-  const isCanvasPreview =
-    useContext(SurfaceCanvasPreviewContext) || !props.inDashboard;
-  const template = node.getTemplate();
-  const body = template?.getBodySurface();
-  const bodyVisited = useMemo(
-    () => [...visited, body?.id ?? ''],
-    [visited, body?.id],
-  );
-
-  const problem = getPlacementProblem(
-    props[templateSocketName],
-    template,
-    visited,
-  );
+  const { body, bodyVisited, isCanvasPreview, problem } = usePlacedBody(props);
   if (problem || !body) {
     return <TemplateNotice label={problem ?? ''} />;
   }

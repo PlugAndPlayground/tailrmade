@@ -8,6 +8,7 @@ import {
   getSizeSocket,
   getWidgetControlProps,
   outName,
+  clampSelectedIndex,
   outIndexName,
   sizeName,
   useWidgetSize,
@@ -116,25 +117,13 @@ are intentionally independent.`;
     newValue,
     instance?: TemplateInstanceHandle,
   ) => {
-    await this.commitWidgetEdit(
-      selectedTabIndex,
-      newValue,
-      instance,
-      'Select Tab',
-      (index, node) => ({
-        [outName]: node.getInputData(tabsOptionsName)[index],
-        [outIndexName]: index,
-      }),
-    );
+    await this.commitSelectedIndex(newValue, instance, 'Select Tab');
   };
 
   getWidgetContent(props: WidgetContentProps): React.ReactElement {
     const node = props.node as WidgetTabs;
     const options = props[tabsOptionsName] || [];
-    const selectedIndex = Math.max(
-      0,
-      Math.min(options.length - 1, props[selectedTabIndex]),
-    );
+    const selectedIndex = clampSelectedIndex(options, props[selectedTabIndex]);
 
     const scrollable = props[scrollableName];
     const size = useWidgetSize(props[sizeName]);

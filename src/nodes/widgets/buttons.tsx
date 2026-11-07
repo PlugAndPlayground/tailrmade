@@ -18,6 +18,7 @@ import {
   getWidgetFontSize,
   labelName,
   outName,
+  clampSelectedIndex,
   outIndexName,
   initialValueName,
   variantName,
@@ -382,24 +383,15 @@ export class WidgetButtonGroup extends WidgetSelectionBase {
     // simply set the selected index to the clicked button
     // If we're in non-exclusive toggle mode, we'd need state to track multiple selections
     // but since we're limited to a single output, we'll still use the last clicked
-    await this.commitWidgetEdit(
-      selectedButtonIndex,
-      index,
-      instance,
-      'Select Button',
-      (newIndex, node) => ({
-        [outName]: node.getInputData(buttonGroupOptionsName)[newIndex],
-        [outIndexName]: newIndex,
-      }),
-    );
+    await this.commitSelectedIndex(index, instance, 'Select Button');
   };
 
   getWidgetContent(props: HybridWidgetContentProps): React.ReactElement {
     const node = props.node as WidgetHybridBase;
     const options = props[buttonGroupOptionsName] || [];
-    const selectedIndex = Math.max(
-      0,
-      Math.min(options.length - 1, props[selectedButtonIndex]),
+    const selectedIndex = clampSelectedIndex(
+      options,
+      props[selectedButtonIndex],
     );
 
     // Get configuration props

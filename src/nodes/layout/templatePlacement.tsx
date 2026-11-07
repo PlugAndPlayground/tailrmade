@@ -5,7 +5,9 @@
 // register this abstract class as a node.
 import React, { useContext, useMemo } from 'react';
 import { Box } from '@mui/material';
-import HybridNode2 from '../../classes/HybridNode2';
+import HybridNode2, {
+  HybridWidgetContentProps,
+} from '../../classes/HybridNode2';
 import { NodeExecutionError } from '../../classes/ErrorClass';
 import PPGraph from '../../classes/GraphClass';
 import PPNode from '../../classes/NodeClass';
@@ -89,6 +91,30 @@ export function getPlacementProblem(
     return `Recursive template (${template.nodeName}) - not rendered`;
   }
   return undefined;
+}
+
+/**
+ * What both placement widgets render from: the template's body surface, the
+ * visited list to render it with, or why it cannot render.
+ */
+export function usePlacedBody(
+  props: HybridWidgetContentProps<TemplatePlacementNode>,
+) {
+  const visited = useContext(SurfaceVisitedContext);
+  const isCanvasPreview =
+    useContext(SurfaceCanvasPreviewContext) || !props.inDashboard;
+  const template = props.node.getTemplate();
+  const body = template?.getBodySurface();
+  const bodyVisited = useMemo(
+    () => [...visited, body?.id ?? ''],
+    [visited, body?.id],
+  );
+  const problem = getPlacementProblem(
+    props[templateSocketName],
+    template,
+    visited,
+  );
+  return { body, bodyVisited, isCanvasPreview, problem };
 }
 
 type TemplateBodyProps = {

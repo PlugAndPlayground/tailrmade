@@ -2,15 +2,10 @@ import PPGraph from '../../classes/GraphClass';
 import PPNode from '../../classes/NodeClass';
 import Socket from '../../classes/SocketClass';
 import { TRgba } from '../../utils/color';
-import {
-  NODE_MARGIN,
-  NODE_TYPE_COLOR,
-  SOCKET_TYPE,
-} from '../../utils/constants';
+import { NODE_TYPE_COLOR, SOCKET_TYPE } from '../../utils/constants';
 import { TNodeSource } from '../../utils/interfaces';
 import { AnyType } from '../datatypes/anyType';
 import { ensureVisible, getObjectsInsideBounds } from '../../pixi/utils-pixi';
-import UpdateBehaviourClass from '../../classes/UpdateBehaviourClass';
 import { DynamicEnumType } from '../datatypes/dynamicEnumType';
 import * as PIXI from 'pixi.js';
 import InputArrayKeysType, {
@@ -18,10 +13,8 @@ import InputArrayKeysType, {
 } from '../datatypes/inputArrayKeysType';
 import { JSONArrayType } from '../datatypes/jsonArrayType';
 import { arrayEntryToSelectedValue } from '../data/dataFunctions';
-import { PNPHitArea } from '../../classes/selection/PNPHitArea';
 import { deSerializeType, serializeType } from '../datatypes/typehelper';
-import PPSelection from '../../classes/selection/SelectionClass';
-import FlowLogic from '../../classes/FlowLogic';
+import { MacroFrame } from './macroFrame';
 
 export const macroOutputName = 'Output';
 export const macroNameName = 'Macro';
@@ -31,29 +24,11 @@ export const EMPTY_DEFAULT_MACRO_NAME = 'EmptyDefaultMacro';
 const macroArrayName = 'Array';
 const constantSuffix = ' - Constant';
 
-const MACRO_INPUT_BLOCK_SIZE = 120;
-const MACRO_OUTPUT_BLOCK_SIZE = 60;
-
 const macroColor = TRgba.fromString(NODE_TYPE_COLOR.MACRO);
-
-const UPDATE_CALLERS_INTERVAL_MILLISECONDS = 2000;
 
 export const MACRO_PARAMETER_PREFIX_NAME = 'Parameter';
 
-// Padding the macro container draws around its content when auto-aligning.
-export const MACRO_AUTOALIGN_PADDING = 100;
-
-export class Macro extends PPNode {
-  // Macros can be referenced by name or execute nodes with side effects.
-  public getSeemsUnused(): boolean {
-    return false;
-  }
-
-  callerGraphics!: PIXI.Graphics;
-  textRef: PIXI.Text | undefined = undefined;
-  prevCallers: string = '';
-  prevTimeUpdated = 0;
-
+export class Macro extends MacroFrame {
   public getName(): string {
     return 'Macro';
   }
@@ -66,140 +41,14 @@ export class Macro extends PPNode {
     return ['Macro'].concat(super.getTags());
   }
 
-  public getMinNodeWidth(): number {
-    return MACRO_INPUT_BLOCK_SIZE * 3;
-  }
-
-  public getDefaultNodeWidth(): number {
-    return 1000;
-  }
-
-  public getDefaultNodeHeight(): number {
-    return 300;
-  }
-
-  public getUpdateBehaviour(): UpdateBehaviourClass {
-    return new UpdateBehaviourClass(false, true, false, 1000, this);
-  }
-
   getColor(): TRgba {
     return macroColor;
   }
 
-  async tick(currentTime: number, deltaTime: number): Promise<void> {
-    await super.tick(currentTime, deltaTime);
-    if (
-      currentTime >
-      UPDATE_CALLERS_INTERVAL_MILLISECONDS + this.prevTimeUpdated
-    ) {
-      this.prevTimeUpdated = currentTime;
-      if (this.isVisible()) {
-        this.drawCallerGraphics();
-      }
-    }
+  protected getReferrersHeading(): string {
+    return 'Referenced by';
   }
 
-  private drawCallerGraphics(force = false): void {
-    const callers = this.getCallers();
-    const names = callers.map((node) => node.getNodeTextString(false)[0]);
-    const NameString = names.join('');
-    if (NameString != this.prevCallers || force) {
-      this.prevCallers = NameString;
-      this.callerGraphics.removeChildren();
-      this.callerGraphics.clear();
-      if (callers.length == 0) {
-        return;
-      }
-
-      const distPerUnit = 15;
-
-      let currentPos = this.nodeHeight - distPerUnit * callers.length;
-      const textRef = new PIXI.Text({ text: 'Referenced by' });
-      textRef.y = currentPos - 20;
-      textRef.x = 10;
-      textRef.style.fill = new TRgba(128, 128, 128).hexNumber();
-      textRef.style.fontSize = 12;
-      textRef.anchor.y = 1;
-      this.callerGraphics.addChild(textRef);
-
-      callers.forEach((caller) => {
-        const text = caller.getNodeTextString(false)[0];
-        const textToUse =
-          text.length > 20 ? text.substring(0, 17) + '...' : text;
-        const callerText = new PIXI.Text({
-          text: textToUse,
-        });
-        callerText.x = 10;
-        callerText.y = currentPos;
-        callerText.style.fill = TRgba.white().hexNumber();
-        callerText.style.fontSize = 12;
-        callerText.anchor.y = 1;
-        callerText.interactive = true;
-        callerText.addListener('pointerover', () => {
-          document.body.style.cursor = 'pointer';
-        });
-        callerText.addListener('click', () => {
-          void ensureVisible([PPGraph.currentGraph.nodes[caller.id]], true);
-        });
-        callerText.addListener('pointerout', () => {
-          document.body.style.cursor = 'default';
-        });
-
-        callerText.on('destroyed', () => {
-          callerText.removeAllListeners();
-        });
-
-        this.callerGraphics.addChild(callerText);
-
-        currentPos += distPerUnit;
-      });
-      this.callerGraphics.fill({ color: this.getColor().hexNumber() });
-    }
-  }
-
-  public drawBackground(): void {
-    if (this.callerGraphics == undefined) {
-      this.callerGraphics = new PIXI.Graphics();
-      this.drawCallerGraphics();
-    }
-    this._BackgroundGraphicsRef.removeChildren();
-    const nameRef = new PIXI.Text({ text: this.nodeName });
-    nameRef.y = -50;
-    nameRef.x = this.nodeWidth / 2;
-    nameRef.anchor.x = 0.5;
-    nameRef.style.fill = new TRgba(56, 56, 56).hexNumber();
-    nameRef.style.fontSize = 48;
-    this._BackgroundGraphicsRef.addChild(nameRef);
-    this._BackgroundGraphicsRef.addChild(this.callerGraphics);
-
-    this._BackgroundGraphicsRef.moveTo(10, 1.5);
-    this._BackgroundGraphicsRef.lineTo(this.nodeWidth - 20, 1.5);
-    this._BackgroundGraphicsRef.moveTo(10, this.nodeHeight - 1.5);
-    this._BackgroundGraphicsRef.lineTo(
-      this.nodeWidth - 20,
-      this.nodeHeight - 1.5,
-    );
-    this._BackgroundGraphicsRef.stroke({
-      width: 3,
-      color: this.getColor(),
-      alpha: 0.5,
-    });
-
-    this.drawBlock(this._BackgroundGraphicsRef, this.getLeftBlock());
-    this.drawBlock(this._BackgroundGraphicsRef, this.getRightBlock());
-
-    this._BackgroundGraphicsRef.fill({
-      color: this.getColor().hexNumber(),
-      alpha: this.getOpacity(),
-    });
-  }
-
-  public getInputSocketXPos(): number {
-    return this.nodeWidth - MACRO_OUTPUT_BLOCK_SIZE;
-  }
-  public getOutputSocketXPos(): number {
-    return MACRO_INPUT_BLOCK_SIZE;
-  }
   public outputPlugged(socket: Socket): void {
     super.outputPlugged(socket);
 
@@ -220,14 +69,6 @@ export class Macro extends PPNode {
     }
     this.potentiallyUpdateCallingNodesMeta();
     this.debounceDrawShape();
-  }
-
-  shouldRemoveLastSocket(array: Socket[]): boolean {
-    return (
-      array.length >= 2 &&
-      array[array.length - 1].links.length == 0 &&
-      array[array.length - 2].links.length == 0
-    );
   }
 
   public outputUnplugged(socket: Socket): void {
@@ -265,16 +106,6 @@ export class Macro extends PPNode {
       ),
       new AnyType(),
     );
-  }
-  public connectedTargetSocketChangedType(socket: Socket): void {
-    const mySocket = socket.links[0].getSource();
-    mySocket.changeSocketDataType(
-      deSerializeType(serializeType(socket.dataType)),
-    );
-  }
-
-  public socketShouldAutomaticallyAdapt(socket: Socket): boolean {
-    return socket.isInput();
   }
 
   public async executeMacro(args: any[]): Promise<any> {
@@ -316,7 +147,7 @@ export class Macro extends PPNode {
         (macro) => macro.nodeName == nameToUse,
       );
     }
-    const callers = this.getCallers();
+    const callers = this.getReferrers();
 
     this.name = nameToUse;
     if (this.hasBeenAdded) {
@@ -347,32 +178,6 @@ export class Macro extends PPNode {
     return nodesInside;
   }
 
-  public getSelectionBounds(): PIXI.Rectangle[] {
-    const adjustMargins = (bounds: PIXI.Rectangle) => {
-      bounds.x += this.x;
-      bounds.y += this.y;
-
-      bounds = PPNode.boundsToSelectionBounds(bounds);
-
-      return bounds;
-    };
-    const myBounds = [this.getLeftBlock(), this.getRightBlock()].map(
-      adjustMargins,
-    );
-    return myBounds;
-  }
-
-  public getSocketDesiredDisplayName(socket: Socket): string {
-    if (socket == undefined) {
-      return '';
-    }
-    return socket.isOutput() && socket.hasLink()
-      ? socket.links[0].target
-          .getNode()
-          .getSocketDisplayName(socket.links[0].target)
-      : socket.name;
-  }
-
   public getSocketDisplayName(socket: Socket): string {
     if (socket == undefined) {
       return '';
@@ -400,14 +205,14 @@ export class Macro extends PPNode {
     }
   }
 
-  private getCallers(): PPNode[] {
+  protected getReferrers(): PPNode[] {
     return Object.values(PPGraph.currentGraph.nodes).filter((node) =>
       node.isCallingMacro(this.name),
     );
   }
 
   updateAllCallers(): void {
-    const nodesCallingMe = this.getCallers();
+    const nodesCallingMe = this.getReferrers();
     // needs to be sequential
     for (let i = 0; i < nodesCallingMe.length; i++) {
       if (!nodesCallingMe[i].isExecuting) {
@@ -428,56 +233,9 @@ export class Macro extends PPNode {
     }
   }
 
-  private getLeftBlock(): PIXI.Rectangle {
-    return new PIXI.Rectangle(
-      NODE_MARGIN,
-      0,
-      MACRO_INPUT_BLOCK_SIZE,
-      this.nodeHeight,
-    );
-  }
-
-  private getRightBlock(): PIXI.Rectangle {
-    return new PIXI.Rectangle(
-      NODE_MARGIN + this.nodeWidth - MACRO_OUTPUT_BLOCK_SIZE,
-      0,
-      MACRO_OUTPUT_BLOCK_SIZE,
-      this.nodeHeight,
-    );
-  }
-
-  private drawBlock(graphics: PIXI.Graphics, block: PIXI.Rectangle) {
-    this._BackgroundGraphicsRef.roundRect(
-      block.x,
-      block.y,
-      block.width,
-      block.height,
-      this.getCornerRadius(),
-    );
-  }
-
-  protected getHitArea(): PNPHitArea {
-    const leftBlock = PPNode.boundsToSelectionBounds(this.getLeftBlock());
-    const rightBlock = PPNode.boundsToSelectionBounds(this.getRightBlock());
-
-    const toReturn = new PNPHitArea((x, y) => {
-      return (
-        leftBlock.contains(x, y) ||
-        rightBlock.contains(x, y) ||
-        this.statusBadges.containsPoint(x, y) ||
-        this.isPointNearVisibleSocket(x, y)
-      );
-    });
-    return toReturn;
-  }
-
-  public shouldPropagateExecutionThrough(socket: Socket): boolean {
-    return false;
-  }
-
   protected potentiallyUpdateCallingNodesMeta() {
     if (PPGraph.currentGraph.graphConfiguredAndReady) {
-      this.getCallers().forEach((caller) => caller.calledMacroUpdatedMeta());
+      this.getReferrers().forEach((caller) => caller.calledMacroUpdatedMeta());
     }
   }
 
@@ -487,60 +245,6 @@ export class Macro extends PPNode {
   protected socketAdded(): void {
     this.potentiallyUpdateCallingNodesMeta();
   }
-
-  public allowOverlap(): boolean {
-    return true;
-  }
-
-  public isPostPassForAutoAlign(): boolean {
-    return true;
-  }
-
-  // Vertical/horizontal padding the macro container draws around its content in
-  // postPassForAutoAlign. Exposed as chrome so the layered layout can reserve
-  // room for it when stacking components (otherwise adjacent macros overlap).
-  public getAutoAlignChromeMargin(): number {
-    return MACRO_AUTOALIGN_PADDING;
-  }
-
-  // The content nodes this macro will wrap, so the layout can tag them with the
-  // chrome margin above.
-  public getAutoAlignContentNodes(): PPNode[] {
-    return FlowLogic.getAllUpDownstreamNodes(this, true, true, true).filter(
-      (node) => node.id !== this.id,
-    );
-  }
-
-  public postPassForAutoAlign(nodes: PPNode[], iterations: number): void {
-    const relevantForMe = FlowLogic.getAllUpDownstreamNodes(
-      this,
-      true,
-      true,
-      true,
-    );
-    if (relevantForMe.length == 1) {
-      console.log("Not aligning macro - it's not connected to anything");
-      return;
-    }
-    const { minX, minY, maxX, maxY } = PPSelection.getNodesMinMax(
-      nodes.filter((node) =>
-        relevantForMe.some((relevant) => relevant.id === node.id),
-      ),
-    );
-    const paddingX = MACRO_AUTOALIGN_PADDING;
-    const paddingY = MACRO_AUTOALIGN_PADDING;
-    const startX = minX - paddingX;
-    const endX = maxX + paddingX;
-    this.setPosition(startX - paddingX, minY - paddingY);
-    this.nodeWidth = endX - startX + 2 * paddingX;
-    this.nodeHeight = maxY - minY + 2 * paddingY;
-    this.resizeAndDraw();
-    this.updateConnectionPosition();
-  }
-
-  onNodeResize: (width: number, height: number) => void = () => {
-    this.drawCallerGraphics(true);
-  };
 }
 
 export class ExecuteMacro extends PPNode {

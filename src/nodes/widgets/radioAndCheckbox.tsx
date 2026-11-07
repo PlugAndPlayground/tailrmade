@@ -212,7 +212,6 @@ export class WidgetRadio extends WidgetHybridBase {
   };
 
   getWidgetContent(props: WidgetContentProps): React.ReactElement {
-    const node = props.node;
     const options = props[optionsName];
     const selectedValue = props[selectedOptionName];
 
@@ -223,7 +222,7 @@ export class WidgetRadio extends WidgetHybridBase {
         <RadioGroup
           value={selectedValue}
           onChange={(event) =>
-            void (node as WidgetRadio).handleOnChange(
+            void (props.node as WidgetRadio).handleOnChange(
               event,
               props.templateInstance,
             )
