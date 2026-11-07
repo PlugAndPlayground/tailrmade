@@ -97,6 +97,12 @@ type AccessStyle = {
   description: string;
 };
 
+// Card titles are bare verbs listed under "This app can:". On their own, next
+// to a node's name, they need the "Can" back: "Can run unsandboxed code".
+function nodeActionLabel(title: string): string {
+  return `Can ${title.charAt(0).toLowerCase()}${title.slice(1)}`;
+}
+
 // The one ordered scale in the panel: how well a person can judge this, from
 // "nothing to judge" up to "cannot be judged at all". `severity` still decides
 // what is allowed to run; it is not shown as a scale of its own.
@@ -105,20 +111,22 @@ const accessStyles: Record<RiskLevel, AccessStyle> = {
     color: '#fd6a52',
     label: 'Unrestricted',
     bars: 3,
-    description: 'Not sandboxed. Its actions cannot be determined.',
+    description:
+      "Runs code outside the sandbox. Tailrmade can't check what that code does.",
   },
   dynamic: {
     color: '#ffc247',
     label: 'Dynamic',
     bars: 2,
     description:
-      'Its actions are known, but its values can change while running.',
+      'Everything it can do is listed, but some addresses or values are set while the app runs.',
   },
   static: {
     color: '#8cb8f7',
     label: 'Static',
     bars: 1,
-    description: 'Its actions are known and its values are constant.',
+    description:
+      'Everything it can do is listed, with fixed addresses and values.',
   },
   // White rather than a lighter blue: it steps off the red-amber-blue ramp
   // instead of extending it, so it tells this apart from `static` without
@@ -128,13 +136,13 @@ const accessStyles: Record<RiskLevel, AccessStyle> = {
     label: 'Static - loads only',
     shortLabel: 'loads only',
     bars: 1,
-    description: 'The same, and it only loads content from known sites.',
+    description: 'Only loads content from the sites listed.',
   },
   none: {
     color: '#8d96ab',
     label: 'No access',
     bars: 0,
-    description: "Doesn't require any access.",
+    description: 'Needs no access.',
   },
 };
 
@@ -529,7 +537,7 @@ function AccessOverview({
       }}
     >
       <Typography variant="overline" color="text.secondary">
-        Required access
+        Required access level
       </Typography>
       <Box>
         <AccessLevel level={access} variant="h6" describe={false} />
@@ -880,12 +888,12 @@ export function AppRiskDialog({
         sx={{
           position: 'fixed',
           pointerEvents: 'auto',
-          bottom: 64,
+          bottom: 54,
           left: '50%',
           transform: 'translateX(-50%)',
           zIndex: 1400,
           width: 'max-content',
-          maxWidth: 'calc(100% - 32px)',
+          maxWidth: 'calc(100% - 16px)',
           display: 'flex',
           alignItems: 'center',
           gap: 2,
@@ -1004,12 +1012,11 @@ export function AppRiskDialog({
               onInspectAll={() => inspectNodes(nodes.map((node) => node.id))}
             />
             <Typography variant="body2" color="text.secondary" sx={{ mt: 1.5 }}>
-              Everything below is declared by this app&apos;s own nodes. Check
-              it matches what the app is supposed to do.
               {review.risks.some(
                 ({ risk }) => risk.kind === 'unrestricted-code',
-              ) &&
-                ' Some nodes also run code that is not sandboxed. Their actions cannot be determined, so this list is not complete for them — that part comes down to whether you trust the publisher above.'}{' '}
+              )
+                ? "The list below comes from the app's nodes. Unsandboxed code can do more than what's listed, so only run it if you trust the publisher."
+                : "The list below comes from the app's nodes. Check it matches what the app is meant to do."}{' '}
               <Box
                 component="a"
                 href={HELP_URL_APP_RISK_REVIEW}
@@ -1038,7 +1045,7 @@ export function AppRiskDialog({
             >
               <Tab
                 value="actions"
-                label={`Actions (${actions.length})`}
+                label={`Access (${actions.length})`}
                 data-cy="risk-actions-tab"
               />
               <Tab
@@ -1057,6 +1064,16 @@ export function AppRiskDialog({
             />
             {tab === 'actions' ? (
               <>
+                {matchingActions.length > 0 && (
+                  <Typography
+                    variant="overline"
+                    color="text.secondary"
+                    component="h3"
+                    sx={{ display: 'block', lineHeight: 2 }}
+                  >
+                    This app can:
+                  </Typography>
+                )}
                 {matchingActions.map((group) => (
                   <ActionGroup
                     key={group.risk.id}
@@ -1124,7 +1141,7 @@ export function AppRiskDialog({
                                 },
                               }}
                             >
-                              {risk.title}
+                              {nodeActionLabel(risk.title)}
                               {risk.target && ` · ${risk.target}`}
                             </Box>
                           ))}
@@ -1190,11 +1207,21 @@ export function AppRiskDialog({
             flex: `0 0 ${APP_RISK_PANEL_WIDTH}px`,
             display: 'flex',
             flexDirection: 'column',
+            overflow: 'hidden',
             ...(stacked
-              ? { left: 8, bottom: 64, top: '52%' }
+              ? {
+                  left: 8,
+                  bottom: 54,
+                  top: '52%',
+                  overflowY: 'auto',
+                  '& .MuiDialogActions-root': {
+                    position: 'sticky',
+                    bottom: 0,
+                    bgcolor: 'inherit',
+                  },
+                }
               : { height: '100dvh' }),
             width: stacked ? 'calc(100% - 16px)' : APP_RISK_PANEL_WIDTH,
-            overflow: 'hidden',
             border: 1,
             borderColor: 'divider',
             // a pending run gets the accent, browsing risks later does not
@@ -1203,7 +1230,10 @@ export function AppRiskDialog({
               borderTopColor: accessStyles[requiredAccess(review.risks)].color,
             }),
             '& .MuiDialogTitle-root': { px: 2, py: 1 },
-            '& .MuiDialogContent-root': { px: 2 },
+            '& .MuiDialogContent-root': {
+              px: 2,
+              ...(stacked && { flex: 'none', overflowY: 'visible' }),
+            },
           }}
         >
           {content}
