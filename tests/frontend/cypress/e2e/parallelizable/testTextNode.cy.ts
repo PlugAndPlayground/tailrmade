@@ -587,4 +587,35 @@ describe('dynamic Text node', () => {
       );
     });
   });
+
+  it('drags from its text while not in edit mode', () => {
+    addTextNode('drag-text');
+    cy.get('body').type('{esc}');
+    doWithTestController((testController) => {
+      testController.selectNodesById([]);
+    });
+    canvasEditor('drag-text').should('have.attr', 'contenteditable', 'false');
+
+    let startX = 0;
+    doWithTestController((testController) => {
+      startX = testController.getNodeByID('drag-text').x;
+    });
+    cy.get('#pixi-container').then(($canvas) => {
+      const canvas = $canvas[0].getBoundingClientRect();
+      canvasEditor('drag-text')
+        .find('p')
+        .first()
+        .then(($text) => {
+          const text = $text[0].getBoundingClientRect();
+          const x = text.left - canvas.left + 10;
+          const y = text.top - canvas.top + text.height / 2;
+          dragFromAtoB(x, y, x + 150, y, true);
+        });
+    });
+    shouldWithTestController((testController) => {
+      expect(testController.getNodeByID('drag-text').x).to.be.greaterThan(
+        startX + 100,
+      );
+    });
+  });
 });
