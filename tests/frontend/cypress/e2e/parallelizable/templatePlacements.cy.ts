@@ -430,6 +430,25 @@ describe('template placements', () => {
     });
   });
 
+  it('keeps one row of a slider from moving the next row to its limit', () => {
+    doWithTestController(async (tc: any) => {
+      const template = await addTemplate(tc, 't');
+      const slider = await addWidget(tc, 't', 't-s', 'WidgetSlider');
+      slider.setInputData('Min', 0);
+      slider.setInputData(VALUE, 10);
+      // the slider sits on its limit before any row runs
+      template.setOutputData('Parameter 1', 10);
+      await tc.connectNodesByID('t', 't-s', 'Parameter 1', 'Max');
+      expect(slider.getInputData(VALUE)).to.equal(10);
+      const repeat = await addRepeat(tc, template, 'rep', [10, 20, 30]);
+
+      // a slider follows a moved limit it was sitting on, but the limit that
+      // moved here is another row's
+      expect(rowValues(repeat, 't-s')).to.deep.equal([10, 10, 10]);
+      expect(slider.getInputData(VALUE)).to.equal(10);
+    });
+  });
+
   it('applies the settings of the row being edited', () => {
     doWithTestController(async (tc: any) => {
       const slider = await addTemplate(tc, 'num');
@@ -626,6 +645,30 @@ describe('template placements', () => {
     });
   });
 
+  it('empties a connected output the template no longer declares', () => {
+    doWithTestController(async (tc: any) => {
+      const template = await addTemplate(tc, 't');
+      const widget = await addWidget(tc, 't', 't-w');
+      widget.setInputData(VALUE, 'AUTHORED');
+      await widget.executeOptimizedChain();
+      await tc.connectNodesByID('t-w', 't', 'Out', 'Output 1');
+      const place = await addPlace(tc, template, 'place');
+      await tc.addNode('WidgetTextField', 'down', 1600, 400);
+      await tc.connectNodesByID('place', 'down', 'Output 1', VALUE);
+      await place.executeOptimizedChain();
+      expect(tc.getNodeByID('down').getInputData(VALUE)).to.equal('AUTHORED');
+
+      await tc.getGraph().linkDisconnect('t', 'Output 1', true);
+      await place.executeOptimizedChain();
+      // the socket stays for its link, as a parameter input does
+      expect(place.getOutputSocketByName('Output 1').hasLink()).to.equal(true);
+      expect(place.getOutputData('Output 1')).to.equal(undefined);
+      expect(tc.getNodeByID('down').getInputData(VALUE)).to.not.equal(
+        'AUTHORED',
+      );
+    });
+  });
+
   it('refuses a placement that would embed its own template', () => {
     doWithTestController(async (tc: any) => {
       const template = await addTemplate(tc, 't');
@@ -706,6 +749,65 @@ describe('template placements', () => {
         .rows.map((row: any) => row.capture.snapshots['t-w'][VALUE]);
       expect(snapshots).to.deep.equal(['first', 'second!']);
     });
+  });
+
+  it('keeps the file info of a file dropped into a placement', () => {
+    doWithTestController(async (tc: any) => {
+      await tc.addNode('UISurfaceNode', 'page', 2400, 0);
+      const template = await addTemplate(tc, 't');
+      await tc.addNode('FileDropzone', 't-dz', -200, 0);
+      await tc.connectNodesByID('t-dz', 't-sf', 'ReactUI');
+      await tc.connectNodesByID('t-dz', 't', 'FileInfo', 'Output 1');
+      await addPlace(tc, template, 'place');
+      await tc.connectNodesByID('place', 'page', 'ReactUI');
+      await tc.waitForPendingExecution();
+      tc.toggleDashboard(VISIBILITY_ACTION.OPEN);
+    });
+
+    cy.get('[data-cy="dashboard"] input[type=file]').selectFile(
+      { contents: Cypress.Buffer.from('hello'), fileName: 'hello.txt' },
+      { force: true },
+    );
+
+    shouldWithTestController((tc: any) => {
+      const place = tc.getNodeByID('place');
+      expect(place.capture.outputs['Output 1']).to.have.length(1);
+      expect(place.getOutputData('Output 1')[0].name).to.equal('hello.txt');
+      // and the shared node keeps none of it
+      expect(tc.getNodeByID('t-dz').getOutputData('FileInfo')).to.deep.equal(
+        [],
+      );
+    });
+  });
+
+  it('undoes typing in one row of a text editor', () => {
+    doWithTestController(async (tc: any) => {
+      await tc.addNode('UISurfaceNode', 'page', 2400, 0);
+      const template = await addTemplate(tc, 't');
+      await addWidget(tc, 't', 't-e', 'TextEditor2');
+      await tc.connectNodesByID('t', 't-e', 'Parameter 1', 'Markdown');
+      await addRepeat(tc, template, 'rep', ['first', 'second']);
+      await tc.connectNodesByID('rep', 'page', 'ReactUI');
+      await tc.waitForPendingExecution();
+      tc.toggleDashboard(VISIBILITY_ACTION.OPEN);
+    });
+
+    const editors =
+      '[data-cy="dashboard"] [data-cy="repeat-template of rep"] .editor-input';
+    const markdownsAre = (expected: string[]) =>
+      shouldWithTestController((tc: any) => {
+        expect(
+          tc
+            .getNodeByID('rep')
+            .rows.map((row: any) => row.capture.snapshots['t-e'].Markdown),
+        ).to.deep.equal(expected);
+      });
+    cy.get(editors).eq(1).should('contain.text', 'second').type('{end}!');
+    markdownsAre(['first', 'second!']);
+    cy.get(editors).eq(1).type('{meta}z');
+    markdownsAre(['first', 'second']);
+    cy.get(editors).eq(1).should('have.text', 'second');
+    cy.get(editors).eq(0).should('have.text', 'first');
   });
 
   it('can be built with the AI tools, as the node docs describe', () => {

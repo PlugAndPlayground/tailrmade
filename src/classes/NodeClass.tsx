@@ -2147,17 +2147,27 @@ ${Math.round(bounds.minX)}, ${Math.round(
     instance?: TemplateInstanceHandle,
     outputs: Record<string, unknown> = {},
   ): Promise<TemplateNodeValues | undefined> {
+    return this.applyWidgetEdits({ [socketName]: value }, instance, outputs);
+  }
+
+  // several inputs as one edit, for a widget whose outputs need them all
+  public async applyWidgetEdits(
+    inputs: Record<string, unknown>,
+    instance?: TemplateInstanceHandle,
+    outputs: Record<string, unknown> = {},
+  ): Promise<TemplateNodeValues | undefined> {
     const owner = this.getTemplateOwner(instance);
     if (owner) {
       return owner.applyTemplateEdit(
         instance?.rowKey,
         this.id,
-        socketName,
-        value,
+        inputs,
         instance?.parent,
       );
     }
-    this.setInputData(socketName, value);
+    Object.entries(inputs).forEach(([name, inputValue]) =>
+      this.setInputData(name, inputValue),
+    );
     Object.entries(outputs).forEach(([name, outputValue]) =>
       this.setOutputData(name, outputValue),
     );

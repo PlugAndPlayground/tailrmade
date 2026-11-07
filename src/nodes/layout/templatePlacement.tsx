@@ -294,33 +294,33 @@ export abstract class TemplatePlacementNode
   public async applyTemplateEdit(
     rowKey: string | undefined,
     nodeId: string,
-    socketName: string,
-    value: unknown,
+    values: Record<string, unknown>,
     parent?: TemplateRowRef,
   ): Promise<TemplateNodeValues> {
     const edits = structuredClone(this.getEditsIn(parent));
     const previous = structuredClone(edits.rows[rowKey ?? ''] ?? {});
     const rowEdits = (edits.rows[rowKey ?? ''] ??= {});
-    // A parameter holds one value per row, so the latest edit of any socket it
-    // feeds replaces earlier edits of the others - with both kept, only one
-    // could ever reach the parameter and the newer one might be dropped.
-    PPGraph.currentGraph
-      .getNodeById(nodeId)
-      ?.getInputSocketByName(socketName)
-      ?.links[0]?.getSource()
-      .links.forEach((link) => {
-        const target = link.getTarget();
-        delete rowEdits[target.getNode().id]?.[target.name];
-      });
-    (rowEdits[nodeId] ??= {})[socketName] = value;
+    const node = PPGraph.currentGraph.getNodeById(nodeId);
+    Object.entries(values).forEach(([socketName, value]) => {
+      // A parameter holds one value per row, so the latest edit of any socket
+      // it feeds replaces earlier edits of the others - with both kept, only
+      // one could ever reach the parameter and the newer one might be dropped.
+      node
+        ?.getInputSocketByName(socketName)
+        ?.links[0]?.getSource()
+        .links.forEach((link) => {
+          const target = link.getTarget();
+          delete rowEdits[target.getNode().id]?.[target.name];
+        });
+      (rowEdits[nodeId] ??= {})[socketName] = value;
+    });
     const outer = this.getOuterPlacement(parent);
     if (parent && outer) {
       // undo then restores the outer row, which holds this edit
       return outer.applyTemplateEdit(
         parent.rowKey,
         this.id,
-        templateEditsSocketName,
-        edits,
+        { [templateEditsSocketName]: edits },
         parent.parent,
       );
     }

@@ -61,6 +61,8 @@ const maxSizeName = 'MaxSize';
 const persistName = 'Persist data';
 const labelName = 'Label';
 const dataName = 'Data';
+// what FileInfo puts out, stored next to Data for the same reasons
+const infoName = 'Info';
 const outputFilesData = 'Filedata';
 const outputFileInfoName = 'FileInfo';
 const showPasteFromClipboardName = 'Show paste from clipboard button';
@@ -166,6 +168,7 @@ export class FileDropzone extends PPNode implements Layoutable {
         true,
       ),
       new PPSocket(SOCKET_TYPE.IN, dataName, new ArrayType(), [], false),
+      new PPSocket(SOCKET_TYPE.IN, infoName, new ArrayType(), [], false),
       new PPSocket(SOCKET_TYPE.OUT, outputFilesData, new ArrayType(), [], true),
       new PPSocket(
         SOCKET_TYPE.OUT,
@@ -217,9 +220,10 @@ export class FileDropzone extends PPNode implements Layoutable {
     inputObject: any,
     outputObject: Record<string, unknown>,
   ): Promise<void> {
-    // inside a template a row's files arrive through this input either way
+    // inside a template a row's files arrive through these inputs either way
     if (inputObject[persistName] || this.isInTemplateBody()) {
       outputObject[outputFilesData] = inputObject[dataName] || [];
+      outputObject[outputFileInfoName] = inputObject[infoName] || [];
     }
     return Promise.resolve();
   }
@@ -308,9 +312,8 @@ const FileDropzoneComponent: React.FC<{
       // A placement keeps its files in its own edits either way: without that
       // they would be written to the node every row shares
       if (props.templateInstance || node.getInputData(persistName)) {
-        await node.applyWidgetEdit(
-          dataName,
-          newDataArray,
+        await node.applyWidgetEdits(
+          { [dataName]: newDataArray, [infoName]: newFileInfo },
           props.templateInstance,
           {
             [outputFilesData]: newDataArray,
@@ -387,9 +390,8 @@ const FileDropzoneComponent: React.FC<{
 
     if (props.templateInstance || node.getInputData(persistName)) {
       // store on input side to persist data, per placement when in one
-      await node.applyWidgetEdit(
-        dataName,
-        updatedDataArray,
+      await node.applyWidgetEdits(
+        { [dataName]: updatedDataArray, [infoName]: updatedFileInfo },
         props.templateInstance,
         {
           [outputFilesData]: updatedDataArray,

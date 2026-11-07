@@ -261,16 +261,25 @@ what every placement shows, set the value on the widget inside the template. Fir
     );
   }
 
+  // Every template output socket, including one kept only for its link after
+  // the template stopped declaring it, which then carries nothing. Written to
+  // the sockets directly, since execute() skips an undefined output.
+  private getCapturedOutputs(): Record<string, unknown> {
+    return Object.fromEntries(
+      this.outputSocketArray
+        .filter((socket) => socket.name.startsWith(templateOutputPrefixName))
+        .map((socket) => [socket.name, this.capture.outputs[socket.name]]),
+    );
+  }
+
   protected storeRowCapture(
     _rowKey: string | undefined,
     capture: TemplateInstanceCapture,
   ): void {
     this.capture = capture;
-    Object.entries(capture.outputs).forEach(([name, value]) => {
-      if (this.getOutputSocketByName(name)) {
-        this.setOutputData(name, value);
-      }
-    });
+    Object.entries(this.getCapturedOutputs()).forEach(([name, value]) =>
+      this.setOutputData(name, value),
+    );
   }
 
   getWidgetContent(
@@ -286,18 +295,16 @@ what every placement shows, set the value on the widget inside the template. Fir
     const template = this.getTemplate();
     if (template) {
       this.prepareRun(template);
-      this.capture = await runTemplateAsInstance(
-        template,
-        this.getRowArgs(),
-        this.getRowEdits(undefined),
+      this.storeRowCapture(
+        undefined,
+        await runTemplateAsInstance(
+          template,
+          this.getRowArgs(),
+          this.getRowEdits(undefined),
+        ),
       );
-      Object.entries(this.capture.outputs).forEach(([name, value]) => {
-        if (this.getOutputSocketByName(name)) {
-          output[name] = value;
-        }
-      });
     } else {
-      this.capture = emptyTemplateCapture();
+      this.storeRowCapture(undefined, emptyTemplateCapture());
     }
 
     if (this.getOutputSocketByName(SOCKET_NAME_DASHBOARD_CONTENT)?.hasLink()) {

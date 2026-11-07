@@ -10,8 +10,7 @@ export interface TemplateOwner {
   applyTemplateEdit(
     rowKey: string | undefined,
     nodeId: string,
-    socketName: string,
-    value: unknown,
+    values: Record<string, unknown>,
     parent?: TemplateRowRef,
   ): Promise<TemplateNodeValues>;
   restoreRowEdits(
