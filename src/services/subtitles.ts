@@ -26,36 +26,56 @@ export const DEFAULT_SUBTITLE_STYLE: SubtitleStyle = {
   margin: 8,
 };
 
-export interface SubtitleState {
+export interface Caption {
+  // the Subtitle node showing it
+  id: string;
   text: string;
   style: SubtitleStyle;
 }
 
-// One caption at a time, shown over the canvas by SubtitleOverlay. Both the
-// Subtitle node and replay scripts drive it.
-let hideTimer: ReturnType<typeof setTimeout> | undefined;
-let currentText = '';
+// The captions shown over the canvas by SubtitleOverlay, one per Subtitle
+// node, in the order they appeared. A changed text keeps its place.
+const captions = new Map<string, Caption>();
+const hideTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
-// a duration of 0 keeps the caption until the next one replaces it
+const notify = () =>
+  InterfaceController.notifyListeners(ListenEvent.SubtitleChanged, [
+    ...captions.values(),
+  ]);
+
+// empty text hides the caption, and a duration of 0 keeps it until it changes
 export function showSubtitle(
+  id: string,
   text: string,
-  durationMs = 0,
-  style: SubtitleStyle = DEFAULT_SUBTITLE_STYLE,
+  durationMs: number,
+  style: SubtitleStyle,
 ): void {
-  clearTimeout(hideTimer);
-  hideTimer = undefined;
-  currentText = text;
-  const state: SubtitleState = { text, style };
-  InterfaceController.notifyListeners(ListenEvent.SubtitleChanged, state);
-  if (text && durationMs > 0) {
-    hideTimer = setTimeout(clearSubtitle, durationMs);
+  if (!text) {
+    clearSubtitle(id);
+    return;
+  }
+  clearTimeout(hideTimers.get(id));
+  hideTimers.delete(id);
+  captions.set(id, { id, text, style });
+  notify();
+  if (durationMs > 0) {
+    hideTimers.set(
+      id,
+      setTimeout(() => clearSubtitle(id), durationMs),
+    );
   }
 }
 
-export function clearSubtitle(): void {
-  showSubtitle('');
+export function clearSubtitle(id: string): void {
+  clearTimeout(hideTimers.get(id));
+  hideTimers.delete(id);
+  captions.delete(id);
+  notify();
 }
 
-export function getSubtitle(): string {
-  return currentText;
+export function clearAllSubtitles(): void {
+  hideTimers.forEach((timer) => clearTimeout(timer));
+  hideTimers.clear();
+  captions.clear();
+  notify();
 }

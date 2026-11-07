@@ -50,14 +50,14 @@ const script = [
 // reads as being covered by the canvas, so check its fade state instead
 const captionShows = (text: string) =>
   cy
-    .get('[data-cy="subtitle-overlay"]')
-    .should('have.css', 'opacity', '1')
-    .and('have.text', text);
+    .contains('[data-cy="subtitle-overlay"]', text)
+    .should('have.css', 'opacity', '1');
 
-const captionHidden = () =>
-  cy
-    .get('[data-cy="subtitle-overlay"]')
-    .should('have.css', 'visibility', 'hidden');
+const captionHidden = (text: string) =>
+  cy.contains('[data-cy="subtitle-overlay"]', text).should('not.exist');
+
+const lastCaption = (reports: { caption: string }[]) =>
+  reports[reports.length - 1].caption;
 
 describe('Replay', () => {
   beforeEach(() => {
@@ -184,38 +184,75 @@ describe('Replay', () => {
     });
   });
 
-  it('shows subtitle steps over the canvas until stop clears them', () => {
+  it('reports caption steps without showing them itself', () => {
     doWithTestController(async (tc) => {
-      await tc.playReplay([
-        { tool: 'subtitle', input: { text: 'First we fetch the weather' } },
+      const reports = await tc.playReplay([
+        { tool: 'caption', input: { text: 'First we fetch the weather' } },
         script[0],
       ]);
+      expect(lastCaption(reports)).to.eq('First we fetch the weather');
+      // scripts written before caption steps existed
+      const legacy = await tc.playReplay([
+        { tool: 'subtitle', input: { text: 'Old step', duration: 2 } },
+      ]);
+      expect(lastCaption(legacy)).to.eq('Old step');
     });
-    captionShows('First we fetch the weather');
-    doWithTestController((tc) => tc.resetReplay(script));
-    captionHidden();
+    cy.get('[data-cy="subtitle-overlay"]').should('not.exist');
   });
 
-  it('hides a subtitle step after its duration', () => {
-    doWithTestController((tc) =>
-      tc.playReplay(
-        [{ tool: 'subtitle', input: { text: 'Briefly', duration: 2 } }],
-        1,
-      ),
-    );
-    captionShows('Briefly');
-    captionHidden();
-  });
-
-  it('shows the Subtitle node text until the node is removed', () => {
+  it('shows its Caption output through a linked Subtitle node', () => {
+    const steps = [{ tool: 'caption', input: { text: 'Narrated' } }, script[0]];
     doWithTestController(async (tc) => {
-      await tc.addNode('Subtitle', 'subtitle');
-      tc.setNodeInputValue('subtitle', 'Text', 'From a node');
-      await tc.executeNodeByID('subtitle');
+      await tc.addNode('Replay', 'replay', -600, 0);
+      tc.setNodeInputValue('replay', 'Script', steps);
+      tc.setNodeInputValue('replay', 'Speed', 4);
+      await tc.addNode('Subtitle', 'narration', -600, 400);
+      await tc.connectNodesByID('replay', 'narration', 'Caption', 'Text');
+      await (
+        tc.getNodeByID('replay') as unknown as { play(): Promise<void> }
+      ).play();
     });
-    captionShows('From a node');
-    doWithTestController((tc) => tc.removeNode('subtitle'));
-    captionHidden();
+    captionShows('Narrated');
+    // stop pauses, so the caption stays; reset clears it
+    doWithTestController(async (tc) => {
+      await (
+        tc.getNodeByID('replay') as unknown as { stop(): Promise<void> }
+      ).stop();
+    });
+    captionShows('Narrated');
+    doWithTestController(async (tc) => {
+      await (
+        tc.getNodeByID('replay') as unknown as { reset(): Promise<void> }
+      ).reset();
+    });
+    captionHidden('Narrated');
+  });
+
+  it('shows a caption per Subtitle node until that node is removed', () => {
+    doWithTestController(async (tc) => {
+      await tc.addNode('Subtitle', 'first');
+      tc.setNodeInputValue('first', 'Text', 'From the first');
+      await tc.executeNodeByID('first');
+      await tc.addNode('Subtitle', 'second', 0, 300);
+      tc.setNodeInputValue('second', 'Text', 'From the second');
+      await tc.executeNodeByID('second');
+    });
+    captionShows('From the first');
+    captionShows('From the second');
+    doWithTestController((tc) => tc.removeNode('first'));
+    captionHidden('From the first');
+    captionShows('From the second');
+  });
+
+  it('hides a Subtitle node caption after its duration', () => {
+    doWithTestController(async (tc) => {
+      await tc.addNode('Subtitle', 'brief');
+      tc.setNodeInputValue('brief', 'Text', 'Briefly');
+      tc.setNodeInputValue('brief', 'Duration', 1);
+      await tc.executeNodeByID('brief');
+    });
+    captionShows('Briefly');
+    captionHidden('Briefly');
   });
 
   it('records editing, and plays it back after a reset', () => {
@@ -302,7 +339,7 @@ describe('Replay', () => {
 
   it('steps forward and back one step at a time', () => {
     const steps = [
-      { tool: 'subtitle', input: { text: 'Step by step' } },
+      { tool: 'caption', input: { text: 'Step by step' } },
       {
         tool: 'add_node',
         input: { node_type: 'Constant', node_id: 'a', x: 0, y: 0 },
@@ -328,14 +365,17 @@ describe('Replay', () => {
     doWithTestController(async (tc) => {
       for (let i = 1; i < steps.length; i++) {
         const progress = await tc.stepReplay(steps, 'next');
-        expect(progress).to.deep.eq({ step: i, total: 5, status: 'Paused' });
+        expect(progress).to.deep.eq({
+          step: i,
+          total: 5,
+          status: 'Paused',
+          caption: 'Step by step',
+        });
       }
       expect((await tc.stepReplay(steps, 'next')).status).to.eq('Done');
       expect((await tc.stepReplay(steps, 'next')).status).to.eq('Done');
       expect(tc.getInputLinkSourceNodeID('b', 'Input')).to.eq('a');
     });
-    // stepping keeps the caption up
-    captionShows('Step by step');
 
     doWithTestController(async (tc) => {
       expect((await tc.stepReplay(steps, 'back')).step).to.eq(4);
@@ -346,10 +386,11 @@ describe('Replay', () => {
       expect(tc.getNodeInputValue('a', 'In')).not.to.eq('Hi');
       await tc.stepReplay(steps, 'back');
       expect(tc.getNodes()).to.have.length(0);
-      expect((await tc.stepReplay(steps, 'back')).step).to.eq(0);
+      const start = await tc.stepReplay(steps, 'back');
+      expect(start.step).to.eq(0);
+      expect(start.caption).to.eq('');
       expect((await tc.stepReplay(steps, 'back')).status).to.eq('At the start');
     });
-    captionHidden();
 
     // after an edit of its own the history no longer matches, so back rebuilds
     doWithTestController(async (tc) => {
@@ -386,6 +427,7 @@ describe('Replay', () => {
         step: 1,
         total: 2,
         status: 'Stopped',
+        caption: '',
       });
       const resumed = await tc.playReplay(steps);
       expect(resumed[resumed.length - 1].status).to.eq('Done');
@@ -455,6 +497,7 @@ describe('Replay', () => {
         step: 1,
         total: 2,
         status: 'Paused',
+        caption: '',
       });
       expect(tc.getNodeInputValue('a', 'In')).not.to.eq('Hi');
       expect(tc.getNodes()).to.have.length(1);
@@ -527,8 +570,10 @@ describe('Replay', () => {
     cy.get('body').trigger('keyup', { key: 'ArrowRight' });
     doWithTestController((tc) => {
       expect(tc.getNodeOutputValue('replay', 'Step')).to.eq(1);
+      expect(tc.getNodeOutputValue('replay', 'Caption')).to.eq(
+        'A value and a label',
+      );
     });
-    captionShows('A value and a label');
     cy.get('body').trigger('keydown', { key: 'ArrowRight' });
     cy.get('body').trigger('keyup', { key: 'ArrowRight' });
     doWithTestController((tc) => {

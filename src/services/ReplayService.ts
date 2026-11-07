@@ -9,7 +9,6 @@ import {
 } from '../pixi/utils-pixi';
 import InterfaceController, { ListenEvent } from '../InterfaceController';
 import { TailrmadeMCPServer, ToolCaller } from './TailrmadeMCPServer';
-import { clearSubtitle, getSubtitle, showSubtitle } from './subtitles';
 import { ReplayRecorder } from './ReplayRecorder';
 
 /**
@@ -28,11 +27,15 @@ export interface ReplayProgress {
   step: number;
   total: number;
   status: string;
+  // the text of the last caption step, for a Subtitle node to show
+  caption: string;
 }
 
 // steps the replay handles itself instead of the MCP server
 const CAMERA_TOOL = 'camera';
-const SUBTITLE_TOOL = 'subtitle';
+const CAPTION_TOOL = 'caption';
+// what caption steps were called when the replay drew them itself
+const LEGACY_CAPTION_TOOL = 'subtitle';
 
 interface CameraInput {
   // node ids to frame; an empty list frames the whole graph
@@ -43,11 +46,8 @@ interface CameraInput {
   duration?: number;
 }
 
-// shown without holding up the steps after it
-interface SubtitleInput {
+interface CaptionInput {
   text?: string;
-  // seconds; 0 keeps it until the next subtitle
-  duration?: number;
 }
 
 const REPLAY_CALLER: ToolCaller = { source: 'replay', quiet: true };
@@ -135,12 +135,14 @@ export class ReplayService {
   // carry on from there
   private applied: AppliedStep[] = [];
   private scriptKey = '';
+  private caption = '';
 
   constructor() {
     // a replay belongs to the graph it was started in
     InterfaceController.addListener(ListenEvent.GraphConfigured, () => {
       this.runId++;
       this.applied = [];
+      this.caption = '';
       this.cameraBeforePlay = undefined;
     });
   }
@@ -166,7 +168,7 @@ export class ReplayService {
     const settings = readSettings(getSettings);
     if (this.applied.length >= total) {
       if (!settings.loop || total === 0) {
-        onProgress({ step: total, total, status: 'Done' });
+        onProgress(this.progress(total, total, 'Done'));
         return;
       }
       await this.startOver(steps);
@@ -174,20 +176,18 @@ export class ReplayService {
     const index = this.applied.length;
     await this.track(
       (async () => {
-        onProgress({
-          step: index + 1,
-          total,
-          status: `Running ${steps[index].tool}`,
-        });
+        onProgress(
+          this.progress(index + 1, total, `Running ${steps[index].tool}`),
+        );
         const error = await this.applyStep(steps, index, settings);
         onProgress(
           error
             ? this.failure(steps, index, error)
-            : {
-                step: index + 1,
+            : this.progress(
+                index + 1,
                 total,
-                status: index + 1 === total ? 'Done' : 'Paused',
-              },
+                index + 1 === total ? 'Done' : 'Paused',
+              ),
         );
       })(),
     );
@@ -207,7 +207,7 @@ export class ReplayService {
     }
     const last = this.applied[this.applied.length - 1];
     if (!last) {
-      onProgress({ step: 0, total, status: 'At the start' });
+      onProgress(this.progress(0, total, 'At the start'));
       return;
     }
     await this.track(
@@ -216,7 +216,7 @@ export class ReplayService {
         const settings = readSettings(getSettings);
         if (await this.undoStep(last)) {
           this.applied.pop();
-          showSubtitle(last.caption);
+          this.caption = last.caption;
           if (steps[index].tool === CAMERA_TOOL && settings.camera) {
             this.animateCamera(
               last.camera,
@@ -226,17 +226,15 @@ export class ReplayService {
         } else {
           await this.rebuild(steps, index);
         }
-        onProgress({ step: index, total, status: 'Paused' });
+        onProgress(this.progress(index, total, 'Paused'));
       })(),
     );
   }
 
   async stop(): Promise<void> {
     await this.halt();
-    clearSubtitle();
   }
 
-  // stepping keeps the caption up, stop takes it down
   private async halt(): Promise<void> {
     this.runId++;
     await this.running;
@@ -247,6 +245,7 @@ export class ReplayService {
     await this.stop();
     await this.removeScriptNodes(steps);
     this.applied = [];
+    this.caption = '';
     if (this.cameraBeforePlay) {
       this.animateCamera(this.cameraBeforePlay, 0);
       this.cameraBeforePlay = undefined;
@@ -322,10 +321,12 @@ export class ReplayService {
           runId,
         );
         if (runId !== this.runId) {
-          onProgress({ step: index, total, status: 'Stopped' });
+          onProgress(this.progress(index, total, 'Stopped'));
           return;
         }
-        onProgress({ step: index + 1, total, status: `Running ${step.tool}` });
+        const running = `Running ${step.tool}`;
+        onProgress(this.progress(index + 1, total, running));
+        const caption = this.caption;
         const error = await this.applyStep(
           steps,
           index,
@@ -335,8 +336,12 @@ export class ReplayService {
           onProgress(this.failure(steps, index, error));
           return;
         }
+        // a new caption goes out now, not with the next step after its delay
+        if (this.caption !== caption) {
+          onProgress(this.progress(index + 1, total, running));
+        }
       }
-      onProgress({ step: total, total, status: 'Done' });
+      onProgress(this.progress(total, total, 'Done'));
       if (!readSettings(getSettings).loop || runId !== this.runId || !total) {
         return;
       }
@@ -348,7 +353,7 @@ export class ReplayService {
   private async startOver(steps: ReplayStep[]): Promise<void> {
     await this.removeScriptNodes(steps);
     this.applied = [];
-    clearSubtitle();
+    this.caption = '';
     if (this.cameraBeforePlay) {
       this.animateCamera(this.cameraBeforePlay, 0);
     }
@@ -359,11 +364,19 @@ export class ReplayService {
     index: number,
     error: string,
   ): ReplayProgress {
-    return {
-      step: index + 1,
-      total: steps.length,
-      status: `Step ${index + 1} (${steps[index].tool}) failed: ${error}`,
-    };
+    return this.progress(
+      index + 1,
+      steps.length,
+      `Step ${index + 1} (${steps[index].tool}) failed: ${error}`,
+    );
+  }
+
+  private progress(
+    step: number,
+    total: number,
+    status: string,
+  ): ReplayProgress {
+    return { step, total, status, caption: this.caption };
   }
 
   // runs a step and remembers how to undo it
@@ -373,7 +386,7 @@ export class ReplayService {
     settings: ReplaySettings,
   ): Promise<string | undefined> {
     const before = new Set(getHistoryIds());
-    const caption = getSubtitle();
+    const caption = this.caption;
     const camera = this.getCamera();
     const error = await this.runStep(steps[index], settings);
     if (!error) {
@@ -404,7 +417,7 @@ export class ReplayService {
   private async rebuild(steps: ReplayStep[], count: number): Promise<void> {
     await this.removeScriptNodes(steps);
     this.applied = [];
-    clearSubtitle();
+    this.caption = '';
     const instant = { speed: Infinity, loop: false, camera: false };
     for (let index = 0; index < count; index++) {
       if (await this.applyStep(steps, index, instant)) break;
@@ -437,9 +450,9 @@ export class ReplayService {
         ? this.runCamera((step.input ?? {}) as CameraInput, speed)
         : undefined;
     }
-    if (step.tool === SUBTITLE_TOOL) {
-      const { text = '', duration = 0 } = (step.input ?? {}) as SubtitleInput;
-      showSubtitle(String(text), (duration * 1000) / speed);
+    if (step.tool === CAPTION_TOOL || step.tool === LEGACY_CAPTION_TOOL) {
+      const { text = '' } = (step.input ?? {}) as CaptionInput;
+      this.caption = String(text);
       return undefined;
     }
     const result = await TailrmadeMCPServer.getInstance().callTool(

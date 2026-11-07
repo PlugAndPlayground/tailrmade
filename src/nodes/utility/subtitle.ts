@@ -35,9 +35,9 @@ export class Subtitle extends PPNode {
   }
 
   public getDocs(): string {
-    return `Shows **Text** as a caption over the canvas, e.g. to narrate a video. Empty text hides it.
+    return `Shows **Text** as a caption over the canvas, e.g. to narrate a video. Empty text hides it. Link a Replay node's Caption output to Text to narrate a replay.
 
-**Duration** is in seconds; 0 keeps the caption until the text changes. There is one caption at a time, shared with the subtitle steps of a Replay script.
+**Duration** is in seconds; 0 keeps the caption until the text changes. Each Subtitle node shows its own caption; captions in the same position stack, the newest nearest the screen edge.
 
 **Background color** sets the box behind the text; the text is the app theme's light or dark contrast color for it. **Corner radius** is in pixels. **Position** places the caption, and **Margin** is its distance from the screen edge in % of the screen height.`;
   }
@@ -86,15 +86,20 @@ export class Subtitle extends PPNode {
   }
 
   protected async onExecute(input: any): Promise<void> {
-    showSubtitle(String(input[textName] ?? ''), input[durationName] * 1000, {
-      background: TRgba.fromObject(input[backgroundName]).toString(),
-      cornerRadius: input[cornerRadiusName],
-      position: input[positionName],
-      margin: input[marginName],
-    });
+    showSubtitle(
+      this.id,
+      String(input[textName] ?? ''),
+      input[durationName] * 1000,
+      {
+        background: TRgba.fromObject(input[backgroundName]).toString(),
+        cornerRadius: input[cornerRadiusName],
+        position: input[positionName],
+        margin: input[marginName],
+      },
+    );
   }
 
   onNodeRemoved = (): void => {
-    clearSubtitle();
+    clearSubtitle(this.id);
   };
 }

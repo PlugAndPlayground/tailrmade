@@ -42,9 +42,10 @@ const cameraName = 'Camera';
 const autoplayName = 'Autoplay';
 const statusName = 'Status';
 const stepName = 'Step';
+const captionName = 'Caption';
 
 const exampleScript: ReplayStep[] = [
-  { delay: 0, tool: 'subtitle', input: { text: 'A value and a label' } },
+  { delay: 0, tool: 'caption', input: { text: 'A value and a label' } },
   {
     tool: 'add_node',
     input: { node_type: 'Constant', node_id: 'ai-node-1', x: 0, y: 0 },
@@ -67,7 +68,7 @@ const exampleScript: ReplayStep[] = [
     },
   },
   { tool: 'camera', input: { fit: ['ai-node-1', 'ai-node-2'] } },
-  { delay: 1.5, tool: 'subtitle', input: { text: '' } },
+  { delay: 1.5, tool: 'caption', input: { text: '' } },
 ];
 
 export class Replay extends PPNode {
@@ -94,7 +95,7 @@ export class Replay extends PPNode {
 
 - **delay** is waited after the previous step has finished (default 0.5s), divided by Speed. Speed can change while it plays.
 - **camera** is a replay-only step: \`{ "fit": ["ai-node-1"] }\` frames nodes (an empty list frames the whole graph), \`{ "x", "y", "zoom" }\` moves to a point. \`duration\` is in seconds.
-- **subtitle** is a replay-only step: \`{ "text": "...", "duration": 3 }\` shows a caption without holding up the next steps. Empty text hides it, and a duration of 0 keeps it until the next one.
+- **caption** is a replay-only step: \`{ "text": "..." }\` sets the **Caption** output until the next caption step. Link it to a Subtitle node's Text to show it on screen; an empty text hides it there.
 - Give \`add_node\` an x and y so every run lays out the same.
 - **Reset** removes the nodes the script adds and puts the camera back. Play refuses to start while they still exist.
 - **Stop** pauses: Play carries on from there.
@@ -132,6 +133,7 @@ export class Replay extends PPNode {
       new Socket(SOCKET_TYPE.IN, autoplayName, new BooleanType(), false),
       new Socket(SOCKET_TYPE.OUT, statusName, new StringType()),
       new Socket(SOCKET_TYPE.OUT, stepName, new NumberType(true)),
+      new Socket(SOCKET_TYPE.OUT, captionName, new StringType(), ''),
     ];
   }
 
@@ -219,7 +221,7 @@ export class Replay extends PPNode {
   public async record(): Promise<void> {
     await ReplayService.getInstance().stop();
     ReplayRecorder.getInstance().start(this.id);
-    this.showProgress({ step: 0, total: 0, status: 'Recording' });
+    this.showProgress({ step: 0, total: 0, status: 'Recording', caption: '' });
   }
 
   private async saveRecording(): Promise<void> {
@@ -240,18 +242,25 @@ export class Replay extends PPNode {
       step: 0,
       total: steps.length,
       status: `Recorded ${steps.length} steps${skipped}`,
+      caption: '',
     });
   }
 
   public async reset(): Promise<void> {
     await this.withScript(async (steps) => {
       await ReplayService.getInstance().reset(steps);
-      this.showProgress({ step: 0, total: steps.length, status: 'Ready' });
+      this.showProgress({
+        step: 0,
+        total: steps.length,
+        status: 'Ready',
+        caption: '',
+      });
     });
   }
 
   private showProgress(progress: ReplayProgress): void {
     this.setOutputData(stepName, progress.step);
+    this.setOutputData(captionName, progress.caption);
     this.showStatus(progress.status);
   }
 

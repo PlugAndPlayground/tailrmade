@@ -4,17 +4,20 @@ import type { SxProps, Theme } from '@mui/material';
 import InterfaceController, { ListenEvent } from '../InterfaceController';
 import { AppThemeProvider } from './dashboard/AppThemeProvider';
 import {
-  clearSubtitle,
-  DEFAULT_SUBTITLE_STYLE,
-  SubtitleState,
+  Caption,
+  clearAllSubtitles,
   SubtitleStyle,
 } from '../services/subtitles';
+
+// a caption that was hidden stays until it has faded out
+type ShownCaption = Caption & { visible: boolean };
 
 const placementSx = ({ position, margin }: SubtitleStyle): SxProps<Theme> => {
   const edge = `${margin}vh`;
   const left = position.endsWith('left');
   const right = position.endsWith('right');
-  const vertical = position.startsWith('Top')
+  const top = position.startsWith('Top');
+  const vertical = top
     ? { top: edge }
     : position === 'Center'
       ? { top: '50%' }
@@ -31,62 +34,104 @@ const placementSx = ({ position, margin }: SubtitleStyle): SxProps<Theme> => {
     ...horizontal,
     transform: `translate(${shiftX}, ${shiftY})`,
     textAlign: left ? 'left' : right ? 'right' : 'center',
+    alignItems: left ? 'flex-start' : right ? 'flex-end' : 'center',
+    // the newest caption sits nearest the screen edge
+    flexDirection: top ? 'column-reverse' : 'column',
   };
 };
 
-export const SubtitleOverlay: React.FC = () => {
-  const [text, setText] = useState('');
-  // kept while the caption fades out, so it doesn't go blank or move first
-  const [shown, setShown] = useState<SubtitleState>({
-    text: '',
-    style: DEFAULT_SUBTITLE_STYLE,
+// keeps the order captions appeared in, and the hidden ones until they faded
+const mergeCaptions = (
+  shown: ShownCaption[],
+  captions: Caption[],
+): ShownCaption[] => {
+  const byId = new Map(captions.map((caption) => [caption.id, caption]));
+  const kept = shown.map((old) => {
+    const current = byId.get(old.id);
+    return current ? { ...current, visible: true } : { ...old, visible: false };
   });
+  const added = captions
+    .filter((caption) => !shown.some((old) => old.id === caption.id))
+    .map((caption) => ({ ...caption, visible: true }));
+  return [...kept, ...added];
+};
+
+// captions with the same place stack instead of overlapping
+const groupByPlace = (captions: ShownCaption[]) => {
+  const groups = new Map<string, ShownCaption[]>();
+  captions.forEach((caption) => {
+    const key = `${caption.style.position}-${caption.style.margin}`;
+    groups.set(key, [...(groups.get(key) ?? []), caption]);
+  });
+  return [...groups.entries()];
+};
+
+export const SubtitleOverlay: React.FC = () => {
+  const [shown, setShown] = useState<ShownCaption[]>([]);
 
   useEffect(() => {
     const ids = [
       InterfaceController.addListener(
         ListenEvent.SubtitleChanged,
-        (data: SubtitleState) => {
-          setText(data.text);
-          if (data.text) {
-            setShown(data);
-          }
-        },
+        (captions: Caption[]) =>
+          setShown((previous) => mergeCaptions(previous, captions)),
       ),
       InterfaceController.addListener(
         ListenEvent.GraphConfigured,
-        clearSubtitle,
+        clearAllSubtitles,
       ),
     ];
     return () => InterfaceController.removeListeners(ids);
   }, []);
 
-  const { style } = shown;
+  const removeFaded = (id: string) =>
+    setShown((previous) =>
+      previous.filter((caption) => caption.id !== id || caption.visible),
+    );
+
   return (
-    // the caption is app content, so it follows the app theme, not the editor's
+    // captions are app content, so they follow the app theme, not the editor's
     <AppThemeProvider>
-      <Fade in={Boolean(text)} timeout={300}>
+      {groupByPlace(shown).map(([place, captions]) => (
         <Box
-          data-cy="subtitle-overlay"
+          key={place}
           sx={{
             position: 'fixed',
-            ...placementSx(style),
+            ...placementSx(captions[0].style),
+            display: 'flex',
+            gap: '8px',
             maxWidth: '70vw',
-            padding: '0.5em 0.9em',
-            borderRadius: `${style.cornerRadius}px`,
-            bgcolor: style.background,
-            color: (theme) => theme.palette.getContrastText(style.background),
-            fontFamily: (theme) => theme.typography.fontFamily,
-            fontSize: 'clamp(18px, 2.2vw, 30px)',
-            lineHeight: 1.35,
-            whiteSpace: 'pre-wrap',
             pointerEvents: 'none',
             zIndex: 9998,
           }}
         >
-          {shown.text}
+          {captions.map(({ id, text, style, visible }) => (
+            <Fade
+              key={id}
+              in={visible}
+              timeout={300}
+              onExited={() => removeFaded(id)}
+            >
+              <Box
+                data-cy="subtitle-overlay"
+                sx={{
+                  padding: '0.5em 0.9em',
+                  borderRadius: `${style.cornerRadius}px`,
+                  bgcolor: style.background,
+                  color: (theme) =>
+                    theme.palette.getContrastText(style.background),
+                  fontFamily: (theme) => theme.typography.fontFamily,
+                  fontSize: 'clamp(18px, 2.2vw, 30px)',
+                  lineHeight: 1.35,
+                  whiteSpace: 'pre-wrap',
+                }}
+              >
+                {text}
+              </Box>
+            </Fade>
+          ))}
         </Box>
-      </Fade>
+      ))}
     </AppThemeProvider>
   );
 };

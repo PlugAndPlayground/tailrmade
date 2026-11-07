@@ -82,7 +82,7 @@ export enum ListenEvent {
   ModalOpenChanged, // data = { nodeId: string } - a UI modal node's open/closed state changed
   NodeStatusChanged, // data = { nodeId: string } - a node's error/warning/custom status changed
   NodeDetailPopoverRequested, // data = { nodeId: string; kind: 'status' | 'comment'; x: number; y: number } | null - open the pinned detail popover, or null to close it
-  SubtitleChanged, // data = SubtitleState - the caption shown over the canvas, empty text hides it
+  SubtitleChanged, // data = Caption[] - every caption shown over the canvas
 }
 
 type InterfaceEventListener = (data: any, event: ListenEvent) => void;
