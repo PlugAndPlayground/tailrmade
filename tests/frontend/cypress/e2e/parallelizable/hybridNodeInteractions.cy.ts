@@ -170,6 +170,39 @@ describe('hybrid node interactions', () => {
     });
   });
 
+  // the click is still pending when selectNodes notifies, so a widget that only
+  // rerenders then would count itself as part of a multi-selection and block
+  it('keeps widget content live after selecting the widget node by a click', () => {
+    doWithTestController(async (testController) => {
+      await testController.addNode('WidgetSlider', 'Slider1', -100, -300);
+      await testController.executeNodeByID('Slider1');
+    });
+
+    cy.get('#slider-label-Slider1').then(($label) => {
+      const rect = $label[0].getBoundingClientRect();
+      const x = rect.left + rect.width / 2;
+      const y = rect.top + rect.height / 2;
+      cy.get('#pixi-container').realMouseMove(x, y);
+      cy.get('#pixi-container').realClick({ x, y });
+    });
+    assertSelectedNodesCount(1);
+
+    cy.get('#Container-Slider1 .MuiSlider-root').then(($slider) => {
+      const rect = $slider[0].getBoundingClientRect();
+      const railX = rect.left + rect.width * 0.75;
+      const railY = rect.top + rect.height / 2;
+      cy.get('#pixi-container').realMouseMove(railX, railY);
+      cy.get('#pixi-container').realClick({ x: railX, y: railY });
+    });
+
+    doWithTestController(async (testController) => {
+      await testController.waitForPendingExecution();
+      expect(
+        testController.getNodeOutputValue('Slider1', 'Out'),
+      ).to.be.greaterThan(50);
+    });
+  });
+
   // A widget's HTML overlay used to cover the whole node, so once the widget
   // was selected there was nowhere left to grab it. Only the control takes
   // pointer events now; everything around it belongs to the node underneath.

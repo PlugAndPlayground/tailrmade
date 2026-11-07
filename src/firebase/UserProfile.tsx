@@ -39,12 +39,9 @@ import {
 } from '../firebase/FirebaseAppHandler';
 import InterfaceController, { ListenEvent } from '../InterfaceController';
 import {
-  TOKEN_LIMITS,
-  COMPANION_REQUEST_LIMITS,
   EXECUTION_LOCATION_CLOUD,
   EXECUTION_LOCATION_LOCAL,
   type ExecutionLocation,
-  getEffectiveDailyUsage,
   type UserData,
 } from '../services/shared-types';
 import { useUserPreferences } from '../components/useUserPreferences';
@@ -267,14 +264,9 @@ const UserProfile: React.FC<UserProfileProps> = ({
     );
   }
 
-  const aiDailyUsage = getEffectiveDailyUsage(
-    userData?.aiUsage?.tokensUsedLastDay || 0,
-    userData?.aiUsage?.tokensLastDayUsed,
-  );
-  const companionDailyUsage = getEffectiveDailyUsage(
-    userData?.companionUsage?.tokensUsedLastDay || 0,
-    userData?.companionUsage?.tokensLastDayUsed,
-  );
+  const aiDaily = userData?.allowances?.ai.daily;
+  const aiMonthly = userData?.allowances?.ai.monthly;
+  const companionDaily = userData?.allowances?.companion.daily;
 
   return (
     <>
@@ -356,10 +348,20 @@ const UserProfile: React.FC<UserProfileProps> = ({
             <ProfileUsageCard
               icon={<PsychologyIcon sx={PROFILE_CARD_ICON_SX} />}
               label="AI assistance"
-              currentUsage={aiDailyUsage}
-              maxAllowed={TOKEN_LIMITS[userData.accountTier] || 0}
+              currentUsage={aiDaily?.used ?? 0}
+              maxAllowed={aiDaily?.limit ?? 0}
               unit="tokens"
             />
+
+            {aiMonthly && (
+              <ProfileUsageCard
+                icon={<PsychologyIcon sx={PROFILE_CARD_ICON_SX} />}
+                label="AI assistance (monthly)"
+                currentUsage={aiMonthly.used}
+                maxAllowed={aiMonthly.limit}
+                unit="tokens"
+              />
+            )}
 
             {quota && (
               <ProfileUsageCard
@@ -376,8 +378,8 @@ const UserProfile: React.FC<UserProfileProps> = ({
               <ProfileUsageCard
                 icon={<CloudQueueIcon sx={PROFILE_CARD_ICON_SX} />}
                 label="Cloud Companion"
-                currentUsage={companionDailyUsage}
-                maxAllowed={COMPANION_REQUEST_LIMITS[userData.accountTier] || 0}
+                currentUsage={companionDaily?.used ?? 0}
+                maxAllowed={companionDaily?.limit ?? 0}
                 unit="requests"
               />
             )}

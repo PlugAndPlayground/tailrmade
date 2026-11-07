@@ -32,7 +32,11 @@ import {
   TouchGesture,
 } from '../utils/touchGestures';
 import { isCanvasExploreOnly, isStackLayout } from '../utils/stackLayout';
-import { goToOpenedApp, setStackView } from '../utils/layoutModel';
+import {
+  goToOpenedApp,
+  leaveEmptyUIView,
+  setStackView,
+} from '../utils/layoutModel';
 import { BackendGateway } from '../services/BackendGateway';
 import { CLOUD_MODE } from '../services/shared-types';
 import { getLoadSeedNodes } from '../utils/updateBehaviour';
@@ -1860,6 +1864,7 @@ export default class PPGraph {
     this.graphConfiguredAndReady = true;
 
     if (isStackLayout()) {
+      leaveEmptyUIView(this);
       frameGraphForStackLayout();
     }
 

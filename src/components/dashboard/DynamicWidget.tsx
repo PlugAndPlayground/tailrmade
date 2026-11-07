@@ -26,7 +26,12 @@ import {
   renderSelectNodeButton,
 } from '../../utils/layoutableHelpers';
 import InterfaceController from '../../InterfaceController';
-import { useHoverEvents, useParentDirection } from './hooks';
+import {
+  useHoverEvents,
+  useIsGraphOnScreen,
+  useParentDirection,
+} from './hooks';
+import { DATA_DASHBOARD_WIDGET } from '../../utils/constants';
 import { DynamicWidgetName } from '../../utils/constants_shared';
 import { dynamicWidgetDefaultProps } from '../../utils/surfaceTree';
 import { ColorSetting, colorSettingToCss } from '../../utils/themeColors';
@@ -95,8 +100,9 @@ export const DynamicWidgetView = (viewProps: DynamicWidgetViewProps) => {
     : undefined;
   // this hook runs on both branches below, so returning the placeholder
   // early cannot violate the rules of hooks
-  const { localHover, handleMouseEnter, handleMouseLeave } =
+  const { handleMouseEnter, handleMouseLeave } =
     useHoverEvents(layoutableElement);
+  const graphOnScreen = useIsGraphOnScreen();
   if (!layoutableElement) {
     // a widget whose graph node cannot be resolved must be visibly broken,
     // not silently blank - the stored layout still references it (e.g. a
@@ -142,10 +148,7 @@ export const DynamicWidgetView = (viewProps: DynamicWidgetViewProps) => {
   } = props as DynamicWidgetProps;
 
   const handleSelectNode = handleNodeSelection(layoutableElement);
-  const overlayState = InterfaceController.getOverlayState();
-  const dashboardFullscreen =
-    overlayState.dashboard.fullscreen || overlayState.dashboard.maximized;
-  const showButton = localHover && !dashboardFullscreen && !isEditMode;
+  const showButton = graphOnScreen && !isEditMode && !isSurfacePreview;
 
   const style = getBasicLayoutStyles(width, height, parentDirection);
 
@@ -186,6 +189,7 @@ export const DynamicWidgetView = (viewProps: DynamicWidgetViewProps) => {
     <Box
       ref={innerRef}
       data-cy={widgetDataCy}
+      {...{ [DATA_DASHBOARD_WIDGET]: 'true' }}
       id={domId}
       sx={{
         position: 'relative',
@@ -201,6 +205,7 @@ export const DynamicWidgetView = (viewProps: DynamicWidgetViewProps) => {
         // may be the 'inherit' keyword, which TRgba cannot hold
         color: colorSettingToCss(color),
         padding: `${padding[0]}px ${padding[1]}px ${padding[2]}px ${padding[3]}px`,
+        minWidth,
         ...style,
       }}
       onMouseEnter={handleMouseEnter}

@@ -10,10 +10,17 @@ const config: Config = {
   favicon: 'img/favicon-32.png',
 
   // Set the production url of your site here
-  url: 'https://help.tailrmade.app',
+  // The docs are served from tailrmade.app/help/ (copied into dist/help by
+  // scripts/copy-docs.js). This host is used for canonical URLs and the
+  // sitemap, so it must match where the pages are actually served.
+  url: 'https://tailrmade.app',
   // Set the /<baseUrl>/ pathname under which your site is served
   // For GitHub pages deployment, it is often '/<projectName>/'
   baseUrl: '/help/',
+  // The server redirects /help/foo to /help/foo/ (each page is a folder with
+  // an index.html). Emit trailing-slash links, canonicals and sitemap entries
+  // so search engines are not sent through a redirect for every page.
+  trailingSlash: true,
 
   organizationName: 'PlugAndPlayground',
   projectName: 'tailrmade',
@@ -43,6 +50,10 @@ const config: Config = {
         },
         theme: {
           customCss: './src/css/custom.css',
+        },
+        sitemap: {
+          // Internal/utility pages that should not compete in search results.
+          ignorePatterns: ['/help/search/**'],
         },
       } satisfies Preset.Options,
     ],

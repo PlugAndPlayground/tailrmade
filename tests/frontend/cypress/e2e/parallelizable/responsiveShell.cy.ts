@@ -4,6 +4,7 @@ import {
   clearGraph,
   clickNode,
   doWithTestController,
+  dragFromAtoB,
   exitDashboardEditMode,
   getNodeCenterById,
   openNewGraph,
@@ -537,6 +538,30 @@ describe('responsive shell', () => {
         // the 80 and 60 the pointer travelled
         shouldWithTestController((tc) => {
           const node = tc.getNodeByID('EXPLORE2');
+          expect(Math.abs(node.x - before[0]), 'x moved').to.be.lessThan(5);
+          expect(Math.abs(node.y - before[1]), 'y moved').to.be.lessThan(5);
+        });
+      });
+    });
+
+    // the risk review selects the nodes it inspects, and two or more selected
+    // nodes put the selection's own hit area over them
+    it('does not move selected nodes that are dragged', () => {
+      doWithTestController(async (tc) => {
+        await tc.addNode('Constant', 'EXPLORE3', 0, 0);
+        await tc.addNode('Constant', 'EXPLORE4', 0, 200);
+        tc.selectNodesById(['EXPLORE3', 'EXPLORE4']);
+      });
+      getNodeCenterById('EXPLORE3').then(([x, y]) => {
+        let before: [number, number];
+        doWithTestController((tc) => {
+          const node = tc.getNodeByID('EXPLORE3');
+          before = [node.x, node.y];
+        });
+        dragFromAtoB(x, y, x + 80, y + 60);
+        shouldWithTestController((tc) => {
+          expect(tc.getSelectedNodes(), 'still selected').to.have.length(2);
+          const node = tc.getNodeByID('EXPLORE3');
           expect(Math.abs(node.x - before[0]), 'x moved').to.be.lessThan(5);
           expect(Math.abs(node.y - before[1]), 'y moved').to.be.lessThan(5);
         });

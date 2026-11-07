@@ -28,6 +28,7 @@ import {
   SerializableAction,
 } from '../Action';
 import { NODE_CLICK_DRAG_THRESHOLD_PX } from '../../utils/nodeInteractivity';
+import { isCanvasExploreOnly } from '../../utils/stackLayout';
 import {
   computeLayeredLayout,
   LayoutEdge,
@@ -338,6 +339,7 @@ export default class PPSelection extends PIXI.Container {
 
   async onPointerDown(event: PIXI.FederatedPointerEvent): Promise<void> {
     console.log('Selection: onPointerDown');
+    if (isCanvasExploreOnly()) return;
     clearDocumentSelection();
     this.viewport.plugins.resume('mouse-edges');
     const shiftKey = event.shiftKey;
@@ -841,10 +843,6 @@ export default class PPSelection extends PIXI.Container {
       console.log('deselectAllNodesAndResetSelection');
       this.deselectAllNodesAndResetSelection();
     }
-    InterfaceController.notifyListeners(
-      ListenEvent.SelectionChanged,
-      this.selectedNodes,
-    );
   }
   ROUNDNESS = 5;
 
@@ -1132,6 +1130,7 @@ class ScaleHandle extends PIXI.Graphics {
   }
 
   protected onPointerDown(event: PIXI.FederatedPointerEvent): void {
+    if (isCanvasExploreOnly()) return;
     clearDocumentSelection();
     this._pointerDown = true;
     this._pointerDragging = false;
