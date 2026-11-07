@@ -269,6 +269,13 @@ Template's "Output" instead.`;
     return socket.isInput();
   }
 
+  // Every pass runs the template, so it is always in its own body - also before
+  // the first registerTemplateBody. Otherwise a load, which copies each source's
+  // last row into the Outputs it feeds, would re-type them from that row.
+  public isInTemplateBody(): boolean {
+    return true;
+  }
+
   // mirrors the fed socket's name onto the parameter, as Macro does
   public getSocketDesiredDisplayName(socket: Socket): string {
     if (socket == undefined) {
