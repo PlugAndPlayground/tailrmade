@@ -105,6 +105,101 @@ describe('template placements', () => {
     });
   });
 
+  // a Repeat of "t" nested in "outer", whose rows feed it their own items
+  async function addNestedRepeat(tc: any, widgetType = 'WidgetTextField') {
+    const inner = await addTemplate(tc, 't');
+    const widget = await addWidget(tc, 't', 't-w', widgetType);
+    await tc.connectNodesByID(
+      't',
+      't-w',
+      'Parameter 1',
+      widgetType === 'WidgetButton' ? 'On value' : VALUE,
+    );
+    const outer = await addTemplate(tc, 'outer');
+    await addRepeat(tc, inner, 'nested', []);
+    await tc.connectNodesByID('outer', 'nested', 'Parameter 1', 'Items');
+    await tc.connectNodesByID('nested', 'outer-sf', 'ReactUI');
+    const repeat = await addRepeat(tc, outer, 'outer-rep', [
+      ['a', 'b'],
+      ['c', 'd'],
+    ]);
+    const nestedValues = () =>
+      repeat.rows.map((row: any) =>
+        row.capture.snapshots.nested.__templatePlacedState.map(
+          (inner: any) => inner.capture.snapshots['t-w'][VALUE],
+        ),
+      );
+    const inOuterRow = (outerIndex: number, innerKey: string) => ({
+      ownerId: 'nested',
+      rowKey: innerKey,
+      parent: { ownerId: 'outer-rep', rowKey: repeat.rows[outerIndex].key },
+      snapshot: repeat.rows[
+        outerIndex
+      ].capture.snapshots.nested.__templatePlacedState.find(
+        (inner: any) => inner.key === innerKey,
+      ).capture.snapshots['t-w'],
+    });
+    return { widget, nestedValues, inOuterRow };
+  }
+
+  it('keeps an edit in a nested placement to the outer row it was made in', () => {
+    doWithTestController(async (tc: any) => {
+      const { widget, nestedValues, inOuterRow } = await addNestedRepeat(tc);
+      expect(nestedValues()).to.deep.equal([
+        ['a', 'b'],
+        ['c', 'd'],
+      ]);
+
+      await widget.handleOnChange('B!', inOuterRow(0, '1'));
+      expect(nestedValues()).to.deep.equal([
+        ['a', 'B!'],
+        ['c', 'd'],
+      ]);
+      // the shared inner placement keeps none of it
+      expect(tc.getNodeByID('nested').getInputData('Edits')).to.deep.equal({});
+
+      await widget.handleOnChange('C!', inOuterRow(1, '0'));
+      expect(nestedValues()).to.deep.equal([
+        ['a', 'B!'],
+        ['C!', 'd'],
+      ]);
+
+      await tc.undo();
+      expect(nestedValues()).to.deep.equal([
+        ['a', 'B!'],
+        ['c', 'd'],
+      ]);
+      await tc.undo();
+      expect(nestedValues()).to.deep.equal([
+        ['a', 'b'],
+        ['c', 'd'],
+      ]);
+    });
+  });
+
+  it('fires a button in a nested placement with its outer row in place', () => {
+    doWithTestController(async (tc: any) => {
+      const { widget, inOuterRow } = await addNestedRepeat(tc, 'WidgetButton');
+      const fired: unknown[] = [];
+      const parameter = tc
+        .getNodeByID('t')
+        .getOutputSocketByName('Parameter 1');
+      const fire = widget.getOutputSocketByName('Out');
+      const setDataAndWait = fire.setDataAndWait.bind(fire);
+      fire.setDataAndWait = (value: unknown) => {
+        // what the press reaches sees its inner row, inside its outer row
+        fired.push([value, parameter.data]);
+        return setDataAndWait(value);
+      };
+      // not the outer row that ran last, whose values the shared nodes still hold
+      await widget.handleOnClick(inOuterRow(0, '0'));
+      expect(fired).to.deep.equal([
+        ['a', 'a'],
+        [0, 'a'],
+      ]);
+    });
+  });
+
   it('reports a template that places itself instead of hanging', () => {
     doWithTestController(async (tc: any) => {
       const template = await addTemplate(tc, 't');
@@ -202,7 +297,10 @@ describe('template placements', () => {
       const widget = await addWidget(tc, 't', 't-w');
       await tc.connectNodesByID('t', 't-w', 'Parameter 1', VALUE);
       const repeat = await addRepeat(tc, template, 'rep', ['a', 'b']);
-      await widget.applyWidgetEdit(VALUE, 'B!', { ownerId: 'rep', rowKey: '1' });
+      await widget.applyWidgetEdit(VALUE, 'B!', {
+        ownerId: 'rep',
+        rowKey: '1',
+      });
       expect(rowValues(repeat, 't-w')).to.deep.equal(['a', 'B!']);
 
       // a trigger ignores the first value it ever gets

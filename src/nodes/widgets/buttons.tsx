@@ -178,10 +178,14 @@ export class WidgetButton extends WidgetHybridBase {
         await this.executeOptimizedChain();
       };
       try {
-        await owner.runInTemplateRow(instance?.rowKey, async () => {
-          await fire(inputData);
-          await fire(inputDataOff);
-        });
+        await owner.runInTemplateRow(
+          instance?.rowKey,
+          async () => {
+            await fire(inputData);
+            await fire(inputDataOff);
+          },
+          instance?.parent,
+        );
       } finally {
         this.isCurrentlyForceDisabled = false;
       }

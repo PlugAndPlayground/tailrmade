@@ -41,10 +41,16 @@ export type TemplateEdits = {
 // took of it, because the node is shared between the parent's rows.
 export const TEMPLATE_PLACED_STATE_PROP = '__templatePlacedState';
 
-// the placement a widget is rendered inside, which its edits are routed to
-export interface TemplateInstanceHandle {
+// One row of a placement. A placement nested in a template is a single shared
+// node, so what happens in it belongs to the outer row it was rendered in.
+export interface TemplateRowRef {
   ownerId: string;
   rowKey?: string;
+  parent?: TemplateRowRef;
+}
+
+// the placement a widget is rendered inside, which its edits are routed to
+export interface TemplateInstanceHandle extends TemplateRowRef {
   // the input object this widget was rendered from
   snapshot?: Record<string, unknown>;
 }
@@ -54,6 +60,8 @@ export interface TemplateInstanceContextValue extends TemplateInstanceCapture {
   ownerId: string;
   // distinguishes rows of one Repeat template; undefined for a single placement
   rowKey?: string;
+  // the outer row, when this placement is nested in a template
+  parent?: TemplateRowRef;
 }
 
 export const TemplateInstanceContext = React.createContext<

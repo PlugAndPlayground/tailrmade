@@ -94,8 +94,8 @@ or hide a widget per placement, wire a test of a parameter into that widget's
 "${templateOutputPrefixName}" socket on the right block, and placements expose it.
 
 A template cannot place itself, directly or through another template. Placing a
-different template inside one works, but an edit in a nested placement shows in
-every row of the outer one.
+different template inside one works, and an edit in the nested placement stays
+in the outer row it was made in: it is kept in the outer placement's Edits.
 
 ${AGENT_DOCS_HEADING}
 Templates are referenced by NAME, which is kept unique across templates, so give

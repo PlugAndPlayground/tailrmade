@@ -177,6 +177,7 @@ export const DynamicWidgetView = (viewProps: DynamicWidgetViewProps) => {
           ? {
               ownerId: placement.ownerId,
               rowKey: placement.rowKey,
+              parent: placement.parent,
               snapshot: instanceSnapshot,
             }
           : undefined,

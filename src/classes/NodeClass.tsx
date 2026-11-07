@@ -2154,6 +2154,7 @@ ${Math.round(bounds.minX)}, ${Math.round(
         this.id,
         socketName,
         value,
+        instance?.parent,
       );
     }
     this.setInputData(socketName, value);

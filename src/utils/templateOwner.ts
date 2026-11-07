@@ -1,6 +1,9 @@
 // The nodes that own template placements, as seen from code that must not import
 // them: NodeClass is their base class, and the dashboard module brings in React.
-import type { TemplateNodeValues } from '../components/dashboard/templateInstance';
+import type {
+  TemplateNodeValues,
+  TemplateRowRef,
+} from '../components/dashboard/templateInstance';
 
 export interface TemplateOwner {
   /** Resolves to the row's edits from before this one, which is what undo needs. */
@@ -9,15 +12,18 @@ export interface TemplateOwner {
     nodeId: string,
     socketName: string,
     value: unknown,
+    parent?: TemplateRowRef,
   ): Promise<TemplateNodeValues>;
   restoreRowEdits(
     rowKey: string | undefined,
     rowEdits: TemplateNodeValues,
+    parent?: TemplateRowRef,
   ): Promise<void>;
   /** Re-evaluates one row, running `action` while its values are in the shared nodes. */
   runInTemplateRow(
     rowKey: string | undefined,
     action?: () => Promise<void>,
+    parent?: TemplateRowRef,
   ): Promise<void>;
 }
 

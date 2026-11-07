@@ -385,6 +385,7 @@ export abstract class WidgetHybridBase extends HybridNode2 {
         await owner.restoreRowEdits(
           instance?.rowKey,
           previous as TemplateNodeValues,
+          instance?.parent,
         );
       } else {
         await apply(previous as T);

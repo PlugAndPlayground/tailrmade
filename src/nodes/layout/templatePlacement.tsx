@@ -3,7 +3,7 @@
 //
 // Deliberately not exported from a module allNodes.ts lists, which would
 // register this abstract class as a node.
-import React, { useMemo } from 'react';
+import React, { useContext, useMemo } from 'react';
 import { Box } from '@mui/material';
 import HybridNode2 from '../../classes/HybridNode2';
 import { NodeExecutionError } from '../../classes/ErrorClass';
@@ -20,6 +20,7 @@ import {
   TemplateInstanceCapture,
   TemplateInstanceContext,
   TemplateNodeValues,
+  TemplateRowRef,
 } from '../../components/dashboard/templateInstance';
 import { getPageDashboardIcon } from '../../components/dashboard/dashboardIcons';
 import { DynamicEnumType } from '../datatypes/dynamicEnumType';
@@ -111,9 +112,20 @@ export const TemplateBody = React.memo(function TemplateBody({
   isCanvasPreview,
   interactive,
 }: TemplateBodyProps) {
+  // set when this placement is rendered inside another template's row
+  const outer = useContext(TemplateInstanceContext);
   const instance = useMemo(
-    () => ({ ownerId, rowKey, ...capture }),
-    [ownerId, rowKey, capture],
+    () => ({
+      ownerId,
+      rowKey,
+      parent: outer && {
+        ownerId: outer.ownerId,
+        rowKey: outer.rowKey,
+        parent: outer.parent,
+      },
+      ...capture,
+    }),
+    [ownerId, rowKey, capture, outer],
   );
   return (
     <TemplateInstanceContext.Provider value={instance}>
@@ -248,6 +260,27 @@ export abstract class TemplatePlacementNode
     return { rows: stored?.rows ?? {} };
   }
 
+  // Nested in a template, this node is shared by the outer rows, so its edits are
+  // kept as an edit of its Edits socket in the outer row they were made in. The
+  // outer row's pass puts them in place, see runPass.
+  private getOuterPlacement(
+    parent: TemplateRowRef | undefined,
+  ): TemplatePlacementNode | undefined {
+    const outer = parent && PPGraph.currentGraph.getNodeById(parent.ownerId);
+    return outer instanceof TemplatePlacementNode ? outer : undefined;
+  }
+
+  private getEditsIn(parent: TemplateRowRef | undefined): TemplateEdits {
+    const outer = this.getOuterPlacement(parent);
+    if (!parent || !outer) {
+      return this.getEdits();
+    }
+    const stored = outer.getEditsIn(parent.parent).rows[parent.rowKey ?? '']?.[
+      this.id
+    ]?.[templateEditsSocketName] as TemplateEdits | undefined;
+    return stored ?? this.getEdits();
+  }
+
   protected getRowEdits(rowKey: string | undefined): TemplateNodeValues {
     return this.getEdits().rows[rowKey ?? ''] ?? {};
   }
@@ -263,9 +296,10 @@ export abstract class TemplatePlacementNode
     nodeId: string,
     socketName: string,
     value: unknown,
+    parent?: TemplateRowRef,
   ): Promise<TemplateNodeValues> {
-    const previous = this.getRowEdits(rowKey);
-    const edits = structuredClone(this.getEdits());
+    const edits = structuredClone(this.getEditsIn(parent));
+    const previous = structuredClone(edits.rows[rowKey ?? ''] ?? {});
     const rowEdits = (edits.rows[rowKey ?? ''] ??= {});
     // A parameter holds one value per row, so the latest edit of any socket it
     // feeds replaces earlier edits of the others - with both kept, only one
@@ -279,6 +313,17 @@ export abstract class TemplatePlacementNode
         delete rowEdits[target.getNode().id]?.[target.name];
       });
     (rowEdits[nodeId] ??= {})[socketName] = value;
+    const outer = this.getOuterPlacement(parent);
+    if (parent && outer) {
+      // undo then restores the outer row, which holds this edit
+      return outer.applyTemplateEdit(
+        parent.rowKey,
+        this.id,
+        templateEditsSocketName,
+        edits,
+        parent.parent,
+      );
+    }
     this.setInputData(templateEditsSocketName, edits);
     await this.runInTemplateRow(rowKey);
     return previous;
@@ -290,7 +335,13 @@ export abstract class TemplatePlacementNode
   public async restoreRowEdits(
     rowKey: string | undefined,
     rowEdits: TemplateNodeValues,
+    parent?: TemplateRowRef,
   ): Promise<void> {
+    const outer = this.getOuterPlacement(parent);
+    if (parent && outer) {
+      await outer.restoreRowEdits(parent.rowKey, rowEdits, parent.parent);
+      return;
+    }
     const edits = structuredClone(this.getEdits());
     edits.rows[rowKey ?? ''] = rowEdits;
     this.setInputData(templateEditsSocketName, edits);
@@ -328,7 +379,18 @@ export abstract class TemplatePlacementNode
   public async runInTemplateRow(
     rowKey: string | undefined,
     action?: () => Promise<void>,
+    parent?: TemplateRowRef,
   ): Promise<void> {
+    const outer = this.getOuterPlacement(parent);
+    if (parent && outer) {
+      // this node's rows only hold the outer row's values during its pass
+      await outer.runInTemplateRow(
+        parent.rowKey,
+        () => this.runInTemplateRow(rowKey, action),
+        parent.parent,
+      );
+      return;
+    }
     const template = this.getTemplate();
     const args = template && this.getRowArgs(template, rowKey);
     if (
