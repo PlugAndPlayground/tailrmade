@@ -60,7 +60,6 @@ export function fromQuickJS(
   vm: QuickJSContext,
   value: QuickJSHandle,
   classify: QuickJSHandle,
-  keys: QuickJSHandle,
   depth = 0,
 ): unknown {
   if (depth > 100)
@@ -85,15 +84,19 @@ export function fromQuickJS(
         const type = vm.getString(kind);
         if (type !== 'array' && type !== 'object') throw unsupported();
         const result = type === 'array' ? new Array(vm.getLength(value)) : {};
-        const names = scope.manage(
-          vm.unwrapResult(vm.callFunction(keys, vm.undefined, value)),
+        const keys = scope.manage(
+          vm.unwrapResult(
+            vm.getOwnPropertyNames(value, {
+              strings: true,
+              numbersAsStrings: true,
+              onlyEnumerable: true,
+            }),
+          ),
         );
-        const count = vm.getLength(names) ?? 0;
-        for (let i = 0; i < count; i++) {
-          const key = scope.manage(vm.getProp(names, i));
+        for (const key of keys) {
           const child = scope.manage(vm.getProp(value, key));
           Object.defineProperty(result, vm.getString(key), {
-            value: fromQuickJS(vm, child, classify, keys, depth + 1),
+            value: fromQuickJS(vm, child, classify, depth + 1),
             enumerable: true,
             configurable: true,
             writable: true,
