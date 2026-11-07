@@ -888,12 +888,12 @@ export function AppRiskDialog({
         sx={{
           position: 'fixed',
           pointerEvents: 'auto',
-          bottom: 64,
+          bottom: 54,
           left: '50%',
           transform: 'translateX(-50%)',
           zIndex: 1400,
           width: 'max-content',
-          maxWidth: 'calc(100% - 32px)',
+          maxWidth: 'calc(100% - 16px)',
           display: 'flex',
           alignItems: 'center',
           gap: 2,
@@ -1207,11 +1207,21 @@ export function AppRiskDialog({
             flex: `0 0 ${APP_RISK_PANEL_WIDTH}px`,
             display: 'flex',
             flexDirection: 'column',
+            overflow: 'hidden',
             ...(stacked
-              ? { left: 8, bottom: 64, top: '52%' }
+              ? {
+                  left: 8,
+                  bottom: 54,
+                  top: '52%',
+                  overflowY: 'auto',
+                  '& .MuiDialogActions-root': {
+                    position: 'sticky',
+                    bottom: 0,
+                    bgcolor: 'inherit',
+                  },
+                }
               : { height: '100dvh' }),
             width: stacked ? 'calc(100% - 16px)' : APP_RISK_PANEL_WIDTH,
-            overflow: 'hidden',
             border: 1,
             borderColor: 'divider',
             // a pending run gets the accent, browsing risks later does not
@@ -1220,7 +1230,10 @@ export function AppRiskDialog({
               borderTopColor: accessStyles[requiredAccess(review.risks)].color,
             }),
             '& .MuiDialogTitle-root': { px: 2, py: 1 },
-            '& .MuiDialogContent-root': { px: 2 },
+            '& .MuiDialogContent-root': {
+              px: 2,
+              ...(stacked && { flex: 'none', overflowY: 'visible' }),
+            },
           }}
         >
           {content}
