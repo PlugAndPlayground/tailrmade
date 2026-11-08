@@ -463,7 +463,9 @@ const createHashFunctions: EnumStructure = [
   { text: 'createXXHash64' },
 ];
 
-const IMPORT_NAME = 'hash-wasm@4.11.0';
+const IMPORT_NAME = 'hash-wasm@4.13.0';
+// hash-wasm 4.12 dropped crc32c/createCRC32C; CRC-32C is crc32 with this polynomial
+const CRC32C_POLYNOMIAL = 0x82f63b78;
 
 export class Hash extends PPNode {
   onOptionChange?: (value: string) => void;
@@ -542,13 +544,22 @@ Check out its documentation for more details.`;
     const hashMethodValue = input[hashMethodName];
     const hashPackage = await DynamicImport.dynamicImport(IMPORT_NAME);
     if (hashMethodValue === 'createHMAC') {
-      const hasher = hashPackage[input[hashFunctionName]]();
+      const hashFunction = input[hashFunctionName];
+      const hasher =
+        hashFunction === 'createCRC32C'
+          ? hashPackage.createCRC32(CRC32C_POLYNOMIAL)
+          : hashPackage[hashFunction]();
       const hmac = await hashPackage[hashMethodValue](
         hasher,
         input[parameterName2],
       );
       hmac.update(input[parameterName1]);
       output[outputSocketName] = await hmac.digest();
+    } else if (hashMethodValue === 'crc32c') {
+      output[outputSocketName] = await hashPackage.crc32(
+        input[parameterName1],
+        CRC32C_POLYNOMIAL,
+      );
     } else {
       output[outputSocketName] = await hashPackage[hashMethodValue](
         input[parameterName1],
