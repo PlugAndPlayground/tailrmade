@@ -24,7 +24,12 @@ import { StringType } from '../datatypes/stringType';
 import { TriggerType } from '../datatypes/triggerType';
 import { WidgetButton } from '../widgets/buttons';
 import { JSONType } from '../datatypes/jsonType';
-import { DynamicImport } from '../../utils/dynamicImport';
+import { DynamicImport, NPM_CDN } from '../../utils/dynamicImport';
+import {
+  NetworkRisk,
+  NodeRisk,
+  UnrestrictedCodeRisk,
+} from '../../classes/NodeRisk';
 import { migrateFromCustomFunctionCommon } from '../data/array';
 
 const rerouteHeight = 48;
@@ -351,6 +356,22 @@ Check that the expected export exists before constructing a chart.`;
 
   public getTags(): string[] {
     return ['Input'].concat(super.getTags());
+  }
+
+  // The package is fetched from the CDN and imported into the page, where its
+  // top-level code runs with Tailrmade's reach before any sandbox applies.
+  public getRisks(): NodeRisk[] {
+    const name = this.getStaticInputData('Package Name');
+    const packageName =
+      name.known && typeof name.value === 'string' ? name.value.trim() : '';
+    return [
+      new UnrestrictedCodeRisk(),
+      new NetworkRisk(
+        packageName ? NPM_CDN + packageName : undefined,
+        undefined,
+        'info',
+      ),
+    ];
   }
 
   protected getDefaultIO(): Socket[] {
