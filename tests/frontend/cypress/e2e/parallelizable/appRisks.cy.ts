@@ -854,6 +854,55 @@ describe('app risk review', () => {
     });
   });
 
+  it('names the saved data a storage node reaches when it is fixed', () => {
+    const fixedAddress = [
+      serializedSocket('Location', 'Notes'),
+      serializedSocket('Key', 'draft'),
+    ];
+    beginLoad(
+      [
+        serializedNode('storagewrite', 'write', fixedAddress),
+        serializedNode('storageread', 'read', fixedAddress),
+        workerSource('key', 'draft'),
+        serializedNode('storageread', 'wired', [
+          serializedSocket('Location', 'Notes'),
+        ]),
+        serializedNode('storagebrowse', 'browse-all', []),
+        serializedNode('storagebrowse', 'browse-notes', [
+          serializedSocket('Filter by Location', true, 'BooleanType'),
+          serializedSocket('Location', 'Notes'),
+        ]),
+      ],
+      [linkTo('key', 'OutData', 'wired', 'Key')],
+    );
+    shouldWithTestController((controller) => {
+      const risk = (id: string) => controller.getNodeByID(id).getRisks()[0];
+      expect(risk('write').target).to.equal('Notes › draft · this browser');
+      expect(risk('write').description).to.equal(
+        'Can change the saved data below.',
+      );
+      expect(risk('read').description).to.equal(
+        'Can read the saved data below.',
+      );
+      expect(risk('wired').resolved).to.equal(false);
+      expect(risk('wired').target).to.equal(undefined);
+      expect(risk('browse-all').resolved).to.equal(true);
+      expect(risk('browse-all').target).to.equal(undefined);
+      expect(risk('browse-notes').target).to.equal('Notes · this browser');
+    });
+    cy.get('[data-cy="risk-details"][data-risk-kind="storage-write"]')
+      .should('contain', 'Can change the saved data below.')
+      .and('contain', 'Notes › draft · this browser');
+    // One card holds fixed and wired reads, so it makes the broader claim.
+    cy.get('[data-cy="risk-details"][data-risk-kind="storage-read"]')
+      .should('contain', "including your other apps' data")
+      .and('contain', 'Chosen while the app runs')
+      .and('contain', 'Notes › draft · this browser')
+      .find('[data-access-level]')
+      .first()
+      .should('have.attr', 'data-access-level', 'dynamic');
+  });
+
   it('summarizes risks in the app inspector and reviews them in the side panel', () => {
     cy.viewport(1280, 900);
     beginLoad([serializedNode('add', 'add', [])]);
@@ -1165,7 +1214,7 @@ describe('app risk review', () => {
       ]),
     ]);
     cy.get('[data-cy="app-risk-dialog"]')
-      .should('contain', 'OPENAI_KEY')
+      .should('contain', 'OPENAI_KEY → example.com')
       .and('contain', 'https://example.com/private')
       .and('not.contain', 'not-for-display');
     cy.get('[data-cy="app-risk-dialog"]')

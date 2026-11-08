@@ -33,14 +33,30 @@ export const AIPersistantConversationName = 'Persistant conversation';
 export const AIConversationName = 'Conversation';
 export const responseName = 'Response';
 
+// The company, plus the product name people know when it differs:
+// "Anthropic (Claude)", "Google (Gemini)", "OpenAI".
+const describeAIProvider = (value: string): string => {
+  const label =
+    AI_PROVIDERS.find((provider) => provider.value === value)?.label ?? value;
+  return label.toLowerCase() === value.toLowerCase()
+    ? label
+    : `${label} (${value.charAt(0).toUpperCase()}${value.slice(1)})`;
+};
+
 export class AINode extends HTTPNode {
   // AI nodes replace the HTTP sockets entirely, so HTTPNode's risks do not
   // apply: the provider key stays on the backend.
   public getRisks(): NodeRisk[] {
+    if (AIBackend.getInstance().isLocalAI()) return [new LocalAIRisk()];
+    const provider = this.getStaticInputData(AIProviderName);
     return [
-      AIBackend.getInstance().isLocalAI()
-        ? new LocalAIRisk()
-        : new AIUsageRisk(),
+      new AIUsageRisk(
+        provider.known
+          ? describeAIProvider(
+              String(provider.value || this.getDefaultProvider()),
+            )
+          : undefined,
+      ),
     ];
   }
 

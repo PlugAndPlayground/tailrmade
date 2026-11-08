@@ -114,8 +114,14 @@ export class ApiKeyRisk extends NodeRisk {
   readonly resolved: boolean;
 
   // Without a key name the review can only say one gets picked while running.
-  constructor(key?: string) {
-    super(key);
+  // With a known address it also says where the key goes.
+  constructor(key?: string, url?: unknown) {
+    const destination = resolveDestination(url);
+    super(
+      key !== undefined && destination
+        ? `${key} \u2192 ${new URL(destination).host}`
+        : key,
+    );
     this.resolved = key !== undefined;
   }
 }
@@ -266,31 +272,61 @@ export class CompanionRisk extends NodeRisk {
   ] as const;
 }
 
+// Storage targets read "<location> › <key> · this browser". Without one, the
+// node can reach any saved data: all of it, or what is chosen while running.
 export class StorageReadRisk extends NodeRisk {
   readonly kind = 'storage-read';
   readonly title = 'Read Tailrmade data';
-  readonly description =
-    "Can read anything saved in Tailrmade, including your other apps' data.";
+  readonly description: string;
   readonly consequences = [CONSEQUENCE.readsYourData] as const;
+  readonly resolved: boolean;
+
+  constructor(target?: string, resolved = true) {
+    super(target);
+    this.resolved = resolved;
+    this.description =
+      target !== undefined
+        ? 'Can read the saved data below.'
+        : "Can read anything saved in Tailrmade, including your other apps' data.";
+  }
 }
 
 export class StorageWriteRisk extends NodeRisk {
   readonly kind = 'storage-write';
   readonly title = 'Change Tailrmade data';
-  readonly description =
-    "Can add, change or delete anything saved in Tailrmade, including your other apps' data.";
+  readonly description: string;
   readonly consequences = [CONSEQUENCE.changesYourData] as const;
+  readonly resolved: boolean;
+
+  constructor(target?: string, resolved = true) {
+    super(target);
+    this.resolved = resolved;
+    this.description =
+      target !== undefined
+        ? 'Can change the saved data below.'
+        : "Can add, change or delete anything saved in Tailrmade, including your other apps' data.";
+  }
 }
 
 export class AIUsageRisk extends NodeRisk {
   readonly kind = 'ai-usage';
   readonly title = 'Use AI services';
-  readonly description =
-    'Can send prompts and images to your AI provider. Uses your AI allowance.';
+  readonly description: string;
   readonly consequences = [
     CONSEQUENCE.costsMoney,
     CONSEQUENCE.sendsDataOut,
   ] as const;
+  readonly resolved: boolean;
+
+  // Without a provider name it is picked while running.
+  constructor(provider?: string) {
+    super(provider);
+    this.resolved = provider !== undefined;
+    this.description =
+      provider !== undefined
+        ? 'Can send prompts and images to the provider below. Uses your AI allowance.'
+        : 'Can send prompts and images to your AI provider. Uses your AI allowance.';
+  }
 }
 
 // Local AI stays on the person's computer: no provider, no allowance.

@@ -80,6 +80,24 @@ describe('AI node risks', () => {
       isLocalAI: () => local,
     });
     const node = Object.create(AINode.prototype);
+    node.getStaticInputData = () => ({ known: true, value: 'claude' });
     expect(node.getRisks().map((risk) => risk.kind)).toEqual([kind]);
+  });
+
+  it.each([
+    [{ known: true, value: 'claude' }, 'Anthropic (Claude)'],
+    [{ known: true, value: 'gemini' }, 'Google (Gemini)'],
+    [{ known: true, value: 'openai' }, 'OpenAI'],
+    [{ known: true, value: '' }, 'Anthropic (Claude)'],
+    [{ known: false, value: undefined }, undefined],
+  ])('names the provider %o as %s', (provider, target) => {
+    (AIBackend.getInstance as jest.Mock).mockReturnValue({
+      isLocalAI: () => false,
+    });
+    const node = Object.create(AINode.prototype);
+    node.getStaticInputData = () => provider;
+    const [risk] = node.getRisks();
+    expect(risk.target).toBe(target);
+    expect(risk.resolved).toBe(provider.known);
   });
 });

@@ -329,4 +329,43 @@ describe('app risk disclosure', () => {
     // Without a page there is nothing to be the same origin as.
     expect(isSameOrigin('/relative', undefined)).toBe(false);
   });
+
+  it('says where a saved key goes when the address is known', () => {
+    expect(
+      new ApiKeyRisk('OPENAI', 'https://api.openai.com/v1/chat?key=x').target,
+    ).toBe('OPENAI → api.openai.com');
+    expect(new ApiKeyRisk('OPENAI', undefined).target).toBe('OPENAI');
+    expect(new ApiKeyRisk('OPENAI', 'not a url').target).toBe('OPENAI');
+    expect(new ApiKeyRisk('OPENAI', 'https://x.example').description).toBe(
+      'Can send the saved key below with its requests.',
+    );
+  });
+
+  it('names saved data only when the review can show it', () => {
+    const fixed = new StorageReadRisk('Notes › draft · this browser');
+    expect(fixed.description).toBe('Can read the saved data below.');
+    expect(getRiskLevel(fixed)).toBe('static');
+    const wired = new StorageWriteRisk(undefined, false);
+    expect(wired.description).toContain("your other apps' data");
+    expect(getRiskLevel(wired)).toBe('dynamic');
+    expect(
+      new StorageWriteRisk('Notes › draft · your account').description,
+    ).toBe('Can change the saved data below.');
+    // Browsing everything is known in advance: it is everything.
+    const all = new StorageReadRisk();
+    expect(all.resolved).toBe(true);
+    expect(all.description).toContain('anything saved');
+  });
+
+  it('names the AI provider when it is fixed', () => {
+    const known = new AIUsageRisk('Anthropic (Claude)');
+    expect(known.target).toBe('Anthropic (Claude)');
+    expect(known.description).toBe(
+      'Can send prompts and images to the provider below. Uses your AI allowance.',
+    );
+    const connected = new AIUsageRisk();
+    expect(connected.resolved).toBe(false);
+    expect(getRiskLevel(connected)).toBe('dynamic');
+    expect(connected.description).toContain('your AI provider');
+  });
 });

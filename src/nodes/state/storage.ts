@@ -88,9 +88,31 @@ abstract class AbstractStorageNode extends PPNode {
   protected mutatesStorage = false;
 
   public getRisks(): NodeRisk[] {
+    const { target, resolved } = this.getStorageRiskTarget();
     return [
-      this.mutatesStorage ? new StorageWriteRisk() : new StorageReadRisk(),
+      this.mutatesStorage
+        ? new StorageWriteRisk(target, resolved)
+        : new StorageReadRisk(target, resolved),
     ];
+  }
+
+  // "<location> › <key> · this browser" once everything that picks the saved
+  // data is fixed. Anything set while running leaves it unresolved.
+  protected getStorageRiskTarget(): { target?: string; resolved: boolean } {
+    const backend = this.getStaticInputData(STORAGE_BACKEND_NAME);
+    const address = [LOCATION_NAME, KEY_NAME].map((name) =>
+      this.getStaticInputData(name),
+    );
+    if (!backend.known || address.some(({ known }) => !known)) {
+      return { resolved: false };
+    }
+    return {
+      target: describeStorageTarget(
+        address.map(({ value }) => String(value)).join(' \u203a '),
+        backend.value,
+      ),
+      resolved: true,
+    };
   }
   public socketShouldAutomaticallyAdapt(socket: Socket): boolean {
     return socket.name === VALUE_NAME || socket.name === FALLBACK_VALUE_NAME;
@@ -356,6 +378,15 @@ function describeStorageBackend(backend: string): string {
     : backend === STORAGE_BACKEND_CLOUD
       ? 'cloud storage'
       : 'IndexedDB';
+}
+
+function describeStorageTarget(address: string, backend: unknown): string {
+  return `${address} \u00b7 ${
+    getStorageBackend({ [STORAGE_BACKEND_NAME]: backend }) ===
+    STORAGE_BACKEND_CLOUD
+      ? 'your account'
+      : 'this browser'
+  }`;
 }
 
 function maybeShowToast(input: Record<string, any>, message: string): void {
@@ -983,6 +1014,21 @@ export class StorageDelete extends StorageMutation {
 }
 
 export class StorageBrowse extends StorageReader {
+  // Without the location filter it reads everything, which today's wording
+  // already says, so there is no target to name.
+  protected getStorageRiskTarget(): { target?: string; resolved: boolean } {
+    const backend = this.getStaticInputData(STORAGE_BACKEND_NAME);
+    const filter = this.getStaticInputData(FILTER_BY_LOCATION_NAME);
+    if (!backend.known || !filter.known) return { resolved: false };
+    if (!filter.value) return { resolved: true };
+    const location = this.getStaticInputData(LOCATION_NAME);
+    if (!location.known) return { resolved: false };
+    return {
+      target: describeStorageTarget(String(location.value), backend.value),
+      resolved: true,
+    };
+  }
+
   public shouldExecuteOnStorageValueChanged(
     backend: string,
     location: string,

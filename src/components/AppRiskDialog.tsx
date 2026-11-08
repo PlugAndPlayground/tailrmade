@@ -614,6 +614,9 @@ function AccessOverview({
 
 type AppAction = { risk: NodeRisk; destinations: AppRisk[] };
 
+const claimBreadth = (risk: NodeRisk): number =>
+  (risk.resolved ? 0 : 2) + (risk.target === undefined ? 1 : 0);
+
 // One card per action, so its description shows once even when many
 // destinations need it.
 function groupActions(risks: AppRisk[]): AppAction[] {
@@ -621,6 +624,11 @@ function groupActions(risks: AppRisk[]): AppAction[] {
   for (const appRisk of risks) {
     const key = `${appRisk.risk.kind}|${appRisk.risk.severity}`;
     const entry = byKind.get(key) ?? { risk: appRisk.risk, destinations: [] };
+    // The card's level and description come from its broadest claim: one set
+    // while running, then one without a target ("anything saved").
+    if (claimBreadth(appRisk.risk) > claimBreadth(entry.risk)) {
+      entry.risk = appRisk.risk;
+    }
     entry.destinations.push(appRisk);
     byKind.set(key, entry);
   }

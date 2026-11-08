@@ -78,30 +78,41 @@ can:**. Cards carry **impact tags** ("Can cost money", "Can send your data out")
 so you do not have to infer the cost from the description. Impact is a set, not a ranking: money, your saved data, your
 computer and your privacy are different things, not degrees of one thing.
 
-| This app can…                                 | Level               | What it means                                                         |
-| --------------------------------------------- | ------------------- | --------------------------------------------------------------------- |
-| Run unsandboxed code                          | Unrestricted        | Arbitrary JavaScript in the page; Tailrmade can't check it in advance |
-| Send data to other sites                      | Static / Dynamic    | Can send app data to the listed addresses and use their replies       |
-| Use API keys                                  | Static / Dynamic    | Can send the named saved key with its requests                        |
-| Use your Companion                            | Static              | Requests go through the Companion, which reaches your computer        |
-| Change Tailrmade data                         | Static              | Can add, change or delete data saved in _tailrmade_                   |
-| Read Tailrmade data                           | Static              | Can read data saved in _tailrmade_, including your other apps' data   |
-| Use AI services                               | Static              | Can send prompts and images to your AI provider; uses your allowance  |
-| Use local AI                                  | Static              | Can send prompts to the AI model on your computer, via your Companion |
-| Open web pages                                | Static / Dynamic    | Opens a new tab; anything in an address set while running reaches it  |
-| Load images from addresses set while running  | Dynamic             | Another node picks the address, so app data can travel inside it      |
-| Load content from addresses set while running | Dynamic             | Sanitized HTML fed by another node; app data can travel in its links  |
-| Load data from other sites                    | Static · loads only | A plain GET to the listed addresses; each site sees your IP address   |
-| Load content from other sites                 | Static · loads only | Links and embeds in sanitized HTML; each site sees your IP address    |
-| Load images from other sites                  | Static · loads only | Each site sees your IP address when the image loads                   |
+| This app can…                                 | Level               | What it means                                                          |
+| --------------------------------------------- | ------------------- | ---------------------------------------------------------------------- |
+| Run unsandboxed code                          | Unrestricted        | Arbitrary JavaScript in the page; Tailrmade can't check it in advance  |
+| Send data to other sites                      | Static / Dynamic    | Can send app data to the listed addresses and use their replies        |
+| Use API keys                                  | Static / Dynamic    | Can send the named saved key with its requests, to the site shown      |
+| Use your Companion                            | Static              | Requests go through the Companion, which reaches your computer         |
+| Change Tailrmade data                         | Static / Dynamic    | Can add, change or delete the saved data shown, or any if not fixed    |
+| Read Tailrmade data                           | Static / Dynamic    | Can read the saved data shown, or any, including other apps' data      |
+| Use AI services                               | Static / Dynamic    | Can send prompts and images to the provider shown; uses your allowance |
+| Use local AI                                  | Static              | Can send prompts to the AI model on your computer, via your Companion  |
+| Open web pages                                | Static / Dynamic    | Opens a new tab; anything in an address set while running reaches it   |
+| Load images from addresses set while running  | Dynamic             | Another node picks the address, so app data can travel inside it       |
+| Load content from addresses set while running | Dynamic             | Sanitized HTML fed by another node; app data can travel in its links   |
+| Load data from other sites                    | Static · loads only | A plain GET to the listed addresses; each site sees your IP address    |
+| Load content from other sites                 | Static · loads only | Links and embeds in sanitized HTML; each site sees your IP address     |
+| Load images from other sites                  | Static · loads only | Each site sees your IP address when the image loads                    |
 
 The actions marked _Static / Dynamic_ land on whichever applies: _Static_
-when the address or key name is constant, _Dynamic_ when it arrives from another
-node. Opening _tailrmade_'s own pages, relative links included, is not listed.
+when the address, key name, saved location or AI provider is constant,
+_Dynamic_ when it arrives from another node. Opening _tailrmade_'s own pages, relative links included, is not listed.
 
-Each card lists the **destinations** it applies to and the nodes that need it.
+Each card lists the **destinations** it applies to and the nodes that need it:
+
+- a web address for requests, pages, images and content;
+- `KEY_NAME → api.example.com` for a saved key, or just the key name when the
+  address is set while running;
+- `Location › Key · this browser` (or `· your account` for cloud storage) for
+  saved data. A Browse Storage node filtered by location shows the location
+  only; one that browses everything shows no destination, because it reads
+  everything;
+- the provider for AI, such as `Anthropic (Claude)` or `Google (Gemini)`.
+
 Where a destination cannot be worked out ahead of time, it reads _"Chosen while
-the app runs"_ and the action counts as _Dynamic_.
+the app runs"_ and the action counts as _Dynamic_. When one card mixes both,
+its level and description follow the broader one.
 
 ## How it is worked out
 
@@ -168,7 +179,7 @@ data as the Access panel:
       description: 'Can send the saved key below with its requests.',
       level: 'static',
       impact: ['Can cost money', 'Can send your data out'],
-      target: 'OPENAI',
+      target: 'OPENAI → api.openai.com',
       resolved: true,
       nodes: [{ id: '…', name: 'HTTP' }],
     },
