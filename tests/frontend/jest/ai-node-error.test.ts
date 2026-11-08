@@ -70,3 +70,16 @@ describe('AI node failure output', () => {
     },
   );
 });
+
+describe('AI node risks', () => {
+  it.each([
+    [false, 'ai-usage'],
+    [true, 'local-ai'],
+  ])('raises one risk when local AI is %s', (local, kind) => {
+    (AIBackend.getInstance as jest.Mock).mockReturnValue({
+      isLocalAI: () => local,
+    });
+    const node = Object.create(AINode.prototype);
+    expect(node.getRisks().map((risk) => risk.kind)).toEqual([kind]);
+  });
+});

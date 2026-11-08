@@ -7,6 +7,8 @@ import {
   NavigationRisk,
   ExternalImageRisk,
   DynamicImageRisk,
+  DynamicContentRisk,
+  LocalAIRisk,
   StorageReadRisk,
   StorageWriteRisk,
   UnrestrictedCodeRisk,
@@ -15,6 +17,7 @@ import {
   getImageSourceRisks,
   getRiskLevel,
   highestRiskLevel,
+  isSameOrigin,
   requiresAppRiskReview,
 } from '../../../src/classes/NodeRisk';
 
@@ -289,5 +292,41 @@ describe('app risk disclosure', () => {
       },
     ]);
     expect(risks).toHaveLength(2);
+  });
+
+  it('keeps local AI off the provider and the allowance', () => {
+    const risk = new LocalAIRisk();
+    expect(risk.title).toBe('Use local AI');
+    expect(risk.severity).toBe('warning');
+    expect(risk.consequences).toEqual([CONSEQUENCE.reachesYourComputer]);
+    expect(risk.description).not.toContain('allowance');
+    expect(requiresAppRiskReview([{ risk, nodes: [] }])).toBe(true);
+  });
+
+  it('reports markup set while running as content, not as sending data', () => {
+    const risk = new DynamicContentRisk();
+    expect(risk.kind).toBe('dynamic-content');
+    expect(risk.title).toBe('Load content from addresses set while running');
+    expect(risk.consequences).toEqual([CONSEQUENCE.sendsDataOut]);
+    expect(getRiskLevel(risk)).toBe('dynamic');
+    expect(requiresAppRiskReview([{ risk, nodes: [] }])).toBe(true);
+  });
+
+  it('treats only addresses on the page origin as its own pages', () => {
+    const baseURL = 'https://app.example.com/editor';
+    for (const url of ['/?new=true', '?new=true', '', baseURL]) {
+      expect(isSameOrigin(url, baseURL)).toBe(true);
+    }
+    for (const url of [
+      'https://example.com/',
+      '//other.example.com/',
+      'javascript:alert(1)',
+      'http://[',
+      undefined,
+    ]) {
+      expect(isSameOrigin(url, baseURL)).toBe(false);
+    }
+    // Without a page there is nothing to be the same origin as.
+    expect(isSameOrigin('/relative', undefined)).toBe(false);
   });
 });

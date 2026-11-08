@@ -9,7 +9,7 @@ import React, {
 import Handlebars from 'handlebars/dist/handlebars';
 import {
   NodeRisk,
-  NetworkRisk,
+  DynamicContentRisk,
   UnrestrictedCodeRisk,
   ExternalHtmlRisk,
   getImageSourceRisks,
@@ -120,10 +120,18 @@ const parsedHtmlOutputName = 'Parsed Html';
 /**
  * Base class for HTML-rendering nodes with shared Handlebars functionality.
  */
+const getExternalHtmlRisks = (sanitized: string): NodeRisk[] => {
+  const urls = sanitized.match(/(?:https?:)?\/\/[^\s<>"'()]+/g) ?? [];
+  return [...new Set(urls)]
+    .filter((url) => getImageSourceRisks(url, false).length > 0)
+    .map((url) => new ExternalHtmlRisk(url));
+};
+
 abstract class HtmlNodeBase extends HybridNode2 {
   public getRisks(): NodeRisk[] {
+    // The unrestricted card already covers contacting any site.
     if (!this.getStaticInputData(SANITIZE_NAME).value) {
-      return [new UnrestrictedCodeRisk(), new NetworkRisk()];
+      return [new UnrestrictedCodeRisk()];
     }
     const inputs = [
       htmlInputSocketName,
@@ -132,7 +140,9 @@ abstract class HtmlNodeBase extends HybridNode2 {
       partialsInputSocketName,
     ].filter((name) => this.getInputSocketByName(name));
     const values = inputs.map((name) => this.getStaticInputData(name));
-    if (values.some((value) => !value.known)) return [new NetworkRisk()];
+    if (values.some((value) => !value.known)) {
+      return [new DynamicContentRisk()];
+    }
     const markup = values
       .map((value) =>
         typeof value.value === 'string'
@@ -140,11 +150,7 @@ abstract class HtmlNodeBase extends HybridNode2 {
           : JSON.stringify(value.value),
       )
       .join('\n');
-    const sanitized = DOMPurify.sanitize(markup);
-    const urls = sanitized.match(/(?:https?:)?\/\/[^\s<>"'()]+/g) ?? [];
-    return [...new Set(urls)]
-      .filter((url) => getImageSourceRisks(url, false).length > 0)
-      .map((url) => new ExternalHtmlRisk(url));
+    return getExternalHtmlRisks(DOMPurify.sanitize(markup));
   }
   protected lastTemplateError: Error | null = null;
 
@@ -750,6 +756,53 @@ const HtmlComponent = (props): React.ReactElement => {
 
 export class IFrameRenderer extends HtmlNodeBase {
   eventTarget: EventTarget;
+
+  // Sanitize defaults to off here, so a stock Embed website would read as
+  // unrestricted. Fixed markup that sanitizing leaves untouched runs no code
+  // of its own, so it is reported like sanitized markup. Embedded pages are
+  // allowed only from other sites, where they run in their own origin.
+  // Templates are excluded: the Data input could still inject markup. So are
+  // full documents, which render as they are rather than inside the body.
+  public getRisks(): NodeRisk[] {
+    if (this.getStaticInputData(SANITIZE_NAME).value) return super.getRisks();
+    const markup = [inputSocketNameHeader, htmlInputSocketName].map((name) =>
+      this.getStaticInputData(name),
+    );
+    if (
+      markup.some(
+        ({ value }) => typeof value !== 'string' || value.includes('{{'),
+      ) ||
+      /^\s*<(!DOCTYPE|html)/i.test(markup[1].value as string)
+    ) {
+      return super.getRisks();
+    }
+    const frameSources: unknown[] = [];
+    DOMPurify.addHook('uponSanitizeElement', (node, data) => {
+      if (data.tagName === 'iframe') {
+        frameSources.push((node as Element).getAttribute('src'));
+      }
+    });
+    try {
+      const sanitized: string[] = [];
+      for (const { value } of markup) {
+        // The leading paragraph keeps everything in the body. Otherwise a
+        // leading <script> is parsed into the head and dropped without being
+        // listed in DOMPurify.removed.
+        sanitized.push(
+          DOMPurify.sanitize(`<p></p>${value}`, { ADD_TAGS: ['iframe'] }),
+        );
+        if (DOMPurify.removed.length) return super.getRisks();
+      }
+      if (
+        frameSources.some((src) => getImageSourceRisks(src, false).length === 0)
+      ) {
+        return super.getRisks();
+      }
+      return getExternalHtmlRisks(sanitized.join('\n'));
+    } finally {
+      DOMPurify.removeHook('uponSanitizeElement');
+    }
+  }
 
   public onNodeAdded = async (source: TNodeSource): Promise<void> => {
     this.eventTarget = new EventTarget();

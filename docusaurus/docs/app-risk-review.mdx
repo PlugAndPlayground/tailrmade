@@ -23,7 +23,10 @@ but the address is not, so there is nothing to show you.
 And some code **can't be checked in advance**. A custom function set to _Main
 Thread_, or an HTML, IFrame, Embed or Slideshow node with **Sanitize input**
 switched off, runs as ordinary JavaScript in the page. It decides what to do as
-it goes.
+it goes. The one exception is an IFrame or Embed website node whose markup is
+fixed and has nothing that sanitizing would remove, such as a plain `<iframe>`
+of another site: it runs no code of its own, so it is listed like sanitized
+markup.
 
 The levels are named after how well you can judge an app, because that is the
 only part of this that forms a scale:
@@ -75,24 +78,26 @@ can:**. Cards carry **impact tags** ("Can cost money", "Can send your data out")
 so you do not have to infer the cost from the description. Impact is a set, not a ranking: money, your saved data, your
 computer and your privacy are different things, not degrees of one thing.
 
-| This app can…                                | Level               | What it means                                                         |
-| -------------------------------------------- | ------------------- | --------------------------------------------------------------------- |
-| Run unsandboxed code                         | Unrestricted        | Arbitrary JavaScript in the page; Tailrmade can't check it in advance |
-| Send data to other sites                     | Static / Dynamic    | Can send app data to the listed addresses and use their replies       |
-| Use API keys                                 | Static / Dynamic    | Can send the named saved key with its requests                        |
-| Use your Companion                           | Static              | Requests go through the Companion, which reaches your computer        |
-| Change Tailrmade data                        | Static              | Can add, change or delete data saved in _tailrmade_                   |
-| Read Tailrmade data                          | Static              | Can read data saved in _tailrmade_, including your other apps' data   |
-| Use AI services                              | Static              | Can send prompts and images to your AI provider; uses your allowance  |
-| Open web pages                               | Static / Dynamic    | Opens a new tab; anything in an address set while running reaches it  |
-| Load images from addresses set while running | Dynamic             | Another node picks the address, so app data can travel inside it      |
-| Load data from other sites                   | Static · loads only | A plain GET to the listed addresses; each site sees your IP address   |
-| Load content from other sites                | Static · loads only | Links and embeds in sanitized HTML; each site sees your IP address    |
-| Load images from other sites                 | Static · loads only | Each site sees your IP address when the image loads                   |
+| This app can…                                 | Level               | What it means                                                         |
+| --------------------------------------------- | ------------------- | --------------------------------------------------------------------- |
+| Run unsandboxed code                          | Unrestricted        | Arbitrary JavaScript in the page; Tailrmade can't check it in advance |
+| Send data to other sites                      | Static / Dynamic    | Can send app data to the listed addresses and use their replies       |
+| Use API keys                                  | Static / Dynamic    | Can send the named saved key with its requests                        |
+| Use your Companion                            | Static              | Requests go through the Companion, which reaches your computer        |
+| Change Tailrmade data                         | Static              | Can add, change or delete data saved in _tailrmade_                   |
+| Read Tailrmade data                           | Static              | Can read data saved in _tailrmade_, including your other apps' data   |
+| Use AI services                               | Static              | Can send prompts and images to your AI provider; uses your allowance  |
+| Use local AI                                  | Static              | Can send prompts to the AI model on your computer, via your Companion |
+| Open web pages                                | Static / Dynamic    | Opens a new tab; anything in an address set while running reaches it  |
+| Load images from addresses set while running  | Dynamic             | Another node picks the address, so app data can travel inside it      |
+| Load content from addresses set while running | Dynamic             | Sanitized HTML fed by another node; app data can travel in its links  |
+| Load data from other sites                    | Static · loads only | A plain GET to the listed addresses; each site sees your IP address   |
+| Load content from other sites                 | Static · loads only | Links and embeds in sanitized HTML; each site sees your IP address    |
+| Load images from other sites                  | Static · loads only | Each site sees your IP address when the image loads                   |
 
 The actions marked _Static / Dynamic_ land on whichever applies: _Static_
 when the address or key name is constant, _Dynamic_ when it arrives from another
-node.
+node. Opening _tailrmade_'s own pages, relative links included, is not listed.
 
 Each card lists the **destinations** it applies to and the nodes that need it.
 Where a destination cannot be worked out ahead of time, it reads _"Chosen while
@@ -133,7 +138,9 @@ asking your users to accept. Most _Unrestricted_ apps do not need to be:
 
 - **Leave Sanitize input on** for HTML, IFrame and Slideshow nodes. You only need
   it off for intermediate template nodes whose output feeds another node, or for
-  markup that genuinely needs `<style>` blocks or inline handlers.
+  markup that genuinely needs `<style>` blocks or inline handlers. An IFrame or
+  Embed website that only embeds other sites, with fixed markup and nothing
+  sanitizing would remove, is listed as _loads only_ even with it off.
 - **Keep custom functions on Worker Thread**, the default. The QuickJS sandbox has
   no network and no browser APIs, so a worker function reports no action at
   all. See [Create custom nodes](custom-nodes.mdx).

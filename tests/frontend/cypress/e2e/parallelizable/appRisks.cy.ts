@@ -684,6 +684,176 @@ describe('app risk review', () => {
     });
   });
 
+  const workerSource = (id: string, value: string) => ({
+    ...serializedNode('customfunction', id, [
+      serializedSocket('Code', `() => ${JSON.stringify(value)}`, 'CodeType'),
+      serializedSocket('Main Thread', false, 'BooleanType'),
+    ]),
+    version: 3,
+  });
+  const riskKinds = (controller, id: string) =>
+    controller
+      .getNodeByID(id)
+      .getRisks()
+      .map((risk) => risk.kind);
+
+  it('reports markup set while running as content, not as sending data', () => {
+    beginLoad(
+      [
+        workerSource('markup', '<a href="https://example.com">Link</a>'),
+        serializedNode('htmlrenderer', 'html', [
+          serializedSocket('Sanitize input', true, 'BooleanType'),
+        ]),
+        serializedNode('slideshow', 'slides', [
+          serializedSocket('Sanitize input', true, 'BooleanType'),
+        ]),
+      ],
+      [
+        linkTo('markup', 'OutData', 'html', 'Html'),
+        linkTo('markup', 'OutData', 'slides', 'Data'),
+      ],
+    );
+    cy.get('[data-cy="app-risk-dialog"]')
+      .should('contain', 'Load content from addresses set while running')
+      .and('not.contain', 'Send data to other sites');
+    shouldWithTestController((controller) => {
+      expect(riskKinds(controller, 'html')).to.deep.equal(['dynamic-content']);
+      expect(riskKinds(controller, 'slides')).to.deep.equal([
+        'network',
+        'dynamic-content',
+      ]);
+    });
+  });
+
+  it('reports unsanitized markup only as unrestricted code', () => {
+    beginLoad([
+      serializedNode('htmlrenderer', 'html', [
+        serializedSocket('Html', '<script>1</script>', 'HtmlType'),
+        serializedSocket('Sanitize input', false, 'BooleanType'),
+      ]),
+      serializedNode('slideshow', 'slides', [
+        serializedSocket('Sanitize input', false, 'BooleanType'),
+      ]),
+    ]);
+    cy.get('[data-cy="app-risk-dialog"]').should('be.visible');
+    shouldWithTestController((controller) => {
+      for (const id of ['html', 'slides']) {
+        expect(riskKinds(controller, id)).to.deep.equal(['unrestricted-code']);
+      }
+    });
+  });
+
+  it('lists a stock Embed website as content from its site', () => {
+    beginLoad([serializedNode('embedwebsite', 'embed', [])]);
+    shouldWithTestController((controller) => {
+      const node = controller.getNodeByID('embed');
+      expect(node.getInputData('Sanitize input')).to.equal(false);
+      expect(
+        node.getRisks().map(({ kind, target }) => ({ kind, target })),
+      ).to.deep.equal([
+        {
+          kind: 'external-html',
+          target: 'https://en.wikipedia.org/wiki/Special:Random',
+        },
+      ]);
+    });
+    cy.get('[data-cy="app-risk-dialog"]').should('not.exist');
+  });
+
+  it('keeps unsanitized markup unrestricted when sanitizing would change it', () => {
+    const embed = (id: string, html: string) =>
+      serializedNode('embedwebsite', id, [
+        serializedSocket('Html', html, 'HtmlType'),
+      ]);
+    beginLoad([
+      // A leading script is parsed into the head, where DOMPurify drops it
+      // without listing it as removed.
+      embed('script', '<script>1</script><p>Hi</p>'),
+      embed('document', '<!DOCTYPE html><html><body><p>Hi</p></body></html>'),
+      embed(
+        'handler',
+        '<iframe src="https://example.com" onload="1"></iframe>',
+      ),
+      embed('own-page', '<iframe src="/?new=true"></iframe>'),
+      embed('template', '<iframe src="{{url}}"></iframe>'),
+      serializedNode('iframerenderer', 'stock-iframe', []),
+    ]);
+    shouldWithTestController((controller) => {
+      for (const id of [
+        'script',
+        'document',
+        'handler',
+        'own-page',
+        'template',
+        'stock-iframe',
+      ]) {
+        expect(riskKinds(controller, id), id).to.deep.equal([
+          'unrestricted-code',
+        ]);
+      }
+    });
+  });
+
+  // The suite runs self-hosted, where AI always goes through the Companion.
+  it('lists local AI as one card, without the provider or allowance', () => {
+    beginLoad([serializedNode('ainode', 'ai', [])]);
+    cy.get('[data-cy="app-risk-dialog"]')
+      .should('contain', 'Use local AI')
+      .and('not.contain', 'Use AI services')
+      .and('not.contain', 'Use your Companion')
+      .and('not.contain', 'Can cost money');
+    shouldWithTestController((controller) => {
+      expect(riskKinds(controller, 'ai')).to.deep.equal(['local-ai']);
+    });
+  });
+
+  it('treats a fixed Sqlite file as a download only', () => {
+    cy.intercept('GET', '**/risk-probe.sqlite', { statusCode: 404 });
+    beginLoad(
+      [
+        serializedNode('sqlitereader', 'fixed', [
+          serializedSocket(
+            'Resource URL',
+            'https://example.com/risk-probe.sqlite',
+          ),
+        ]),
+        workerSource('address', 'https://example.com/risk-probe.sqlite'),
+        serializedNode('sqlitereader', 'connected', []),
+      ],
+      [linkTo('address', 'OutData', 'connected', 'Resource URL')],
+    );
+    shouldWithTestController((controller) => {
+      const [fixed] = controller.getNodeByID('fixed').getRisks();
+      expect(fixed.severity).to.equal('info');
+      expect(fixed.target).to.equal('https://example.com/risk-probe.sqlite');
+      const [connected] = controller.getNodeByID('connected').getRisks();
+      expect(connected.severity).to.equal('warning');
+      expect(connected.resolved).to.equal(false);
+    });
+  });
+
+  it("does not list Open URL for Tailrmade's own pages", () => {
+    cy.window().then((win) => cy.stub(win, 'open'));
+    beginLoad([
+      {
+        ...serializedNode('openurl', 'own', [
+          serializedSocket('url', '/?new=true'),
+        ]),
+        version: 4,
+      },
+      {
+        ...serializedNode('openurl', 'other', [
+          serializedSocket('url', 'https://example.com/docs'),
+        ]),
+        version: 4,
+      },
+    ]);
+    shouldWithTestController((controller) => {
+      expect(riskKinds(controller, 'own')).to.deep.equal([]);
+      expect(riskKinds(controller, 'other')).to.deep.equal(['navigation']);
+    });
+  });
+
   it('summarizes risks in the app inspector and reviews them in the side panel', () => {
     cy.viewport(1280, 900);
     beginLoad([serializedNode('add', 'add', [])]);

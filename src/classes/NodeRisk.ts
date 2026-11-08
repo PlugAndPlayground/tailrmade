@@ -188,6 +188,28 @@ export class DynamicImageRisk extends NodeRisk {
   readonly resolved = false;
 }
 
+export class DynamicContentRisk extends NodeRisk {
+  readonly kind = 'dynamic-content';
+  readonly title = 'Load content from addresses set while running';
+  readonly description =
+    'If an address points to another site, any app data in it reaches that site.';
+  readonly consequences = [CONSEQUENCE.sendsDataOut] as const;
+  readonly resolved = false;
+}
+
+// Tailrmade's own pages, relative links included, reach no other site.
+export function isSameOrigin(
+  url: unknown,
+  baseURL = typeof document === 'undefined' ? undefined : document.baseURI,
+): boolean {
+  if (typeof url !== 'string' || !baseURL) return false;
+  try {
+    return new URL(url, baseURL).origin === new URL(baseURL).origin;
+  } catch {
+    return false;
+  }
+}
+
 export function getImageSourceRisks(
   source: unknown,
   dynamic: boolean,
@@ -201,7 +223,7 @@ export function getImageSourceRisks(
     const url = new URL(source, baseURL);
     if (
       ['http:', 'https:'].includes(url.protocol) &&
-      (!baseURL || url.origin !== new URL(baseURL).origin)
+      !isSameOrigin(source, baseURL)
     ) {
       return [new ExternalImageRisk(url.href)];
     }
@@ -269,6 +291,15 @@ export class AIUsageRisk extends NodeRisk {
     CONSEQUENCE.costsMoney,
     CONSEQUENCE.sendsDataOut,
   ] as const;
+}
+
+// Local AI stays on the person's computer: no provider, no allowance.
+export class LocalAIRisk extends NodeRisk {
+  readonly kind = 'local-ai';
+  readonly title = 'Use local AI';
+  readonly description =
+    'Can send prompts to the AI model on your computer, through your Companion.';
+  readonly consequences = [CONSEQUENCE.reachesYourComputer] as const;
 }
 
 export interface RiskSource {

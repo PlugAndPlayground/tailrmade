@@ -1,5 +1,5 @@
 import { NodeExecutionWarning } from '../../classes/ErrorClass';
-import { NavigationRisk, NodeRisk } from '../../classes/NodeRisk';
+import { NavigationRisk, NodeRisk, isSameOrigin } from '../../classes/NodeRisk';
 import {
   NODE_TYPE_COLOR,
   SOCKET_TYPE,
@@ -47,7 +47,9 @@ export function readURLParameters(
 
 export class OpenURL extends PPNode {
   public getRisks(): NodeRisk[] {
-    return [new NavigationRisk(this.getStaticInputData(URLName).value)];
+    const url = this.getStaticInputData(URLName);
+    if (url.known && isSameOrigin(url.value)) return [];
+    return [new NavigationRisk(url.value)];
   }
 
   // Opening a URL is an external effect.
