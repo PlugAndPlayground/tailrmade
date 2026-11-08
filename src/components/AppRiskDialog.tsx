@@ -614,6 +614,22 @@ function AccessOverview({
 
 type AppAction = { risk: NodeRisk; destinations: AppRisk[] };
 
+// Kinds whose target is a place (an address, a key, saved data or an AI
+// provider), so an unresolved one can say it is chosen while running.
+// Unsandboxed code has no address to choose.
+const DESTINATION_KINDS = new Set([
+  'network',
+  'dynamic-content',
+  'navigation',
+  'api-key',
+  'external-image',
+  'dynamic-image',
+  'external-html',
+  'storage-read',
+  'storage-write',
+  'ai-usage',
+]);
+
 const claimBreadth = (risk: NodeRisk): number =>
   (risk.resolved ? 0 : 2) + (risk.target === undefined ? 1 : 0);
 
@@ -636,6 +652,14 @@ function groupActions(risks: AppRisk[]): AppAction[] {
 }
 
 // Nodes of one type share a row, so twenty HTML Renderers stay one line.
+// The row names the nodes themselves, which mean something to whoever opens
+// the app: "Draw plot, Sketch plot, +3".
+function describeNodes(nodes: PPNode[]): string {
+  const shown = [...new Set(nodes.map((node) => node.name))].slice(0, 2);
+  const rest = nodes.filter((node) => !shown.includes(node.name)).length;
+  return [...shown, ...(rest ? [`+${rest}`] : [])].join(', ');
+}
+
 function NodeTypeRows({
   nodes,
   onInspect,
@@ -655,17 +679,10 @@ function NodeTypeRows({
           key={typeNodes[0].type}
           node={typeNodes[0]}
           compact
-          label={
-            typeNodes.length === 1 ? typeNodes[0].name : typeNodes[0].getName()
-          }
+          label={describeNodes(typeNodes)}
           title={typeNodes.map((node) => node.id).join('\n')}
           data-cy="risk-node-type"
           onClick={() => onInspect(typeNodes.map((node) => node.id))}
-          tags={
-            typeNodes.length > 1 && (
-              <TagChip label={`${typeNodes.length} nodes`} />
-            )
-          }
         />
       ))}
     </List>
@@ -747,7 +764,9 @@ function ActionGroup({
       <Box sx={{ px: 1, pb: 1 }}>
         {destinations.map(({ risk: destination, nodes }) => (
           <Box key={destination.id} data-cy="risk-destination">
-            {(destination.target || !destination.resolved) && (
+            {(destination.target ||
+              (!destination.resolved &&
+                DESTINATION_KINDS.has(destination.kind))) && (
               <Typography
                 variant="body2"
                 data-cy="risk-destination-label"
