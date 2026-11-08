@@ -261,9 +261,20 @@ describe('app risk disclosure', () => {
     expect(new NetworkRisk('https://example.com').consequences).toEqual([
       CONSEQUENCE.sendsDataOut,
     ]);
-    expect(new UnrestrictedCodeRisk().consequences).toContain(
-      CONSEQUENCE.notSandboxed,
-    );
+    expect(new UnrestrictedCodeRisk().consequences).toEqual([
+      CONSEQUENCE.changesYourData,
+      CONSEQUENCE.sendsDataOut,
+      CONSEQUENCE.costsMoney,
+    ]);
+  });
+
+  it('only says an opened address can carry app data when it is chosen while running', () => {
+    const fixed = new NavigationRisk('https://example.com/page');
+    expect(fixed.consequences).toEqual([CONSEQUENCE.revealsYouVisited]);
+    expect(fixed.description).not.toContain('Anything in the address');
+    const dynamic = new NavigationRisk(undefined);
+    expect(dynamic.consequences).toEqual([CONSEQUENCE.sendsDataOut]);
+    expect(dynamic.description).toContain('Anything in the address');
   });
 
   it('keeps different endpoints on the same host separate in the review', () => {

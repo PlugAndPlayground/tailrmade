@@ -44,7 +44,7 @@ const getNodeCategories = () => ({
   theme: require('./utility/theme'),
   pixotopegateway: require('./api/pixotopeGateway'),
   shader: require('./image/shader'),
-  stateNodes: require('./state/stateNodes'),
+  storageAccumulators: require('./state/storageAccumulator'),
   string: require('./string'),
   table2: require('./table/table2'),
   rawSpreadsheet: require('./table/rawSpreadsheet'),
@@ -98,7 +98,8 @@ const getAINodeCategories = () => {
     booleanlogic: categories.booleanlogic,
     array: categories.array,
     constants: categories.constants,
-    stateNodes: categories.stateNodes,
+    storageAccumulators: categories.storageAccumulators,
+    storage: categories.storage,
     statistics: categories.statistics,
     plotlyChart: categories.plotlyChart,
   };

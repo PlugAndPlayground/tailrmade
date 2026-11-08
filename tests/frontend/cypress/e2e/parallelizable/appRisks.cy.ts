@@ -106,13 +106,13 @@ describe('app risk review', () => {
     beginLoad([codeNode(), { ...imageNode(externalImageURL), x: 400 }]);
     cy.get('[data-cy="risk-nodes-tab"]').click();
     cy.get('[data-cy="go-to-risk-node"][data-node-id="image"]')
-      .should('contain', 'Loads images from other sites')
-      .and('not.contain', 'Connects to other sites')
+      .should('contain', 'Can load images from other sites')
+      .and('not.contain', 'send data to other sites')
       .and('not.contain', 'hidden-secret');
     cy.get('[data-cy="risk-actions-tab"]').click();
     cy.get('[data-cy="risk-details"][data-risk-severity="info"]').should(
       'contain',
-      'Loads images from other sites',
+      'Load images from other sites',
     );
     shouldWithTestController((controller) => {
       expect(controller.getNodeByID('code').debug_timesExecuted).to.equal(0);
@@ -189,7 +189,7 @@ describe('app risk review', () => {
     );
     cy.get('[data-cy="app-risk-dialog"]').should(
       'contain',
-      'Loads images from changing addresses',
+      'Load images from addresses set while running',
     );
     shouldWithTestController((controller) => {
       expect(
@@ -423,9 +423,9 @@ describe('app risk review', () => {
     cy.get('[data-cy="risk-nodes-tab"]').click();
     cy.get('[data-cy="go-to-risk-node"]').should('have.length', 1);
     cy.get('[data-cy="go-to-risk-node"]')
-      .should('contain', 'Connects to other sites')
-      .and('contain', 'Uses API keys')
-      .and('contain', 'Uses your Companion')
+      .should('contain', 'Can send data to other sites')
+      .and('contain', 'Can use API keys')
+      .and('contain', 'Can use your Companion')
       .and('contain', 'https://example.com/api')
       .and('contain', 'TEST_KEY')
       .and('not.contain', 'hidden-secret');
@@ -462,9 +462,9 @@ describe('app risk review', () => {
     cy.get('[data-cy="go-to-risk-node"]').should('have.length', 3);
     cy.get('[data-cy="go-to-risk-node"]').each((node) => {
       cy.wrap(node)
-        .should('contain', 'Connects to other sites')
+        .should('contain', 'Can send data to other sites')
         .and('contain', 'localhost:16208')
-        .and('not.contain', 'Uses your Companion');
+        .and('not.contain', 'use your Companion');
     });
   });
 
@@ -562,7 +562,7 @@ describe('app risk review', () => {
     });
     cy.get('[data-cy="app-risk-dialog"]')
       .should('be.visible')
-      .and('contain', 'Runs code that is not sandboxed');
+      .and('contain', 'Run unsandboxed code');
     doWithTestController(async (controller) => {
       await controller.getNodeByID('code').execute();
       expect(controller.getNodeByID('code').debug_timesExecuted).to.equal(0);
@@ -705,7 +705,7 @@ describe('app risk review', () => {
       .and('contain', 'Unrestricted');
     cy.get('[data-cy="open-risk-review"]').click();
     cy.get('[data-cy="app-risk-dialog"]')
-      .should('contain', 'Runs code that is not sandboxed')
+      .should('contain', 'Run unsandboxed code')
       .and('contain', 'Risk review');
     cy.get('[data-cy="run-reviewed-app"]').should('not.exist');
     cy.screenshot('app-risk-summary', { capture: 'runner' });
@@ -904,7 +904,7 @@ describe('app risk review', () => {
     beginLoad([codeNode(2)]);
     cy.get('[data-cy="app-risk-dialog"]').should(
       'contain',
-      'Runs code that is not sandboxed',
+      'Run unsandboxed code',
     );
     cy.window().then((win: any) => expect(win.__riskCodeRuns).to.be.undefined);
     cy.get('[data-cy="run-reviewed-app"]').click();
@@ -936,7 +936,7 @@ describe('app risk review', () => {
     );
     cy.get('[data-cy="app-risk-dialog"]').should(
       'contain',
-      'Runs code that is not sandboxed',
+      'Run unsandboxed code',
     );
     cy.window().then((win: any) => expect(win.__riskCodeRuns).to.be.undefined);
     cy.get('[data-cy="app-risk-dialog"]')

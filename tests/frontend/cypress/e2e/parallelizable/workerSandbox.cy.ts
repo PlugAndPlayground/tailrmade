@@ -115,6 +115,28 @@ describe('restricted custom function workers', () => {
     });
   });
 
+  it('keeps working after returning thousands of objects', () => {
+    doWithTestController(async (controller) => {
+      await controller.setNodeInputValue(
+        'Sandbox',
+        'Code',
+        '() => { return Array.from({ length: 5000 }, (_, i) => ({ i })); }',
+      );
+      await controller.executeNodeByID('Sandbox');
+      expect(controller.getNodeOutputValue('Sandbox', 'OutData')).to.have.length(
+        5000,
+      );
+      // compiling the next function in the same worker used to abort
+      await controller.setNodeInputValue(
+        'Sandbox',
+        'Code',
+        '() => { return 42; }',
+      );
+      await controller.executeNodeByID('Sandbox');
+      expect(controller.getNodeOutputValue('Sandbox', 'OutData')).to.eq(42);
+    });
+  });
+
   const failures = {
     'complex result': {
       code: '() => { return new Date(); }',
