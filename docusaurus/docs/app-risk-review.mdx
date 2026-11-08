@@ -21,9 +21,11 @@ rather than being typed in. The action is still known (it makes a request),
 but the address is not, so there is nothing to show you.
 
 And some code **can't be checked in advance**. A custom function set to _Main
-Thread_, or an HTML, IFrame, Embed or Slideshow node with **Sanitize input**
-switched off, runs as ordinary JavaScript in the page. It decides what to do as
-it goes.
+Thread_, an HTML, IFrame, Embed or Slideshow node with **Sanitize input**
+switched off, or a **Load NPM package** node, runs as ordinary JavaScript in
+the page. It decides what to do as it goes. A package's code runs as soon as it
+is imported, so Load NPM counts as unsandboxed even when the function that uses
+the package does not.
 
 The levels are named after how well you can judge an app, because that is the
 only part of this that forms a scale:

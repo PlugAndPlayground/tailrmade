@@ -1,6 +1,9 @@
 import React from 'react';
 import InterfaceController from '../InterfaceController';
 
+// Packages load from here and run as ordinary modules in the page.
+export const NPM_CDN = 'https://esm.run/';
+
 export class DynamicImport {
   private static dynamicImports: Record<string, any> = {};
   public static tryGetImportImmediately(name: string) {
@@ -18,7 +21,7 @@ export class DynamicImport {
         },
       );
       console.time(`${packageName} imported`);
-      const url = 'https://esm.run/' + packageName;
+      const url = NPM_CDN + packageName;
       DynamicImport.dynamicImports[packageName] = await import(
         /* webpackIgnore: true */ url
       );
