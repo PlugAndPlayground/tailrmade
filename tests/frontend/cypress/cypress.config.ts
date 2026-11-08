@@ -18,6 +18,7 @@ export default defineConfig({
         'pnpTimeout',
         'pnpBaseUrl',
         'inventoryOut',
+        'libraryRef',
         'TEST_EMAIL',
       ]) {
         if (config.env[key] !== undefined) {
