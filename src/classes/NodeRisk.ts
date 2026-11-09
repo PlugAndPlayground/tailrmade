@@ -179,22 +179,22 @@ export class ExternalImageRisk extends NodeRisk {
   }
 }
 
-export class DynamicImageRisk extends NodeRisk {
-  readonly kind = 'dynamic-image';
-  readonly title = 'Load images from addresses set while running';
+// An address only known once the app runs can carry app data to any site.
+abstract class DynamicAddressRisk extends NodeRisk {
   readonly description =
     'If an address points to another site, any app data in it reaches that site.';
   readonly consequences = [CONSEQUENCE.sendsDataOut] as const;
   readonly resolved = false;
 }
 
-export class DynamicContentRisk extends NodeRisk {
+export class DynamicImageRisk extends DynamicAddressRisk {
+  readonly kind = 'dynamic-image';
+  readonly title = 'Load images from addresses set while running';
+}
+
+export class DynamicContentRisk extends DynamicAddressRisk {
   readonly kind = 'dynamic-content';
   readonly title = 'Load content from addresses set while running';
-  readonly description =
-    'If an address points to another site, any app data in it reaches that site.';
-  readonly consequences = [CONSEQUENCE.sendsDataOut] as const;
-  readonly resolved = false;
 }
 
 // Tailrmade's own pages, relative links included, reach no other site.
