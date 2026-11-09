@@ -37,20 +37,22 @@ import { NumberType } from '../datatypes/numberType';
 import { StringType } from '../datatypes/stringType';
 import { TriggerType } from '../datatypes/triggerType';
 
-const scriptName = 'Script';
-const playName = 'Play';
-const stopName = 'Stop';
-const resetName = 'Reset';
-const recordName = 'Record';
-const nextName = 'Next';
-const backName = 'Back';
-const speedName = 'Speed';
-const loopName = 'Loop';
-const cameraName = 'Camera';
-const autoplayName = 'Autoplay';
-const statusName = 'Status';
-const stepName = 'Step';
-const captionName = 'Caption';
+const socketNames = {
+  script: 'Script',
+  play: 'Play',
+  stop: 'Stop',
+  reset: 'Reset',
+  record: 'Record',
+  next: 'Next',
+  back: 'Back',
+  speed: 'Speed',
+  loop: 'Loop',
+  camera: 'Camera',
+  autoplay: 'Autoplay',
+  status: 'Status',
+  step: 'Step',
+  caption: 'Caption',
+};
 
 const exampleScript: ReplayStep[] = [
   { delay: 0, tool: 'caption', input: { text: 'A value and a label' } },
@@ -177,20 +179,35 @@ export class Replay extends PPNode {
     const trigger = (name: string, method: string) =>
       new Socket(SOCKET_TYPE.IN, name, new TriggerType(undefined, method), 0);
     return [
-      new Socket(SOCKET_TYPE.IN, scriptName, new JSONType(), exampleScript),
-      trigger(playName, 'play'),
-      trigger(stopName, 'stop'),
-      trigger(backName, 'back'),
-      trigger(nextName, 'next'),
-      trigger(resetName, 'reset'),
-      trigger(recordName, 'record'),
-      new Socket(SOCKET_TYPE.IN, speedName, new NumberType(false, 0.1, 4), 1),
-      new Socket(SOCKET_TYPE.IN, loopName, new BooleanType(), false),
-      new Socket(SOCKET_TYPE.IN, cameraName, new BooleanType(), true),
-      new Socket(SOCKET_TYPE.IN, autoplayName, new BooleanType(), false),
-      new Socket(SOCKET_TYPE.OUT, statusName, new StringType()),
-      new Socket(SOCKET_TYPE.OUT, stepName, new NumberType(true)),
-      new Socket(SOCKET_TYPE.OUT, captionName, new StringType(), ''),
+      new Socket(
+        SOCKET_TYPE.IN,
+        socketNames.script,
+        new JSONType(),
+        exampleScript,
+      ),
+      trigger(socketNames.play, 'play'),
+      trigger(socketNames.stop, 'stop'),
+      trigger(socketNames.back, 'back'),
+      trigger(socketNames.next, 'next'),
+      trigger(socketNames.reset, 'reset'),
+      trigger(socketNames.record, 'record'),
+      new Socket(
+        SOCKET_TYPE.IN,
+        socketNames.speed,
+        new NumberType(false, 0.1, 4),
+        1,
+      ),
+      new Socket(SOCKET_TYPE.IN, socketNames.loop, new BooleanType(), false),
+      new Socket(SOCKET_TYPE.IN, socketNames.camera, new BooleanType(), true),
+      new Socket(
+        SOCKET_TYPE.IN,
+        socketNames.autoplay,
+        new BooleanType(),
+        false,
+      ),
+      new Socket(SOCKET_TYPE.OUT, socketNames.status, new StringType()),
+      new Socket(SOCKET_TYPE.OUT, socketNames.step, new NumberType(true)),
+      new Socket(SOCKET_TYPE.OUT, socketNames.caption, new StringType(), ''),
     ];
   }
 
@@ -214,7 +231,7 @@ export class Replay extends PPNode {
       if (!appRisksAccepted.get()) return;
       this.stopWaitingForApp?.();
       this.stopWaitingForApp = undefined;
-      if (this.getInputData(autoplayName)) {
+      if (this.getInputData(socketNames.autoplay)) {
         // not awaited: a looping replay never finishes
         void this.reset().then(() => this.play());
       }
@@ -228,9 +245,9 @@ export class Replay extends PPNode {
 
   // read before every step, so they can change while it plays
   private getSettings = (): ReplaySettings => ({
-    speed: this.getInputData(speedName),
-    loop: this.getInputData(loopName),
-    camera: this.getInputData(cameraName),
+    speed: this.getInputData(socketNames.speed),
+    loop: this.getInputData(socketNames.loop),
+    camera: this.getInputData(socketNames.camera),
   });
 
   public async play(): Promise<void> {
@@ -262,7 +279,7 @@ export class Replay extends PPNode {
     run: (steps: ReplayStep[]) => Promise<void>,
   ): Promise<void> {
     try {
-      await run(parseReplayScript(this.getInputData(scriptName)));
+      await run(parseReplayScript(this.getInputData(socketNames.script)));
     } catch (error) {
       this.showStatus((error as Error).message);
     }
@@ -330,13 +347,13 @@ export class Replay extends PPNode {
     const warnings = Array.from(recording.warnings);
     const args: SetSocketValueActionArgs = {
       nodeID: this.id,
-      socketName: scriptName,
+      socketName: socketNames.script,
       socketType: SOCKET_TYPE.IN,
       newValue: steps,
     };
     await PNPAction(ACTIONS.SET_SOCKET_VALUE, args, {
       ...args,
-      newValue: this.getInputData(scriptName),
+      newValue: this.getInputData(socketNames.script),
     });
     const skipped =
       warnings.length > 0 ? `. Not recorded: ${warnings.join('; ')}` : '';
@@ -361,15 +378,15 @@ export class Replay extends PPNode {
   }
 
   private showProgress(progress: ReplayProgress): void {
-    this.setOutputData(stepName, progress.step);
-    this.setOutputData(captionName, progress.caption);
+    this.setOutputData(socketNames.step, progress.step);
+    this.setOutputData(socketNames.caption, progress.caption);
     this.showStatus(progress.status);
   }
 
   private showStatus(status: string): void {
     // the replay may have deleted and recreated nodes, but never this one
     if (this.destroyed) return;
-    this.setOutputData(statusName, status);
+    this.setOutputData(socketNames.status, status);
     void this.executeChildren();
   }
 }
