@@ -97,6 +97,9 @@ when the address or key name is constant, _Dynamic_ when it arrives from another
 node.
 
 Each card lists the **destinations** it applies to and the nodes that need it.
+Session storage is temporary state for the currently loaded app and reports no
+storage access risk. Loading or clearing an app resets that state.
+Storage access disclosures apply to saved data in IndexedDB or Cloud storage.
 Where a destination cannot be worked out ahead of time, it reads _"Chosen while
 the app runs"_ and the action counts as _Dynamic_.
 

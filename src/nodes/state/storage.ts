@@ -28,6 +28,11 @@ import { StringType } from '../datatypes/stringType';
 import { TriggerType } from '../datatypes/triggerType';
 import { CLOUD_MODE } from '../../services/shared-types';
 import { BackendGateway } from '../../services/BackendGateway';
+import {
+  appSessionStorageVersion,
+  captureAppSessionStorage,
+  sessionLocations,
+} from '../../utils/appSessionStorage';
 
 const LOCATION_NAME = 'Location';
 export const STORAGE_BACKEND_NAME = 'Storage type';
@@ -88,6 +93,9 @@ abstract class AbstractStorageNode extends PPNode {
   protected mutatesStorage = false;
 
   public getRisks(): NodeRisk[] {
+    const backend = this.getStaticInputData(STORAGE_BACKEND_NAME);
+    // Session state is temporary app state, not saved user data.
+    if (backend.known && backend.value === STORAGE_BACKEND_SESSION) return [];
     return [
       this.mutatesStorage ? new StorageWriteRisk() : new StorageReadRisk(),
     ];
@@ -325,8 +333,6 @@ function setStorageWriteSkippedWarning(
   node.setStatus(new NodeExecutionWarning(message));
 }
 
-const sessionLocations = new Map<string, Record<string, any>>();
-
 let dbInstance: GraphDatabase | undefined;
 
 function getDb(): GraphDatabase {
@@ -393,7 +399,12 @@ function storageAddress(
   location: string,
   key: string,
 ): string {
-  return JSON.stringify([backend, location, key]);
+  return JSON.stringify([
+    backend,
+    location,
+    key,
+    ...(backend === SESSION ? [appSessionStorageVersion] : []),
+  ]);
 }
 async function serializeMutation<T>(
   address: string,
@@ -463,15 +474,18 @@ export async function writeSessionState(
   value: any,
   owner: PPNode,
 ): Promise<void> {
+  const assertSession = captureAppSessionStorage();
   const changed = await serializeMutation(
     storageAddress(SESSION, location, key),
     async () => {
+      assertSession();
       const values = readSessionLocation(location) ?? {};
       const previous = values[key];
       await mutateStorage(SESSION, location, key, structuredClone(value));
       return hasValueChanged(Object.hasOwn(values, key), previous, true, value);
     },
   );
+  assertSession();
   if (changed) await notifyStorageReadNodes(SESSION, location, key, owner);
 }
 
@@ -719,6 +733,8 @@ export class StorageWrite extends StorageMutation {
     initStorageSuccessAndError(output);
     try {
       const storageBackend = getStorageBackend(input);
+      const assertSession =
+        storageBackend === SESSION ? captureAppSessionStorage() : () => {};
       const location: string = input[LOCATION_NAME];
       const additionalKeys = input['Additional keys'] ?? [];
       if (
@@ -731,11 +747,13 @@ export class StorageWrite extends StorageMutation {
         const changed = await serializeMutation(
           storageAddress(storageBackend, location, key),
           async () => {
+            assertSession();
             const previousValue = await readStorageValue(
               storageBackend,
               location,
               key,
             );
+            assertSession();
             const value = this.nextValue(previousValue, input);
             const nonEmptyOnly = input[NON_EMPTY_ONLY_NAME];
             const insertOnly = input[INSERT_ONLY_NAME];
@@ -775,6 +793,7 @@ export class StorageWrite extends StorageMutation {
         );
         if (changed) changedKeys.push(key);
       }
+      assertSession();
       if (changedKeys.length)
         await notifyStorageReadNodes(storageBackend, location, changedKeys);
     } catch (err) {
@@ -943,17 +962,21 @@ export class StorageDelete extends StorageMutation {
     initStorageSuccessAndError(output);
     try {
       const storageBackend = getStorageBackend(input);
+      const assertSession =
+        storageBackend === SESSION ? captureAppSessionStorage() : () => {};
       const location = input[LOCATION_NAME];
       const key = input[KEY_NAME];
 
       const changed = await serializeMutation(
         storageAddress(storageBackend, location, key),
         async () => {
+          assertSession();
           const previousValue = await readStorageValue(
             storageBackend,
             location,
             key,
           );
+          assertSession();
           if (previousValue === undefined) {
             setStorageWriteSkippedWarning(
               this,
@@ -971,6 +994,7 @@ export class StorageDelete extends StorageMutation {
           return true;
         },
       );
+      assertSession();
       if (changed) await notifyStorageReadNodes(storageBackend, location, key);
     } catch (err) {
       this.setStorageExecutionError(
