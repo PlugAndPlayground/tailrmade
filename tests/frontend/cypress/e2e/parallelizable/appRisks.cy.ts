@@ -743,24 +743,19 @@ describe('app risk review', () => {
     });
   });
 
-  it('lists a stock Embed website as content from its site', () => {
+  it('reports a stock Embed website as unrestricted code', () => {
     beginLoad([serializedNode('embedwebsite', 'embed', [])]);
+    cy.get('[data-cy="app-risk-dialog"]').should('be.visible');
     shouldWithTestController((controller) => {
       const node = controller.getNodeByID('embed');
       expect(node.getInputData('Sanitize input')).to.equal(false);
-      expect(
-        node.getRisks().map(({ kind, target }) => ({ kind, target })),
-      ).to.deep.equal([
-        {
-          kind: 'external-html',
-          target: 'https://en.wikipedia.org/wiki/Special:Random',
-        },
+      expect(riskKinds(controller, 'embed')).to.deep.equal([
+        'unrestricted-code',
       ]);
     });
-    cy.get('[data-cy="app-risk-dialog"]').should('not.exist');
   });
 
-  it('keeps unsanitized markup unrestricted when sanitizing would change it', () => {
+  it('keeps all unsanitized iframe markup unrestricted', () => {
     const embed = (id: string, html: string) =>
       serializedNode('embedwebsite', id, [
         serializedSocket('Html', html, 'HtmlType'),
