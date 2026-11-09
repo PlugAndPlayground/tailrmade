@@ -8,7 +8,6 @@ import {
   ExternalImageRisk,
   DynamicImageRisk,
   DynamicContentRisk,
-  LocalAIRisk,
   StorageReadRisk,
   StorageWriteRisk,
   UnrestrictedCodeRisk,
@@ -294,13 +293,37 @@ describe('app risk disclosure', () => {
     expect(risks).toHaveLength(2);
   });
 
-  it('keeps local AI off the provider and the allowance', () => {
-    const risk = new LocalAIRisk();
-    expect(risk.title).toBe('Use local AI');
-    expect(risk.severity).toBe('warning');
-    expect(risk.consequences).toEqual([CONSEQUENCE.reachesYourComputer]);
-    expect(risk.description).not.toContain('allowance');
+  it('discloses provider charges when AI runs through the Companion', () => {
+    const risk = new AIUsageRisk('Anthropic (Claude)', 'provider-account');
+    expect(risk.title).toBe('Use AI services');
+    expect(risk.consequences).toEqual([
+      CONSEQUENCE.costsMoney,
+      CONSEQUENCE.sendsDataOut,
+    ]);
+    expect(risk.description).toContain('provider account');
+    expect(risk.description).not.toContain('AI allowance');
     expect(requiresAppRiskReview([{ risk, nodes: [] }])).toBe(true);
+  });
+
+  it('keeps known all-storage and unresolved storage claims separate', () => {
+    const risks = collectAppRisks([
+      {
+        id: 'browse-all',
+        nodeName: 'Browse Storage',
+        getRisks: () => [new StorageReadRisk()],
+      },
+      {
+        id: 'dynamic-read',
+        nodeName: 'Storage Read',
+        getRisks: () => [new StorageReadRisk(undefined, false)],
+      },
+    ]);
+    expect(risks).toHaveLength(2);
+    expect(risks.map(({ risk }) => risk.resolved).sort()).toEqual([
+      false,
+      true,
+    ]);
+    expect(highestRiskLevel(risks.map(({ risk }) => risk))).toBe('dynamic');
   });
 
   it('reports markup set while running as content, not as sending data', () => {

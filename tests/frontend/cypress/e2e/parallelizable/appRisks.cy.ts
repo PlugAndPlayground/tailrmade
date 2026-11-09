@@ -794,16 +794,23 @@ describe('app risk review', () => {
     });
   });
 
-  // The suite runs self-hosted, where AI always goes through the Companion.
-  it('lists local AI as one card, without the provider or allowance', () => {
+  // The suite runs self-hosted, where AI goes through the Companion before the
+  // configured provider. The provider can still receive data and charge its
+  // account.
+  it('lists the provider and Companion for locally relayed AI', () => {
     beginLoad([serializedNode('ainode', 'ai', [])]);
     cy.get('[data-cy="app-risk-dialog"]')
-      .should('contain', 'Use local AI')
-      .and('not.contain', 'Use AI services')
-      .and('not.contain', 'Use your Companion')
-      .and('not.contain', 'Can cost money');
+      .should('contain', 'Use AI services')
+      .and('contain', 'Anthropic (Claude)')
+      .and('contain', 'Use your Companion')
+      .and('contain', 'Can cost money')
+      .and('contain', 'Can send your data out')
+      .and('contain', 'provider account');
     shouldWithTestController((controller) => {
-      expect(riskKinds(controller, 'ai')).to.deep.equal(['local-ai']);
+      expect(riskKinds(controller, 'ai')).to.deep.equal([
+        'ai-usage',
+        'companion',
+      ]);
     });
   });
 
@@ -861,13 +868,20 @@ describe('app risk review', () => {
     ];
     beginLoad(
       [
-        serializedNode('storagewrite', 'write', fixedAddress),
+        serializedNode('storagewrite', 'write', [
+          ...fixedAddress,
+          serializedSocket(
+            'Additional keys',
+            ['published', 'archive'],
+            'ArrayType',
+          ),
+        ]),
         serializedNode('storageread', 'read', fixedAddress),
+        serializedNode('storagebrowse', 'browse-all', []),
         workerSource('key', 'draft'),
         serializedNode('storageread', 'wired', [
           serializedSocket('Location', 'Notes'),
         ]),
-        serializedNode('storagebrowse', 'browse-all', []),
         serializedNode('storagebrowse', 'browse-notes', [
           serializedSocket('Filter by Location', true, 'BooleanType'),
           serializedSocket('Location', 'Notes'),
@@ -877,8 +891,13 @@ describe('app risk review', () => {
     );
     shouldWithTestController((controller) => {
       const risk = (id: string) => controller.getNodeByID(id).getRisks()[0];
-      expect(risk('write').target).to.equal('Notes › draft · this browser');
-      expect(risk('write').description).to.equal(
+      const writeRisks = controller.getNodeByID('write').getRisks();
+      expect(writeRisks.map(({ target }) => target)).to.deep.equal([
+        'Notes › draft · this browser',
+        'Notes › published · this browser',
+        'Notes › archive · this browser',
+      ]);
+      expect(writeRisks[0].description).to.equal(
         'Can change the saved data below.',
       );
       expect(risk('read').description).to.equal(
@@ -892,7 +911,9 @@ describe('app risk review', () => {
     });
     cy.get('[data-cy="risk-details"][data-risk-kind="storage-write"]')
       .should('contain', 'Can change the saved data below.')
-      .and('contain', 'Notes › draft · this browser');
+      .and('contain', 'Notes › draft · this browser')
+      .and('contain', 'Notes › published · this browser')
+      .and('contain', 'Notes › archive · this browser');
     // One card holds fixed and wired reads, so it makes the broader claim.
     cy.get('[data-cy="risk-details"][data-risk-kind="storage-read"]')
       .should('contain', "including your other apps' data")

@@ -42,6 +42,7 @@ const FILTER_BY_LOCATION_NAME = 'Filter by Location';
 const DEFAULT_LOCATION = 'Default';
 const OUTPUT_OBJECT_NAMES_NAME = 'Objects';
 const SHOW_TOAST_NOTIFICATION_NAME = 'Show Toast Notification';
+const ADDITIONAL_KEYS_NAME = 'Additional keys';
 const STORAGE_WRITE_SKIPPED_VALUE_EMPTY = 'Write skipped: value is empty';
 const STORAGE_WRITE_SKIPPED_KEY_EXISTS = 'Write skipped: key already exists';
 const STORAGE_DELETE_KEY_NOT_FOUND = 'Key not found in storage';
@@ -99,16 +100,23 @@ abstract class AbstractStorageNode extends PPNode {
   // "<location> › <key> · this browser" once everything that picks the saved
   // data is fixed. Anything set while running leaves it unresolved.
   protected getStorageRiskTarget(): { target?: string; resolved: boolean } {
+    const key = this.getStaticInputData(KEY_NAME);
+    if (!key.known) return { resolved: false };
+    return this.getStorageRiskTargetForKey(key.value);
+  }
+
+  protected getStorageRiskTargetForKey(key: unknown): {
+    target?: string;
+    resolved: boolean;
+  } {
     const backend = this.getStaticInputData(STORAGE_BACKEND_NAME);
-    const address = [LOCATION_NAME, KEY_NAME].map((name) =>
-      this.getStaticInputData(name),
-    );
-    if (!backend.known || address.some(({ known }) => !known)) {
+    const location = this.getStaticInputData(LOCATION_NAME);
+    if (!backend.known || !location.known) {
       return { resolved: false };
     }
     return {
       target: describeStorageTarget(
-        address.map(({ value }) => String(value)).join(' \u203a '),
+        `${String(location.value)} \u203a ${String(key)}`,
         backend.value,
       ),
       resolved: true,
@@ -724,6 +732,30 @@ abstract class StorageReader extends StorageNode {
 }
 
 export class StorageWrite extends StorageMutation {
+  public getRisks(): NodeRisk[] {
+    const risks = super.getRisks();
+    if (!this.getInputSocketByName(ADDITIONAL_KEYS_NAME)) return risks;
+
+    const additionalKeys = this.getStaticInputData(ADDITIONAL_KEYS_NAME);
+    if (!additionalKeys.known) {
+      return [...risks, new StorageWriteRisk(undefined, false)];
+    }
+    // Invalid values make execution stop before any storage is changed.
+    if (
+      !Array.isArray(additionalKeys.value) ||
+      !additionalKeys.value.every((key) => typeof key === 'string')
+    ) {
+      return risks;
+    }
+    return [
+      ...risks,
+      ...[...new Set(additionalKeys.value)].map((key) => {
+        const { target, resolved } = this.getStorageRiskTargetForKey(key);
+        return new StorageWriteRisk(target, resolved);
+      }),
+    ];
+  }
+
   protected nextValue(previous: any, input: Record<string, any>): any {
     return input[VALUE_NAME];
   }
@@ -751,7 +783,7 @@ export class StorageWrite extends StorageMutation {
     try {
       const storageBackend = getStorageBackend(input);
       const location: string = input[LOCATION_NAME];
-      const additionalKeys = input['Additional keys'] ?? [];
+      const additionalKeys = input[ADDITIONAL_KEYS_NAME] ?? [];
       if (
         !Array.isArray(additionalKeys) ||
         !additionalKeys.every((key) => typeof key === 'string')

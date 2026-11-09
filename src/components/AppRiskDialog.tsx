@@ -85,7 +85,6 @@ const actionIcons: Record<string, typeof InfoOutlinedIcon> = {
   'storage-read': StorageIcon,
   'storage-write': EditNoteIcon,
   'ai-usage': AutoAwesomeIcon,
-  'local-ai': AutoAwesomeIcon,
 };
 
 type AccessStyle = {

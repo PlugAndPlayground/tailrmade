@@ -73,15 +73,30 @@ describe('AI node failure output', () => {
 
 describe('AI node risks', () => {
   it.each([
-    [false, 'ai-usage'],
-    [true, 'local-ai'],
-  ])('raises one risk when local AI is %s', (local, kind) => {
+    [false, ['ai-usage']],
+    [true, ['ai-usage', 'companion']],
+  ])('reports the relay when local AI is %s', (local, kinds) => {
     (AIBackend.getInstance as jest.Mock).mockReturnValue({
       isLocalAI: () => local,
     });
     const node = Object.create(AINode.prototype);
     node.getStaticInputData = () => ({ known: true, value: 'claude' });
-    expect(node.getRisks().map((risk) => risk.kind)).toEqual([kind]);
+    expect(node.getRisks().map((risk) => risk.kind)).toEqual(kinds);
+  });
+
+  it('discloses provider billing for Companion-routed AI', () => {
+    (AIBackend.getInstance as jest.Mock).mockReturnValue({
+      isLocalAI: () => true,
+    });
+    const node = Object.create(AINode.prototype);
+    node.getStaticInputData = () => ({ known: true, value: 'claude' });
+    const [provider] = node.getRisks();
+    expect(provider.target).toBe('Anthropic (Claude)');
+    expect(provider.description).toContain('provider account');
+    expect(provider.consequences).toEqual([
+      'Can cost money',
+      'Can send your data out',
+    ]);
   });
 
   it.each([
