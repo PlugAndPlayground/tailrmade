@@ -293,13 +293,10 @@ describe('Replay', () => {
       const city = tc.getNodeByID('city');
       const recordedCity = [city.x, city.y];
 
-      let refusal = '';
-      try {
-        await tc.playReplay([]);
-      } catch (error) {
-        refusal = (error as Error).message;
-      }
-      expect(refusal).to.eq('Stop recording first');
+      await replay.play();
+      expect(tc.getNodeOutputValue('replay', 'Status')).to.eq(
+        'Stop recording first',
+      );
 
       await replay.stop();
       expect(tc.getNodeOutputValue('replay', 'Status')).to.match(

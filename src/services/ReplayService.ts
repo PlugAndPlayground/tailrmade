@@ -9,7 +9,6 @@ import {
 } from '../pixi/utils-pixi';
 import InterfaceController, { ListenEvent } from '../InterfaceController';
 import { TailrmadeMCPServer, ToolCaller } from './TailrmadeMCPServer';
-import { ReplayRecorder } from './ReplayRecorder';
 
 /**
  * Plays a script of MCP tool calls back at a watchable pace, e.g. to film an
@@ -199,7 +198,6 @@ export class ReplayService {
     getSettings: GetReplaySettings,
     onProgress: ProgressListener,
   ): Promise<void> {
-    this.ensureNotRecording();
     await this.halt();
     const total = steps.length;
     if (JSON.stringify(steps) !== this.scriptKey && this.applied.length > 0) {
@@ -252,14 +250,7 @@ export class ReplayService {
     }
   }
 
-  private ensureNotRecording(): void {
-    if (ReplayRecorder.getInstance().isRecording()) {
-      throw new Error('Stop recording first');
-    }
-  }
-
   private async prepare(steps: ReplayStep[], restartWhenDone: boolean) {
-    this.ensureNotRecording();
     await this.halt();
     const key = JSON.stringify(steps);
     if (

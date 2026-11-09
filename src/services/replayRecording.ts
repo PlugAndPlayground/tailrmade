@@ -315,3 +315,39 @@ export function canMerge(previous: RecordedStep, next: RecordedStep): boolean {
   if (next.tool === 'move_nodes') return movedIds(previous) === movedIds(next);
   return false;
 }
+
+// longer pauses while recording are shortened, nobody wants to watch them
+const MAX_DELAY = 2;
+// between the steps of one change, e.g. adding a node and setting its value
+const STEP_DELAY = 0.2;
+// repeated edits of one value or one drag closer together than this are one step
+const MERGE_WINDOW_MS = 1500;
+
+const roundDelay = (seconds: number) => Math.round(seconds * 10) / 10;
+
+// adds the steps of one change, made sinceLastMs after the previous one
+export function appendSteps(
+  recorded: ReplayStep[],
+  steps: RecordedStep[],
+  sinceLastMs: number,
+): void {
+  steps.forEach((step, index) => {
+    const last = recorded[recorded.length - 1];
+    if (
+      index === 0 &&
+      last &&
+      sinceLastMs < MERGE_WINDOW_MS &&
+      canMerge({ tool: last.tool, input: last.input ?? {} }, step)
+    ) {
+      last.input = step.input;
+      return;
+    }
+    const delay =
+      recorded.length === 0
+        ? 0
+        : index === 0
+          ? Math.min(MAX_DELAY, sinceLastMs / 1000)
+          : STEP_DELAY;
+    recorded.push({ delay: roundDelay(delay), ...step });
+  });
+}

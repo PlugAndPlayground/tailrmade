@@ -2004,8 +2004,8 @@ export default class PPGraph {
     const deletedIds = new Set(nodesSerialized.map((node) => node.id));
     const action = async () => {
       // in one go rather than node by node, so selection listeners never see
-      // a node that is about to go; a selected node that is not deleted (by a
-      // replay reset, say) stays selected
+      // a node that is about to go; selected nodes that are not deleted stay
+      // selected
       const remaining = this.selection.selectedNodes.filter(
         (node) => !deletedIds.has(node.id),
       );

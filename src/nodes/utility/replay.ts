@@ -22,7 +22,15 @@ import {
   ReplaySettings,
   ReplayStep,
 } from '../../services/ReplayService';
-import { ReplayRecorder } from '../../services/ReplayRecorder';
+import {
+  appendSteps,
+  diffSnapshots,
+  GraphSnapshot,
+  NodeDefaults,
+} from '../../services/replayRecording';
+import InterfaceController, { ListenEvent } from '../../InterfaceController';
+import { getAllNodeTypes } from '../allNodes';
+import type { SerializedLink } from '../../utils/interfaces';
 import { BooleanType } from '../datatypes/booleanType';
 import { JSONType } from '../datatypes/jsonType';
 import { NumberType } from '../datatypes/numberType';
@@ -70,6 +78,55 @@ const exampleScript: ReplayStep[] = [
   { tool: 'camera', input: { fit: ['ai-node-1', 'ai-node-2'] } },
   { delay: 1.5, tool: 'caption', input: { text: '' } },
 ];
+
+interface Recording {
+  listenerId: string;
+  captureTimer?: ReturnType<typeof setTimeout>;
+  snapshot: GraphSnapshot;
+  steps: ReplayStep[];
+  warnings: Set<string>;
+  lastStepTime: number;
+}
+
+// the Replay node doing the recording is not part of what it records
+function takeSnapshot(ignoredNodeId: string): GraphSnapshot {
+  const graph = PPGraph.currentGraph;
+  const nodes: GraphSnapshot['nodes'] = {};
+  Object.values(graph.nodes)
+    .filter((node) => node.id !== ignoredNodeId)
+    .forEach((node) => (nodes[node.id] = node.serialize()));
+  return {
+    nodes,
+    links: Object.values(graph.getLinks())
+      .map((link) => link.serialize())
+      .filter(
+        (link): link is SerializedLink =>
+          link !== undefined &&
+          link.sourceNodeId !== ignoredNodeId &&
+          link.targetNodeId !== ignoredNodeId,
+      ),
+    groups: graph.groupLayer.serialize(),
+    defaultSurfaceId: graph.defaultUISurfaceNodeId,
+  };
+}
+
+// from a template node that never joins the graph, like describe_node does
+function getNodeDefaults(type: string): NodeDefaults | undefined {
+  const entry = getAllNodeTypes()[type];
+  if (!entry) return undefined;
+  const template: PPNode = new entry.constructor(type);
+  template.updateBehaviour ??= template.getUpdateBehaviour();
+  const serialized = template.serialize();
+  return {
+    name: template.getName(),
+    inputs: Object.fromEntries(
+      serialized.socketArray
+        .filter((socket) => socket.socketType === 'in')
+        .map((socket) => [socket.name, socket.data]),
+    ),
+    updateBehaviour: serialized.updateBehaviour,
+  };
+}
 
 export class Replay extends PPNode {
   // autoplay builds nodes, so it waits until the app may run
@@ -166,6 +223,7 @@ export class Replay extends PPNode {
 
   onNodeRemoved = (): void => {
     this.stopWaitingForApp?.();
+    this.endRecording();
   };
 
   // read before every step, so they can change while it plays
@@ -176,27 +234,28 @@ export class Replay extends PPNode {
   });
 
   public async play(): Promise<void> {
-    await this.withScript((steps) =>
-      ReplayService.getInstance().play(steps, this.getSettings, (progress) =>
-        this.showProgress(progress),
-      ),
-    );
+    await this.playback('play');
   }
 
   public async next(): Promise<void> {
-    await this.withScript((steps) =>
-      ReplayService.getInstance().next(steps, this.getSettings, (progress) =>
-        this.showProgress(progress),
-      ),
-    );
+    await this.playback('next');
   }
 
   public async back(): Promise<void> {
-    await this.withScript((steps) =>
-      ReplayService.getInstance().back(steps, this.getSettings, (progress) =>
-        this.showProgress(progress),
-      ),
-    );
+    await this.playback('back');
+  }
+
+  private async playback(direction: 'play' | 'next' | 'back'): Promise<void> {
+    await this.withScript((steps) => {
+      if (this.recording) {
+        throw new Error('Stop recording first');
+      }
+      return ReplayService.getInstance()[direction](
+        steps,
+        this.getSettings,
+        (progress) => this.showProgress(progress),
+      );
+    });
   }
 
   private async withScript(
@@ -210,22 +269,65 @@ export class Replay extends PPNode {
   }
 
   public async stop(): Promise<void> {
-    const recorder = ReplayRecorder.getInstance();
-    if (recorder.isRecording()) {
-      await this.saveRecording();
+    if (this.recording) {
+      await this.saveRecording(this.recording);
       return;
     }
     await ReplayService.getInstance().stop();
   }
 
+  private recording: Recording | undefined;
+
+  // compares the graph with how it was after each change to the undo history
+  // and adds the steps in between
   public async record(): Promise<void> {
     await ReplayService.getInstance().stop();
-    ReplayRecorder.getInstance().start(this.id);
+    this.endRecording();
+    const recording: Recording = {
+      listenerId: InterfaceController.addListener(
+        ListenEvent.ActionHistoryChanged,
+        () => this.scheduleCapture(recording),
+      ),
+      snapshot: takeSnapshot(this.id),
+      steps: [],
+      warnings: new Set(),
+      lastStepTime: 0,
+    };
+    this.recording = recording;
     this.showProgress({ step: 0, total: 0, status: 'Recording', caption: '' });
   }
 
-  private async saveRecording(): Promise<void> {
-    const { steps, warnings } = ReplayRecorder.getInstance().stop();
+  // one capture for a burst of history changes in the same tick
+  private scheduleCapture(recording: Recording): void {
+    recording.captureTimer ??= setTimeout(() => {
+      recording.captureTimer = undefined;
+      this.capture(recording);
+    }, 0);
+  }
+
+  private capture(recording: Recording): void {
+    const next = takeSnapshot(this.id);
+    const changes = diffSnapshots(recording.snapshot, next, getNodeDefaults);
+    recording.snapshot = next;
+    changes.warnings.forEach((warning) => recording.warnings.add(warning));
+    if (changes.steps.length === 0) return;
+    const now = Date.now();
+    appendSteps(recording.steps, changes.steps, now - recording.lastStepTime);
+    recording.lastStepTime = now;
+  }
+
+  private endRecording(): void {
+    if (!this.recording) return;
+    InterfaceController.removeListener(this.recording.listenerId);
+    clearTimeout(this.recording.captureTimer);
+    this.recording = undefined;
+  }
+
+  private async saveRecording(recording: Recording): Promise<void> {
+    this.endRecording();
+    this.capture(recording);
+    const steps = recording.steps;
+    const warnings = Array.from(recording.warnings);
     const args: SetSocketValueActionArgs = {
       nodeID: this.id,
       socketName: scriptName,
