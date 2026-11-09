@@ -19,6 +19,7 @@ import {
   getTokenInputs,
   getTokenPickerProps,
 } from '../text/nodeInputs';
+import { withInputToken } from '../text/tokens';
 import {
   TEXT_NODE_SOCKETS,
   textPropsFromSocketValues,
@@ -797,7 +798,9 @@ Styling: Variant (display|h1|h2|body|caption|label|stat) sets size, weight and
 line height; Tone (default|muted|primary|secondary|success|warning|error) a
 theme color; Alignment. "Custom styles" takes CSS for anything else.
 
-Connecting an output to this node adds an input named after that output.
+Connecting an output to this node adds an input named after that output and
+puts its token into "Content": it replaces the default text, otherwise it is
+appended.
 "Output" is the rendered plain text.`;
   }
 
@@ -888,13 +891,31 @@ Connecting an output to this node adds an input named after that output.
     ];
   }
 
-  // a new link into the node becomes a token input named after its source
+  // a new link into the node becomes a token input named after its source,
+  // and its token goes into the content so the value shows straight away
   public getSocketForNewConnection = (
     socket: PPSocket,
-  ): PPSocket | undefined =>
-    socket.isInput()
-      ? this.getOutputSocketByName(TEXT_NODE_SOCKETS.output)
-      : DynamicInputNodeFunctions.getSocketForNewConnection(socket, this, true);
+  ): PPSocket | undefined => {
+    if (socket.isInput()) {
+      return this.getOutputSocketByName(TEXT_NODE_SOCKETS.output);
+    }
+    const input = DynamicInputNodeFunctions.getSocketForNewConnection(
+      socket,
+      this,
+      true,
+    );
+    const content = this.getInputSocketByName(TEXT_NODE_SOCKETS.content);
+    if (input && typeof content.data === 'string') {
+      // set directly: this runs inside the Add Node action when a drop
+      // creates the node, and that action's undo removes the node
+      content.data = withInputToken(
+        content.data,
+        input.name,
+        textDefaultProps.content,
+      );
+    }
+    return input;
+  };
 
   private setSocketValue(socketName: string, value: unknown): void {
     const socket = this.getInputSocketByName(socketName);

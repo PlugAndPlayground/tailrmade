@@ -7,6 +7,7 @@ import {
   scanTokenSpans,
   tokenValueToText,
   validateInputName,
+  withInputToken,
 } from '../../../src/text/tokens';
 
 describe('parseToken', () => {
@@ -198,5 +199,27 @@ describe('migrateLegacyMentions', () => {
         '```',
       ].join('\n'),
     );
+  });
+});
+
+describe('withInputToken', () => {
+  it('replaces untouched default content with the token', () => {
+    expect(withInputToken('Text', 'Input', 'Text')).toBe('{{Input}}');
+    expect(withInputToken('', 'Input', 'Text')).toBe('{{Input}}');
+  });
+
+  it('appends the token to edited content', () => {
+    expect(withInputToken('Hello', 'Input', 'Text')).toBe('Hello {{Input}}');
+    expect(withInputToken('Hello\n', 'Input', 'Text')).toBe('Hello\n{{Input}}');
+    expect(withInputToken('{{Input}}', 'Input 2', 'Text')).toBe(
+      '{{Input}} {{[Input 2]}}',
+    );
+  });
+
+  it('leaves content that already uses the input alone', () => {
+    expect(withInputToken('Hi {{Input}}!', 'Input', 'Text')).toBe(
+      'Hi {{Input}}!',
+    );
+    expect(withInputToken('{{d.temp}} C', 'd', 'Text')).toBe('{{d.temp}} C');
   });
 });

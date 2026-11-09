@@ -68,6 +68,27 @@ export function formatToken(token: ParsedToken): string {
 }
 
 /**
+ * Content that shows the input: untouched default content becomes its token,
+ * anything else gets it appended. Unchanged if the input is already used.
+ */
+export function withInputToken(
+  content: string,
+  inputName: string,
+  defaultContent: string,
+): string {
+  if (
+    scanTokenSpans(content).some(({ token }) => token.path[0] === inputName)
+  ) {
+    return content;
+  }
+  const token = formatToken({ path: [inputName] });
+  if (content.trim() === '' || content === defaultContent) {
+    return token;
+  }
+  return /\s$/.test(content) ? content + token : `${content} ${token}`;
+}
+
+/**
  * Finds the valid tokens in a run of text. Invalid `{{…}}` spans stay text,
  * and so do triple-stash and backslash-escaped mustaches.
  */

@@ -10,6 +10,7 @@ import { ListPlugin } from '@lexical/react/LexicalListPlugin';
 import { MarkdownShortcutPlugin } from '@lexical/react/LexicalMarkdownShortcutPlugin';
 import { RichTextPlugin } from '@lexical/react/LexicalRichTextPlugin';
 import { LexicalErrorBoundary } from '@lexical/react/LexicalErrorBoundary';
+import { $setSelection, SKIP_DOM_SELECTION_TAG } from 'lexical';
 import {
   customTheme,
   DASHBOARD_WIDGET_HEADER_HEIGHT,
@@ -95,7 +96,21 @@ function ContentSyncPlugin({
     }
     if (content !== lastContent.current) {
       lastContent.current = content;
-      editor.update(() => $importMarkdown(content, profile.tokens));
+      // the import moves a kept selection to the start; an editor without
+      // focus (the same text edited elsewhere) must not take the page's
+      // selection with it, or it pulls focus from the editor being typed in
+      const root = editor.getRootElement();
+      const hasFocus =
+        root?.contains(root.ownerDocument.activeElement) ?? false;
+      editor.update(
+        () => {
+          $importMarkdown(content, profile.tokens);
+          if (!hasFocus) {
+            $setSelection(null);
+          }
+        },
+        hasFocus ? undefined : { tag: SKIP_DOM_SELECTION_TAG },
+      );
     }
   }, [editor, content]);
 

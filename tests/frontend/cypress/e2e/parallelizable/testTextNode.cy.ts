@@ -1,10 +1,13 @@
 import {
+  addToDashboard,
   clearGraph,
   closeBothDrawers,
   doWithTestController,
   dragFromAtoB,
   enterDashboardEditMode,
   exitDashboardEditMode,
+  getNodeCenterById,
+  getSocketCenterByNodeIDAndSocketName,
   openNewGraph,
   serializedGraph,
   serializedNode,
@@ -531,6 +534,128 @@ describe('dynamic Text node', () => {
       });
       expect(inputNames(testController, 'legacy-plain')).to.not.include(
         'Input',
+      );
+    });
+  });
+  it('shows a value dragged into it by putting its token into the content', () => {
+    doWithTestController(async (testController) => {
+      await testController.addNode('Constant', 'dragged-value', -400, 0);
+      testController.setNodeInputValue('dragged-value', 'In', 'Hello');
+      await testController.executeNodeByID('dragged-value');
+    });
+
+    // dropped on the canvas: the picked Text node shows the value alone
+    getSocketCenterByNodeIDAndSocketName('dragged-value', 'Out').then(
+      ([startX, startY]) => {
+        dragFromAtoB(startX, startY, startX + 300, startY + 200, true);
+      },
+    );
+    // typing "Text" would turn into the Text tag filter, so pick the option
+    cy.get('input#node-search:visible').should('be.visible');
+    cy.contains(
+      'li',
+      'Rich text that shows live values from its inputs',
+    ).click();
+    shouldWithTestController((testController) => {
+      const [node] = textNodes(testController);
+      expect(testController.getNodeInputValue(node.id, 'Content')).to.eq(
+        '{{Out}}',
+      );
+      expect(testController.getNodeOutputValue(node.id, 'Output')).to.eq(
+        'Hello',
+      );
+    });
+
+    // dropped on a Text node with edited content: the token is appended
+    doWithTestController(async (testController) => {
+      await testController.addNode('Text', 'edited-text', -100, -250);
+      testController.setNodeInputValue('edited-text', 'Content', 'Say:');
+      await testController.executeNodeByID('edited-text');
+    });
+    getSocketCenterByNodeIDAndSocketName('dragged-value', 'Out').then(
+      ([startX, startY]) => {
+        getNodeCenterById('edited-text').then(([endX, endY]) => {
+          dragFromAtoB(startX, startY, endX, endY, true);
+        });
+      },
+    );
+    shouldWithTestController((testController) => {
+      expect(testController.getNodeInputValue('edited-text', 'Content')).to.eq(
+        'Say: {{Out}}',
+      );
+      expect(testController.getNodeOutputValue('edited-text', 'Output')).to.eq(
+        'Say: Hello',
+      );
+    });
+  });
+
+  it('drags from its text while not in edit mode', () => {
+    addTextNode('drag-text');
+    cy.get('body').type('{esc}');
+    doWithTestController((testController) => {
+      testController.selectNodesById([]);
+    });
+    canvasEditor('drag-text').should('have.attr', 'contenteditable', 'false');
+
+    let startX = 0;
+    doWithTestController((testController) => {
+      startX = testController.getNodeByID('drag-text').x;
+    });
+    cy.get('#pixi-container').then(($canvas) => {
+      const canvas = $canvas[0].getBoundingClientRect();
+      canvasEditor('drag-text')
+        .find('p')
+        .first()
+        .then(($text) => {
+          const text = $text[0].getBoundingClientRect();
+          const x = text.left - canvas.left + 10;
+          const y = text.top - canvas.top + text.height / 2;
+          dragFromAtoB(x, y, x + 150, y, true);
+        });
+    });
+    shouldWithTestController((testController) => {
+      expect(testController.getNodeByID('drag-text').x).to.be.greaterThan(
+        startX + 100,
+      );
+    });
+  });
+
+  it('keeps the caret on the canvas while the UI edits the same text', () => {
+    cy.viewport(1600, 900);
+    doWithTestController(async (testController) => {
+      await testController.addNode('Text', 'shared-caret', -400, 0);
+      testController.setNodeInputValue(
+        'shared-caret',
+        'Content',
+        'Hello world',
+      );
+      await testController.executeNodeByID('shared-caret');
+    });
+    addToDashboard('shared-caret');
+    // the UI editor keeps its selection once it has been edited
+    cy.get('[data-cy="shared-caret-dashboard"] p').first().realClick();
+    doWithTestController(async (testController) => {
+      testController.toggleRightSideDrawer('CLOSE');
+      testController.zoomToFitNodesById(['shared-caret']);
+      testController.selectNodesById(['shared-caret']);
+      await testController.getNodeByID('shared-caret').enableInteraction();
+    });
+    canvasEditor('shared-caret').should('have.attr', 'contenteditable', 'true');
+    cy.window().then((win) => {
+      const text = win.document.querySelector(
+        '[data-cy="shared-caret-canvas"] p span',
+      ).firstChild;
+      const range = win.document.createRange();
+      range.setStart(text, 'Hello'.length);
+      range.collapse(true);
+      win.getSelection().removeAllRanges();
+      win.getSelection().addRange(range);
+    });
+    cy.realType('ABC', { delay: 150 });
+
+    shouldWithTestController((testController) => {
+      expect(testController.getNodeInputValue('shared-caret', 'Content')).to.eq(
+        'HelloABC world',
       );
     });
   });

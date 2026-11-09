@@ -29,7 +29,6 @@ describe('unused node status', () => {
         'WidgetButton',
         'UISurfaceNode',
         'ConsolePrint',
-        'StateWrite',
         'StorageWrite',
         'Macro',
         'ExecuteMacro',
@@ -103,7 +102,10 @@ describe('unused node status', () => {
       expect(socket.getSeemsUnused(), 'configured sender').to.eq(false);
       socket.setInputData('Enabled', false);
 
-      const state = await controller.addNode('State', 'conditional-state');
+      const state = await controller.addNode(
+        'StorageState',
+        'conditional-state',
+      );
       expect(state.getSeemsUnused(), 'unconsumed internal state').to.eq(true);
       await controller.connectNodesByID(consumer.id, state.id, 'Out', 'State');
       expect(

@@ -30,6 +30,12 @@ body {
   min-height: 1lh;
 }
 
+/* the move or default cursor of the node or widget around it is inherited
+   otherwise */
+.text-inline-input[contenteditable='true'] {
+  cursor: text;
+}
+
 .text-inline-input > :first-child {
   margin-top: 0;
 }
@@ -43,9 +49,11 @@ body {
   pointer-events: none;
 }
 
+/* inherit, not auto: a container that is not interactive (a canvas node
+   outside edit mode) keeps the pointer from its text too */
 .text-block-hits
   :is(p, h1, h2, h3, h4, h5, h6, blockquote, ul, ol, li, a, .editor-code) {
-  pointer-events: auto;
+  pointer-events: inherit;
 }
 
 .editor-input {

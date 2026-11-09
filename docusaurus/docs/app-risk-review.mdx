@@ -20,21 +20,23 @@ A value can be **set while running** — a URL that arrives from another node
 rather than being typed in. The action is still known (it makes a request),
 but the address is not, so there is nothing to show you.
 
-And some code **cannot be described at all**. A custom function set to _Main
-Thread_, or an HTML, IFrame, Embed or Slideshow node with **Sanitize input**
-switched off, runs as ordinary JavaScript in the page. It decides what to do as
-it goes.
+And some code **can't be checked in advance**. A custom function set to _Main
+Thread_, an HTML, IFrame, Embed or Slideshow node with **Sanitize input**
+switched off, or a **Load NPM package** node, runs as ordinary JavaScript in
+the page. It decides what to do as it goes. A package's code runs as soon as it
+is imported, so Load NPM counts as unsandboxed even when the function that uses
+the package does not.
 
 The levels are named after how well you can judge an app, because that is the
 only part of this that forms a scale:
 
-| Level                   | Meaning                                                           |
-| ----------------------- | ----------------------------------------------------------------- |
-| **Unrestricted**        | Not sandboxed. Its actions cannot be determined.                  |
-| **Dynamic**             | Its actions are known, but its values can change while running.   |
-| **Static**              | Its actions are known and its values are constant.                |
-| **Static · loads only** | The same, and it only loads content from known sites.              |
-| **No access**           | Doesn't require any access.                                        |
+| Level                   | Meaning                                                                                  |
+| ----------------------- | ---------------------------------------------------------------------------------------- |
+| **Unrestricted**        | Runs code outside the sandbox. Tailrmade can't check what that code does.                |
+| **Dynamic**             | Everything it can do is listed, but some addresses or values are set while the app runs. |
+| **Static**              | Everything it can do is listed, with fixed addresses and values.                         |
+| **Static · loads only** | Only loads content from the sites listed.                                                |
+| **No access**           | Needs no access.                                                                         |
 
 An app's headline level is the **highest level any single node reaches** — not an
 average. One unsandboxed node makes the whole app _Unrestricted_, even if
@@ -68,33 +70,36 @@ Check who the app came from — the publisher is shown at the top of the panel, 
 opened from a file or this device show **Unknown publisher**: no account vouches
 for them, including ones you built yourself.
 
-## Actions
+## What an app can do
 
-Each action is one thing a node does. Cards carry **impact tags** ("Costs
-money", "Sends your data out") so you do not have to infer the cost from the
-description. Impact is a set, not a ranking: money, your saved data, your
+The **Access** tab lists each thing the app's nodes can do, under **This app
+can:**. Cards carry **impact tags** ("Can cost money", "Can send your data out")
+so you do not have to infer the cost from the description. Impact is a set, not a ranking: money, your saved data, your
 computer and your privacy are different things, not degrees of one thing.
 
-| Action                               | Level        | What it means                                                       |
-| ------------------------------------ | ------------ | ------------------------------------------------------------------- |
-| Runs code that is not sandboxed      | Unrestricted | Arbitrary JavaScript in the page; cannot be described in advance    |
-| Connects to other sites              | Static / Dynamic | Sends and receives data from the listed addresses               |
-| Uses API keys                        | Static / Dynamic | Sends your saved keys with its requests; the service may charge you |
-| Uses your Companion                  | Static       | Requests go through the Companion, which reaches your computer      |
-| Changes Tailrmade data               | Static       | Adds, changes or removes data saved in _tailrmade_                   |
-| Reads Tailrmade data                 | Static       | Reads data saved in _tailrmade_ by you or by other apps             |
-| Uses AI services                     | Static       | Sends app data to your AI provider; uses your allowance or credits   |
-| Opens web pages                      | Static / Dynamic | Opens a new tab; anything in the address reaches that site       |
-| Loads images from changing addresses | Dynamic      | Another node picks the address, so app data can travel inside it    |
-| Loads data from other sites          | Static · loads only | A plain GET to the listed addresses, with nothing of yours attached |
-| Links to other sites                 | Static · loads only | Content links to or loads from the listed sites               |
-| Loads images from other sites        | Static · loads only | The site hosting each image can see when it loads             |
+| This app can…                                | Level               | What it means                                                         |
+| -------------------------------------------- | ------------------- | --------------------------------------------------------------------- |
+| Run unsandboxed code                         | Unrestricted        | Arbitrary JavaScript in the page; Tailrmade can't check it in advance |
+| Send data to other sites                     | Static / Dynamic    | Can send app data to the listed addresses and use their replies       |
+| Use API keys                                 | Static / Dynamic    | Can send the named saved key with its requests                        |
+| Use your Companion                           | Static              | Requests go through the Companion, which reaches your computer        |
+| Change Tailrmade data                        | Static              | Can add, change or delete data saved in _tailrmade_                   |
+| Read Tailrmade data                          | Static              | Can read data saved in _tailrmade_, including your other apps' data   |
+| Use AI services                              | Static              | Can send prompts and images to your AI provider; uses your allowance  |
+| Open web pages                               | Static / Dynamic    | Opens a new tab; anything in an address set while running reaches it  |
+| Load images from addresses set while running | Dynamic             | Another node picks the address, so app data can travel inside it      |
+| Load data from other sites                   | Static · loads only | A plain GET to the listed addresses; each site sees your IP address   |
+| Load content from other sites                | Static · loads only | Links and embeds in sanitized HTML; each site sees your IP address    |
+| Load images from other sites                 | Static · loads only | Each site sees your IP address when the image loads                   |
 
 The actions marked _Static / Dynamic_ land on whichever applies: _Static_
 when the address or key name is constant, _Dynamic_ when it arrives from another
 node.
 
 Each card lists the **destinations** it applies to and the nodes that need it.
+Session storage is temporary state for the currently loaded app and reports no
+storage access risk. Loading or clearing an app resets that state.
+Storage access disclosures apply to saved data in IndexedDB or Cloud storage.
 Where a destination cannot be worked out ahead of time, it reads _"Chosen while
 the app runs"_ and the action counts as _Dynamic_.
 
@@ -116,7 +121,7 @@ back at you.
 ## What runs while you are still reading
 
 What is allowed to run is decided by **impact, not by level**. A node whose only
-impact is _Reveals you visited_ keeps running — it was already safe. Everything
+impact is _Can reveal your visit_ keeps running — it was already safe. Everything
 with money, your data or your computer at stake is paused, however easy or hard
 it is to judge. So a fully _Static_ storage write waits for you, and a _Static ·
 loads only_ image does not. Execution stops a branch when it reaches a
@@ -128,7 +133,7 @@ produces a new version, so it is reviewed again.
 
 ## Lowering your own app's level
 
-If you publish apps, every level above _Self-contained_ is something you are
+If you publish apps, every level above _No access_ is something you are
 asking your users to accept. Most _Unrestricted_ apps do not need to be:
 
 - **Leave Sanitize input on** for HTML, IFrame and Slideshow nodes. You only need
@@ -157,10 +162,10 @@ data as the Access panel:
   actions: [
     {
       kind: 'api-key',
-      title: 'Uses API keys',
-      description: 'Sends your saved keys with its requests. …',
+      title: 'Use API keys',
+      description: 'Can send the saved key below with its requests.',
       level: 'static',
-      impact: ['Costs money', 'Sends your data out'],
+      impact: ['Can cost money', 'Can send your data out'],
       target: 'OPENAI',
       resolved: true,
       nodes: [{ id: '…', name: 'HTTP' }],
