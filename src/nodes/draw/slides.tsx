@@ -8,6 +8,7 @@ import {
   NodeRisk,
   UnrestrictedCodeRisk,
   NetworkRisk,
+  DynamicContentRisk,
   ExternalHtmlRisk,
   getImageSourceRisks,
 } from '../../classes/NodeRisk';
@@ -56,11 +57,12 @@ export class Slideshow extends HybridNode2 {
   public getRisks(): NodeRisk[] {
     // reveal.js stylesheets always come from this one CDN path.
     const theme = new NetworkRisk(BASEURL, undefined, 'info');
+    // The unrestricted card already covers contacting any site.
     if (!this.getStaticInputData(SANITIZE_NAME).value) {
-      return [new UnrestrictedCodeRisk(), new NetworkRisk()];
+      return [new UnrestrictedCodeRisk()];
     }
     const data = this.getStaticInputData(inputSocketNameData);
-    if (!data.known) return [theme, new NetworkRisk()];
+    if (!data.known) return [theme, new DynamicContentRisk()];
     const sanitized = sanitizeSlides(
       typeof data.value === 'string' ? data.value : '',
     );
