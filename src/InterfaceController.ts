@@ -9,6 +9,7 @@ import {
   getCurrentCursorPosition,
   isEventComingFromWithinTextInput,
   isMac,
+  getDashboardHorizontalBounds,
 } from './utils/utils';
 import PPGraph from './classes/GraphClass';
 import type { Tooltipable } from './components/Tooltip';
@@ -375,16 +376,8 @@ export default class InterfaceController {
     const overlayState = InterfaceController.getOverlayState();
 
     if (overlayState.dashboard.visible) {
-      const dashboardWidthPercentage = overlayState.dashboard.widthPercentage;
-      const leftDrawerWidth = overlayState.leftSide.visible
-        ? overlayState.leftSide.width
-        : 0;
-
-      // Calculate dashboard bounds
-      const dashboardWidth =
-        window.innerWidth * (dashboardWidthPercentage / 100);
-      const dashboardLeft = leftDrawerWidth;
-      const dashboardRight = dashboardLeft + dashboardWidth;
+      const { left: dashboardLeft, right: dashboardRight } =
+        getDashboardHorizontalBounds(overlayState);
 
       // Check if click is within dashboard bounds
       if (event.global.x >= dashboardLeft && event.global.x <= dashboardRight) {
