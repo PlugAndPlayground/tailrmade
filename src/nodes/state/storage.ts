@@ -47,6 +47,7 @@ const FILTER_BY_LOCATION_NAME = 'Filter by Location';
 const DEFAULT_LOCATION = 'Default';
 const OUTPUT_OBJECT_NAMES_NAME = 'Objects';
 const SHOW_TOAST_NOTIFICATION_NAME = 'Show Toast Notification';
+const ADDITIONAL_KEYS_NAME = 'Additional keys';
 const STORAGE_WRITE_SKIPPED_VALUE_EMPTY = 'Write skipped: value is empty';
 const STORAGE_WRITE_SKIPPED_KEY_EXISTS = 'Write skipped: key already exists';
 const STORAGE_DELETE_KEY_NOT_FOUND = 'Key not found in storage';
@@ -93,12 +94,45 @@ abstract class AbstractStorageNode extends PPNode {
   protected mutatesStorage = false;
 
   public getRisks(): NodeRisk[] {
-    const backend = this.getStaticInputData(STORAGE_BACKEND_NAME);
-    // Session state is temporary app state, not saved user data.
-    if (backend.known && backend.value === STORAGE_BACKEND_SESSION) return [];
+    if (this.usesSessionBackend()) return [];
+    const { target, resolved } = this.getStorageRiskTarget();
     return [
-      this.mutatesStorage ? new StorageWriteRisk() : new StorageReadRisk(),
+      this.mutatesStorage
+        ? new StorageWriteRisk(target, resolved)
+        : new StorageReadRisk(target, resolved),
     ];
+  }
+
+  // Session state is temporary app state, not saved user data.
+  protected usesSessionBackend(): boolean {
+    const backend = this.getStaticInputData(STORAGE_BACKEND_NAME);
+    return backend.known && backend.value === STORAGE_BACKEND_SESSION;
+  }
+
+  // "<location> › <key> · this browser" once everything that picks the saved
+  // data is fixed. Anything set while running leaves it unresolved.
+  protected getStorageRiskTarget(): { target?: string; resolved: boolean } {
+    const key = this.getStaticInputData(KEY_NAME);
+    if (!key.known) return { resolved: false };
+    return this.getStorageRiskTargetForKey(key.value);
+  }
+
+  protected getStorageRiskTargetForKey(key: unknown): {
+    target?: string;
+    resolved: boolean;
+  } {
+    const backend = this.getStaticInputData(STORAGE_BACKEND_NAME);
+    const location = this.getStaticInputData(LOCATION_NAME);
+    if (!backend.known || !location.known) {
+      return { resolved: false };
+    }
+    return {
+      target: describeStorageTarget(
+        `${String(location.value)} \u203a ${String(key)}`,
+        backend.value,
+      ),
+      resolved: true,
+    };
   }
   public socketShouldAutomaticallyAdapt(socket: Socket): boolean {
     return socket.name === VALUE_NAME || socket.name === FALLBACK_VALUE_NAME;
@@ -362,6 +396,15 @@ function describeStorageBackend(backend: string): string {
     : backend === STORAGE_BACKEND_CLOUD
       ? 'cloud storage'
       : 'IndexedDB';
+}
+
+function describeStorageTarget(address: string, backend: unknown): string {
+  return `${address} \u00b7 ${
+    getStorageBackend({ [STORAGE_BACKEND_NAME]: backend }) ===
+    STORAGE_BACKEND_CLOUD
+      ? 'your account'
+      : 'this browser'
+  }`;
 }
 
 function maybeShowToast(input: Record<string, any>, message: string): void {
@@ -707,6 +750,31 @@ abstract class StorageReader extends StorageNode {
 }
 
 export class StorageWrite extends StorageMutation {
+  public getRisks(): NodeRisk[] {
+    const risks = super.getRisks();
+    if (this.usesSessionBackend()) return risks;
+    if (!this.getInputSocketByName(ADDITIONAL_KEYS_NAME)) return risks;
+
+    const additionalKeys = this.getStaticInputData(ADDITIONAL_KEYS_NAME);
+    if (!additionalKeys.known) {
+      return [...risks, new StorageWriteRisk(undefined, false)];
+    }
+    // Invalid values make execution stop before any storage is changed.
+    if (
+      !Array.isArray(additionalKeys.value) ||
+      !additionalKeys.value.every((key) => typeof key === 'string')
+    ) {
+      return risks;
+    }
+    return [
+      ...risks,
+      ...[...new Set(additionalKeys.value)].map((key) => {
+        const { target, resolved } = this.getStorageRiskTargetForKey(key);
+        return new StorageWriteRisk(target, resolved);
+      }),
+    ];
+  }
+
   protected nextValue(previous: any, input: Record<string, any>): any {
     return input[VALUE_NAME];
   }
@@ -736,7 +804,7 @@ export class StorageWrite extends StorageMutation {
       const assertSession =
         storageBackend === SESSION ? captureAppSessionStorage() : () => {};
       const location: string = input[LOCATION_NAME];
-      const additionalKeys = input['Additional keys'] ?? [];
+      const additionalKeys = input[ADDITIONAL_KEYS_NAME] ?? [];
       if (
         !Array.isArray(additionalKeys) ||
         !additionalKeys.every((key) => typeof key === 'string')
@@ -1007,6 +1075,21 @@ export class StorageDelete extends StorageMutation {
 }
 
 export class StorageBrowse extends StorageReader {
+  // Without the location filter it reads everything, which today's wording
+  // already says, so there is no target to name.
+  protected getStorageRiskTarget(): { target?: string; resolved: boolean } {
+    const backend = this.getStaticInputData(STORAGE_BACKEND_NAME);
+    const filter = this.getStaticInputData(FILTER_BY_LOCATION_NAME);
+    if (!backend.known || !filter.known) return { resolved: false };
+    if (!filter.value) return { resolved: true };
+    const location = this.getStaticInputData(LOCATION_NAME);
+    if (!location.known) return { resolved: false };
+    return {
+      target: describeStorageTarget(String(location.value), backend.value),
+      resolved: true,
+    };
+  }
+
   public shouldExecuteOnStorageValueChanged(
     backend: string,
     location: string,

@@ -209,8 +209,12 @@ test.each([
     ).toBe(true);
   }
 
+  // An unknown backend may still be saved data. Dynamic additional keys on a
+  // write add their own unresolved risk of the same kind.
   instance.getStaticInputData = () => ({ known: false, value: 'Session' });
-  expect(instance.getRisks().map((risk) => risk.kind)).toEqual([kind]);
+  expect([...new Set(instance.getRisks().map((risk) => risk.kind))]).toEqual([
+    kind,
+  ]);
 });
 
 test('a new app cannot read or browse the previous app session, but IndexedDB stays shared', async () => {

@@ -1,5 +1,5 @@
 import Socket from '../../classes/SocketClass';
-import { NodeRisk, AIUsageRisk, LocalAIRisk } from '../../classes/NodeRisk';
+import { NodeRisk, AIUsageRisk, CompanionRisk } from '../../classes/NodeRisk';
 import PPNode from '../../classes/NodeClass';
 import UpdateBehaviourClass from '../../classes/UpdateBehaviourClass';
 import { NODE_TYPE_COLOR, SOCKET_TYPE } from '../../utils/constants';
@@ -33,15 +33,34 @@ export const AIPersistantConversationName = 'Persistant conversation';
 export const AIConversationName = 'Conversation';
 export const responseName = 'Response';
 
+// The company, plus the product name people know when it differs:
+// "Anthropic (Claude)", "Google (Gemini)", "OpenAI".
+const describeAIProvider = (value: string): string => {
+  const label =
+    AI_PROVIDERS.find((provider) => provider.value === value)?.label ?? value;
+  return label.toLowerCase() === value.toLowerCase()
+    ? label
+    : `${label} (${value.charAt(0).toUpperCase()}${value.slice(1)})`;
+};
+
 export class AINode extends HTTPNode {
   // AI nodes replace the HTTP sockets entirely, so HTTPNode's risks do not
   // apply: the provider key stays on the backend.
   public getRisks(): NodeRisk[] {
-    return [
-      AIBackend.getInstance().isLocalAI()
-        ? new LocalAIRisk()
-        : new AIUsageRisk(),
+    const provider = this.getStaticInputData(AIProviderName);
+    const local = AIBackend.getInstance().isLocalAI();
+    const risks: NodeRisk[] = [
+      new AIUsageRisk(
+        provider.known
+          ? describeAIProvider(
+              String(provider.value || this.getDefaultProvider()),
+            )
+          : undefined,
+        local ? 'provider-account' : 'tailrmade-allowance',
+      ),
     ];
+    if (local) risks.push(new CompanionRisk());
+    return risks;
   }
 
   public getSeemsUnused(): boolean {
