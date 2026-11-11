@@ -21,12 +21,11 @@ rather than being typed in. The action is still known (it makes a request),
 but the address is not, so there is nothing to show you.
 
 And some code **can't be checked in advance**. A custom function set to _Main
-Thread_, or an HTML, IFrame, Embed or Slideshow node with **Sanitize input**
-switched off, runs as ordinary JavaScript in the page. It decides what to do as
-it goes. The one exception is an IFrame or Embed website node whose markup is
-fixed and has nothing that sanitizing would remove, such as a plain `<iframe>`
-of another site: it runs no code of its own, so it is listed like sanitized
-markup.
+Thread_, an HTML, IFrame, Embed or Slideshow node with **Sanitize input**
+switched off, or a **Load NPM package** node, runs as ordinary JavaScript in
+the page. It decides what to do as it goes. A package's code runs as soon as it
+is imported, so Load NPM counts as unsandboxed even when the function that uses
+the package does not.
 
 The levels are named after how well you can judge an app, because that is the
 only part of this that forms a scale:
@@ -114,6 +113,10 @@ Each card lists the **destinations** it applies to and the nodes that need it:
   everything;
 - the provider for AI, such as `Anthropic (Claude)` or `Google (Gemini)`.
 
+Session storage is temporary state for the currently loaded app and reports no
+storage access risk. Loading or clearing an app resets that state.
+Storage access disclosures apply to saved data in IndexedDB or Cloud storage.
+
 Where a destination cannot be worked out ahead of time, it reads _"Chosen while
 the app runs"_ and the action counts as _Dynamic_. When one card mixes both,
 its level and description follow the broader one.
@@ -153,9 +156,7 @@ asking your users to accept. Most _Unrestricted_ apps do not need to be:
 
 - **Leave Sanitize input on** for HTML, IFrame and Slideshow nodes. You only need
   it off for intermediate template nodes whose output feeds another node, or for
-  markup that genuinely needs `<style>` blocks or inline handlers. An IFrame or
-  Embed website that only embeds other sites, with fixed markup and nothing
-  sanitizing would remove, is listed as _loads only_ even with it off.
+  markup that genuinely needs `<style>` blocks or inline handlers.
 - **Keep custom functions on Worker Thread**, the default. The QuickJS sandbox has
   no network and no browser APIs, so a worker function reports no action at
   all. See [Create custom nodes](custom-nodes.mdx).

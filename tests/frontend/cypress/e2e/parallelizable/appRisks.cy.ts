@@ -61,6 +61,45 @@ describe('app risk review', () => {
       serializedSocket('Image', source, 'ImageType'),
     ]);
 
+  it('reviews a Load NPM package before importing it', () => {
+    let requests = 0;
+    cy.intercept('GET', 'https://esm.run/**', (request) => {
+      requests += 1;
+      request.reply({
+        headers: { 'content-type': 'text/javascript' },
+        body: 'window.__riskPackageRuns = 1; export default {};',
+      });
+    });
+    beginLoad([
+      {
+        ...serializedNode('loadnpm', 'package', [
+          serializedSocket(
+            'Package Name',
+            'risk-test-package@1.0.0',
+            'StringType',
+          ),
+        ]),
+        version: 6,
+      },
+    ]);
+    cy.get('[data-cy="app-risk-dialog"]')
+      .should('contain', 'Run unsandboxed code')
+      .and('contain', 'Load data from other sites')
+      .and('contain', 'https://esm.run/risk-test-package@1.0.0');
+    shouldWithTestController((controller) => {
+      const node = controller.getNodeByID('package');
+      expect(node.getRisks().map((risk) => risk.kind)).to.deep.equal([
+        'unrestricted-code',
+        'network',
+      ]);
+      expect(node.debug_timesExecuted).to.equal(0);
+    });
+    cy.window().then((win: any) => {
+      expect(win.__riskPackageRuns).to.be.undefined;
+      expect(requests).to.equal(0);
+    });
+  });
+
   ['external', 'local', 'embedded', 'raw base64'].forEach((kind, index) => {
     it(`runs a fixed ${kind} image without a warning`, () => {
       const source = [
@@ -743,24 +782,19 @@ describe('app risk review', () => {
     });
   });
 
-  it('lists a stock Embed website as content from its site', () => {
+  it('reports a stock Embed website as unrestricted code', () => {
     beginLoad([serializedNode('embedwebsite', 'embed', [])]);
+    cy.get('[data-cy="app-risk-dialog"]').should('be.visible');
     shouldWithTestController((controller) => {
       const node = controller.getNodeByID('embed');
       expect(node.getInputData('Sanitize input')).to.equal(false);
-      expect(
-        node.getRisks().map(({ kind, target }) => ({ kind, target })),
-      ).to.deep.equal([
-        {
-          kind: 'external-html',
-          target: 'https://en.wikipedia.org/wiki/Special:Random',
-        },
+      expect(riskKinds(controller, 'embed')).to.deep.equal([
+        'unrestricted-code',
       ]);
     });
-    cy.get('[data-cy="app-risk-dialog"]').should('not.exist');
   });
 
-  it('keeps unsanitized markup unrestricted when sanitizing would change it', () => {
+  it('keeps all unsanitized iframe markup unrestricted', () => {
     const embed = (id: string, html: string) =>
       serializedNode('embedwebsite', id, [
         serializedSocket('Html', html, 'HtmlType'),
