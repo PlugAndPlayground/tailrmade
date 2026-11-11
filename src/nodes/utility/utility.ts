@@ -24,7 +24,12 @@ import { StringType } from '../datatypes/stringType';
 import { TriggerType } from '../datatypes/triggerType';
 import { WidgetButton } from '../widgets/buttons';
 import { JSONType } from '../datatypes/jsonType';
-import { DynamicImport } from '../../utils/dynamicImport';
+import { DynamicImport, NPM_CDN } from '../../utils/dynamicImport';
+import {
+  NetworkRisk,
+  NodeRisk,
+  UnrestrictedCodeRisk,
+} from '../../classes/NodeRisk';
 import { migrateFromCustomFunctionCommon } from '../data/array';
 
 const rerouteHeight = 48;
@@ -353,6 +358,22 @@ Check that the expected export exists before constructing a chart.`;
     return ['Input'].concat(super.getTags());
   }
 
+  // The package is fetched from the CDN and imported into the page, where its
+  // top-level code runs with Tailrmade's reach before any sandbox applies.
+  public getRisks(): NodeRisk[] {
+    const name = this.getStaticInputData('Package Name');
+    const packageName =
+      name.known && typeof name.value === 'string' ? name.value.trim() : '';
+    return [
+      new UnrestrictedCodeRisk(),
+      new NetworkRisk(
+        packageName ? NPM_CDN + packageName : undefined,
+        undefined,
+        'info',
+      ),
+    ];
+  }
+
   protected getDefaultIO(): Socket[] {
     return [
       new Socket(SOCKET_TYPE.IN, 'Package Name', new StringType()),
@@ -463,7 +484,9 @@ const createHashFunctions: EnumStructure = [
   { text: 'createXXHash64' },
 ];
 
-const IMPORT_NAME = 'hash-wasm@4.11.0';
+const IMPORT_NAME = 'hash-wasm@4.13.0';
+// hash-wasm 4.12 dropped crc32c/createCRC32C; CRC-32C is crc32 with this polynomial
+const CRC32C_POLYNOMIAL = 0x82f63b78;
 
 export class Hash extends PPNode {
   onOptionChange?: (value: string) => void;
@@ -542,13 +565,22 @@ Check out its documentation for more details.`;
     const hashMethodValue = input[hashMethodName];
     const hashPackage = await DynamicImport.dynamicImport(IMPORT_NAME);
     if (hashMethodValue === 'createHMAC') {
-      const hasher = hashPackage[input[hashFunctionName]]();
+      const hashFunction = input[hashFunctionName];
+      const hasher =
+        hashFunction === 'createCRC32C'
+          ? hashPackage.createCRC32(CRC32C_POLYNOMIAL)
+          : hashPackage[hashFunction]();
       const hmac = await hashPackage[hashMethodValue](
         hasher,
         input[parameterName2],
       );
       hmac.update(input[parameterName1]);
       output[outputSocketName] = await hmac.digest();
+    } else if (hashMethodValue === 'crc32c') {
+      output[outputSocketName] = await hashPackage.crc32(
+        input[parameterName1],
+        CRC32C_POLYNOMIAL,
+      );
     } else {
       output[outputSocketName] = await hashPackage[hashMethodValue](
         input[parameterName1],

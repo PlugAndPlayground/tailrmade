@@ -34,6 +34,19 @@
           colorChange 5s linear infinite;
         margin-bottom: 20px;
       }
+      #loading-intro {
+        max-width: 420px;
+        margin-top: 16px;
+        padding: 0 16px;
+        text-align: center;
+        font-family: Arial, sans-serif;
+        font-size: 13px;
+        line-height: 1.5;
+        color: #888;
+      }
+      #loading-intro a {
+        color: #3498db;
+      }
       #loading-text {
         font-family: Arial, sans-serif;
         font-size: 18px;
@@ -92,6 +105,14 @@
     <div id="initial-loader">
       <div class="spinner"></div>
       <div id="loading-text">Loading tailrmade</div>
+      <!-- Plain HTML so crawlers can discover the help pages from the home page -->
+      <p id="loading-intro">
+        Build web apps visually with drag-and-drop nodes, right in your
+        browser. New here? Read the
+        <a href="/help/docs/quickstart/">quickstart</a>, browse the
+        <a href="/help/docs/">documentation</a> or the
+        <a href="/help/docs/faq/">FAQ</a>.
+      </p>
     </div>
     <div id="root"></div>
   </body>

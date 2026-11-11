@@ -757,53 +757,6 @@ const HtmlComponent = (props): React.ReactElement => {
 export class IFrameRenderer extends HtmlNodeBase {
   eventTarget: EventTarget;
 
-  // Sanitize defaults to off here, so a stock Embed website would read as
-  // unrestricted. Fixed markup that sanitizing leaves untouched runs no code
-  // of its own, so it is reported like sanitized markup. Embedded pages are
-  // allowed only from other sites, where they run in their own origin.
-  // Templates are excluded: the Data input could still inject markup. So are
-  // full documents, which render as they are rather than inside the body.
-  public getRisks(): NodeRisk[] {
-    if (this.getStaticInputData(SANITIZE_NAME).value) return super.getRisks();
-    const markup = [inputSocketNameHeader, htmlInputSocketName].map((name) =>
-      this.getStaticInputData(name),
-    );
-    if (
-      markup.some(
-        ({ value }) => typeof value !== 'string' || value.includes('{{'),
-      ) ||
-      /^\s*<(!DOCTYPE|html)/i.test(markup[1].value as string)
-    ) {
-      return super.getRisks();
-    }
-    const frameSources: unknown[] = [];
-    DOMPurify.addHook('uponSanitizeElement', (node, data) => {
-      if (data.tagName === 'iframe') {
-        frameSources.push((node as Element).getAttribute('src'));
-      }
-    });
-    try {
-      const sanitized: string[] = [];
-      for (const { value } of markup) {
-        // The leading paragraph keeps everything in the body. Otherwise a
-        // leading <script> is parsed into the head and dropped without being
-        // listed in DOMPurify.removed.
-        sanitized.push(
-          DOMPurify.sanitize(`<p></p>${value}`, { ADD_TAGS: ['iframe'] }),
-        );
-        if (DOMPurify.removed.length) return super.getRisks();
-      }
-      if (
-        frameSources.some((src) => getImageSourceRisks(src, false).length === 0)
-      ) {
-        return super.getRisks();
-      }
-      return getExternalHtmlRisks(sanitized.join('\n'));
-    } finally {
-      DOMPurify.removeHook('uponSanitizeElement');
-    }
-  }
-
   public onNodeAdded = async (source: TNodeSource): Promise<void> => {
     this.eventTarget = new EventTarget();
     await super.onNodeAdded(source);

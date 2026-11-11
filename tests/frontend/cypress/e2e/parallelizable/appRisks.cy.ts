@@ -61,6 +61,45 @@ describe('app risk review', () => {
       serializedSocket('Image', source, 'ImageType'),
     ]);
 
+  it('reviews a Load NPM package before importing it', () => {
+    let requests = 0;
+    cy.intercept('GET', 'https://esm.run/**', (request) => {
+      requests += 1;
+      request.reply({
+        headers: { 'content-type': 'text/javascript' },
+        body: 'window.__riskPackageRuns = 1; export default {};',
+      });
+    });
+    beginLoad([
+      {
+        ...serializedNode('loadnpm', 'package', [
+          serializedSocket(
+            'Package Name',
+            'risk-test-package@1.0.0',
+            'StringType',
+          ),
+        ]),
+        version: 6,
+      },
+    ]);
+    cy.get('[data-cy="app-risk-dialog"]')
+      .should('contain', 'Run unsandboxed code')
+      .and('contain', 'Load data from other sites')
+      .and('contain', 'https://esm.run/risk-test-package@1.0.0');
+    shouldWithTestController((controller) => {
+      const node = controller.getNodeByID('package');
+      expect(node.getRisks().map((risk) => risk.kind)).to.deep.equal([
+        'unrestricted-code',
+        'network',
+      ]);
+      expect(node.debug_timesExecuted).to.equal(0);
+    });
+    cy.window().then((win: any) => {
+      expect(win.__riskPackageRuns).to.be.undefined;
+      expect(requests).to.equal(0);
+    });
+  });
+
   ['external', 'local', 'embedded', 'raw base64'].forEach((kind, index) => {
     it(`runs a fixed ${kind} image without a warning`, () => {
       const source = [
@@ -743,24 +782,19 @@ describe('app risk review', () => {
     });
   });
 
-  it('lists a stock Embed website as content from its site', () => {
+  it('reports a stock Embed website as unrestricted code', () => {
     beginLoad([serializedNode('embedwebsite', 'embed', [])]);
+    cy.get('[data-cy="app-risk-dialog"]').should('be.visible');
     shouldWithTestController((controller) => {
       const node = controller.getNodeByID('embed');
       expect(node.getInputData('Sanitize input')).to.equal(false);
-      expect(
-        node.getRisks().map(({ kind, target }) => ({ kind, target })),
-      ).to.deep.equal([
-        {
-          kind: 'external-html',
-          target: 'https://en.wikipedia.org/wiki/Special:Random',
-        },
+      expect(riskKinds(controller, 'embed')).to.deep.equal([
+        'unrestricted-code',
       ]);
     });
-    cy.get('[data-cy="app-risk-dialog"]').should('not.exist');
   });
 
-  it('keeps unsanitized markup unrestricted when sanitizing would change it', () => {
+  it('keeps all unsanitized iframe markup unrestricted', () => {
     const embed = (id: string, html: string) =>
       serializedNode('embedwebsite', id, [
         serializedSocket('Html', html, 'HtmlType'),
@@ -794,16 +828,23 @@ describe('app risk review', () => {
     });
   });
 
-  // The suite runs self-hosted, where AI always goes through the Companion.
-  it('lists local AI as one card, without the provider or allowance', () => {
+  // The suite runs self-hosted, where AI goes through the Companion before the
+  // configured provider. The provider can still receive data and charge its
+  // account.
+  it('lists the provider and Companion for locally relayed AI', () => {
     beginLoad([serializedNode('ainode', 'ai', [])]);
     cy.get('[data-cy="app-risk-dialog"]')
-      .should('contain', 'Use local AI')
-      .and('not.contain', 'Use AI services')
-      .and('not.contain', 'Use your Companion')
-      .and('not.contain', 'Can cost money');
+      .should('contain', 'Use AI services')
+      .and('contain', 'Anthropic (Claude)')
+      .and('contain', 'Use your Companion')
+      .and('contain', 'Can cost money')
+      .and('contain', 'Can send your data out')
+      .and('contain', 'provider account');
     shouldWithTestController((controller) => {
-      expect(riskKinds(controller, 'ai')).to.deep.equal(['local-ai']);
+      expect(riskKinds(controller, 'ai')).to.deep.equal([
+        'ai-usage',
+        'companion',
+      ]);
     });
   });
 
@@ -861,13 +902,20 @@ describe('app risk review', () => {
     ];
     beginLoad(
       [
-        serializedNode('storagewrite', 'write', fixedAddress),
+        serializedNode('storagewrite', 'write', [
+          ...fixedAddress,
+          serializedSocket(
+            'Additional keys',
+            ['published', 'archive'],
+            'ArrayType',
+          ),
+        ]),
         serializedNode('storageread', 'read', fixedAddress),
+        serializedNode('storagebrowse', 'browse-all', []),
         workerSource('key', 'draft'),
         serializedNode('storageread', 'wired', [
           serializedSocket('Location', 'Notes'),
         ]),
-        serializedNode('storagebrowse', 'browse-all', []),
         serializedNode('storagebrowse', 'browse-notes', [
           serializedSocket('Filter by Location', true, 'BooleanType'),
           serializedSocket('Location', 'Notes'),
@@ -877,8 +925,13 @@ describe('app risk review', () => {
     );
     shouldWithTestController((controller) => {
       const risk = (id: string) => controller.getNodeByID(id).getRisks()[0];
-      expect(risk('write').target).to.equal('Notes › draft · this browser');
-      expect(risk('write').description).to.equal(
+      const writeRisks = controller.getNodeByID('write').getRisks();
+      expect(writeRisks.map(({ target }) => target)).to.deep.equal([
+        'Notes › draft · this browser',
+        'Notes › published · this browser',
+        'Notes › archive · this browser',
+      ]);
+      expect(writeRisks[0].description).to.equal(
         'Can change the saved data below.',
       );
       expect(risk('read').description).to.equal(
@@ -892,7 +945,9 @@ describe('app risk review', () => {
     });
     cy.get('[data-cy="risk-details"][data-risk-kind="storage-write"]')
       .should('contain', 'Can change the saved data below.')
-      .and('contain', 'Notes › draft · this browser');
+      .and('contain', 'Notes › draft · this browser')
+      .and('contain', 'Notes › published · this browser')
+      .and('contain', 'Notes › archive · this browser');
     // One card holds fixed and wired reads, so it makes the broader claim.
     cy.get('[data-cy="risk-details"][data-risk-kind="storage-read"]')
       .should('contain', "including your other apps' data")

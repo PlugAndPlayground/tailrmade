@@ -1,5 +1,5 @@
 import Socket from '../../classes/SocketClass';
-import { NodeRisk, AIUsageRisk, LocalAIRisk } from '../../classes/NodeRisk';
+import { NodeRisk, AIUsageRisk, CompanionRisk } from '../../classes/NodeRisk';
 import PPNode from '../../classes/NodeClass';
 import UpdateBehaviourClass from '../../classes/UpdateBehaviourClass';
 import { NODE_TYPE_COLOR, SOCKET_TYPE } from '../../utils/constants';
@@ -47,17 +47,20 @@ export class AINode extends HTTPNode {
   // AI nodes replace the HTTP sockets entirely, so HTTPNode's risks do not
   // apply: the provider key stays on the backend.
   public getRisks(): NodeRisk[] {
-    if (AIBackend.getInstance().isLocalAI()) return [new LocalAIRisk()];
     const provider = this.getStaticInputData(AIProviderName);
-    return [
+    const local = AIBackend.getInstance().isLocalAI();
+    const risks: NodeRisk[] = [
       new AIUsageRisk(
         provider.known
           ? describeAIProvider(
               String(provider.value || this.getDefaultProvider()),
             )
           : undefined,
+        local ? 'provider-account' : 'tailrmade-allowance',
       ),
     ];
+    if (local) risks.push(new CompanionRisk());
+    return risks;
   }
 
   public getSeemsUnused(): boolean {

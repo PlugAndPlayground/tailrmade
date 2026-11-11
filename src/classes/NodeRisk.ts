@@ -30,7 +30,15 @@ export abstract class NodeRisk {
   constructor(public readonly target?: string) {}
 
   get id(): string {
-    return JSON.stringify([this.kind, this.target ?? null, this.severity]);
+    // `resolved` is part of the claim. A known "all saved data" target and an
+    // address chosen while running can both have no target, but the latter must
+    // not disappear when risks are collected.
+    return JSON.stringify([
+      this.kind,
+      this.target ?? null,
+      this.severity,
+      this.resolved,
+    ]);
   }
 }
 
@@ -185,22 +193,22 @@ export class ExternalImageRisk extends NodeRisk {
   }
 }
 
-export class DynamicImageRisk extends NodeRisk {
-  readonly kind = 'dynamic-image';
-  readonly title = 'Load images from addresses set while running';
+// An address only known once the app runs can carry app data to any site.
+abstract class DynamicAddressRisk extends NodeRisk {
   readonly description =
     'If an address points to another site, any app data in it reaches that site.';
   readonly consequences = [CONSEQUENCE.sendsDataOut] as const;
   readonly resolved = false;
 }
 
-export class DynamicContentRisk extends NodeRisk {
+export class DynamicImageRisk extends DynamicAddressRisk {
+  readonly kind = 'dynamic-image';
+  readonly title = 'Load images from addresses set while running';
+}
+
+export class DynamicContentRisk extends DynamicAddressRisk {
   readonly kind = 'dynamic-content';
   readonly title = 'Load content from addresses set while running';
-  readonly description =
-    'If an address points to another site, any app data in it reaches that site.';
-  readonly consequences = [CONSEQUENCE.sendsDataOut] as const;
-  readonly resolved = false;
 }
 
 // Tailrmade's own pages, relative links included, reach no other site.
@@ -318,24 +326,22 @@ export class AIUsageRisk extends NodeRisk {
   ] as const;
   readonly resolved: boolean;
 
-  // Without a provider name it is picked while running.
-  constructor(provider?: string) {
+  // Without a provider name it is picked while running. Local execution means
+  // the request is relayed by the Companion, not that the provider itself runs
+  // locally, so it can still send data out and incur provider charges.
+  constructor(
+    provider?: string,
+    billing: 'tailrmade-allowance' | 'provider-account' = 'tailrmade-allowance',
+  ) {
     super(provider);
     this.resolved = provider !== undefined;
+    const destination =
+      provider !== undefined ? 'the provider below' : 'your AI provider';
     this.description =
-      provider !== undefined
-        ? 'Can send prompts and images to the provider below. Uses your AI allowance.'
-        : 'Can send prompts and images to your AI provider. Uses your AI allowance.';
+      billing === 'provider-account'
+        ? `Can send prompts and images to ${destination}. May incur charges on your provider account.`
+        : `Can send prompts and images to ${destination}. Uses your AI allowance.`;
   }
-}
-
-// Local AI stays on the person's computer: no provider, no allowance.
-export class LocalAIRisk extends NodeRisk {
-  readonly kind = 'local-ai';
-  readonly title = 'Use local AI';
-  readonly description =
-    'Can send prompts to the AI model on your computer, through your Companion.';
-  readonly consequences = [CONSEQUENCE.reachesYourComputer] as const;
 }
 
 export interface RiskSource {
