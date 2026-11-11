@@ -17,6 +17,8 @@ import {
   toneCssVariable,
 } from './model';
 import { renderTokenSource } from './tokens';
+import { isShareLink, parseShareLink } from '../utils/share';
+import { openShareLink } from '../utils/shareLinks';
 import './lexical/styles.css';
 
 const paletteColor = (theme: Theme, path: string): string =>
@@ -94,6 +96,24 @@ function renderNode(node: Node, key: number, inputs: Inputs): React.ReactNode {
       return '\t';
     case 'link':
     case 'autolink':
+      if (isShareLink(node.url!)) {
+        return parseShareLink(node.url!) ? (
+          <a
+            key={key}
+            className={theme.link}
+            href={node.url}
+            data-cy="share-link"
+            onClick={(event) => {
+              event.preventDefault();
+              openShareLink(node.url!);
+            }}
+          >
+            {children()}
+          </a>
+        ) : (
+          <React.Fragment key={key}>{children()}</React.Fragment>
+        );
+      }
       return SAFE_LINK.test(node.url!) ? (
         <a
           key={key}

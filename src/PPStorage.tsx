@@ -1,4 +1,5 @@
 import { Viewport } from 'pixi-viewport';
+import { copyText } from './utils/share';
 import InterfaceController, { ListenEvent } from './InterfaceController';
 import * as constants from './utils/constants';
 import { GraphDatabase, StoredGraph } from './utils/indexedDB';
@@ -10,7 +11,6 @@ import {
   getGraphFromIGraphSearch,
   getSetting,
   setGestureModeOnViewport,
-  writeDataToClipboard,
 } from './utils/utils';
 import { migrateGraphDataOnLoad } from './utils/graphMigrations';
 import * as PIXI from 'pixi.js';
@@ -949,7 +949,7 @@ export default class PPStorage {
       });
   }
 
-  public copyCurrentGraphURLToClipboard() {
+  public async copyCurrentGraphURLToClipboard(): Promise<void> {
     const serialized = PPStorage.getInstance().getDownloadReadyGraph(
       PPGraph.currentGraph.getSerializedStoredGraph(),
       true,
@@ -957,8 +957,9 @@ export default class PPStorage {
     const URL =
       `https://tailrmade.app/#${constants.URL_PARAMETER_NAME.LOADURLGRAPH}=` +
       serialized;
-    writeDataToClipboard(URL, false);
-    InterfaceController.showSnackBar('Copied graph URL to clipboard');
+    if ((await copyText(URL, 'Copy app in a link')) === 'copied') {
+      InterfaceController.showSnackBar('Copied app link to clipboard');
+    }
   }
 
   static viewport: Viewport; // WARNING, HACK, this should not be saved, TODO improve

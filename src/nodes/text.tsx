@@ -794,6 +794,12 @@ input is missing or null shows nothing.
 blocks, **bold**, *italic*, \`code\`, [link](https://…), and
 [words]{.primary .nowrap} for a run's tone or no-wrap; each line is a
 paragraph, so a blank line is an empty one.
+Share links open the device's share sheet, or copy when there is none:
+[Share](share:?text=…&url=…&title=…) shares those values, URL-encoded
+(encodeURIComponent, plus ( and ) as %28 and %29); [Share this app](share:app)
+shares this app's public link, with optional ?text=…&title=…. Combine the URL
+Parameter node's "App link" with your own #part for links that open the app
+differently.
 Styling: Variant (display|h1|h2|body|caption|label|stat) sets size, weight and
 line height; Tone (default|muted|primary|secondary|success|warning|error) a
 theme color; Alignment. "Custom styles" takes CSS for anything else.

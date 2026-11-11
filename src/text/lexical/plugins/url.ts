@@ -12,14 +12,18 @@ const SUPPORTED_URL_PROTOCOLS = new Set([
   'mailto:',
   'sms:',
   'tel:',
+  'share:',
 ]);
+
+// a scheme the editor keeps as typed; anything else gets https://
+const KNOWN_SCHEME = /^(https?|mailto|sms|tel|share):/i;
 
 export function sanitizeUrl(url: string): string {
   if (!url) return '';
 
   try {
     // Add protocol if missing
-    if (!/^https?:\/\//i.test(url)) {
+    if (!KNOWN_SCHEME.test(url)) {
       url = 'https://' + url;
     }
 
@@ -30,7 +34,7 @@ export function sanitizeUrl(url: string): string {
     return url;
   } catch {
     // If URL parsing fails, ensure it has a protocol
-    if (!/^https?:\/\//i.test(url)) {
+    if (!KNOWN_SCHEME.test(url)) {
       return 'https://' + url;
     }
     return url;
