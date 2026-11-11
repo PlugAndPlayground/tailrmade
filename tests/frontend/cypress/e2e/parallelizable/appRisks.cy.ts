@@ -958,6 +958,38 @@ describe('app risk review', () => {
       .should('have.attr', 'data-access-level', 'dynamic');
   });
 
+  it('names the nodes sharing a card instead of their type', () => {
+    const named = (id: string, name: string) => ({ ...codeNode(), id, name });
+    beginLoad([
+      named('draw', 'Draw plot'),
+      named('sketch', 'Sketch plot'),
+      named('a', 'Axis'),
+      named('b', 'Axis'),
+      named('c', 'Legend'),
+    ]);
+    cy.get('[data-cy="risk-details"][data-risk-kind="unrestricted-code"]')
+      .should('not.contain', 'Chosen while the app runs')
+      .find('[data-cy="risk-node-type"]')
+      .should('have.length', 1)
+      .and('contain', 'Draw plot, Sketch plot, +3')
+      .and('not.contain', 'Custom function')
+      .and('not.contain', '5 nodes');
+  });
+
+  it('says a destination is chosen while running only where there is one', () => {
+    beginLoad(
+      [codeNode(), openURLNode()],
+      [linkTo('code', 'OutData', 'open', 'url')],
+    );
+    cy.get('[data-cy="risk-details"][data-risk-kind="navigation"]').should(
+      'contain',
+      'Chosen while the app runs',
+    );
+    cy.get('[data-cy="risk-details"][data-risk-kind="unrestricted-code"]')
+      .should('exist')
+      .and('not.contain', 'Chosen while the app runs');
+  });
+
   it('summarizes risks in the app inspector and reviews them in the side panel', () => {
     cy.viewport(1280, 900);
     beginLoad([serializedNode('add', 'add', [])]);
