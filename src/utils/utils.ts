@@ -178,6 +178,23 @@ export function getDashboardWidth(overlayState: IOverlay): number {
   );
 }
 
+// Docked shell row: rail | menu panel | dashboard | canvas | inspector.
+// Returns the x where the dashboard starts and where the canvas starts.
+export function getDashboardHorizontalBounds(overlayState: IOverlay): {
+  left: number;
+  right: number;
+} {
+  const left =
+    SHELL_CONSTANTS.RAIL_WIDTH +
+    (overlayState[DrawerSide.LEFT].visible
+      ? overlayState[DrawerSide.LEFT].width
+      : 0);
+  const width = overlayState[DrawerSide.DASHBOARD].visible
+    ? getDashboardWidth(overlayState)
+    : 0;
+  return { left, right: left + width };
+}
+
 export const limitRange = (
   value: number,
   lowerLimit: number,
@@ -1071,17 +1088,7 @@ export const getLoadExampleURL = (path: string, fileName: string): string => {
   return fullPath;
 };
 
-export const getLoadCloudGraphURL = (graph: IGraphSearch): string => {
-  const encodedOwner = encodeURIComponent(graph.owner);
-  const encodedName = encodeURIComponent(graph.name);
-  const encodedLocation = encodeURIComponent(graph.location);
-  const encodedAccess = encodeURIComponent(graph.access);
-
-  const fullPath = `${window.location.origin}${
-    window.location.pathname
-  }?loadGraph=${encodedOwner};;${encodedName};;${encodedLocation};;${encodedAccess}`;
-  return fullPath;
-};
+export { getLoadCloudGraphURL } from './cloudGraphURL';
 
 export const getLoadNodeExampleURL = (nodeName: string): string => {
   return getLoadExampleURL('nodes', nodeName);

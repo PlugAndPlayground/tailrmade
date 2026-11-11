@@ -14,7 +14,7 @@ import {
 import {
   cutOrCopyClipboard,
   getCurrentCursorPosition,
-  getDashboardWidth,
+  getDashboardHorizontalBounds,
   getURLParameters,
   loadGraph,
   pasteClipboard,
@@ -111,35 +111,37 @@ export const getNodesBounds = (nodes: PPNode[]): PIXI.Rectangle => {
   return bounds;
 };
 
-// screen pixels the docked panels cover on each side of the canvas
-const getOverlayCover = (): { left: number; right: number } => {
-  // stacked panels sit above or below the canvas, not beside it
+// The pixi canvas fills the window behind the docked panels; this is the
+// strip of it left visible between the dashboard and the inspector
+const getVisibleCanvasBounds = (): { left: number; right: number } => {
   if (isStackLayout()) {
-    return { left: 0, right: 0 };
+    return { left: 0, right: window.innerWidth };
   }
   const overlayState = InterfaceController.getOverlayState();
-  const leftDrawerWidth = overlayState.leftSide.visible
-    ? overlayState.leftSide.width
-    : 0;
-  const rightDrawerWidth = overlayState.rightSide.visible
+  const inspectorWidth = overlayState.rightSide.visible
     ? overlayState.rightSide.width
     : 0;
-
-  // the dashboard's stored percentage is of the shell's available space, not
-  // of the window, so ask for the resolved (and clamped) pixel width rather
-  // than recomputing it from the percentage here
-  const dashboardWidth = overlayState.dashboard.visible
-    ? getDashboardWidth(overlayState)
-    : 0;
-
-  return { left: leftDrawerWidth + dashboardWidth, right: rightDrawerWidth };
+  return {
+    left: getDashboardHorizontalBounds(overlayState).right,
+    right: window.innerWidth - inspectorWidth,
+  };
 };
 
-export const calculateOverlayOffsets = (scale?: number): number => {
-  const cover = getOverlayCover();
-  // Use provided scale or current scale
-  const viewportScale = scale || PPGraph.currentGraph.viewportScaleX;
-  return (cover.left - cover.right) / 2 / viewportScale;
+// World distance between the window's centre and the visible strip's centre
+export const calculateOverlayOffsets = (
+  scale = PPGraph.currentGraph.viewportScaleX,
+): number => {
+  const { left, right } = getVisibleCanvasBounds();
+  return ((left + right) / 2 - window.innerWidth / 2) / scale;
+};
+
+// viewport.findFit, but against the visible strip instead of the window
+const findVisibleFit = (bounds: PIXI.Rectangle): number => {
+  const { left, right } = getVisibleCanvasBounds();
+  return Math.min(
+    (right - left) / bounds.width,
+    PPGraph.currentGraph.viewport.screenHeight / bounds.height,
+  );
 };
 
 export const zoomToFitNodes = (
@@ -158,24 +160,14 @@ export const zoomToFitNodes = (
     zoomOutFactor = -0.3;
   }
 
-  // First fit to calculate the scale without moving
-  currentGraph.viewport.fit(false, boundsToZoomTo.width, boundsToZoomTo.height);
-
-  // Apply additional zoom factor
-  const finalScale =
-    currentGraph.viewportScaleX * (1 + (initZoomOutFactor || zoomOutFactor));
-
-  // Now calculate offsets with the new scale
-  const combinedOffset = calculateOverlayOffsets(finalScale);
-
-  // Move center with the correct scale and offset
+  currentGraph.viewport.setZoom(
+    findVisibleFit(boundsToZoomTo) * (1 + (initZoomOutFactor || zoomOutFactor)),
+  );
+  // offset at the scale clamp-zoom actually left us with
   currentGraph.viewport.moveCenter(
-    boundsToZoomTo.x + boundsToZoomTo.width / 2 - combinedOffset,
+    boundsToZoomTo.x + boundsToZoomTo.width / 2 - calculateOverlayOffsets(),
     boundsToZoomTo.y + boundsToZoomTo.height / 2,
   );
-
-  // Apply the zoom percent now that we're in the right position
-  currentGraph.viewport.zoomPercent(initZoomOutFactor || zoomOutFactor, true);
 
   currentGraph.selection.drawRectanglesFromSelection();
   emitMoved();
@@ -282,12 +274,9 @@ export function emitMoved() {
 // whether the nodes are wholly inside the part of the canvas no panel covers
 export const areNodesOnScreen = (nodes: PPNode[]): boolean => {
   const viewport = PPGraph.currentGraph.viewport;
-  const cover = getOverlayCover();
-  const topLeft = viewport.toWorld(cover.left, 0);
-  const bottomRight = viewport.toWorld(
-    viewport.screenWidth - cover.right,
-    viewport.screenHeight,
-  );
+  const { left, right } = getVisibleCanvasBounds();
+  const topLeft = viewport.toWorld(left, 0);
+  const bottomRight = viewport.toWorld(right, viewport.screenHeight);
   const bounds = getNodesBounds(nodes);
   return (
     bounds.left >= topLeft.x &&
@@ -312,14 +301,11 @@ export const ensureVisible = async (
       boundsToZoomTo = getNodesBounds(nodes);
     }
 
-    const fitScale = currentGraph.viewport.findFit(
-      boundsToZoomTo.width,
-      boundsToZoomTo.height,
-    );
-    const fitScaleWithViewport = fitScale / 1;
-    const scale = fitScaleWithViewport < 1 ? fitScale / 2 : undefined;
+    const fitScale = findVisibleFit(boundsToZoomTo);
+    const scale = fitScale < 1 ? fitScale / 2 : undefined;
 
-    const combinedOffset = calculateOverlayOffsets();
+    // the offset belongs to the scale we animate to, not the current one
+    const combinedOffset = calculateOverlayOffsets(scale);
 
     const position = new PIXI.Point(
       boundsToZoomTo.x + boundsToZoomTo.width / 2 - combinedOffset,

@@ -9,7 +9,7 @@ import React, {
 import Handlebars from 'handlebars/dist/handlebars';
 import {
   NodeRisk,
-  NetworkRisk,
+  DynamicContentRisk,
   UnrestrictedCodeRisk,
   ExternalHtmlRisk,
   getImageSourceRisks,
@@ -120,10 +120,18 @@ const parsedHtmlOutputName = 'Parsed Html';
 /**
  * Base class for HTML-rendering nodes with shared Handlebars functionality.
  */
+const getExternalHtmlRisks = (sanitized: string): NodeRisk[] => {
+  const urls = sanitized.match(/(?:https?:)?\/\/[^\s<>"'()]+/g) ?? [];
+  return [...new Set(urls)]
+    .filter((url) => getImageSourceRisks(url, false).length > 0)
+    .map((url) => new ExternalHtmlRisk(url));
+};
+
 abstract class HtmlNodeBase extends HybridNode2 {
   public getRisks(): NodeRisk[] {
+    // The unrestricted card already covers contacting any site.
     if (!this.getStaticInputData(SANITIZE_NAME).value) {
-      return [new UnrestrictedCodeRisk(), new NetworkRisk()];
+      return [new UnrestrictedCodeRisk()];
     }
     const inputs = [
       htmlInputSocketName,
@@ -132,7 +140,9 @@ abstract class HtmlNodeBase extends HybridNode2 {
       partialsInputSocketName,
     ].filter((name) => this.getInputSocketByName(name));
     const values = inputs.map((name) => this.getStaticInputData(name));
-    if (values.some((value) => !value.known)) return [new NetworkRisk()];
+    if (values.some((value) => !value.known)) {
+      return [new DynamicContentRisk()];
+    }
     const markup = values
       .map((value) =>
         typeof value.value === 'string'
@@ -140,11 +150,7 @@ abstract class HtmlNodeBase extends HybridNode2 {
           : JSON.stringify(value.value),
       )
       .join('\n');
-    const sanitized = DOMPurify.sanitize(markup);
-    const urls = sanitized.match(/(?:https?:)?\/\/[^\s<>"'()]+/g) ?? [];
-    return [...new Set(urls)]
-      .filter((url) => getImageSourceRisks(url, false).length > 0)
-      .map((url) => new ExternalHtmlRisk(url));
+    return getExternalHtmlRisks(DOMPurify.sanitize(markup));
   }
   protected lastTemplateError: Error | null = null;
 

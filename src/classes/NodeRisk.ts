@@ -30,7 +30,15 @@ export abstract class NodeRisk {
   constructor(public readonly target?: string) {}
 
   get id(): string {
-    return JSON.stringify([this.kind, this.target ?? null, this.severity]);
+    // `resolved` is part of the claim. A known "all saved data" target and an
+    // address chosen while running can both have no target, but the latter must
+    // not disappear when risks are collected.
+    return JSON.stringify([
+      this.kind,
+      this.target ?? null,
+      this.severity,
+      this.resolved,
+    ]);
   }
 }
 
@@ -114,8 +122,14 @@ export class ApiKeyRisk extends NodeRisk {
   readonly resolved: boolean;
 
   // Without a key name the review can only say one gets picked while running.
-  constructor(key?: string) {
-    super(key);
+  // With a known address it also says where the key goes.
+  constructor(key?: string, url?: unknown) {
+    const destination = resolveDestination(url);
+    super(
+      key !== undefined && destination
+        ? `${key} \u2192 ${new URL(destination).host}`
+        : key,
+    );
     this.resolved = key !== undefined;
   }
 }
@@ -179,13 +193,35 @@ export class ExternalImageRisk extends NodeRisk {
   }
 }
 
-export class DynamicImageRisk extends NodeRisk {
-  readonly kind = 'dynamic-image';
-  readonly title = 'Load images from addresses set while running';
+// An address only known once the app runs can carry app data to any site.
+abstract class DynamicAddressRisk extends NodeRisk {
   readonly description =
     'If an address points to another site, any app data in it reaches that site.';
   readonly consequences = [CONSEQUENCE.sendsDataOut] as const;
   readonly resolved = false;
+}
+
+export class DynamicImageRisk extends DynamicAddressRisk {
+  readonly kind = 'dynamic-image';
+  readonly title = 'Load images from addresses set while running';
+}
+
+export class DynamicContentRisk extends DynamicAddressRisk {
+  readonly kind = 'dynamic-content';
+  readonly title = 'Load content from addresses set while running';
+}
+
+// Tailrmade's own pages, relative links included, reach no other site.
+export function isSameOrigin(
+  url: unknown,
+  baseURL = typeof document === 'undefined' ? undefined : document.baseURI,
+): boolean {
+  if (typeof url !== 'string' || !baseURL) return false;
+  try {
+    return new URL(url, baseURL).origin === new URL(baseURL).origin;
+  } catch {
+    return false;
+  }
 }
 
 export function getImageSourceRisks(
@@ -201,7 +237,7 @@ export function getImageSourceRisks(
     const url = new URL(source, baseURL);
     if (
       ['http:', 'https:'].includes(url.protocol) &&
-      (!baseURL || url.origin !== new URL(baseURL).origin)
+      !isSameOrigin(source, baseURL)
     ) {
       return [new ExternalImageRisk(url.href)];
     }
@@ -244,31 +280,68 @@ export class CompanionRisk extends NodeRisk {
   ] as const;
 }
 
+// Storage targets read "<location> › <key> · this browser". Without one, the
+// node can reach any saved data: all of it, or what is chosen while running.
 export class StorageReadRisk extends NodeRisk {
   readonly kind = 'storage-read';
   readonly title = 'Read Tailrmade data';
-  readonly description =
-    "Can read anything saved in Tailrmade, including your other apps' data.";
+  readonly description: string;
   readonly consequences = [CONSEQUENCE.readsYourData] as const;
+  readonly resolved: boolean;
+
+  constructor(target?: string, resolved = true) {
+    super(target);
+    this.resolved = resolved;
+    this.description =
+      target !== undefined
+        ? 'Can read the saved data below.'
+        : "Can read anything saved in Tailrmade, including your other apps' data.";
+  }
 }
 
 export class StorageWriteRisk extends NodeRisk {
   readonly kind = 'storage-write';
   readonly title = 'Change Tailrmade data';
-  readonly description =
-    "Can add, change or delete anything saved in Tailrmade, including your other apps' data.";
+  readonly description: string;
   readonly consequences = [CONSEQUENCE.changesYourData] as const;
+  readonly resolved: boolean;
+
+  constructor(target?: string, resolved = true) {
+    super(target);
+    this.resolved = resolved;
+    this.description =
+      target !== undefined
+        ? 'Can change the saved data below.'
+        : "Can add, change or delete anything saved in Tailrmade, including your other apps' data.";
+  }
 }
 
 export class AIUsageRisk extends NodeRisk {
   readonly kind = 'ai-usage';
   readonly title = 'Use AI services';
-  readonly description =
-    'Can send prompts and images to your AI provider. Uses your AI allowance.';
+  readonly description: string;
   readonly consequences = [
     CONSEQUENCE.costsMoney,
     CONSEQUENCE.sendsDataOut,
   ] as const;
+  readonly resolved: boolean;
+
+  // Without a provider name it is picked while running. Local execution means
+  // the request is relayed by the Companion, not that the provider itself runs
+  // locally, so it can still send data out and incur provider charges.
+  constructor(
+    provider?: string,
+    billing: 'tailrmade-allowance' | 'provider-account' = 'tailrmade-allowance',
+  ) {
+    super(provider);
+    this.resolved = provider !== undefined;
+    const destination =
+      provider !== undefined ? 'the provider below' : 'your AI provider';
+    this.description =
+      billing === 'provider-account'
+        ? `Can send prompts and images to ${destination}. May incur charges on your provider account.`
+        : `Can send prompts and images to ${destination}. Uses your AI allowance.`;
+  }
 }
 
 export interface RiskSource {

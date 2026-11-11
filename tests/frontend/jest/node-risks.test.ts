@@ -7,6 +7,7 @@ import {
   NavigationRisk,
   ExternalImageRisk,
   DynamicImageRisk,
+  DynamicContentRisk,
   StorageReadRisk,
   StorageWriteRisk,
   UnrestrictedCodeRisk,
@@ -15,6 +16,7 @@ import {
   getImageSourceRisks,
   getRiskLevel,
   highestRiskLevel,
+  isSameOrigin,
   requiresAppRiskReview,
 } from '../../../src/classes/NodeRisk';
 
@@ -289,5 +291,104 @@ describe('app risk disclosure', () => {
       },
     ]);
     expect(risks).toHaveLength(2);
+  });
+
+  it('discloses provider charges when AI runs through the Companion', () => {
+    const risk = new AIUsageRisk('Anthropic (Claude)', 'provider-account');
+    expect(risk.title).toBe('Use AI services');
+    expect(risk.consequences).toEqual([
+      CONSEQUENCE.costsMoney,
+      CONSEQUENCE.sendsDataOut,
+    ]);
+    expect(risk.description).toContain('provider account');
+    expect(risk.description).not.toContain('AI allowance');
+    expect(requiresAppRiskReview([{ risk, nodes: [] }])).toBe(true);
+  });
+
+  it('keeps known all-storage and unresolved storage claims separate', () => {
+    const risks = collectAppRisks([
+      {
+        id: 'browse-all',
+        nodeName: 'Browse Storage',
+        getRisks: () => [new StorageReadRisk()],
+      },
+      {
+        id: 'dynamic-read',
+        nodeName: 'Storage Read',
+        getRisks: () => [new StorageReadRisk(undefined, false)],
+      },
+    ]);
+    expect(risks).toHaveLength(2);
+    expect(risks.map(({ risk }) => risk.resolved).sort()).toEqual([
+      false,
+      true,
+    ]);
+    expect(highestRiskLevel(risks.map(({ risk }) => risk))).toBe('dynamic');
+  });
+
+  it('reports markup set while running as content, not as sending data', () => {
+    const risk = new DynamicContentRisk();
+    expect(risk.kind).toBe('dynamic-content');
+    expect(risk.title).toBe('Load content from addresses set while running');
+    expect(risk.consequences).toEqual([CONSEQUENCE.sendsDataOut]);
+    expect(getRiskLevel(risk)).toBe('dynamic');
+    expect(requiresAppRiskReview([{ risk, nodes: [] }])).toBe(true);
+  });
+
+  it('treats only addresses on the page origin as its own pages', () => {
+    const baseURL = 'https://app.example.com/editor';
+    for (const url of ['/?new=true', '?new=true', '', baseURL]) {
+      expect(isSameOrigin(url, baseURL)).toBe(true);
+    }
+    for (const url of [
+      'https://example.com/',
+      '//other.example.com/',
+      'javascript:alert(1)',
+      'http://[',
+      undefined,
+    ]) {
+      expect(isSameOrigin(url, baseURL)).toBe(false);
+    }
+    // Without a page there is nothing to be the same origin as.
+    expect(isSameOrigin('/relative', undefined)).toBe(false);
+  });
+
+  it('says where a saved key goes when the address is known', () => {
+    expect(
+      new ApiKeyRisk('OPENAI', 'https://api.openai.com/v1/chat?key=x').target,
+    ).toBe('OPENAI → api.openai.com');
+    expect(new ApiKeyRisk('OPENAI', undefined).target).toBe('OPENAI');
+    expect(new ApiKeyRisk('OPENAI', 'not a url').target).toBe('OPENAI');
+    expect(new ApiKeyRisk('OPENAI', 'https://x.example').description).toBe(
+      'Can send the saved key below with its requests.',
+    );
+  });
+
+  it('names saved data only when the review can show it', () => {
+    const fixed = new StorageReadRisk('Notes › draft · this browser');
+    expect(fixed.description).toBe('Can read the saved data below.');
+    expect(getRiskLevel(fixed)).toBe('static');
+    const wired = new StorageWriteRisk(undefined, false);
+    expect(wired.description).toContain("your other apps' data");
+    expect(getRiskLevel(wired)).toBe('dynamic');
+    expect(
+      new StorageWriteRisk('Notes › draft · your account').description,
+    ).toBe('Can change the saved data below.');
+    // Browsing everything is known in advance: it is everything.
+    const all = new StorageReadRisk();
+    expect(all.resolved).toBe(true);
+    expect(all.description).toContain('anything saved');
+  });
+
+  it('names the AI provider when it is fixed', () => {
+    const known = new AIUsageRisk('Anthropic (Claude)');
+    expect(known.target).toBe('Anthropic (Claude)');
+    expect(known.description).toBe(
+      'Can send prompts and images to the provider below. Uses your AI allowance.',
+    );
+    const connected = new AIUsageRisk();
+    expect(connected.resolved).toBe(false);
+    expect(getRiskLevel(connected)).toBe('dynamic');
+    expect(connected.description).toContain('your AI provider');
   });
 });
