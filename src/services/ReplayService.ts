@@ -2,6 +2,7 @@ import * as PIXI from 'pixi.js';
 import { ActionHandler } from '../classes/Action';
 import PPGraph from '../classes/GraphClass';
 import PPNode from '../classes/NodeClass';
+import type PPGroup from '../classes/groups/GroupClass';
 import {
   calculateOverlayOffsets,
   emitMoved,
@@ -33,11 +34,12 @@ export interface ReplayProgress {
 // steps the replay handles itself instead of the MCP server
 const CAMERA_TOOL = 'camera';
 const CAPTION_TOOL = 'caption';
+const HIGHLIGHT_TOOL = 'highlight';
 // what caption steps were called when the replay drew them itself
 const LEGACY_CAPTION_TOOL = 'subtitle';
 
 interface CameraInput {
-  // node ids to frame; an empty list frames the whole graph
+  // node and group ids to frame; an empty list frames the whole graph
   fit?: string[];
   x?: number;
   y?: number;
@@ -47,6 +49,11 @@ interface CameraInput {
 
 interface CaptionInput {
   text?: string;
+}
+
+interface HighlightInput {
+  // node and group ids to outline; an empty list clears the outlines
+  ids?: string[];
 }
 
 const REPLAY_CALLER: ToolCaller = { source: 'replay', quiet: true };
@@ -82,6 +89,12 @@ export function parseReplayScript(script: unknown): ReplayStep[] {
 }
 
 // the nodes a script adds are the only ones a reset removes
+export function hasCaptionSteps(steps: ReplayStep[]): boolean {
+  return steps.some(
+    (step) => step.tool === CAPTION_TOOL || step.tool === LEGACY_CAPTION_TOOL,
+  );
+}
+
 export function getScriptNodeIds(steps: ReplayStep[]): string[] {
   return steps
     .filter((step) => step.tool === 'add_node')
@@ -112,6 +125,7 @@ interface AppliedStep {
   // the undo entries the step added
   historyIds: string[];
   caption: string;
+  highlight: string[];
   camera: CameraState;
 }
 
@@ -128,6 +142,7 @@ export class ReplayService {
   // bumped by stop, so a running replay notices it was cancelled
   private runId = 0;
   private running: Promise<void> | undefined;
+  private playing: Promise<void> | undefined;
   // where the camera was before the first play since the last reset
   private cameraBeforePlay: CameraState | undefined;
   // the steps run so far, of the script in scriptKey; play, next and back
@@ -135,6 +150,7 @@ export class ReplayService {
   private applied: AppliedStep[] = [];
   private scriptKey = '';
   private caption = '';
+  private highlight: string[] = [];
 
   constructor() {
     // a replay belongs to the graph it was started in
@@ -142,6 +158,7 @@ export class ReplayService {
       this.runId++;
       this.applied = [];
       this.caption = '';
+      this.showHighlight([]);
       this.cameraBeforePlay = undefined;
     });
   }
@@ -153,7 +170,23 @@ export class ReplayService {
     onProgress: ProgressListener,
   ): Promise<void> {
     await this.prepare(steps, true);
-    await this.track(this.runSteps(steps, getSettings, this.runId, onProgress));
+    const run = this.runSteps(steps, getSettings, this.runId, onProgress);
+    this.playing = run;
+    await this.track(run);
+  }
+
+  // true from play until it finished or was stopped, not for next or back
+  get isPlaying(): boolean {
+    return this.running !== undefined && this.running === this.playing;
+  }
+
+  // stops and hides the caption and highlight; the camera stays, and Play
+  // carries on from there
+  async dismiss(steps: ReplayStep[]): Promise<ReplayProgress> {
+    await this.halt();
+    this.caption = '';
+    this.showHighlight([]);
+    return this.progress(this.applied.length, steps.length, 'Stopped');
   }
 
   // runs the next step right away, without its delay
@@ -215,6 +248,7 @@ export class ReplayService {
         if (await this.undoStep(last)) {
           this.applied.pop();
           this.caption = last.caption;
+          this.showHighlight(last.highlight);
           if (steps[index].tool === CAMERA_TOOL && settings.camera) {
             this.animateCamera(
               last.camera,
@@ -244,6 +278,7 @@ export class ReplayService {
     await this.removeScriptNodes(steps);
     this.applied = [];
     this.caption = '';
+    this.showHighlight([]);
     if (this.cameraBeforePlay) {
       this.animateCamera(this.cameraBeforePlay, 0);
       this.cameraBeforePlay = undefined;
@@ -345,6 +380,7 @@ export class ReplayService {
     await this.removeScriptNodes(steps);
     this.applied = [];
     this.caption = '';
+    this.showHighlight([]);
     if (this.cameraBeforePlay) {
       this.animateCamera(this.cameraBeforePlay, 0);
     }
@@ -378,12 +414,14 @@ export class ReplayService {
   ): Promise<string | undefined> {
     const before = new Set(getHistoryIds());
     const caption = this.caption;
+    const highlight = this.highlight;
     const camera = this.getCamera();
     const error = await this.runStep(steps[index], settings);
     if (!error) {
       this.applied.push({
         historyIds: getHistoryIds().filter((id) => !before.has(id)),
         caption,
+        highlight,
         camera,
       });
     }
@@ -409,6 +447,7 @@ export class ReplayService {
     await this.removeScriptNodes(steps);
     this.applied = [];
     this.caption = '';
+    this.showHighlight([]);
     const instant = { speed: Infinity, loop: false, camera: false };
     for (let index = 0; index < count; index++) {
       if (await this.applyStep(steps, index, instant)) break;
@@ -446,6 +485,15 @@ export class ReplayService {
       this.caption = String(text);
       return undefined;
     }
+    if (step.tool === HIGHLIGHT_TOOL) {
+      const { ids = [] } = (step.input ?? {}) as HighlightInput;
+      const { missing } = findTargets(ids);
+      if (ids.length > 0 && missing.length === ids.length) {
+        return `Not found: ${missing.join(', ')}`;
+      }
+      this.showHighlight(ids);
+      return undefined;
+    }
     const result = await TailrmadeMCPServer.getInstance().callTool(
       step.tool,
       step.input ?? {},
@@ -476,14 +524,18 @@ export class ReplayService {
     const graph = PPGraph.currentGraph;
     const current = this.getCamera();
     if (input.fit !== undefined) {
-      const nodes = input.fit.map((id) => graph.nodes[id]);
-      const missing = input.fit.filter((_, index) => !nodes[index]);
-      if (missing.length > 0) {
-        return `Node not found: ${missing.join(', ')}`;
+      const { nodes, groups, missing } = findTargets(input.fit);
+      // frames what is left, so a walkthrough survives a removed node
+      if (input.fit.length > 0 && missing.length === input.fit.length) {
+        return `Not found: ${missing.join(', ')}`;
+      }
+      const areas = groups.map((group) => group.getFrame());
+      if (nodes.length > 0) {
+        areas.push(getNodesBounds(nodes));
       }
       const bounds =
-        nodes.length > 0
-          ? getNodesBounds(nodes)
+        areas.length > 0
+          ? areas.reduce((all, area) => all.enlarge(area), areas[0].clone())
           : graph.nodeContainer.getLocalBounds().rectangle;
       const scale =
         input.zoom ??
@@ -509,6 +561,20 @@ export class ReplayService {
     };
   }
 
+  // outlines stay put when the outlined nodes move, until the next highlight
+  private showHighlight(ids: string[]): void {
+    this.highlight = ids;
+    const selection = PPGraph.currentGraph?.selection;
+    if (!selection) return;
+    const { nodes, groups } = findTargets(ids);
+    selection.drawHighlight([
+      ...groups.map((group) => group.getFrame()),
+      ...nodes
+        .map((node) => selection.getBoundsFromNodes([node]))
+        .filter((bounds): bounds is PIXI.Rectangle => bounds !== undefined),
+    ]);
+  }
+
   private getCamera(): CameraState {
     const viewport = PPGraph.currentGraph.viewport;
     return { center: viewport.center.clone(), scale: viewport.scale.x };
@@ -531,6 +597,30 @@ export class ReplayService {
       callbackOnComplete: () => emitMoved(),
     });
   }
+}
+
+// a group whose nodes are all gone counts as missing
+function findTargets(ids: string[]): {
+  nodes: PPNode[];
+  groups: PPGroup[];
+  missing: string[];
+} {
+  const graph = PPGraph.currentGraph;
+  const nodes: PPNode[] = [];
+  const groups: PPGroup[] = [];
+  const missing: string[] = [];
+  ids.forEach((id) => {
+    const node = graph.nodes[id];
+    const group = graph.groupLayer.getGroup(id);
+    if (node) {
+      nodes.push(node);
+    } else if (group?.getMembers().some(Boolean)) {
+      groups.push(group);
+    } else {
+      missing.push(id);
+    }
+  });
+  return { nodes, groups, missing };
 }
 
 function getHistoryIds(): string[] {

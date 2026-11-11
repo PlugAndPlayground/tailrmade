@@ -15,7 +15,9 @@ import {
 } from '../../utils/constants';
 import { TNodeSource } from '../../utils/interfaces';
 import { TRgba } from '../../utils/color';
+import { NodeConfigurationWarning, PNPSuccess } from '../../classes/ErrorClass';
 import {
+  hasCaptionSteps,
   parseReplayScript,
   ReplayProgress,
   ReplayService,
@@ -30,6 +32,7 @@ import {
 } from '../../services/replayRecording';
 import InterfaceController, { ListenEvent } from '../../InterfaceController';
 import { getAllNodeTypes } from '../allNodes';
+import { isEventComingFromWithinTextInput } from '../../utils/utils';
 import type { SerializedLink } from '../../utils/interfaces';
 import { BooleanType } from '../datatypes/booleanType';
 import { JSONType } from '../datatypes/jsonType';
@@ -153,18 +156,29 @@ export class Replay extends PPNode {
 \`{ "delay": 0.5, "tool": "add_node", "input": { "node_type": "Label", "node_id": "ai-node-1", "x": 0, "y": 0 } }\`
 
 - **delay** is waited after the previous step has finished (default 0.5s), divided by Speed. Speed can change while it plays.
-- **camera** is a replay-only step: \`{ "fit": ["ai-node-1"] }\` frames nodes (an empty list frames the whole graph), \`{ "x", "y", "zoom" }\` moves to a point. \`duration\` is in seconds.
+- **camera** is a replay-only step: \`{ "fit": ["ai-node-1", "group-id"] }\` frames nodes and groups by id, wherever they are now (an empty list frames the whole graph), \`{ "x", "y", "zoom" }\` moves to a point. \`duration\` is in seconds. Ids no longer in the graph are skipped; the step only fails when none are left.
+- **highlight** is a replay-only step: \`{ "ids": ["ai-node-3"] }\` outlines nodes and groups until the next highlight step; an empty list clears it. The outline stays where it was drawn if the node moves.
 - **caption** is a replay-only step: \`{ "text": "..." }\` sets the **Caption** output until the next caption step. Link it to a Subtitle node's Text to show it on screen; an empty text hides it there.
 - Give \`add_node\` an x and y so every run lays out the same.
 - **Reset** removes the nodes the script adds and puts the camera back. Play refuses to start while they still exist.
 - **Stop** pauses: Play carries on from there.
-- **Next** runs the next step straight away, **Back** undoes the last one. For a talk, link a Keyboard node through a Compare node (key == "ArrowRight") to Next.
+- **Next** runs the next step straight away, **Back** undoes the last one.
+- Keys work from the first Play, Next or Back until the replay is done: **→** or PageDown is Next, **←** or PageUp is Back, **Space** pauses and resumes, **Escape** stops and hides the caption and highlight. Presenter remotes send PageDown and PageUp.
 - **Loop** resets and starts over after the last step. The last step's delay is how long the finished graph stays up.
 - **Loop** also makes Next start over after the last step.
 - **Camera** off skips camera steps and keeps the view where you put it.
 - **Autoplay** resets and plays when the app opens, once the app may run. Turn it off to edit the app.
 
-**Record** turns your editing into a script: build as usual (by hand or with the AI), then press **Stop** and the script replaces this one (undo brings the old one back). Pauses are shortened to 2s, and a drag or a burst of typing becomes one step. To film it, press Reset, then Play.`;
+**Record** turns your editing into a script: build as usual (by hand or with the AI), then press **Stop** and the script replaces this one (undo brings the old one back). Pauses are shortened to 2s, and a drag or a burst of typing becomes one step. To film it, press Reset, then Play.
+
+## Walkthrough of an existing app
+A script of only camera, highlight and caption steps tours an app without changing it, and Reset only puts the camera back.
+- Never move, remove, connect or change the app's own nodes. Read it with inspect_graph, and inspect_nodes for the nodes worth explaining.
+- Add three nodes: a Replay node, a Subtitle node with its Text linked from Caption, and a Button labelled "Play tour" whose output is linked to Play. The Subtitle node is required: without it the captions show nowhere and the camera moves without explanation, and the Replay node warns. Place them above the app, outside its groups, and group them as "Tour".
+- Target groups and nodes by id, never by x and y, so the tour still works after things move.
+- Per stop: a caption step, a highlight step with delay 0, then a camera step with delay 0. Frame a whole group for a section, and highlight the one or two nodes the caption talks about.
+- Captions are one or two short sentences for the person using the app. The step after a caption gets its reading time as delay: about one second per three words, at least 3 seconds.
+- Start on the whole graph (fit []) with what the app does, and end with highlight [], fit [] and caption "".`;
   }
 
   public getTags(): string[] {
@@ -219,6 +233,18 @@ export class Replay extends PPNode {
 
   public async onNodeAdded(source: TNodeSource): Promise<void> {
     await super.onNodeAdded(source);
+    if (PPGraph.currentGraph.graphConfiguredAndReady) {
+      this.refreshCaptionWarning();
+    } else {
+      // an opening app links its nodes after adding them all
+      const listenerId = InterfaceController.addListener(
+        ListenEvent.GraphConfigured,
+        () => {
+          InterfaceController.removeListener(listenerId);
+          this.refreshCaptionWarning();
+        },
+      );
+    }
     // only when the app opens, not when undo brings the node back
     if (
       source !== NODE_SOURCE.SERIALIZED ||
@@ -241,7 +267,106 @@ export class Replay extends PPNode {
   onNodeRemoved = (): void => {
     this.stopWaitingForApp?.();
     this.endRecording();
+    this.stopListeningToKeys?.();
   };
+
+  private stopListeningToKeys: (() => void) | undefined;
+
+  // from the first Play, Next or Back until the replay is done, dismissed or
+  // reset, so a walkthrough needs no buttons in view
+  private listenToKeys(): void {
+    if (this.stopListeningToKeys) return;
+    const ignore = (event: KeyboardEvent) =>
+      event.metaKey ||
+      event.ctrlKey ||
+      event.altKey ||
+      isEventComingFromWithinTextInput(event);
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (this.destroyed) {
+        this.stopListeningToKeys?.();
+        return;
+      }
+      if (ignore(event)) return;
+      switch (event.key) {
+        // PageDown and PageUp are what presenter remotes send
+        case 'ArrowRight':
+        case 'PageDown':
+          event.preventDefault();
+          void this.next();
+          break;
+        case 'ArrowLeft':
+        case 'PageUp':
+          event.preventDefault();
+          void this.back();
+          break;
+        case ' ':
+          event.preventDefault();
+          void (ReplayService.getInstance().isPlaying
+            ? this.stop()
+            : this.play());
+          break;
+        case 'Escape':
+          void this.dismiss();
+          break;
+      }
+    };
+    // a focused Play tour button would press itself again on Space
+    const onKeyUp = (event: KeyboardEvent) => {
+      if (event.key === ' ' && !ignore(event)) event.preventDefault();
+    };
+    window.addEventListener('keydown', onKeyDown);
+    window.addEventListener('keyup', onKeyUp);
+    this.stopListeningToKeys = () => {
+      window.removeEventListener('keydown', onKeyDown);
+      window.removeEventListener('keyup', onKeyUp);
+      this.stopListeningToKeys = undefined;
+    };
+  }
+
+  private async dismiss(): Promise<void> {
+    this.stopListeningToKeys?.();
+    await this.withScript(async (steps) =>
+      this.showProgress(await ReplayService.getInstance().dismiss(steps)),
+    );
+  }
+
+  public outputPlugged(socket: Socket): void {
+    super.outputPlugged(socket);
+    this.refreshCaptionWarning();
+  }
+
+  public outputUnplugged(socket: Socket): void {
+    super.outputUnplugged(socket);
+    this.refreshCaptionWarning();
+  }
+
+  public socketChangedFromWidget(): void {
+    super.socketChangedFromWidget();
+    this.refreshCaptionWarning();
+  }
+
+  // captions only show through a linked Subtitle node; without one a
+  // walkthrough is a camera moving for no stated reason
+  private refreshCaptionWarning(): void {
+    const socket = this.getOutputSocketByName(socketNames.caption);
+    if (!socket || this.destroyed) return;
+    let captions = false;
+    try {
+      captions = hasCaptionSteps(
+        parseReplayScript(this.getInputData(socketNames.script)),
+      );
+    } catch {
+      // an unreadable script is reported when it plays
+    }
+    socket.setStatus(
+      captions && socket.links.length === 0
+        ? new NodeConfigurationWarning(
+            "Captions show nowhere: link Caption to a Subtitle node's Text",
+          )
+        : new PNPSuccess(),
+    );
+    this.refreshSocketStatus();
+  }
 
   // read before every step, so they can change while it plays
   private getSettings = (): ReplaySettings => ({
@@ -250,8 +375,10 @@ export class Replay extends PPNode {
     camera: this.getInputData(socketNames.camera),
   });
 
+  // returns once started: a trigger waits for its method, so a Button linked
+  // to Play would stay disabled until the replay ended, for good with Loop on
   public async play(): Promise<void> {
-    await this.playback('play');
+    void this.playback('play');
   }
 
   public async next(): Promise<void> {
@@ -267,6 +394,7 @@ export class Replay extends PPNode {
       if (this.recording) {
         throw new Error('Stop recording first');
       }
+      this.listenToKeys();
       return ReplayService.getInstance()[direction](
         steps,
         this.getSettings,
@@ -367,6 +495,7 @@ export class Replay extends PPNode {
 
   public async reset(): Promise<void> {
     await this.withScript(async (steps) => {
+      this.stopListeningToKeys?.();
       await ReplayService.getInstance().reset(steps);
       this.showProgress({
         step: 0,
@@ -378,6 +507,10 @@ export class Replay extends PPNode {
   }
 
   private showProgress(progress: ReplayProgress): void {
+    // a failed step reports "Step n (tool) failed: ..."
+    if (progress.status === 'Done' || progress.status.startsWith('Step ')) {
+      this.stopListeningToKeys?.();
+    }
     this.setOutputData(socketNames.step, progress.step);
     this.setOutputData(socketNames.caption, progress.caption);
     this.showStatus(progress.status);

@@ -1,6 +1,7 @@
 import {
   doWithTestController,
   openNewGraph,
+  shouldWithTestController,
   waitForGraphToBeReady,
 } from '../helpers';
 
@@ -55,6 +56,17 @@ const captionShows = (text: string) =>
 
 const captionHidden = (text: string) =>
   cy.contains('[data-cy="subtitle-overlay"]', text).should('not.exist');
+
+// Play returns once the replay started
+const waitForReplayStatus = async (
+  tc: { getNodeOutputValue(nodeId: string, socketName: string): unknown },
+  status: string,
+) => {
+  for (let tries = 0; tries < 100; tries++) {
+    if (tc.getNodeOutputValue('replay', 'Status') === status) return;
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+};
 
 const lastCaption = (reports: { caption: string }[]) =>
   reports[reports.length - 1].caption;
@@ -294,6 +306,7 @@ describe('Replay', () => {
       const recordedCity = [city.x, city.y];
 
       await replay.play();
+      await waitForReplayStatus(tc, 'Stop recording first');
       expect(tc.getNodeOutputValue('replay', 'Status')).to.eq(
         'Stop recording first',
       );
@@ -315,6 +328,7 @@ describe('Replay', () => {
       expect(tc.getNodes().map((node) => node.id)).to.deep.eq(['replay']);
 
       await replay.play();
+      await waitForReplayStatus(tc, 'Done');
       expect(tc.getNodeOutputValue('replay', 'Status')).to.eq('Done');
       expect(
         tc
@@ -451,9 +465,9 @@ describe('Replay', () => {
           }
         },
       );
-      expect(
-        reports.filter((report) => report.status === 'Done').length,
-      ).to.eq(2);
+      expect(reports.filter((report) => report.status === 'Done').length).to.eq(
+        2,
+      );
       expect(tc.getNodes()).to.have.length(1);
     });
   });
@@ -549,10 +563,7 @@ describe('Replay', () => {
     });
     waitForGraphToBeReady();
     doWithTestController(async (tc) => {
-      for (let tries = 0; tries < 100; tries++) {
-        if (tc.getNodeOutputValue('replay', 'Status') === 'Done') break;
-        await new Promise((resolve) => setTimeout(resolve, 100));
-      }
+      await waitForReplayStatus(tc, 'Done');
       expect(tc.getNodeOutputValue('replay', 'Status')).to.eq('Done');
       expect(tc.getInputLinkSourceNodeID('ai-node-2', 'Input')).to.eq(
         'ai-node-1',
@@ -565,38 +576,199 @@ describe('Replay', () => {
       await tc.addNode('Replay', 'replay', -600, 0);
       await tc.addNode('Keyboard', 'keyboard', -1400, 0);
       await tc.addNode('Comparison', 'compare', -1000, 0);
-      tc.setNodeInputValue('compare', 'B', 'ArrowRight');
+      tc.setNodeInputValue('compare', 'B', 'n');
       tc.setNodeInputValue('compare', 'Operator', 'Equal (==)');
       await tc.connectNodesByID('keyboard', 'compare', 'key', 'A');
       await tc.connectNodesByID('compare', 'replay', 'Output', 'Next');
     });
-    cy.get('body').trigger('keydown', { key: 'ArrowRight' });
-    cy.get('body').trigger('keyup', { key: 'ArrowRight' });
+    cy.get('body').trigger('keydown', { key: 'n' });
+    cy.get('body').trigger('keyup', { key: 'n' });
     doWithTestController((tc) => {
       expect(tc.getNodeOutputValue('replay', 'Step')).to.eq(1);
       expect(tc.getNodeOutputValue('replay', 'Caption')).to.eq(
         'A value and a label',
       );
     });
-    cy.get('body').trigger('keydown', { key: 'ArrowRight' });
-    cy.get('body').trigger('keyup', { key: 'ArrowRight' });
+    cy.get('body').trigger('keydown', { key: 'n' });
+    cy.get('body').trigger('keyup', { key: 'n' });
     doWithTestController((tc) => {
       expect(tc.getNodeOutputValue('replay', 'Step')).to.eq(2);
       expect(tc.getGraph().nodes['ai-node-1']).not.to.eq(undefined);
     });
   });
 
-  it('plays the Replay node example script from its Play trigger', () => {
+  it('walks through nodes and groups by id, wherever they are now', () => {
+    const tour = [
+      { delay: 0, tool: 'highlight', input: { ids: ['b', 'gone'] } },
+      { delay: 0, tool: 'camera', input: { fit: ['output'], duration: 0 } },
+      { delay: 0, tool: 'camera', input: { fit: ['a', 'gone'], duration: 0 } },
+      { delay: 0, tool: 'highlight', input: { ids: [] } },
+    ];
+    doWithTestController(async (tc) => {
+      const highlightWidth = () =>
+        tc
+          .getGraph()
+          .selection.children.find(
+            (child) => child.label === 'highlightGraphics',
+          )!
+          .getLocalBounds().width;
+      const centerX = () => tc.getGraph().viewport.center.x;
+
+      await tc.addNode('Constant', 'a', 0, 0);
+      await tc.addNode('Label', 'b', 3000, 0);
+      await tc.callMCPTool('group_nodes', {
+        node_ids: ['b'],
+        name: 'Output',
+        group_id: 'output',
+      });
+      // moved after the tour was written
+      await tc.callMCPTool('move_nodes', {
+        nodes: [{ node_id: 'b', x: 6000, y: 1000 }],
+      });
+      tc.stopViewportAnimations();
+
+      await tc.stepReplay(tour, 'next');
+      expect(highlightWidth()).to.be.greaterThan(0);
+
+      await tc.stepReplay(tour, 'next');
+      const frame = tc.getGroups()[0].getFrame();
+      expect(centerX()).to.be.within(frame.left, frame.right);
+
+      const progress = await tc.stepReplay(tour, 'next');
+      expect(progress.status).to.eq('Paused');
+      expect(centerX()).to.be.lessThan(1000);
+
+      await tc.stepReplay(tour, 'next');
+      expect(highlightWidth()).to.eq(0);
+
+      // back puts the outline back
+      await tc.stepReplay(tour, 'back');
+      expect(highlightWidth()).to.be.greaterThan(0);
+
+      await tc.resetReplay(tour);
+      expect(highlightWidth()).to.eq(0);
+      expect(tc.getNodes().map((node) => node.id)).to.have.members(['a', 'b']);
+
+      const reports = await tc.playReplay([
+        { delay: 0, tool: 'highlight', input: { ids: ['gone'] } },
+      ]);
+      expect(reports[reports.length - 1].status).to.eq(
+        'Step 1 (highlight) failed: Not found: gone',
+      );
+    });
+  });
+
+  it('plays from a linked Button without keeping the Button disabled', () => {
     doWithTestController(async (tc) => {
       await tc.addNode('Replay', 'replay', -600, 0);
-      tc.setNodeInputValue('replay', 'Speed', 4);
+      await tc.addNode('WidgetButton', 'button', -1000, 0);
+      await tc.connectNodesByID('button', 'replay', 'Out', 'Play');
       await (
-        tc.getNodeByID('replay') as unknown as { play(): Promise<void> }
-      ).play();
+        tc.getNodeByID('button') as unknown as {
+          handleOnClick(): Promise<void>;
+        }
+      ).handleOnClick();
+      // the press is over while the replay still plays
+      expect(tc.getNodeInputValue('button', 'Disabled')).to.eq(false);
+      expect(tc.getNodeOutputValue('replay', 'Status')).not.to.eq('Done');
+      await waitForReplayStatus(tc, 'Done');
       expect(tc.getNodeOutputValue('replay', 'Status')).to.eq('Done');
       expect(tc.getInputLinkSourceNodeID('ai-node-2', 'Input')).to.eq(
         'ai-node-1',
       );
     });
+  });
+
+  it('pauses, steps and stops from the keyboard once it started', () => {
+    const press = (key: string) => cy.get('body').trigger('keydown', { key });
+    const replayStatus = (status: string) =>
+      shouldWithTestController((tc) =>
+        expect(tc.getNodeOutputValue('replay', 'Status')).to.eq(status),
+      );
+    doWithTestController(async (tc) => {
+      await tc.addNode('Replay', 'replay', -600, 0);
+      tc.setNodeInputValue('replay', 'Camera', false);
+      tc.setNodeInputValue('replay', 'Speed', 0.5);
+    });
+    // not before it started
+    press('ArrowRight');
+    cy.wait(300);
+    doWithTestController((tc) =>
+      expect(tc.getNodeOutputValue('replay', 'Caption')).to.eq(''),
+    );
+    doWithTestController(async (tc) => {
+      await (
+        tc.getNodeByID('replay') as unknown as { play(): Promise<void> }
+      ).play();
+    });
+    shouldWithTestController((tc) =>
+      expect(tc.getNodeOutputValue('replay', 'Caption')).to.eq(
+        'A value and a label',
+      ),
+    );
+    press(' ');
+    replayStatus('Stopped');
+    doWithTestController((tc) => {
+      const step = tc.getNodeOutputValue('replay', 'Step') as number;
+      cy.wrap(step).as('pausedAt');
+    });
+    press('ArrowRight');
+    replayStatus('Paused');
+    cy.get<number>('@pausedAt').then((pausedAt) =>
+      doWithTestController((tc) =>
+        expect(tc.getNodeOutputValue('replay', 'Step')).to.eq(pausedAt + 1),
+      ),
+    );
+    press('ArrowLeft');
+    cy.get<number>('@pausedAt').then((pausedAt) =>
+      shouldWithTestController((tc) =>
+        expect(tc.getNodeOutputValue('replay', 'Step')).to.eq(pausedAt),
+      ),
+    );
+    press(' ');
+    shouldWithTestController((tc) =>
+      expect(tc.getNodeOutputValue('replay', 'Status')).to.match(/^Running/),
+    );
+    press('Escape');
+    replayStatus('Stopped');
+    shouldWithTestController((tc) =>
+      expect(tc.getNodeOutputValue('replay', 'Caption')).to.eq(''),
+    );
+    // dismissed, so the keys are free again
+    press(' ');
+    cy.wait(500);
+    replayStatus('Stopped');
+  });
+
+  it('warns while its captions have no Subtitle node to show them', () => {
+    doWithTestController(async (tc) => {
+      const warns = () =>
+        tc
+          .getNodeByID('replay')
+          .getOutputSocketByName('Caption')!
+          .status.isProblem();
+      await tc.addNode('Replay', 'replay', -600, 0);
+      expect(warns()).to.eq(true);
+      const result = await tc.callMCPTool('inspect_warnings_and_errors', {
+        node_ids: ['replay'],
+      });
+      expect(result.content).to.contain('Subtitle');
+
+      await tc.addNode('Subtitle', 'subtitle', -200, 0);
+      await tc.connectNodesByID('replay', 'subtitle', 'Caption', 'Text');
+      expect(warns()).to.eq(false);
+
+      // an opening app links its nodes after adding them
+      await tc.loadStringifiedGraph(JSON.stringify(tc.getGraph().serialize()));
+    });
+    waitForGraphToBeReady();
+    doWithTestController((tc) =>
+      expect(
+        tc
+          .getNodeByID('replay')
+          .getOutputSocketByName('Caption')!
+          .status.isProblem(),
+      ).to.eq(false),
+    );
   });
 });
