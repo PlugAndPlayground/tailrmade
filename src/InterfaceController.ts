@@ -442,7 +442,7 @@ export default class InterfaceController {
               e.preventDefault();
               break;
             case 'k':
-              PPStorage.getInstance().copyCurrentGraphURLToClipboard();
+              void PPStorage.getInstance().copyCurrentGraphURLToClipboard();
               e.preventDefault();
               break;
             case '=':

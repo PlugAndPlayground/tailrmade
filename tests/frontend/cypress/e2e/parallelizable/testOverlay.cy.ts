@@ -79,9 +79,9 @@ describe('testOverlays', () => {
 
   it('test share app menu', () => {
     cy.get('[data-cy="shareCurrentButton"]').click({ force: true });
-    cy.contains('Share app').should('be.visible');
+    cy.get('[data-cy="share-app-status"]').should('be.visible');
     cy.get('body').click(100, 100);
-    cy.contains('Share app').should('not.exist');
+    cy.get('[data-cy="share-app-status"]').should('not.exist');
   });
 
   it('test app view toggle', () => {

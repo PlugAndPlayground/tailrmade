@@ -262,7 +262,9 @@ export const BottomBar: React.FC = () => {
           dataCy={`bottom-bar-${openMenu}`}
           onClose={() => setOpenMenu(undefined)}
         >
-          {openMenu === 'share' ? shareOptions() : appMenuOptions()}
+          {openMenu === 'share'
+            ? shareOptions(() => setOpenMenu(undefined))
+            : appMenuOptions()}
         </MenuSheet>
       )}
     </Box>
