@@ -1071,17 +1071,7 @@ export const getLoadExampleURL = (path: string, fileName: string): string => {
   return fullPath;
 };
 
-export const getLoadCloudGraphURL = (graph: IGraphSearch): string => {
-  const encodedOwner = encodeURIComponent(graph.owner);
-  const encodedName = encodeURIComponent(graph.name);
-  const encodedLocation = encodeURIComponent(graph.location);
-  const encodedAccess = encodeURIComponent(graph.access);
-
-  const fullPath = `${window.location.origin}${
-    window.location.pathname
-  }?loadGraph=${encodedOwner};;${encodedName};;${encodedLocation};;${encodedAccess}`;
-  return fullPath;
-};
+export { getLoadCloudGraphURL } from './cloudGraphURL';
 
 export const getLoadNodeExampleURL = (nodeName: string): string => {
   return getLoadExampleURL('nodes', nodeName);

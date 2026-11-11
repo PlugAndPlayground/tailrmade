@@ -98,6 +98,7 @@ const getAINodeCategories = () => {
     storage: categories.storage,
     statistics: categories.statistics,
     plotlyChart: categories.plotlyChart,
+    browser: categories.browser,
   };
 };
 

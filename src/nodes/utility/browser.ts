@@ -8,11 +8,14 @@ import {
 import { TRgba } from '../../utils/color';
 import UpdateBehaviourClass from '../../classes/UpdateBehaviourClass';
 import PPNode from '../../classes/NodeClass';
+import PPGraph from '../../classes/GraphClass';
 import Socket from '../../classes/SocketClass';
 import { AnyType } from '../datatypes/anyType';
 import { BooleanType } from '../datatypes/booleanType';
 import { StringType } from '../datatypes/stringType';
 import { migrateFromCustomFunctionCommon } from '../data/array';
+import { getLoadCloudGraphURL } from '../../utils/cloudGraphURL';
+import type { IGraphSearch } from '../../utils/interfaces';
 
 const URLName = 'url';
 
@@ -20,6 +23,7 @@ const keyName = 'Key';
 const defaultName = 'Default';
 const valueName = 'Value';
 const foundName = 'Found';
+const appLinkName = 'App link';
 
 const reservedNames = new Set(Object.values(URL_PARAMETER_NAME));
 
@@ -43,6 +47,18 @@ export function readURLParameters(
     sourceValues.forEach((values, name) => parameters.set(name, values));
   }
   return parameters;
+}
+
+// The address that reopens this app for someone else. Built from the loaded
+// app's cloud reference, not window.location: loading rewrites the address to
+// loadRemoteGraph/loadLocalGraph, and a local id only works in this browser.
+export function getAppLink(
+  graph:
+    | Pick<IGraphSearch, 'isRemote' | 'access' | 'owner' | 'name' | 'location'>
+    | undefined,
+): string {
+  if (!graph?.isRemote || graph.access !== 'public') return '';
+  return getLoadCloudGraphURL(graph);
 }
 
 export class OpenURL extends PPNode {
@@ -84,6 +100,16 @@ export class OpenURL extends PPNode {
 
   public getDescription(): string {
     return 'Opens a URL in a new tab';
+  }
+
+  public getDocs(): string {
+    return `Opens "url" in a new tab when the node runs. Only HTTP and HTTPS
+addresses are opened.
+
+Opening an address is a navigation risk, so an app with this node pauses
+behind the risk review until the user approves it. When the user only needs a
+link to click, a Markdown link in a Text node, such as [Open map](https://...),
+does the job without the review.`;
   }
 
   public getTags(): string[] {
@@ -128,7 +154,13 @@ appears more than once comes out as an array.
 
 "Found" is true when the address has the parameter. Without the parameter, "Value" is "Default".
 
-Tailrmade's own parameters, such as loadGraph, are never reported.`;
+Tailrmade's own parameters, such as loadGraph, are never reported.
+
+"App link" is the address that opens this app for someone else, without any
+#part, so an app can hand out links by adding its own, for example
+App link + "#santa=Anna". It is empty while the app is only saved in this
+browser, not saved at all, or saved to the cloud without public access; show
+something like "Publish this app to share links" then.`;
   }
 
   public getTags(): string[] {
@@ -145,6 +177,7 @@ Tailrmade's own parameters, such as loadGraph, are never reported.`;
       new Socket(SOCKET_TYPE.IN, defaultName, new AnyType(), ''),
       new Socket(SOCKET_TYPE.OUT, valueName, new AnyType()),
       new Socket(SOCKET_TYPE.OUT, foundName, new BooleanType()),
+      new Socket(SOCKET_TYPE.OUT, appLinkName, new StringType()),
     ];
   }
 
@@ -156,6 +189,7 @@ Tailrmade's own parameters, such as loadGraph, are never reported.`;
       window.location.search,
       window.location.hash,
     );
+    output[appLinkName] = getAppLink(PPGraph.currentGraph);
     const key = input[keyName];
     if (!key) {
       output[valueName] = Object.fromEntries(
