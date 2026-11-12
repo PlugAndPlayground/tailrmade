@@ -17,7 +17,7 @@ import {
   DATA_DASHBOARD_EDITABLE,
   DATA_DASHBOARD_WIDGET,
 } from '../../utils/constants';
-import { toneCssVariables } from '../TextView';
+import { textCssVariables } from '../TextView';
 import { registerInlineTextSanitizer } from './content';
 import { createTextEditorConfig, TextHostProfile } from './editorConfig';
 import {
@@ -211,7 +211,7 @@ export function InlineTextEditor({
             }
           }}
           sx={[
-            (theme) => toneCssVariables(theme),
+            (theme) => textCssVariables(theme),
             { position: 'relative', width: '100%' },
             ...(Array.isArray(sx) ? sx : [sx]),
           ]}
