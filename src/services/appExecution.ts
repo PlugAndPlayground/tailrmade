@@ -24,3 +24,19 @@ export const pendingAppRun = createStore<{
   name: string;
   run: () => Promise<void>;
 } | null>(null);
+
+// Input values a link asks to set on the app it opens. They are applied while
+// the app loads, before anything runs and before the review reads the app, so
+// they are reviewed like the rest of it and cannot ride on an earlier approval.
+export type LinkSocketData = { node: string; socket: string; data: unknown };
+let linkSocketData: LinkSocketData[] = [];
+
+export function setLinkSocketData(data: LinkSocketData[]): void {
+  linkSocketData = data;
+}
+
+export function takeLinkSocketData(): LinkSocketData[] {
+  const data = linkSocketData;
+  linkSocketData = [];
+  return data;
+}

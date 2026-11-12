@@ -1,5 +1,6 @@
 // Headless styling model shared by static and dynamic Text.
 
+import { sanitizeCustomStyles } from '../utils/cssValue';
 import { fontScalarVar } from '../utils/theme/tokens';
 
 export const TEXT_VARIANTS = [
@@ -158,6 +159,7 @@ export function resolveTextElementStyle(
     fontSize: variantFontSize(props.variant),
     color: props.tone === 'default' ? 'inherit' : TONE_PALETTE[props.tone],
     textAlign: props.alignment,
-    ...props.customStyles,
+    // Filtered where it meets the page; the stored value stays as written.
+    ...sanitizeCustomStyles(props.customStyles),
   };
 }

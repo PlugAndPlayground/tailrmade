@@ -1,7 +1,6 @@
 import { useEffect, useState, useRef } from 'react';
 import JSON5 from 'json5';
 import * as PIXI from 'pixi.js';
-import isUrl from 'is-url';
 import { useTheme } from '@mui/material';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import PPStorage, { checkForUnsavedChanges } from '../PPStorage';
@@ -57,7 +56,11 @@ import {
 } from '../nodes/textEditor/textEditor2';
 import { BackendGateway } from '../services/BackendGateway';
 import { ActionHandler } from '../classes/Action';
-import type { URLSetSocketData } from '../nodes/state/storage';
+import { getEmbeddableAddress } from './appHtml';
+import {
+  setLinkSocketData,
+  type LinkSocketData,
+} from '../services/appExecution';
 import FlowLogic from '../classes/FlowLogic';
 
 const numberFormatter = new Intl.NumberFormat();
@@ -1007,12 +1010,13 @@ export const pasteClipboard = async (e: ClipboardEvent): Promise<void> => {
         const plainText = clipboardBlobs['text/plain'];
         e.preventDefault();
         if (PPGraph.currentGraph.selection.selectedNodes.length < 1) {
-          if (isUrl(data)) {
+          const embedAddress = getEmbeddableAddress(data);
+          if (embedAddress) {
             await PPGraph.currentGraph.addNewNode(
               'EmbedWebsite',
               {
                 defaultArguments: {
-                  [htmlInputSocketName]: `<iframe src="${data}" style="width: 100%; height: 100%;"></iframe>`,
+                  [htmlInputSocketName]: `<iframe src="${embedAddress}" style="width: 100%; height: 100%;"></iframe>`,
                 },
                 nodePosX: currPos.x,
                 nodePosY: currPos.y,
@@ -1341,6 +1345,22 @@ export const getURLParameters = (): URLSearchParams => {
   return params;
 };
 
+const parseLinkSocketData = (value: string | null): LinkSocketData[] => {
+  if (!value) return [];
+  try {
+    const parsed: unknown = JSON.parse(value);
+    return Array.isArray(parsed)
+      ? parsed.filter(
+          (entry): entry is LinkSocketData =>
+            typeof entry?.node === 'string' &&
+            typeof entry?.socket === 'string',
+        )
+      : [];
+  } catch {
+    return [];
+  }
+};
+
 export const loadGraph = async (urlParams: URLSearchParams) => {
   // Remote graph loading:
   const loadGraph = urlParams.get(URL_PARAMETER_NAME.LOADGRAPH); // Compact format: "owner;;name;;location;;access"
@@ -1362,6 +1382,7 @@ export const loadGraph = async (urlParams: URLSearchParams) => {
   console.log(
     `${URL_PARAMETER_NAME.LOADGRAPH}: ${loadGraph}, ${URL_PARAMETER_NAME.NEW}: ${createEmptyGraph},${URL_PARAMETER_NAME.TOASTEVERYTHING}: ${toastEverything}, ${URL_PARAMETER_NAME.LOADLOCALGRAPH}: ${loadLocalGraph}, ${URL_PARAMETER_NAME.LOADREMOTEGRAPH}: ${loadRemoteGraph}, ${URL_PARAMETER_NAME.SETSOCKETDATA}: ${setSocketData}`,
   );
+  setLinkSocketData(parseLinkSocketData(setSocketData));
   if (loadGraph) {
     await PPStorage.getInstance().loadGraphFromCloudReference(loadGraph);
   } else if (loadFullGraphFromURL) {
@@ -1388,28 +1409,8 @@ export const loadGraph = async (urlParams: URLSearchParams) => {
       await PPStorage.getInstance().createEmptyGraph();
     }
   }
-  if (setSocketData) {
-    const socketDatas = JSON.parse(setSocketData) as URLSetSocketData[];
-    let foundNodes: PPNode[] = [];
-    for (const socketData of socketDatas) {
-      const node = PPGraph.currentGraph.getNodeById(socketData.node);
-      foundNodes.push(node);
-      const socket = node.getInputSocketByName(socketData.socket);
-      console.log(
-        'Setting data via URL, node: ' +
-          node.id +
-          ', socket: ' +
-          socket.name +
-          ', data: ' +
-          JSON.stringify(socketData.data),
-      );
-      socket.data = socketData.data;
-      const nodesThatShouldExecute = foundNodes.filter(
-        (node) => node.updateBehaviour.load || node.updateBehaviour.update,
-      );
-      await FlowLogic.executeOptimizedChainBatch(nodesThatShouldExecute);
-    }
-  }
+  // Whatever the load did not use must not reach the next app.
+  setLinkSocketData([]);
   ActionHandler.setUnsavedChange(false); // reset unsaved changes after loading a graph
 };
 

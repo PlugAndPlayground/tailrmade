@@ -5,6 +5,7 @@ import {
   doWithTestController,
   shouldWithTestController,
   serializedNode,
+  serializedGraph,
   serializedSocket,
   clickNode,
   getNodeCenterById,
@@ -1372,6 +1373,40 @@ describe('app risk review', () => {
         true,
       );
       expect(requests).to.equal(0);
+    });
+  });
+
+  it('reviews input values a link sets before the app runs with them', () => {
+    const graph = serializedGraph([
+      {
+        ...serializedNode('customfunction', 'code', [
+          serializedSocket(
+            'Code',
+            '() => { window.__riskCodeRuns = (window.__riskCodeRuns || 0) + 1; return 7; }',
+            'CodeType',
+          ),
+          serializedSocket('Main Thread', false, 'BooleanType'),
+        ]),
+        version: 3,
+      },
+    ]);
+    const values = JSON.stringify([
+      { node: 'code', socket: 'Main Thread', data: true },
+    ]);
+    cy.location('origin').then((origin) => {
+      cy.visit(
+        `${origin}/?toastEverything=true&loadFullGraph=${encodeURIComponent(graph)}&setSocketData=${encodeURIComponent(values)}`,
+      );
+    });
+    cy.get('[data-cy="app-risk-dialog"]', { timeout: 60000 }).should(
+      'contain',
+      'Run unsandboxed code',
+    );
+    cy.window().then((win: any) => expect(win.__riskCodeRuns).to.be.undefined);
+    shouldWithTestController((controller) => {
+      expect(
+        controller.getNodeByID('code').getInputData('Main Thread'),
+      ).to.equal(true);
     });
   });
 });

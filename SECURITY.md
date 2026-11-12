@@ -48,6 +48,17 @@ site only when it is fixed on the node, where the review lists it. An address
 that arrives while the app runs is refused; an Image node loads it instead and
 is reviewed for it.
 
+Input values carried by a link (`setSocketData`) are applied while the app
+loads, before any node runs and before the review reads the app. They are part
+of what an approval is tied to, so an approved app opened with other values is
+reviewed again.
+
+Theme strings and custom styles are limited to plain CSS values. Custom styles
+keep properties, `@media`/`@container`/`@supports` blocks and states of the
+element itself (`&:hover`); other selectors, addresses on other sites and
+`position: fixed` or `sticky` are dropped. Pasted text becomes an Embed website
+node only when it is an `http(s)` address, which is written out escaped.
+
 Approval is remembered when a person runs the app, or saves an app that is
 already running. Saving an app that is still paused does not approve it.
 

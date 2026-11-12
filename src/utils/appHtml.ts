@@ -1,4 +1,5 @@
 import DOMPurify from 'dompurify';
+import isUrl from 'is-url';
 
 // 'none' for markup placed in Tailrmade's own page, where a stylesheet would
 // reach the rest of the interface. 'scoped' keeps stylesheets but confines them
@@ -123,3 +124,20 @@ export function findExternalAddresses(
   }
   return [...external];
 }
+
+// Pasted text becomes markup in a node that is not sanitized, so only a web
+// address is accepted and it is written back out in its parsed, escaped form.
+export const getEmbeddableAddress = (text: unknown): string | undefined => {
+  if (typeof text !== 'string' || !isUrl(text.trim())) return undefined;
+  try {
+    const url = new URL(text.trim());
+    if (!['http:', 'https:'].includes(url.protocol)) return undefined;
+    return url.href
+      .replace(/&/g, '&amp;')
+      .replace(/"/g, '&quot;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
+  } catch {
+    return undefined;
+  }
+};
