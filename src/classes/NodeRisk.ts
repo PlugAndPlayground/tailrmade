@@ -245,6 +245,16 @@ export function getImageSourceRisks(
   return [];
 }
 
+export function isRemoteImageSource(source: unknown): boolean {
+  return getImageSourceRisks(source, false).length > 0;
+}
+
+// For nodes that normally receive image data from another node. A remote
+// address is only loaded when the review could list it: one that arrives
+// while the app runs could carry app data to any site.
+export const UNLISTED_IMAGE_ADDRESS =
+  'An image address from another site only loads when it is set on this node directly. Load it with an Image node and connect that instead.';
+
 export class NavigationRisk extends NodeRisk {
   readonly kind = 'navigation';
   readonly severity: RiskSeverity;

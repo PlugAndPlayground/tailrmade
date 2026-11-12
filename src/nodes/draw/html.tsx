@@ -12,13 +12,16 @@ import {
   DynamicContentRisk,
   UnrestrictedCodeRisk,
   ExternalHtmlRisk,
-  getImageSourceRisks,
 } from '../../classes/NodeRisk';
 import { TRgba } from '../../utils/color';
 import { composeDocs } from '../../utils/nodeDocs';
 import { ErrorBoundary } from 'react-error-boundary';
 import Frame from 'react-frame-component';
-import DOMPurify from 'dompurify';
+import {
+  findExternalAddresses,
+  restoreHandlebarsPartials,
+  sanitizeAppHtml,
+} from '../../utils/appHtml';
 import DashboardIcon from '@mui/icons-material/Dashboard';
 import { Box, Typography, useTheme } from '@mui/material';
 import ErrorFallback from '../../components/ErrorFallback';
@@ -120,12 +123,8 @@ const parsedHtmlOutputName = 'Parsed Html';
 /**
  * Base class for HTML-rendering nodes with shared Handlebars functionality.
  */
-const getExternalHtmlRisks = (sanitized: string): NodeRisk[] => {
-  const urls = sanitized.match(/(?:https?:)?\/\/[^\s<>"'()]+/g) ?? [];
-  return [...new Set(urls)]
-    .filter((url) => getImageSourceRisks(url, false).length > 0)
-    .map((url) => new ExternalHtmlRisk(url));
-};
+const getExternalHtmlRisks = (sanitized: string): NodeRisk[] =>
+  findExternalAddresses(sanitized).map((url) => new ExternalHtmlRisk(url));
 
 abstract class HtmlNodeBase extends HybridNode2 {
   public getRisks(): NodeRisk[] {
@@ -150,7 +149,12 @@ abstract class HtmlNodeBase extends HybridNode2 {
           : JSON.stringify(value.value),
       )
       .join('\n');
-    return getExternalHtmlRisks(DOMPurify.sanitize(markup));
+    return getExternalHtmlRisks(this.sanitize(markup));
+  }
+
+  // Review and render go through the same sanitizer.
+  public sanitize(markup: string): string {
+    return sanitizeAppHtml(markup, 'none');
   }
   protected lastTemplateError: Error | null = null;
 
@@ -390,16 +394,6 @@ input of another HTML node.`,
     return textarea.value;
   }
 
-  // Decode HTML entities within Handlebars syntax that may have been escaped by sanitization
-  // This specifically targets patterns like {{&gt; partial}} → {{> partial}}
-  private decodeHandlebarsInSanitized(html: string): string {
-    // Find all Handlebars patterns and decode HTML entities within them
-    // Use non-greedy match to properly capture content between {{ and }}
-    return html.replace(/\{\{.*?\}\}/gs, (match) => {
-      return this.decodeHtmlEntities(match);
-    });
-  }
-
   protected replaceHandlebarsInHtml(
     htmlContent: string,
     data: any,
@@ -451,8 +445,7 @@ input of another HTML node.`,
         partials,
       );
       if (sanitize) {
-        processedHtml = DOMPurify.sanitize(processedHtml);
-        processedHtml = this.decodeHandlebarsInSanitized(processedHtml);
+        processedHtml = restoreHandlebarsPartials(this.sanitize(processedHtml));
       }
       outputObject[parsedHtmlOutputName] = processedHtml;
     }
@@ -485,26 +478,11 @@ const HtmlComponent = (props): React.ReactElement => {
     partials,
   );
 
-  // Sanitize HTML if enabled to protect against XSS attacks
-  // Note: DOMPurify removes <style> tags and onclick attributes, so disable
-  // sanitization on intermediate template nodes and only enable on final output
-  if (props[SANITIZE_NAME]) {
-    // Add hook to automatically add rel="noopener noreferrer" to links with target="_blank"
-    DOMPurify.addHook('afterSanitizeAttributes', function (node) {
-      if (node.tagName === 'A' && node.hasAttribute('target')) {
-        node.setAttribute('rel', 'noopener noreferrer');
-      }
-    });
-
-    htmlContent = DOMPurify.sanitize(htmlContent, {
-      ADD_ATTR: ['target'], // Allow target attribute on links
-    });
-
-    // Remove the hook after sanitization to avoid memory leaks
-    DOMPurify.removeHook('afterSanitizeAttributes');
-
-    // Decode any Handlebars syntax that got entity-encoded during sanitization
-    htmlContent = node.decodeHandlebarsInSanitized(htmlContent);
+  // Styles and scripts do not survive sanitizing, so turn it off on
+  // intermediate template nodes and keep it on for the node that renders.
+  const sanitized = Boolean(props[SANITIZE_NAME]);
+  if (sanitized) {
+    htmlContent = restoreHandlebarsPartials(node.sanitize(htmlContent));
   }
 
   useLayoutEffect(() => {
@@ -747,6 +725,10 @@ const HtmlComponent = (props): React.ReactElement => {
             width: width,
             height: height,
             overflow: getOverflowForSize(props.width, props.height),
+            // Sanitized markup stays inside its own box: fixed positioning
+            // and large z-index values cannot cover the rest of Tailrmade.
+            contain: sanitized ? 'paint' : undefined,
+            isolation: sanitized ? 'isolate' : undefined,
           }}
         />
       </div>
@@ -755,6 +737,11 @@ const HtmlComponent = (props): React.ReactElement => {
 };
 
 export class IFrameRenderer extends HtmlNodeBase {
+  // The frame is a document of its own, so its stylesheets stay inside it.
+  public sanitize(markup: string): string {
+    return sanitizeAppHtml(markup, 'page');
+  }
+
   eventTarget: EventTarget;
 
   public onNodeAdded = async (source: TNodeSource): Promise<void> => {
@@ -919,8 +906,8 @@ const IFrameComponent = (props): React.ReactElement => {
   let headerContent = props[inputSocketNameHeader];
 
   if (props[SANITIZE_NAME]) {
-    htmlContent = DOMPurify.sanitize(htmlContent);
-    headerContent = DOMPurify.sanitize(headerContent);
+    htmlContent = node.sanitize(htmlContent);
+    headerContent = node.sanitize(headerContent);
   }
 
   // Check if this is a full HTML document

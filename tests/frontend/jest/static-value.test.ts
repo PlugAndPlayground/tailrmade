@@ -80,3 +80,31 @@ it('represents a cycle as an unknown value', () => {
     value: undefined,
   });
 });
+
+const linked = (data: unknown, predicted: unknown) =>
+  ({
+    data,
+    links: [
+      {
+        getSource: () => ({
+          name: 'Out',
+          getNode: () => ({
+            getStaticOutputData: () => ({ known: true, value: predicted }),
+          }),
+        }),
+      },
+    ],
+    dataType: { parse: (value: unknown) => ({ value: Boolean(value) }) },
+  }) as any;
+
+it('knows a linked input once the source has delivered the predicted value', () => {
+  expect(resolveStaticInput(linked(true, 1))).toEqual({
+    known: true,
+    value: true,
+  });
+});
+
+it('keeps a linked input unknown while its data differs from the prediction', () => {
+  // A source that never runs leaves the input on whatever it held before.
+  expect(resolveStaticInput(linked(false, true))).toEqual(UNKNOWN_STATIC_VALUE);
+});

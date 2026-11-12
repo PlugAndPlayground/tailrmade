@@ -508,31 +508,25 @@ describe('app risk review', () => {
   });
 
   [false, true].forEach((saveAs) => {
-    it(`trusts an app after ${saveAs ? 'Save As' : 'Save'} without running it first`, () => {
+    it(`asks again after ${saveAs ? 'Save As' : 'Save'} on an app that is still paused`, () => {
       beginLoad([codeNode()]);
       cy.get('[data-cy="app-risk-dialog"]')
         .contains('button', 'Keep inspecting')
         .click();
       cy.get('body').type(`${controlOrMetaKey()}${saveAs ? '{shift}' : ''}s`);
       cy.contains('was saved to local database').should('be.visible');
-      cy.window().then(
-        (win: any) => expect(win.__riskCodeRuns).to.be.undefined,
-      );
-      cy.reload();
-      cy.window().should((win: any) =>
-        expect(win.__riskCodeRuns).to.be.greaterThan(0),
-      );
-      cy.get('[data-cy="app-risk-dialog"]').should('not.exist');
-      doWithTestController(async (controller) => {
-        const changed = controller.getGraph().getSerializedStoredGraph();
-        changed.graphData.nodes[0].socketArray.find(
-          (socket: any) => socket.name === 'Code',
-        ).data = '() => { window.__unsavedRiskRan = true; return 9; }';
-        await controller.getGraph().configure(changed);
+      cy.window().then((win: any) => {
+        expect(win.__riskCodeRuns).to.be.undefined;
+        expect(
+          Object.keys(win.localStorage).filter((key) =>
+            key.startsWith('tailrmade.app-approval.'),
+          ),
+        ).to.be.empty;
       });
+      cy.reload();
       cy.get('[data-cy="app-risk-dialog"]').should('be.visible');
       cy.window().then(
-        (win: any) => expect(win.__unsavedRiskRan).to.be.undefined,
+        (win: any) => expect(win.__riskCodeRuns).to.be.undefined,
       );
     });
   });
@@ -1308,5 +1302,76 @@ describe('app risk review', () => {
       .contains('button', 'Keep inspecting')
       .click();
     cy.get('[data-cy="app-not-running"]').should('be.visible');
+  });
+
+  it('does not trust a sanitize setting whose source never delivers it', () => {
+    beginLoad(
+      [
+        {
+          ...serializedNode('constant', 'setting', [
+            serializedSocket('In', true, 'BooleanType'),
+          ]),
+          updateBehaviour: { load: false, update: false, interval: false },
+        },
+        serializedNode('htmlrenderer', 'html', [
+          serializedSocket('Html', '<p>Checked</p>', 'HtmlType'),
+          serializedSocket('Sanitize input', true, 'BooleanType'),
+        ]),
+      ],
+      [linkTo('setting', 'Out', 'html', 'Sanitize input')],
+    );
+    cy.get('[data-cy="app-risk-dialog"]').should(
+      'contain',
+      'Run unsandboxed code',
+    );
+    shouldWithTestController((controller) => {
+      expect(riskKinds(controller, 'html')).to.deep.equal([
+        'unrestricted-code',
+      ]);
+    });
+  });
+
+  it('keeps sanitized HTML in its own box, without stylesheets or forms', () => {
+    beginLoad([
+      serializedNode('htmlrenderer', 'boxed', [
+        serializedSocket(
+          'Html',
+          '<p class="kept">Kept</p><style>p { color: red; }</style><form><input name="q"></form>',
+          'HtmlType',
+        ),
+        serializedSocket('Sanitize input', true, 'BooleanType'),
+      ]),
+    ]);
+    cy.get('[data-cy="app-risk-dialog"]').should('not.exist');
+    cy.get('#boxed-div .kept').should('exist');
+    cy.get('#boxed-div').should(($box) => {
+      expect($box.find('style, form')).to.have.length(0);
+      expect(getComputedStyle($box[0]).contain).to.equal('paint');
+    });
+  });
+
+  it('does not load an image address that reaches Draw image while running', () => {
+    let requests = 0;
+    cy.intercept('GET', 'https://images.example.test/**', (request) => {
+      requests += 1;
+      request.reply({ statusCode: 404 });
+    });
+    beginLoad(
+      [
+        workerSource('address', 'https://images.example.test/running.png'),
+        serializedNode('draw_image', 'draw', []),
+      ],
+      [linkTo('address', 'OutData', 'draw', 'Image')],
+    );
+    cy.get('[data-cy="app-risk-dialog"]').should('not.exist');
+    shouldWithTestController((controller) => {
+      expect(
+        controller.getNodeByID('address').debug_timesExecuted,
+      ).to.be.greaterThan(0);
+      expect(controller.getNodeByID('draw').status.node.isProblem()).to.equal(
+        true,
+      );
+      expect(requests).to.equal(0);
+    });
   });
 });

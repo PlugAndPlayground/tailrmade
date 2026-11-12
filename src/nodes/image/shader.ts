@@ -5,6 +5,12 @@ import UpdateBehaviourClass from '../../classes/UpdateBehaviourClass';
 import { TRgba } from '../../utils/color';
 import { NODE_TYPE_COLOR, SOCKET_TYPE } from '../../utils/constants';
 import Socket from '../../classes/SocketClass';
+import {
+  NodeRisk,
+  UNLISTED_IMAGE_ADDRESS,
+  getImageSourceRisks,
+  isRemoteImageSource,
+} from '../../classes/NodeRisk';
 import { CodeType } from '../datatypes/codeType';
 import { inputHeightName, inputWidthName } from '../draw/draw';
 import { NumberType } from '../datatypes/numberType';
@@ -72,6 +78,16 @@ const maxUIResolution = 4;
 const maxRenderTextureSize = 4096;
 
 export class Shader extends DRAW_Base implements TextureMirrorSource {
+  public getRisks(): NodeRisk[] {
+    const images = this.getStaticInputData(imageInputDataName);
+    if (!images.known || !images.value || typeof images.value !== 'object') {
+      return [];
+    }
+    return Object.values(images.value).flatMap((source) =>
+      getImageSourceRisks(source, false),
+    );
+  }
+
   shader: PIXI.Shader;
   renderTexture: PIXI.RenderTexture;
 
@@ -265,6 +281,9 @@ export class Shader extends DRAW_Base implements TextureMirrorSource {
         }
       } catch (e) {
         console.warn('Failed to add images to shader', e);
+        if (e instanceof Error && e.message === UNLISTED_IMAGE_ADDRESS) {
+          this.setStatus(new NodeExecutionError(e.message));
+        }
       }
       this.prevImageNames
         .filter((name) => images[name] == undefined)
@@ -342,6 +361,12 @@ export class Shader extends DRAW_Base implements TextureMirrorSource {
       // also covers RenderTexture
       return curr.source as PIXI.TextureSource<any>;
     } else if (typeof curr === 'string') {
+      if (
+        isRemoteImageSource(curr) &&
+        !this.getStaticInputData(imageInputDataName).known
+      ) {
+        throw new Error(UNLISTED_IMAGE_ADDRESS);
+      }
       const texture = await PIXI.Assets.load<PIXI.Texture>(curr);
       return texture.source as PIXI.TextureSource<any>;
     }

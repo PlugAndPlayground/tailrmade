@@ -1,6 +1,8 @@
 import React from 'react';
 import { AbstractType, DataTypeProps } from './abstractType';
 import { DEFAULT_IMAGE } from '../../utils/constants';
+import { isRemoteImageSource } from '../../classes/NodeRisk';
+import { resolveStaticInput } from '../../classes/StaticValue';
 import { TParseType } from '../../utils/interfaces';
 
 export interface ImageTypeProps extends DataTypeProps {
@@ -10,6 +12,13 @@ export interface ImageTypeProps extends DataTypeProps {
 export const ImageWidget: React.FunctionComponent<ImageTypeProps> = (props) => {
   // Reference socket for reading state
   const property = props.socketsToUpdate[0];
+  // A remote address is only shown when it is fixed on an input, the same
+  // rule the risk review uses. One produced while running is not loaded.
+  const source =
+    isRemoteImageSource(property.data) &&
+    !(property.isInput() && resolveStaticInput(property).known)
+      ? DEFAULT_IMAGE
+      : property.data;
 
   return (
     <img
@@ -19,7 +28,7 @@ export const ImageWidget: React.FunctionComponent<ImageTypeProps> = (props) => {
         maxHeight: '60vh',
         objectFit: 'contain',
       }}
-      src={property.data}
+      src={source}
       alt={property.name}
       onError={({ currentTarget }) => {
         currentTarget.onerror = null; // prevents looping

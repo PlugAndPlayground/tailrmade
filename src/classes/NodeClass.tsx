@@ -644,7 +644,8 @@ export default class PPNode extends PIXI.Container implements IWarningHandler {
         item.socketType,
         item.name,
         deSerializeType(item.dataType),
-        item.data,
+        // An output only ever holds what its node produced in this session.
+        item.socketType === SOCKET_TYPE.OUT ? undefined : item.data,
         item.visible,
       );
       addingSocket = true;

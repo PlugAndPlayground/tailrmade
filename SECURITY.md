@@ -34,6 +34,23 @@ without executing graph code. Unknown connected inputs remain dynamic.
 Sanitized static HTML references are informational; unsanitized HTML still
 requires approval.
 
+A connected input counts as resolved only once the socket holds the value the
+review worked out. A source that has not delivered it leaves the input dynamic.
+Output socket data is never read from a graph file.
+
+Sanitized HTML has no forms. In the HTML node it also has no stylesheets and is
+painted inside its own box; Slides keeps stylesheets but scopes them to the
+deck, and the IFrame nodes keep them inside the frame. The review reads
+addresses from the parsed, sanitized markup, the same markup that is rendered.
+
+Draw image, Draw shader and the image socket preview load an address on another
+site only when it is fixed on the node, where the review lists it. An address
+that arrives while the app runs is refused; an Image node loads it instead and
+is reviewed for it.
+
+Approval is remembered when a person runs the app, or saves an app that is
+already running. Saving an app that is still paused does not approve it.
+
 Source identity is session metadata supplied by the cloud loading path. Files,
 gists, and serialized owner fields cannot grant a verified badge. A graph fetched
 from the `publicUser` account receives the verified Tailrmade badge.
