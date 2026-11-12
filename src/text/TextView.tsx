@@ -17,19 +17,23 @@ import {
   toneCssVariable,
 } from './model';
 import { renderTokenSource } from './tokens';
+import { themeToCssVariables } from '../utils/theme';
 import './lexical/styles.css';
 
 const paletteColor = (theme: Theme, path: string): string =>
   path.split('.').reduce((value: any, key) => value[key], theme.palette);
 
-/** The tone colors of the app theme, as the variables runs use. */
-export const toneCssVariables = (theme: Theme): Record<string, string> =>
-  Object.fromEntries(
+/** The app theme as CSS variables: the `--tm-*` colors styles.css reads,
+ * plus the tone colors runs use. */
+export const textCssVariables = (theme: Theme): Record<string, string> => ({
+  ...themeToCssVariables(theme),
+  ...Object.fromEntries(
     TEXT_TONES.map((tone) => [
       toneCssVariable(tone),
       paletteColor(theme, TONE_PALETTE[tone]),
     ]),
-  );
+  ),
+});
 
 const SAFE_LINK = /^(https?:|mailto:|tel:|\/|#)/i;
 
@@ -192,7 +196,7 @@ export const TextView: React.FC<TextViewProps> = ({
       data-cy={dataCy}
       className="text-block-hits"
       sx={[
-        (theme) => toneCssVariables(theme),
+        (theme) => textCssVariables(theme),
         {
           width: '100%',
           whiteSpace: 'pre-wrap',
