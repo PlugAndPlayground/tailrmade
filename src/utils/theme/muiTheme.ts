@@ -48,9 +48,7 @@ const coarseMinBox = {
   },
 };
 
-// Switch cannot use coarseMinBox. The thumb sits in an absolutely positioned
-// switchBase pinned to top: 0, so it does not follow the track's padding and
-// has to be moved down by the same amount the root grew.
+// Switch cannot use coarseMinBox
 const coarseSwitchRoot = (trackHeight: number, defaultHeight: number) => ({
   [COARSE]: {
     height: `${TOUCH_TARGET_PX}px`,
