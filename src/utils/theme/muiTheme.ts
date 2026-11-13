@@ -48,12 +48,17 @@ const coarseMinBox = {
   },
 };
 
-// Switch cannot use coarseMinBox
-const coarseSwitchRoot = (trackHeight: number) => ({
+// Switch cannot use coarseMinBox. The thumb sits in an absolutely positioned
+// switchBase pinned to top: 0, so it does not follow the track's padding and
+// has to be moved down by the same amount the root grew.
+const coarseSwitchRoot = (trackHeight: number, defaultHeight: number) => ({
   [COARSE]: {
     height: `${TOUCH_TARGET_PX}px`,
     paddingTop: `${(TOUCH_TARGET_PX - trackHeight) / 2}px`,
     paddingBottom: `${(TOUCH_TARGET_PX - trackHeight) / 2}px`,
+    '& .MuiSwitch-switchBase': {
+      top: `${(TOUCH_TARGET_PX - defaultHeight) / 2}px`,
+    },
   },
 });
 
@@ -129,8 +134,8 @@ export const tokensToThemeOptions = (resolved: ResolvedTheme): ThemeOptions => {
       MuiSwitch: {
         defaultProps: { size: density.size },
         styleOverrides: {
-          root: coarseSwitchRoot(14),
-          sizeSmall: coarseSwitchRoot(10),
+          root: coarseSwitchRoot(14, 38),
+          sizeSmall: coarseSwitchRoot(10, 24),
         },
       },
       MuiTable: { defaultProps: { size: density.size } },
