@@ -1376,6 +1376,56 @@ describe('app risk review', () => {
     });
   });
 
+  it('does not hand Draw image a loader instruction instead of an image', () => {
+    let requests = 0;
+    cy.intercept('GET', 'https://images.example.test/**', (request) => {
+      requests += 1;
+      request.reply({ statusCode: 404 });
+    });
+    beginLoad([
+      serializedNode('draw_image', 'draw', [
+        serializedSocket(
+          'Image',
+          { src: 'https://images.example.test/instruction.png' },
+          'ImageType',
+        ),
+      ]),
+    ]);
+    cy.get('[data-cy="app-risk-dialog"]').should('not.exist');
+    shouldWithTestController((controller) => {
+      expect(controller.getNodeByID('draw').status.node.isProblem()).to.equal(
+        true,
+      );
+    });
+    cy.wait(500).then(() => expect(requests).to.equal(0));
+  });
+
+  it('reviews the address a template and its data add up to', () => {
+    const template = (id: string, html: string, data: unknown) =>
+      serializedNode('htmlrenderer', id, [
+        serializedSocket('Html', html, 'HtmlType'),
+        serializedSocket('Data', data, 'AnyType'),
+        serializedSocket('Sanitize input', true, 'BooleanType'),
+      ]);
+    beginLoad([
+      template('built', '<a href="{{scheme}}://{{host}}/page">Link</a>', {
+        scheme: 'https',
+        host: 'built.example.test',
+        unused: 'https://unused.example.test/',
+      }),
+      template('macro', '<p>{{macro "anything"}}</p>', {}),
+    ]);
+    shouldWithTestController((controller) => {
+      expect(
+        controller
+          .getNodeByID('built')
+          .getRisks()
+          .map((risk) => risk.target),
+      ).to.deep.equal(['https://built.example.test/page']);
+      expect(riskKinds(controller, 'macro')).to.deep.equal(['dynamic-content']);
+    });
+  });
+
   it('reviews input values a link sets before the app runs with them', () => {
     const graph = serializedGraph([
       {

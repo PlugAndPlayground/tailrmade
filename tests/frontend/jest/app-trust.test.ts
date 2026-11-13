@@ -116,3 +116,15 @@ it('requires review when hashing or storage is unavailable', async () => {
   expect(isAppApproved('hash')).toBe(false);
   expect(() => rememberAppApproval('hash')).not.toThrow();
 });
+
+it('ties approval to link values that have no socket entry in the file', async () => {
+  const withValue = (data: unknown) => ({
+    ...graph(),
+    linkValues: [{ node: 'code', socket: 'Url', data }],
+  });
+  const plain = await getAppFingerprint(graph(), risks);
+  const one = await getAppFingerprint(withValue('one'), risks);
+  expect(one).not.toBe(plain);
+  expect(one).not.toBe(await getAppFingerprint(withValue('two'), risks));
+  expect(one).toBe(await getAppFingerprint(withValue('one'), risks));
+});

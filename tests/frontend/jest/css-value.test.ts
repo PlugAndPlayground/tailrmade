@@ -40,6 +40,9 @@ it('drops selectors, remote addresses and positioning outside the box', () => {
       '& + div': { display: 'none' },
       '& [title="]"] ~ *': { display: 'none' },
       '& > img': { position: 'fixed', content: 'url(https://example.com)' },
+      '--p': 'fixed',
+      '& > div': { position: 'var(--p)', Position: 'FIXED', inset: 0 },
+      '&:hover': { position: 'inherit' },
       '& ~ *': { display: 'none' },
       '.dialog': { display: 'none' },
       '@media (max-width: 600px)': { '* &': { color: 'blue' }, gap: '2px' },
@@ -47,6 +50,9 @@ it('drops selectors, remote addresses and positioning outside the box', () => {
   ).toEqual({
     color: 'red',
     '& > img': {},
+    '--p': 'fixed',
+    '& > div': { inset: 0 },
+    '&:hover': {},
     '@media (max-width: 600px)': { gap: '2px' },
   });
   expect(sanitizeCustomStyles('nope')).toEqual({});

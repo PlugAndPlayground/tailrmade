@@ -23,6 +23,7 @@ export function getAppReviewContent(
         }),
       })),
       links: graph.links,
+      linkValues: graph.linkValues,
       risks,
     },
     (_key, value) => {

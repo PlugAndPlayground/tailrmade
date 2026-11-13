@@ -85,6 +85,9 @@ export type SerializedGraph = {
   links: SerializedLink[];
   // absent on graphs saved before groups existed
   groups?: SerializedGroup[];
+  // Never saved. Set on the copy an approval is tied to, for input values a
+  // link carried that have no socket entry in the file to hold them.
+  linkValues?: { node: string; socket: string; data: unknown }[];
 };
 
 // The group's rectangle is not stored, it is always derived from its members

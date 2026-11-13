@@ -1933,7 +1933,17 @@ export default class PPGraph {
           (candidate) =>
             candidate.name === socketName && candidate.socketType !== 'out',
         );
-      if (serialized) serialized.data = socket.serialize().data;
+      if (serialized) {
+        serialized.data = socket.serialize().data;
+      } else {
+        // The socket only exists since a migration, so the file has no entry
+        // to carry the value. The approval still has to depend on it.
+        (approvalGraphData.linkValues ??= []).push({
+          node: nodeId,
+          socket: socketName,
+          data: socket.serialize().data,
+        });
+      }
     }
     return [...targets];
   }

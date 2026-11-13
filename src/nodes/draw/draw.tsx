@@ -503,6 +503,11 @@ export class DRAW_Image extends DRAW_Base {
     container: PIXI.Container,
   ): Promise<void> {
     const textureToLoad = inputObject[inputImageName] || DEFAULT_IMAGE;
+    // Anything but a string is a loader instruction that can name an address
+    // the review never saw.
+    if (typeof textureToLoad !== 'string') {
+      throw new Error('The image must be image data or an address.');
+    }
     if (
       isRemoteImageSource(textureToLoad) &&
       !this.getStaticInputData(inputImageName).known

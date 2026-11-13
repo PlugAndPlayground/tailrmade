@@ -35,9 +35,10 @@ const ELEMENT = String.raw`(?:(?:\*|[a-zA-Z][\w-]*)${PART}*|${PART}+)`;
 const NESTED_BLOCK = new RegExp(
   String.raw`^(?:@(?:media|container|supports)\s[^{};]+|&(?:${STATE})*(?:(?:\s*>\s*|\s+)${ELEMENT})*)$`,
 );
-// Taken out of the widget's own box, so it could cover the rest of Tailrmade.
-// Sticky stays inside its parent and is kept.
-const ESCAPES_BOX = /^\s*fixed\s*$/i;
+// Positions that keep the element inside the widget's own box. `fixed` could
+// cover the rest of Tailrmade, and so could anything that is not spelled out
+// here, such as a variable that holds `fixed`.
+const STAYS_IN_BOX = /^\s*(static|relative|absolute|sticky)\s*$/i;
 
 export function sanitizeCustomStyles(
   styles: unknown,
@@ -55,7 +56,7 @@ export function sanitizeCustomStyles(
       continue;
     }
     if (!PROPERTY.test(key) || !isCustomStyleValue(value)) continue;
-    if (key.toLowerCase() === 'position' && ESCAPES_BOX.test(String(value))) {
+    if (key.toLowerCase() === 'position' && !STAYS_IN_BOX.test(String(value))) {
       continue;
     }
     safe[key] = value;
