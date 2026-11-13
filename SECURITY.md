@@ -54,9 +54,11 @@ of what an approval is tied to, so an approved app opened with other values is
 reviewed again.
 
 Theme strings and custom styles are limited to plain CSS values. Custom styles
-keep properties, `@media`/`@container`/`@supports` blocks and states of the
-element itself (`&:hover`); other selectors, addresses on other sites and
-`position: fixed` or `sticky` are dropped. Pasted text becomes an Embed website
+keep properties, `@media`/`@container`/`@supports` blocks, states of the
+element itself (`&:hover`) and selectors for elements inside it (`& img`,
+`& > .row`). Images may be embedded data or a path on Tailrmade's own site
+(`/assets/…`). Selectors that reach outside the element, addresses on other
+sites and `position: fixed` are dropped. Pasted text becomes an Embed website
 node only when it is an `http(s)` address, which is written out escaped.
 
 Approval is remembered when a person runs the app, or saves an app that is

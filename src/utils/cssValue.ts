@@ -5,6 +5,8 @@
 const BREAKS_OUT = /[;{}<>\\@\n\r]|\/\*/;
 const ADDRESS = /url\s*\(|image-set\s*\(|src\s*\(/i;
 const EMBEDDED_IMAGE = /url\(\s*(["']?)data:image\/[^)]*\1\s*\)/gi;
+// A path on Tailrmade's own site. One leading slash only: two name a host.
+const OWN_SITE_IMAGE = /url\(\s*(["']?)\/(?!\/)[\w./%~-]*\1\s*\)/gi;
 
 export const isCssValue = (value: unknown): value is string =>
   typeof value === 'string' &&
@@ -13,20 +15,29 @@ export const isCssValue = (value: unknown): value is string =>
   !BREAKS_OUT.test(value) &&
   !ADDRESS.test(value);
 
-// Custom styles may also carry an image as data, which contacts nobody.
-const isCustomStyleValue = (value: unknown): boolean =>
-  typeof value === 'number' ||
-  (typeof value === 'string' &&
-    !BREAKS_OUT.test(value.replace(EMBEDDED_IMAGE, '')) &&
-    !ADDRESS.test(value.replace(EMBEDDED_IMAGE, '')));
+// Custom styles may also carry an image as data, which contacts nobody, or
+// one served by Tailrmade itself.
+const isCustomStyleValue = (value: unknown): boolean => {
+  if (typeof value === 'number') return true;
+  if (typeof value !== 'string') return false;
+  const rest = value.replace(EMBEDDED_IMAGE, '').replace(OWN_SITE_IMAGE, '');
+  return !BREAKS_OUT.test(rest) && !ADDRESS.test(rest);
+};
 
 const PROPERTY = /^-{0,2}[a-zA-Z][a-zA-Z0-9-]*$/;
-// Responsive blocks and states of the element itself. Any other nested key
-// is a selector, which could reach elements outside the widget.
-const NESTED_BLOCK =
-  /^(@(media|container|supports)\s[^{};]+|&(::?[a-zA-Z-]+(\([a-zA-Z0-9\s+-]*\))?)+)$/;
+const STATE = String.raw`::?[a-zA-Z-]+(?:\([a-zA-Z0-9\s+-]*\))?`;
+const ATTRIBUTE = String.raw`\[[\w-]+(?:[~|^$*]?=(?:"[^"\\\]]*"|'[^'\\\]]*'|[\w-]+))?\]`;
+const PART = String.raw`(?:[.#][\w-]+|${ATTRIBUTE}|${STATE})`;
+const ELEMENT = String.raw`(?:(?:\*|[a-zA-Z][\w-]*)${PART}*|${PART}+)`;
+// Responsive blocks, states of the element itself, and elements inside it
+// ("& img", "& > .row"). Anything else could reach outside the widget: a
+// selector without "&", a sibling combinator, or a list.
+const NESTED_BLOCK = new RegExp(
+  String.raw`^(?:@(?:media|container|supports)\s[^{};]+|&(?:${STATE})*(?:(?:\s*>\s*|\s+)${ELEMENT})*)$`,
+);
 // Taken out of the widget's own box, so it could cover the rest of Tailrmade.
-const ESCAPES_BOX = /^\s*(fixed|sticky)\s*$/i;
+// Sticky stays inside its parent and is kept.
+const ESCAPES_BOX = /^\s*fixed\s*$/i;
 
 export function sanitizeCustomStyles(
   styles: unknown,
@@ -38,7 +49,7 @@ export function sanitizeCustomStyles(
   const safe: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(styles)) {
     if (typeof value === 'object' && value !== null) {
-      if (depth < 2 && NESTED_BLOCK.test(key)) {
+      if (depth < 2 && key !== '&' && NESTED_BLOCK.test(key)) {
         safe[key] = sanitizeCustomStyles(value, depth + 1);
       }
       continue;
