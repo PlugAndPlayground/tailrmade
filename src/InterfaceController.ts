@@ -14,6 +14,7 @@ import {
 import PPGraph from './classes/GraphClass';
 import type { Tooltipable } from './components/Tooltip';
 import PPStorage from './PPStorage';
+import { handleGraphNavigationKey } from './utils/graphNavigation';
 import { zoomInOutViewport, zoomToFitNodes } from './pixi/utils-pixi';
 import { getDefaultDrawerState } from './utils/sessionStorageHandler';
 import {
@@ -83,6 +84,7 @@ export enum ListenEvent {
   ModalOpenChanged, // data = { nodeId: string } - a UI modal node's open/closed state changed
   NodeStatusChanged, // data = { nodeId: string } - a node's error/warning/custom status changed
   NodeDetailPopoverRequested, // data = { nodeId: string; kind: 'status' | 'comment'; x: number; y: number } | null - open the pinned detail popover, or null to close it
+  GraphNavigationPickerRequested, // data = NavigationPickerRequest - choose which connected node to jump to
 }
 
 type InterfaceEventListener = (data: any, event: ListenEvent) => void;
@@ -401,6 +403,9 @@ export default class InterfaceController {
   static keysDown = async (e: KeyboardEvent): Promise<void> => {
     const modKey = isMac() ? e.metaKey : e.ctrlKey;
     if (!isEventComingFromWithinTextInput(e)) {
+      if (!modKey && handleGraphNavigationKey(e)) {
+        return;
+      }
       if (modKey) {
         // e.code, as Option turns e.key into another character on a Mac
         if (e.altKey && e.code === 'KeyG') {

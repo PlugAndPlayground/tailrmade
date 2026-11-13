@@ -20,6 +20,7 @@ import {
   pasteClipboard,
   roundNumber,
 } from '../utils/utils';
+import { trackKeyboardOwner } from '../utils/graphNavigation';
 import { InputParser } from '../utils/inputParser';
 import { isStackLayout } from '../utils/stackLayout';
 import { SerializedNode } from '../utils/interfaces';
@@ -113,7 +114,7 @@ export const getNodesBounds = (nodes: PPNode[]): PIXI.Rectangle => {
 
 // The pixi canvas fills the window behind the docked panels; this is the
 // strip of it left visible between the dashboard and the inspector
-const getVisibleCanvasBounds = (): { left: number; right: number } => {
+export const getVisibleCanvasBounds = (): { left: number; right: number } => {
   if (isStackLayout()) {
     return { left: 0, right: window.innerWidth };
   }
@@ -570,6 +571,7 @@ export const createPixiApp = (
     });
 
     // register key events
+    trackKeyboardOwner();
     window.addEventListener('keydown', InterfaceController.keysDown);
 
     window.addEventListener('keydown', (e: KeyboardEvent) =>

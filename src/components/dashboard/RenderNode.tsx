@@ -23,6 +23,10 @@ import * as styles from '../../utils/style.module.css';
 import PPGraph from '../../classes/GraphClass';
 import { useIsDashboardNarrow } from './hooks';
 import {
+  isGraphNavigationKey,
+  isGraphOwningKeyboard,
+} from '../../utils/graphNavigation';
+import {
   DynamicWidgetName,
   RootName,
   VISIBILITY_ACTION,
@@ -127,6 +131,7 @@ export const RenderNode = ({ render }) => {
       // Skip if event is coming from within a text input or node is not active
       if (!isEditMode || isEventComingFromWithinTextInput(e) || !isActive)
         return;
+      if (isGraphNavigationKey(e) && isGraphOwningKeyboard()) return;
 
       // Handle keys with Alt/Option modifier (for MOVING nodes)
       if (e.altKey && moveable) {

@@ -90,6 +90,7 @@ import {
   UNKNOWN_STATIC_VALUE,
 } from './StaticValue';
 import { loadStatusIcons } from '../utils/statusIcons';
+import { enterCalledMacro } from '../utils/graphNavigation';
 import { NodeStatusBadges } from './NodeStatusBadges';
 
 export default class PPNode extends PIXI.Container implements IWarningHandler {
@@ -199,7 +200,7 @@ export default class PPNode extends PIXI.Container implements IWarningHandler {
   public enableInteraction(): void | Promise<void> {}
 
   public onEnterKeyPressed(): boolean {
-    return false;
+    return enterCalledMacro(this);
   }
 
   public isSurface(): boolean {

@@ -59,7 +59,8 @@ class focusSelectedHybridNodeAction extends Hotkey {
     _allPressed: Set<string>,
     graph: PPGraph,
   ): boolean {
-    if (currPressed.key !== 'Enter') {
+    // Shift+Enter leaves a macro, see graphNavigation
+    if (currPressed.key !== 'Enter' || currPressed.shiftKey) {
       return false;
     }
 

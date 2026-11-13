@@ -11,6 +11,7 @@ import PixiContainer from './containers/PixiContainer';
 import { onOpenFileBrowser, StyledDropzone } from './dragAndDrop';
 import { Tooltip } from './components/Tooltip';
 import { NodeDetailPopover } from './components/NodeDetailPopover';
+import { GraphNavigationPicker } from './components/GraphNavigationPicker';
 import { GroupColorPicker } from './components/GroupColorPicker';
 
 import { EditDialog, DeleteConfirmationDialog } from './components/Dialogs';
@@ -310,6 +311,7 @@ const App = (): React.JSX.Element => {
             />
           )}
           <NodeDetailPopover />
+          <GraphNavigationPicker />
           <GroupColorPicker />
           {showDeleteGraph && graphToBeModified && (
             <DeleteConfirmationDialog graphToBeModified={graphToBeModified} />
