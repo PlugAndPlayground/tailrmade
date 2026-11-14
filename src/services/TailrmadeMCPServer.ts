@@ -614,13 +614,13 @@ export class TailrmadeMCPServer {
       {
         name: 'disconnect_sockets',
         description:
-          'Remove a link. Give to_socket to unlink one named input, or from_node to unlink everything one node feeds into another - which is how a widget is taken off a UI surface (its element socket and the "<name> visible"/"<name> layout" companions go with it, and it leaves that surface\'s layout). The widget node itself stays in the graph, so connect it to another surface to move it there. Errors when no such link exists rather than reporting success.',
+          'Remove a link. Give to_socket to unlink one named input, or from_node to unlink everything one node feeds into another - which is how a widget is taken off a UI page (its element socket and the "<name> visible"/"<name> layout" companions go with it, and it leaves that surface\'s layout). The widget node itself stays in the graph, so connect it to another surface to move it there. Errors when no such link exists rather than reporting success.',
         input_schema: {
           type: 'object',
           properties: {
             to_node: {
               type: 'string',
-              description: 'the node the link points at, e.g. the UI surface',
+              description: 'the node the link points at, e.g. the UI page',
             },
             to_socket: {
               type: 'string',
@@ -743,7 +743,7 @@ export class TailrmadeMCPServer {
       {
         name: 'inspect_surface',
         description:
-          "Inspect a UI surface's simplified layout, widgets, route, and default status.",
+          "Inspect a UI page's simplified layout, widgets, route, and default status.",
         input_schema: {
           type: 'object',
           properties: {
@@ -769,13 +769,13 @@ export class TailrmadeMCPServer {
       },
       {
         name: 'set_layout_value',
-        description: `Change individual layout properties of ONE item on a UI surface, leaving the rest of the layout untouched. Prefer this over set_surface_layout for any focused change - resizing a widget, changing a container's direction or padding, restyling a text block - because it cannot disturb anything it does not name. Address the item by the "id" that inspect_surface reports for it (a widget can also be addressed by its source node id). Valid properties per item kind - container: ${SPEC_PROPERTIES_BY_KIND.container.join(', ')}; text: ${SPEC_PROPERTIES_BY_KIND.text.join(', ')}; widget: ${SPEC_PROPERTIES_BY_KIND.widget.join(', ')}. Sizes are css strings ("240px", "100%", "auto"), never bare numbers.`,
+        description: `Change individual layout properties of ONE item on a UI page, leaving the rest of the layout untouched. Prefer this over set_surface_layout for any focused change - resizing a widget, changing a container's direction or padding, restyling a text block - because it cannot disturb anything it does not name. Address the item by the "id" that inspect_surface reports for it (a widget can also be addressed by its source node id). Valid properties per item kind - container: ${SPEC_PROPERTIES_BY_KIND.container.join(', ')}; text: ${SPEC_PROPERTIES_BY_KIND.text.join(', ')}; widget: ${SPEC_PROPERTIES_BY_KIND.widget.join(', ')}. Sizes are css strings ("240px", "100%", "auto"), never bare numbers.`,
         input_schema: {
           type: 'object',
           properties: {
             node_id: {
               type: 'string',
-              description: 'the UI surface node',
+              description: 'the UI page node',
             },
             item: {
               type: 'string',
@@ -794,7 +794,7 @@ export class TailrmadeMCPServer {
       {
         name: 'set_surface_layout',
         description:
-          'Replace a UI surface\'s ENTIRE layout from a simplified declarative spec, for building or restructuring a surface. Omitted properties reset to defaults, so to change one property of one item use set_layout_value instead - it cannot disturb the rest of the layout. Item ids from inspect_surface are preserved when sent back. Referenced unconnected widgets are connected automatically. width and height are css strings - "240px", "100%" or "auto" - never bare numbers.',
+          'Replace a UI page\'s ENTIRE layout from a simplified declarative spec, for building or restructuring a surface. Omitted properties reset to defaults, so to change one property of one item use set_layout_value instead - it cannot disturb the rest of the layout. Item ids from inspect_surface are preserved when sent back. Referenced unconnected widgets are connected automatically. width and height are css strings - "240px", "100%" or "auto" - never bare numbers.',
         input_schema: {
           type: 'object',
           properties: {
@@ -811,7 +811,7 @@ export class TailrmadeMCPServer {
       {
         name: 'set_default_surface',
         description:
-          'Set the UI surface shown on app load and initially in the editor.',
+          'Set the UI page shown on app load and initially in the editor.',
         input_schema: {
           type: 'object',
           properties: {
@@ -1832,7 +1832,7 @@ export class TailrmadeMCPServer {
     return ` Connected inputs: ${described.join(', ')}.`;
   }
 
-  // Decides how a connect_sockets call that targets a UI surface should be
+  // Decides how a connect_sockets call that targets a UI page should be
   // handled. Non-surface connections return { kind: 'not_surface_widget' } and
   // pass through unchanged. A widget -> surface connection gets a fresh,
   // uniquely-named element socket (mirroring the native drag path); a widget
@@ -1903,7 +1903,7 @@ export class TailrmadeMCPServer {
       return {
         kind: 'error',
         result: {
-          content: `Connecting ${input.from_node} to surface ${input.to_node} would embed a UI surface into itself or into one it already contains`,
+          content: `Connecting ${input.from_node} to surface ${input.to_node} would embed a UI page into itself or into one it already contains`,
           is_error: true,
         },
       };
@@ -2288,11 +2288,11 @@ export class TailrmadeMCPServer {
       if (!nodeId) {
         return {
           describes: 'no surface',
-          content: 'No UI surface is being displayed.',
+          content: 'No UI page is being displayed.',
         };
       }
       return {
-        describes: `the layout of UI surface ${nodeId}, as set_surface_layout takes it`,
+        describes: `the layout of UI page ${nodeId}, as set_surface_layout takes it`,
         content: this.parseToolContent(
           this.inspectSurface({ node_id: nodeId }),
         ),
@@ -2342,7 +2342,7 @@ export class TailrmadeMCPServer {
     }
     if (!node.isSurface()) {
       return {
-        content: `Node ${input.node_id} is not a UI surface node`,
+        content: `Node ${input.node_id} is not a UI page node`,
         is_error: true,
       };
     }
@@ -2446,7 +2446,7 @@ export class TailrmadeMCPServer {
     }
     if (!node.isSurface()) {
       return {
-        content: `Node ${input.node_id} is not a UI surface node`,
+        content: `Node ${input.node_id} is not a UI page node`,
         is_error: true,
       };
     }
@@ -2532,7 +2532,7 @@ export class TailrmadeMCPServer {
     }
     if (!node.isSurface()) {
       return {
-        content: `Node ${input.node_id} is not a UI surface node`,
+        content: `Node ${input.node_id} is not a UI page node`,
         is_error: true,
       };
     }
@@ -2610,7 +2610,7 @@ export class TailrmadeMCPServer {
       }
       if (wouldCreateSurfaceEmbeddingLoop(sourceNode, node)) {
         return {
-          content: `Connecting ${widgetNodeId} to surface ${input.node_id} would embed a UI surface into itself or into one it already contains`,
+          content: `Connecting ${widgetNodeId} to surface ${input.node_id} would embed a UI page into itself or into one it already contains`,
           is_error: true,
         };
       }
@@ -2703,7 +2703,7 @@ export class TailrmadeMCPServer {
     }
     if (!node.isSurface?.()) {
       return {
-        content: `Node ${input.node_id} is not a UI surface node`,
+        content: `Node ${input.node_id} is not a UI page node`,
         is_error: true,
       };
     }

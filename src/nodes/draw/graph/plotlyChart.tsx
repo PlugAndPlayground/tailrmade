@@ -38,7 +38,7 @@ export class PlotlyChart extends HybridNode2 {
     return 400;
   }
   public getDocs(): string {
-    return `Preferred chart node. Connect "ReactUI" to a UI surface.
+    return `Preferred chart node. Connect "ReactUI" to a UI page.
 "Traces" accepts an array of Plotly trace objects. Examples:
 Line: [{"type":"scatter","mode":"lines+markers","x":["Jan","Feb"],"y":[10,15]}]
 Bar: [{"type":"bar","x":["A","B"],"y":[10,15]}]

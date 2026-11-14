@@ -54,8 +54,8 @@ export function getStaticConversionGuard(node: PPNode): StaticConversionGuard {
       allowed: false,
       reason:
         placements.length === 0
-          ? 'This text is not placed on a UI surface.'
-          : 'This text is placed on more than one UI surface.',
+          ? 'This text is not placed on a UI page.'
+          : 'This text is placed on more than one UI page.',
     };
   }
   const hasOtherConsumers = node.outputSocketArray.some((socket) =>
@@ -75,7 +75,7 @@ export function getStaticConversionGuard(node: PPNode): StaticConversionGuard {
   if (!itemId) {
     return {
       allowed: false,
-      reason: 'This text placement is missing from its UI surface.',
+      reason: 'This text placement is missing from its UI page.',
     };
   }
   const placement = surface.getSurfaceTree()[itemId];

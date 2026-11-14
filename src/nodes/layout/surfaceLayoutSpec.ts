@@ -1,4 +1,4 @@
-// Simplified layout spec for UI surfaces, and the compiler/decompiler between
+// Simplified layout spec for UI pages, and the compiler/decompiler between
 // it and the raw craft tree (SerializedCraftTree). This is the only shape the
 // AI agent ever sees or writes - it never reads or writes the craft tree
 // directly (see MCP tools inspect_surface / set_surface_layout).

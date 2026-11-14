@@ -3,8 +3,8 @@ import { doWithTestController, openNewGraph } from '../helpers';
 const countSurfaces = (testController) =>
   testController.getNodes().filter((node) => node.isSurface()).length;
 
-describe('UI surface auto-creation for an empty dashboard', () => {
-  it('creates a UI surface node when entering edit mode on an empty dashboard', () => {
+describe('UI page auto-creation for an empty dashboard', () => {
+  it('creates a UI page node when entering edit mode on an empty dashboard', () => {
     openNewGraph();
     doWithTestController((testController) => {
       testController.setShowUnsavedChangesWarning(false);

@@ -1,9 +1,9 @@
 import { doWithTestController, openNewGraph } from '../helpers';
 
-// Verifies the MCP connect_sockets behaviour for UI surfaces: a widget can only
+// Verifies the MCP connect_sockets behaviour for UI pages: a widget can only
 // drive a surface through its ReactUI output, so a connection aimed at any other
 // output is transparently redirected to ReactUI instead of failing.
-describe('AI connect_sockets to UI surface', () => {
+describe('AI connect_sockets to UI page', () => {
   beforeEach(() => {
     openNewGraph();
   });

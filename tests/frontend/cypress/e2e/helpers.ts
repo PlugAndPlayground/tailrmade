@@ -227,7 +227,7 @@ export const enterDashboardEditMode = () => {
   ).should('exist');
 };
 
-// lays out a UI surface through the AI tool, adding the surface if needed
+// lays out a UI page through the AI tool, adding the surface if needed
 export const setSurfaceLayout = (surfaceId: string, children: unknown[]) => {
   doWithTestController(async (testController) => {
     if (!testController.getNodes().some((node) => node.id === surfaceId)) {

@@ -8,7 +8,7 @@ import { doWithTestController, openNewGraph } from '../helpers';
 // 2. A DOM element is a single instance - the surface's canvas preview stole
 //    it from the dashboard, leaving the live UI empty. Previews now show the
 //    placeholder instead.
-describe('ElementRenderer on a UI surface', () => {
+describe('ElementRenderer on a UI page', () => {
   it('builds the graph: surface link first, element arrives later', () => {
     openNewGraph();
     cy.failOnText('App Crashed');

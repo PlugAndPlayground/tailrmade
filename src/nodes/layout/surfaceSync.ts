@@ -1,4 +1,4 @@
-// Headless sync engine between a UI surface node's graph links and the
+// Headless sync engine between a UI page node's graph links and the
 // craft tree stored in its "Layout JSON" input socket.
 //
 // Invariant maintained here: every linked element input socket has a

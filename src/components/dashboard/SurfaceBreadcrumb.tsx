@@ -18,7 +18,7 @@ const getSurfaceName = (nodeId: string): string => {
   return node.getDashboardName();
 };
 
-// shows the app name followed by the dive path of nested UI surfaces;
+// shows the app name followed by the dive path of nested UI pages;
 // clicking a crumb navigates back up (the last entry is the currently edited
 // surface). It complements the inspector's surface switcher rather than
 // replacing it.

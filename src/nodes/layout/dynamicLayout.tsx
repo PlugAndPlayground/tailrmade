@@ -450,7 +450,7 @@ function getNavigateTriggerSocket(): PPSocket {
 }
 
 /**
- * NavigateToPage - Utility node to navigate to/show a specific UI surface
+ * NavigateToPage - Utility node to navigate to/show a specific UI page
  * Mutual exclusivity with sibling surfaces is driven by the target surface's
  * own Radio Group (see UISurfaceNode.getRadioGroup), so navigation doesn't
  * need to be told the group.
@@ -464,37 +464,37 @@ export class NavigateToPage extends PPNode {
   private lastNavigatedTarget: string | undefined;
 
   public getName(): string {
-    return 'Navigate to UI surface';
+    return 'Navigate to UI page';
   }
 
   public getDescription(): string {
-    return 'Shows a UI surface by their node name or route when the target changes or its Execute trigger fires.';
+    return 'Shows a UI page by their node name or route when the target changes or its Execute trigger fires.';
   }
 
   public getDocs(): string {
     return `Navigates when "Surface" changes, so a tabs or dropdown widget can
-drive it directly. Nothing happens on graph load - the default surface wins.
+drive it directly. Nothing happens on graph load - the default page wins.
 
-## The target must name a real surface
-1. Give each surface a short unique node name ("Home", "Settings").
+## The target must name a real page
+1. Give each page a short unique node name ("Home", "Settings").
 2. Feed this node exactly those strings.
 
 ## Wiring
-- Tabs/dropdown for several destinations: set its options to the exact surface
+- Tabs/dropdown for several destinations: set its options to the exact page
   names and connect its "Out" to "Surface".
-- If that navigation appears on several separate top-level surfaces, create
+- If that navigation appears on several separate top-level pages, create
   ONE Tabs/dropdown node and fan its SAME "ReactUI" output out to every
   surface.
 - One button per destination: set "Surface" to the fixed target and connect the
   button's "Out" to "Execute".
 
 ## What navigating does
-- A top-level surface becomes the displayed page.
-- An embedded page in a nav shell is shown and every surface sharing the same
+- A top-level page becomes the displayed page.
+- An embedded page in a nav shell is shown and every page sharing the same
   "Radio Group" is hidden.
 
 ${AGENT_DOCS_HEADING}
-Rename surfaces with set_node_name and pin a fixed destination with
+Rename pages with set_node_name and pin a fixed destination with
 set_socket_value on "Surface". For shared top-level navigation, reuse one
 WidgetTabs node and one NavigateToPage node; connect that Tabs node's ReactUI
 output to every surface where it should render.`;
@@ -597,7 +597,7 @@ output to every surface where it should render.`;
     if (!target) {
       this.setStatus(
         new NodeConfigurationWarning(
-          `No target set. Give "${navigateToSurfaceInputName}" a UI surface name or route slug.${this.listSurfaces()}`,
+          `No target set. Give "${navigateToSurfaceInputName}" a UI page name or route slug.${this.listSurfaces()}`,
         ),
       );
       return;
@@ -606,7 +606,7 @@ output to every surface where it should render.`;
     if (InterfaceController.navigateToSurface(target) === 'not-found') {
       this.setStatus(
         new NodeConfigurationWarning(
-          `No UI surface named "${target}" (names are case-sensitive) and no surface with that route slug.${this.listSurfaces()}`,
+          `No UI page named "${target}" (names are case-sensitive) and no page with that route slug.${this.listSurfaces()}`,
         ),
       );
       return;
@@ -619,7 +619,7 @@ output to every surface where it should render.`;
     if (ambiguous.length > 1) {
       this.setStatus(
         new NodeConfigurationWarning(
-          `${ambiguous.length} UI surfaces are named "${target}", so navigation always shows the first one. Give each surface its own name.`,
+          `${ambiguous.length} UI pages are named "${target}", so navigation always shows the first one. Give each page its own name.`,
         ),
       );
       return;
@@ -636,13 +636,13 @@ output to every surface where it should render.`;
   private listSurfaces(): string {
     const surfaces = this.getSurfaces();
     if (surfaces.length === 0) {
-      return ' This graph has no UI surfaces.';
+      return ' This graph has no UI pages.';
     }
     const described = surfaces.map((surface) => {
       const route = surface.getRouteSlug();
       const name = `"${surface.getDashboardName()}"`;
       return route ? `${name} (route "${route}")` : name;
     });
-    return ` Available surfaces: ${described.join(', ')}.`;
+    return ` Available pages: ${described.join(', ')}.`;
   }
 }

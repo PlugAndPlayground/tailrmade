@@ -243,7 +243,7 @@ function LinkedWidgets({ selectedNode }) {
     ? displayedSurface.getDashboardName()
     : 'dashboard';
 
-  // widgets of this node living in OTHER UI surfaces than the displayed one
+  // widgets of this node living in OTHER UI pages than the displayed one
   const otherSurfaceMatches: UISurfaceNode[] = elementId
     ? Object.values(PPGraph.currentGraph.nodes)
         .filter(isSurfaceNode)

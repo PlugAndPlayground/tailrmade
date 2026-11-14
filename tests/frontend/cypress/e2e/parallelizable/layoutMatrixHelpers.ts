@@ -14,7 +14,7 @@ import type {
 } from '../../../../../src/nodes/layout/surfaceLayoutSpec';
 
 export type SizeKind = 'fill' | 'hug' | 'fixed';
-// 'surface' = an embedded UI surface node placed as a widget - it renders
+// 'surface' = an embedded UI page node placed as a widget - it renders
 // through the SECOND rendering pipeline (SurfaceRenderer.tsx, the non-craft
 // preview path), which had its own parent-direction bug, so the matrix must
 // cover it alongside the live craft path
@@ -158,7 +158,7 @@ function widgetSpecItem(
 
 // The graph nodes each sibling kind draws from. 'widget'/'container'
 // siblings place widgetA/widgetB; 'surface' siblings place surfaceA/surfaceB
-// (embedded UI surface nodes prepared once in the spec's before() with a
+// (embedded UI page nodes prepared once in the spec's before() with a
 // minimal inner layout). Two of each because a node may appear only once per
 // surface.
 export interface MatrixNodeIds {
@@ -184,7 +184,7 @@ export function siblingNodeId(
 // just fills it via its normal width:'100%'/height:'auto' defaults) - this is
 // what exercises Container.tsx's axis-aware flexGrow/flexShrink, as opposed
 // to a bare widget which goes through DynamicWidget/getBasicLayoutStyles. A
-// "surface" sibling is spec-wise just a widget whose node is a UI surface -
+// "surface" sibling is spec-wise just a widget whose node is a UI page -
 // the size under test goes on its widget spec item - but it renders its
 // content through SurfaceRenderer (the non-craft preview pipeline).
 export function buildSiblingSpecItem(

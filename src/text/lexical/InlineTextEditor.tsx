@@ -53,7 +53,7 @@ export type InlineTextEditorProps = {
 const MAX_FOCUS_FRAMES = 10;
 const TOOLBAR_GAP = 4;
 
-// on a UI surface the toolbar stays outside the widget frame and its header
+// on a UI page the toolbar stays outside the widget frame and its header
 function getToolbarDistance(
   wrapper: HTMLElement | null,
   placement: string,

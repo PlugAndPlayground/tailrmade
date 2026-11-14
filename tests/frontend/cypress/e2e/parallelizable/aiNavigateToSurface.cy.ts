@@ -1,13 +1,13 @@
 import { doWithTestController, openNewGraph } from '../helpers';
 
-// "Navigate to UI surface" resolves its target by route slug or by the target
-// surface's NODE name. Every surface starts out named "UI surface", so the
+// "Navigate to UI page" resolves its target by route slug or by the target
+// surface's NODE name. Every surface starts out named "UI page", so the
 // mistake the AI keeps making is pointing the node at a name no surface has
 // (or at several surfaces that share the default one) - which used to do
 // nothing at all, silently. These cover the two halves of the fix: the node
 // navigates from a plain "Surface" change (no trigger wiring needed), and a
 // target that does not resolve lands as a warning the AI can read back.
-describe('Navigate to UI surface: data flow and misconfiguration warnings', () => {
+describe('Navigate to UI page: data flow and misconfiguration warnings', () => {
   beforeEach(() => {
     openNewGraph();
   });
@@ -90,7 +90,7 @@ describe('Navigate to UI surface: data flow and misconfiguration warnings', () =
         `expected a configuration warning, got: ${warnings.content}`,
       ).to.be.greaterThan(0);
       expect(issues[0].severity).to.equal('warning');
-      expect(issues[0].message).to.match(/No UI surface named "home"/);
+      expect(issues[0].message).to.match(/No UI page named "home"/);
       // the message has to carry the strings that would have worked
       expect(issues[0].message, 'lists the real names').to.match(
         /"Home".*"Settings"/,
@@ -100,7 +100,7 @@ describe('Navigate to UI surface: data flow and misconfiguration warnings', () =
 
   it('warns when several surfaces share the target name, and clears once it resolves', () => {
     doWithTestController(async (tc) => {
-      // both keep the default node name "UI surface"
+      // both keep the default node name "UI page"
       await tc.addNode('UISurfaceNode', 'nav-page-1', 600, 0);
       await tc.addNode('UISurfaceNode', 'nav-page-2', 600, 400);
       await tc.addNode('NavigateToPage', 'nav-go', -200, 1100);
@@ -109,7 +109,7 @@ describe('Navigate to UI surface: data flow and misconfiguration warnings', () =
       await tc.callAITool('set_socket_value', {
         node_id: 'nav-go',
         socket_name: 'Surface',
-        value: 'UI surface',
+        value: 'UI page',
       });
       await tc.waitForPendingExecution();
 
@@ -119,7 +119,7 @@ describe('Navigate to UI surface: data flow and misconfiguration warnings', () =
         issues.length,
         `expected an ambiguity warning, got: ${ambiguous.content}`,
       ).to.be.greaterThan(0);
-      expect(issues[0].message).to.match(/2 UI surfaces are named/);
+      expect(issues[0].message).to.match(/2 UI pages are named/);
 
       // giving the target surface its own name fixes it
       await tc.callMCPTool('set_node_name', {

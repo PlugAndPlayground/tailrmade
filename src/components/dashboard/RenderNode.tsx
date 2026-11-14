@@ -213,7 +213,7 @@ export const RenderNode = ({ render }) => {
   }, [dom, isActive, isHover, isEditMode]);
 
   const handleNodeFocus = (ensureVisibility: boolean, select = false) => {
-    // ROOT represents the UI surface node currently open for editing rather
+    // ROOT represents the UI page node currently open for editing rather
     // than a node of its own, so it's resolved separately from props.id
     const layoutableElement = isRoot
       ? getDisplayedSurfaceElement()

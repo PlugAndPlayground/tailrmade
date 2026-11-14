@@ -79,7 +79,7 @@ const getSurfaceTextFieldSx = (theme: any, bold = false, editable = false) => ({
   },
 });
 
-// lists all UI surface nodes. Clicking a row selects it and shows that surface
+// lists all UI page nodes. Clicking a row selects it and shows that surface
 // in the dashboard in view mode (low-commitment); the pencil enters layout-edit
 // mode for that surface; the star marks the default surface shown on app load;
 // and each row exposes the route slug used by the Navigate node. Selection and
@@ -217,7 +217,7 @@ export const SurfaceListPanel: React.FC = () => {
           <ChevronRightIcon sx={{ fontSize: 16 }} />
         )}
         <Typography variant="caption" noWrap sx={{ minWidth: 0 }}>
-          UI surfaces ({surfaces.length})
+          UI pages ({surfaces.length})
           {!expanded && displayedSurface && (
             <>
               {' › '}
@@ -281,11 +281,7 @@ export const SurfaceListPanel: React.FC = () => {
                 })}
               >
                 {/* editable surface name */}
-                <Tooltip
-                  title="Surface name"
-                  placement="left"
-                  disableInteractive
-                >
+                <Tooltip title="Page name" placement="left" disableInteractive>
                   <TextField
                     hiddenLabel
                     size="small"
@@ -389,14 +385,14 @@ export const SurfaceListPanel: React.FC = () => {
                   placement="left"
                   title={
                     isDefault
-                      ? 'Default surface (shown on app load)'
-                      : 'Set as default surface'
+                      ? 'Default page (shown on app load)'
+                      : 'Set as default page'
                   }
                 >
                   <IconButton
                     size="small"
                     edge="end"
-                    aria-label="Set as default surface"
+                    aria-label="Set as default page"
                     className="surface-default-toggle"
                     onClick={(event) => {
                       event.stopPropagation();

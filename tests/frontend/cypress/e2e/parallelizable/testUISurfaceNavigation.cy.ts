@@ -1,6 +1,6 @@
 import { doWithTestController, openNewGraph } from '../helpers';
 
-describe('UI surface navigation and management', () => {
+describe('UI page navigation and management', () => {
   it('setup: two surfaces with one widget each', () => {
     openNewGraph();
     doWithTestController(async (testController) => {
@@ -77,7 +77,7 @@ describe('UI surface navigation and management', () => {
   });
 
   it('NavigateToPage switches the displayed surface by name', () => {
-    // both surfaces are named "UI surface" — rename via node name is not
+    // both surfaces are named "UI page" — rename via node name is not
     // exposed here, so navigate by the shared name resolves to the first.
     // This variant verifies the "Execute" trigger socket fires navigation
     // by itself (TriggerType.onDataSet calls executeOptimizedChain), without
@@ -87,7 +87,7 @@ describe('UI surface navigation and management', () => {
     doWithTestController(async (testController) => {
       await testController.addNode('NavigateToPage', 'nav-node-1', -200, 800);
       await testController.waitForPendingExecution();
-      testController.setNodeInputValue('nav-node-1', 'Surface', 'UI surface');
+      testController.setNodeInputValue('nav-node-1', 'Surface', 'UI page');
       // TriggerType.onDataSet skips the first population of a socket
       // (previousData is undefined), so set 0 first to establish a baseline,
       // then 1 to produce the positiveFlank rising edge that fires the node.
