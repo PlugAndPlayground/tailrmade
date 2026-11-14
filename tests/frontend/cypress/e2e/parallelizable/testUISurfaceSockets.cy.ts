@@ -6,7 +6,7 @@ const previewWidgetSelector =
 const previewWidget = `#Container-sockets-surface-1 ${previewWidgetSelector}`;
 
 const setVisible = async (testController, value: boolean) => {
-  testController.setNodeInputValue('sockets-surface-1', 'Label visible', value);
+  testController.setNodeInputValue('sockets-surface-1', 'Text visible', value);
   // executing the surface mirrors the inspector edit path: it re-renders the
   // canvas preview and notifies the dashboard to re-apply overrides
   await testController.getNodeByID('sockets-surface-1').executeOptimizedChain();
@@ -23,7 +23,7 @@ describe('UI surface override sockets', () => {
         200,
         0,
       );
-      await testController.addNode('Label', 'sockets-label-1', -250, 0);
+      await testController.addNode('Text', 'sockets-label-1', -250, 0);
       await testController.waitForPendingExecution();
       await testController.connectNodesByID(
         'sockets-label-1',
@@ -43,7 +43,7 @@ describe('UI surface override sockets', () => {
       const inputNames = testController
         .getInputSockets('sockets-surface-1')
         .map((socket) => socket.name);
-      expect(inputNames).to.include('Label visible');
+      expect(inputNames).to.include('Text visible');
     });
 
     // setting it false (no wire) hides the element in the canvas preview

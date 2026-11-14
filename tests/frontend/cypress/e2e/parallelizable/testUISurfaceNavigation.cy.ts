@@ -6,8 +6,8 @@ describe('UI surface navigation and management', () => {
     doWithTestController(async (testController) => {
       await testController.addNode('UISurfaceNode', 'nav-surface-1', 600, 0);
       await testController.addNode('UISurfaceNode', 'nav-surface-2', 600, 400);
-      await testController.addNode('Label', 'nav-label-1', -200, 0);
-      await testController.addNode('Label', 'nav-label-2', -200, 400);
+      await testController.addNode('Text', 'nav-label-1', -200, 0);
+      await testController.addNode('Text', 'nav-label-2', -200, 400);
       await testController.waitForPendingExecution();
       await testController.connectNodesByID(
         'nav-label-1',
@@ -122,8 +122,8 @@ describe('UI surface navigation and management', () => {
 
   it('combines selected layoutable nodes into a new surface (Shift+U)', () => {
     doWithTestController(async (testController) => {
-      await testController.addNode('Label', 'nav-label-3', -200, 1200);
-      await testController.addNode('Label', 'nav-label-4', -200, 1400);
+      await testController.addNode('Text', 'nav-label-3', -200, 1200);
+      await testController.addNode('Text', 'nav-label-4', -200, 1400);
       await testController.waitForPendingExecution();
       testController.selectNodesById(['nav-label-3', 'nav-label-4']);
     });

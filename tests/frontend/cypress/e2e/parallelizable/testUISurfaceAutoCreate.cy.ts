@@ -45,7 +45,7 @@ describe('UI surface auto-creation for an empty dashboard', () => {
 
   it('adding a node widget links it into the auto-created surface', () => {
     doWithTestController(async (testController) => {
-      await testController.addNode('Label', 'auto-label-1', -200, 0);
+      await testController.addNode('Text', 'auto-label-1', -200, 0);
       await testController.waitForPendingExecution();
       const surface = testController
         .getNodes()

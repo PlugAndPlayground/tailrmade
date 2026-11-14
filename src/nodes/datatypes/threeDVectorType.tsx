@@ -46,7 +46,7 @@ export class ThreeDVectorType extends AbstractType {
   }
 
   recommendedOutputNodeWidgets(): string[] {
-    return ['label', 'break'];
+    return ['text', 'break'];
   }
 
   recommendedInputNodeWidgets(): string[] {

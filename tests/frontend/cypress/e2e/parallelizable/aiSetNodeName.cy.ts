@@ -58,8 +58,8 @@ describe('AI set_node_name tool', () => {
     doWithTestController(async (tc) => {
       await tc.addNode('UISurfaceNode', 'name-surface-3', 600, 0);
       await tc.addNode('UISurfaceNode', 'name-surface-4', 600, 400);
-      await tc.addNode('Label', 'name-label-3', -200, 0);
-      await tc.addNode('Label', 'name-label-4', -200, 400);
+      await tc.addNode('Text', 'name-label-3', -200, 0);
+      await tc.addNode('Text', 'name-label-4', -200, 400);
       await tc.addNode('NavigateToPage', 'name-nav-1', -200, 800);
       await tc.waitForPendingExecution();
       await tc.connectNodesByID('name-label-3', 'name-surface-3', 'ReactUI');

@@ -16,8 +16,8 @@ describe('Navigate to UI surface: data flow and misconfiguration warnings', () =
   const buildTwoPages = async (tc, firstName: string, secondName: string) => {
     await tc.addNode('UISurfaceNode', 'nav-page-1', 600, 0);
     await tc.addNode('UISurfaceNode', 'nav-page-2', 600, 400);
-    await tc.addNode('Label', 'nav-content-1', -200, 0);
-    await tc.addNode('Label', 'nav-content-2', -200, 400);
+    await tc.addNode('Text', 'nav-content-1', -200, 0);
+    await tc.addNode('Text', 'nav-content-2', -200, 400);
     await tc.waitForPendingExecution();
     await tc.connectNodesByID('nav-content-1', 'nav-page-1', 'ReactUI');
     await tc.connectNodesByID('nav-content-2', 'nav-page-2', 'ReactUI');

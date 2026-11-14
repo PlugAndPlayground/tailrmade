@@ -68,12 +68,12 @@ describe('connectLogic', () => {
 
   it('check that preferred input by default gets used', () => {
     doWithTestController(async (testController) => {
-      await testController.addNode('Label', 'Label', -200);
+      await testController.addNode('CONSTANT_String', 'ConstantString', -200);
       await testController.addNode('IFrameRenderer', 'IFrameRenderer');
       await testController.connectNodesByID(
-        'Label',
+        'ConstantString',
         'IFrameRenderer',
-        'Output',
+        'String',
       );
       await testController.waitForPendingExecution();
       expect(

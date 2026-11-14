@@ -6,7 +6,6 @@ import {
   combineSelectedDrawNodes,
   combineSelectedLayoutablesIntoSurface,
   combineToArray,
-  getCurrentCursorPosition,
   isEventComingFromWithinTextInput,
   isMac,
   getDashboardHorizontalBounds,
@@ -27,12 +26,7 @@ import {
   TVisibilityAction,
   surfaceElementVisibleSuffix,
 } from './utils/constants_shared';
-import {
-  ActionHandler,
-  ACTIONS,
-  AddNodeActionArgs,
-  PNPAction,
-} from './classes/Action';
+import { ActionHandler } from './classes/Action';
 import {
   ALIGNOPTIONS,
   DASHBOARD_DEFAULT,
@@ -594,15 +588,6 @@ export default class InterfaceController {
           case 'KeyT':
             e.preventDefault();
             this.toggleAppView(VISIBILITY_ACTION.TOGGLE);
-            break;
-          case 'KeyL':
-            e.preventDefault();
-            const currPos = getCurrentCursorPosition();
-
-            await PNPAction(
-              ACTIONS.ADD_NODE,
-              new AddNodeActionArgs('Label', currPos),
-            );
             break;
         }
       }

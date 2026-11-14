@@ -13,7 +13,7 @@ describe('UI surface node', () => {
     openNewGraph();
     doWithTestController(async (testController) => {
       await testController.addNode('UISurfaceNode', 'ui-surface-1', 400, 0);
-      await testController.addNode('Label', 'test-label-1', -200, 0);
+      await testController.addNode('Text', 'test-label-1', -200, 0);
       await testController.waitForPendingExecution();
     });
     doWithTestController((testController) => {
@@ -41,17 +41,17 @@ describe('UI surface node', () => {
       const inputNames = testController
         .getInputSockets('ui-surface-1')
         .map((socket) => socket.name);
-      expect(inputNames).to.include('Label');
-      expect(inputNames).to.include('Label visible');
-      expect(inputNames).to.include('Label layout');
+      expect(inputNames).to.include('Text');
+      expect(inputNames).to.include('Text visible');
+      expect(inputNames).to.include('Text layout');
 
       // the paired sockets stay hidden until wired
       const visibleNames = testController
         .getVisibleInputSockets('ui-surface-1')
         .map((socket) => socket.name);
-      expect(visibleNames).to.include('Label');
-      expect(visibleNames).to.not.include('Label visible');
-      expect(visibleNames).to.not.include('Label layout');
+      expect(visibleNames).to.include('Text');
+      expect(visibleNames).to.not.include('Text visible');
+      expect(visibleNames).to.not.include('Text layout');
 
       const tree = getSurfaceTree(testController);
       expect(getWidgetElementIds(tree)).to.include('NODE_test-label-1');
@@ -89,16 +89,16 @@ describe('UI surface node', () => {
 
   it('disconnecting removes the widget and the element sockets', () => {
     doWithTestController(async (testController) => {
-      await testController.disconnectLink('ui-surface-1', 'Label');
+      await testController.disconnectLink('ui-surface-1', 'Text');
       await testController.waitForPendingExecution();
     });
     doWithTestController((testController) => {
       const inputNames = testController
         .getInputSockets('ui-surface-1')
         .map((socket) => socket.name);
-      expect(inputNames).to.not.include('Label');
-      expect(inputNames).to.not.include('Label visible');
-      expect(inputNames).to.not.include('Label layout');
+      expect(inputNames).to.not.include('Text');
+      expect(inputNames).to.not.include('Text visible');
+      expect(inputNames).to.not.include('Text layout');
 
       const tree = getSurfaceTree(testController);
       expect(getWidgetElementIds(tree)).to.not.include('NODE_test-label-1');
@@ -133,7 +133,7 @@ describe('UI surface node', () => {
       const inputNames = testController
         .getInputSockets('ui-surface-1')
         .map((socket) => socket.name);
-      expect(inputNames).to.not.include('Label');
+      expect(inputNames).to.not.include('Text');
 
       const tree = getSurfaceTree(testController);
       expect(getWidgetElementIds(tree)).to.not.include('NODE_test-label-1');
@@ -158,7 +158,7 @@ describe('UI surface node', () => {
   it('UI modal dialog is a surface with modal sockets', () => {
     doWithTestController(async (testController) => {
       await testController.addNode('UIModalNode', 'ui-modal-1', 800, 0);
-      await testController.addNode('Label', 'test-label-2', -200, 800);
+      await testController.addNode('Text', 'test-label-2', -200, 800);
       await testController.waitForPendingExecution();
       await testController.connectNodesByID(
         'test-label-2',
