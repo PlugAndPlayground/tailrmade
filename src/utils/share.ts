@@ -223,3 +223,23 @@ export function buildShareContent(
   if (!title && !text && !url && files.length === 0) return undefined;
   return { title, text, url, files: files.length > 0 ? files : undefined };
 }
+
+// Past this, chat apps, QR codes and older tools start to cut the link off.
+export const LONG_LINK_LENGTH = 2000;
+// Chrome refuses to open longer URLs.
+export const TOO_LONG_LINK_LENGTH = 2 * 1024 * 1024;
+
+const formatSize = (length: number): string =>
+  length < 1024 * 1024
+    ? `${Math.round(length / 1024)} KB`
+    : `${(length / (1024 * 1024)).toFixed(1)} MB`;
+
+export function contentLinkWarning(length: number): string | undefined {
+  if (length > TOO_LONG_LINK_LENGTH) {
+    return `Too long for browsers to open (${formatSize(length)}). Download it instead.`;
+  }
+  if (length > LONG_LINK_LENGTH) {
+    return `Long link (${formatSize(length)}): some chat apps and QR codes can't carry it.`;
+  }
+  return undefined;
+}

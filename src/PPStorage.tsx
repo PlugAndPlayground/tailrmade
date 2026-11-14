@@ -949,14 +949,20 @@ export default class PPStorage {
       });
   }
 
-  public async copyCurrentGraphURLToClipboard(): Promise<void> {
-    const serialized = PPStorage.getInstance().getDownloadReadyGraph(
+  /** The whole current app, compressed into a link. */
+  public getCurrentGraphContentLink(): string {
+    const serialized = this.getDownloadReadyGraph(
       PPGraph.currentGraph.getSerializedStoredGraph(),
       true,
     );
-    const URL =
+    return (
       `https://tailrmade.app/#${constants.URL_PARAMETER_NAME.LOADURLGRAPH}=` +
-      serialized;
+      serialized
+    );
+  }
+
+  public async copyCurrentGraphURLToClipboard(): Promise<void> {
+    const URL = this.getCurrentGraphContentLink();
     if ((await copyText(URL, 'Copy app in a link')) === 'copied') {
       InterfaceController.showSnackBar('Copied app link to clipboard');
     }

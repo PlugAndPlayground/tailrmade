@@ -1,5 +1,8 @@
 import {
   buildShareContent,
+  contentLinkWarning,
+  LONG_LINK_LENGTH,
+  TOO_LONG_LINK_LENGTH,
   copyText,
   dataUrlToFile,
   manualCopyStore,
@@ -233,5 +236,23 @@ describe('files', () => {
     expect(link.download).toBe('a.png');
     expect(click).toHaveBeenCalled();
     delete (globalThis as any).document;
+  });
+});
+
+describe('contentLinkWarning', () => {
+  it('stays quiet for links most apps carry', () => {
+    expect(contentLinkWarning(LONG_LINK_LENGTH)).toBeUndefined();
+  });
+
+  it('warns about long links with their size', () => {
+    expect(contentLinkWarning(48 * 1024)).toBe(
+      "Long link (48 KB): some chat apps and QR codes can't carry it.",
+    );
+  });
+
+  it('points to the download when browsers cannot open the link', () => {
+    expect(contentLinkWarning(TOO_LONG_LINK_LENGTH + 1)).toBe(
+      'Too long for browsers to open (2.0 MB). Download it instead.',
+    );
   });
 });

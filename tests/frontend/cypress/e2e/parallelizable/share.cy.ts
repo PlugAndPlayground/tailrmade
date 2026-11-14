@@ -16,13 +16,31 @@ describe('Share menu', () => {
     openNewGraph();
   });
 
-  it('explains why a local app has no link', () => {
+  it('offers no app link for a local app', () => {
     openShareMenu();
-    cy.get('[data-cy="share-app-status"]').should(
+    // without a cloud (CLOUD_MODE=false) the link section is left out
+    cy.get('[data-cy="copy-url"]:not(.Mui-disabled)').should('not.exist');
+    cy.get('[data-cy="share-tailrmade-link"]').should('be.visible');
+    cy.get('[data-cy="share-link-size"]').should('not.exist');
+  });
+
+  it("offers a private app's link and a way to make it public", () => {
+    doWithTestController((controller) => {
+      // logged out, so an app without an owner counts as the user's own
+      Object.assign(controller.getGraph(), {
+        isRemote: true,
+        access: 'private',
+        owner: undefined,
+      });
+    });
+    openShareMenu();
+    cy.get('[data-cy="share-app-status"]').should('contain', 'App is private');
+    // the link still opens it for its owner
+    cy.get('[data-cy="copy-url"]').should('not.have.class', 'Mui-disabled');
+    cy.get('[data-cy="share-change-access"]').should(
       'contain',
-      'Saved in this browser only',
+      'Make it public',
     );
-    cy.get('[data-cy="copy-url"]').should('have.class', 'Mui-disabled');
   });
 
   it('offers a copy dialog when the browser blocks the clipboard', () => {
@@ -36,7 +54,7 @@ describe('Share menu', () => {
     });
     openShareMenu();
     cy.get('[data-cy="share-tailrmade-link"]').click();
-    cy.get('[data-cy="share-app-status"]').should('not.exist');
+    cy.get('[data-cy="share-tailrmade-link"]').should('not.exist');
     cy.get('[data-cy="manual-copy-dialog"] textarea')
       .first()
       .invoke('val')
@@ -63,7 +81,7 @@ describe('Share menu', () => {
         win.navigator.share = cy.stub().as('share').resolves();
       });
       openShareMenu();
-      cy.get('[data-cy="share-app-status"]').should('contain', 'Public');
+      cy.get('[data-cy="share-app-status"]').should('contain', 'App is public');
       cy.get('[data-cy="share-url"]').click();
       cy.get('@share').should('have.been.calledOnce');
       cy.get('@share')
