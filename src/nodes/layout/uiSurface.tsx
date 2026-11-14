@@ -149,12 +149,12 @@ export class UISurfaceNode extends HybridNode2 implements Layoutable {
   }
 
   public getDescription(): string {
-    return 'Build a page or reusable UI container from connected widgets.';
+    return 'Build a page from connected widgets. Embed it in other pages to reuse it.';
   }
 
   public getDocs(): string {
-    return `A top-level UI page is shown as its own page; one nested in another is a
-reusable container or component.
+    return `A top-level UI page is shown as its own page. Embed a page in other pages
+to reuse it: connect its "ReactUI" output to each page it should appear on.
 
 Connect any "ReactUI" output (widgets, charts, or other UI pages) to place it
 on the page. This creates an element socket and two control sockets:
