@@ -117,7 +117,7 @@ it('requires review when hashing or storage is unavailable', async () => {
   expect(() => rememberAppApproval('hash')).not.toThrow();
 });
 
-it('ties approval to link values that have no socket entry in the file', async () => {
+it('ties approval to input overrides that have no socket entry', async () => {
   const withValue = (data: unknown) => ({
     ...graph(),
     inputOverrides: [{ node: 'code', socket: 'Url', data }],

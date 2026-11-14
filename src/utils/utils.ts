@@ -37,7 +37,7 @@ import {
   Layoutable,
   SerializedSelection,
   TParseType,
-  URLSetSocketData,
+  InputOverride,
 } from './interfaces';
 import { parseElementId } from './elementIds';
 import { Viewport } from 'pixi-viewport';
@@ -1345,13 +1345,13 @@ export const getURLParameters = (): URLSearchParams => {
   return params;
 };
 
-const parseInputOverrides = (value: string | null): URLSetSocketData[] => {
+const parseInputOverrides = (value: string | null): InputOverride[] => {
   if (!value) return [];
   try {
     const parsed: unknown = JSON.parse(value);
     return Array.isArray(parsed)
       ? parsed.filter(
-          (entry): entry is URLSetSocketData =>
+          (entry): entry is InputOverride =>
             typeof entry?.node === 'string' &&
             typeof entry?.socket === 'string',
         )

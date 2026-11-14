@@ -22,7 +22,7 @@ import {
   GraphLoadOptions,
   isSurfaceNode,
   DisplacedLink,
-  URLSetSocketData,
+  InputOverride,
 } from '../utils/interfaces';
 import {
   calculateDistance,
@@ -1919,19 +1919,19 @@ export default class PPGraph {
     return true;
   }
 
-  // Link values are external inputs, not replacements for graph wiring. Apply
+  // Input overrides are external values, not replacements for graph wiring. Apply
   // only the final value for each unconnected input and return exactly what
   // took effect so the approval can be tied to the same values.
-  private applyInputOverrides(inputOverrides: URLSetSocketData[]): {
+  private applyInputOverrides(inputOverrides: InputOverride[]): {
     targets: PPNode[];
-    values: URLSetSocketData[];
+    values: InputOverride[];
   } {
     const targets = new Set<PPNode>();
-    const values = new Map<string, URLSetSocketData>();
+    const values = new Map<string, InputOverride>();
     for (const value of inputOverrides) {
       values.set(JSON.stringify([value.node, value.socket]), value);
     }
-    const applied: URLSetSocketData[] = [];
+    const applied: InputOverride[] = [];
     for (const { node: nodeId, socket: socketName, data } of values.values()) {
       const node = this.nodes[nodeId];
       const socket = node?.inputSocketArray.find(
@@ -1940,7 +1940,7 @@ export default class PPGraph {
       if (!node || !socket) continue;
       if (socket.hasLink()) {
         console.warn(
-          `Ignoring link value for connected input: ${nodeId}/${socketName}`,
+          `Ignoring override for connected input: ${nodeId}/${socketName}`,
         );
         continue;
       }
@@ -1960,12 +1960,7 @@ export default class PPGraph {
     additionalSeeds: PPNode[] = [],
   ): Promise<void> {
     const firstIteration = [
-      ...new Map(
-        [...getLoadSeedNodes(nodes), ...additionalSeeds].map((node) => [
-          node.id,
-          node,
-        ]),
-      ).values(),
+      ...new Set([...getLoadSeedNodes(nodes), ...additionalSeeds]),
     ];
     await FlowLogic.executeOptimizedChainBatch(firstIteration);
   }

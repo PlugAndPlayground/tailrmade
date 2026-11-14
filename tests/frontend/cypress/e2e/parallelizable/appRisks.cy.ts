@@ -1466,7 +1466,7 @@ describe('app risk review', () => {
     ]);
     node.updateBehaviour = { load: false, update: true, interval: false };
     const values = JSON.stringify([
-      { node: 'target', socket: 'In', data: 'link value' },
+      { node: 'target', socket: 'In', data: 'override value' },
     ]);
     cy.location('origin').then((origin) => {
       cy.visit(
@@ -1476,13 +1476,13 @@ describe('app risk review', () => {
     cy.get('[data-cy="app-risk-dialog"]').should('not.exist');
     shouldWithTestController((controller) => {
       const target = controller.getNodeByID('target');
-      expect(target.getInputData('In')).to.equal('link value');
-      expect(target.getOutputData('Out')).to.equal('link value');
+      expect(target.getInputData('In')).to.equal('override value');
+      expect(target.getOutputData('Out')).to.equal('override value');
       expect(target.debug_timesExecuted).to.equal(1);
     });
   });
 
-  it('ignores link values for inputs controlled by a graph connection', () => {
+  it('ignores overrides for inputs controlled by a graph connection', () => {
     const graph = serializedGraph(
       [
         serializedNode('constant', 'source', [
@@ -1495,7 +1495,7 @@ describe('app risk review', () => {
       [linkTo('source', 'Out', 'target', 'In')],
     );
     const values = JSON.stringify([
-      { node: 'target', socket: 'In', data: 'link value' },
+      { node: 'target', socket: 'In', data: 'override value' },
     ]);
     cy.location('origin').then((origin) => {
       cy.visit(
