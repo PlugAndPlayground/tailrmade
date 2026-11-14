@@ -178,6 +178,23 @@ export function getDashboardWidth(overlayState: IOverlay): number {
   );
 }
 
+// Docked shell row: rail | menu panel | dashboard | canvas | inspector.
+// Returns the x where the dashboard starts and where the canvas starts.
+export function getDashboardHorizontalBounds(overlayState: IOverlay): {
+  left: number;
+  right: number;
+} {
+  const left =
+    SHELL_CONSTANTS.RAIL_WIDTH +
+    (overlayState[DrawerSide.LEFT].visible
+      ? overlayState[DrawerSide.LEFT].width
+      : 0);
+  const width = overlayState[DrawerSide.DASHBOARD].visible
+    ? getDashboardWidth(overlayState)
+    : 0;
+  return { left, right: left + width };
+}
+
 export const limitRange = (
   value: number,
   lowerLimit: number,
@@ -1478,7 +1495,7 @@ export const combineSelectedDrawNodes = async () => {
   }
 };
 
-// combine all selected layoutable nodes into a new UI surface node by
+// combine all selected layoutable nodes into a new UI page node by
 // connecting their ReactUI outputs to it
 export const combineSelectedLayoutablesIntoSurface = async () => {
   const selectedNodes = PPGraph.currentGraph.selection.selectedNodes.filter(

@@ -31,6 +31,7 @@ import {
   DASHBOARD_WIDGET_HEADER_HEIGHT,
   RightDrawerView,
 } from '../../utils/constants';
+import { getDashboardItemLabel } from '../../text/migrations';
 
 const IndicatorBox = styled(Box)<{ isActive?: boolean }>(
   ({ theme, isActive }) => ({
@@ -213,7 +214,7 @@ export const RenderNode = ({ render }) => {
   }, [dom, isActive, isHover, isEditMode]);
 
   const handleNodeFocus = (ensureVisibility: boolean, select = false) => {
-    // ROOT represents the UI surface node currently open for editing rather
+    // ROOT represents the UI page node currently open for editing rather
     // than a node of its own, so it's resolved separately from props.id
     const layoutableElement = isRoot
       ? getDisplayedSurfaceElement()
@@ -411,7 +412,7 @@ export const RenderNode = ({ render }) => {
   // Helper function to get display name with icon
   const getDisplayNameWithIcon = () => {
     let CustomIcon;
-    let widgetName = isRoot ? 'Root' : displayName;
+    let widgetName = isRoot ? 'Root' : getDashboardItemLabel(displayName);
 
     // For dynamic widgets and containers/pages, get the name from the layoutable element
     if (name === DynamicWidgetName || displayName === DashboardContainerName) {

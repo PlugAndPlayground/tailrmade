@@ -71,7 +71,7 @@ export type SerializedGraph = {
     showExecutionVisualisation: boolean;
     viewportCenterPosition: PIXI.Point;
     viewportScale: number;
-    // the UI surface node shown on app load
+    // the UI page node shown on app load
     defaultUISurfaceNodeId?: string;
     // the app theme, stored as a SPARSE DIFF against a shipped preset. It
     // lives in the document rather than being produced by the graph so the
@@ -185,7 +185,7 @@ export interface DashboardWidgetProps {
   // to skip its click-capturing overlay when disabled, since these headless
   // renders have no craftjs ancestor for a click to bubble to (clicks should
   // fall through to whatever is underneath instead, e.g. PIXI's canvas for
-  // drag-and-drop link creation onto a UI surface node).
+  // drag-and-drop link creation onto a UI page node).
   isSurfacePreview?: boolean;
   // Add any additional props you need
 }
@@ -230,7 +230,7 @@ export interface Layoutable {
   getRelatedNode(): PPNode;
   isContainer(): boolean;
   isModalDialog?(): boolean;
-  isSurface(): boolean; // Returns true for UI surface nodes
+  isSurface(): boolean; // Returns true for UI page nodes
 }
 
 // isLayoutable() is PPNode's marker for implementing Layoutable - narrow to

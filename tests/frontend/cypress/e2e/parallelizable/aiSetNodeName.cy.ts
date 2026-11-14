@@ -71,7 +71,7 @@ describe('AI set_node_name tool', () => {
       await tc.waitForPendingExecution();
       // a capitalized name never matches a route slug (always lowercase);
       // navigateToSurface falls through to the exact surface-name match
-      tc.setNodeInputValue('name-nav-1', 'Surface', 'Text & Display');
+      tc.setNodeInputValue('name-nav-1', 'Page', 'Text & Display');
 
       const trigger = tc
         .getNodeByID('name-nav-1')

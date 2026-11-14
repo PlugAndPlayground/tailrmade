@@ -16,6 +16,7 @@ import {
   constructLocalResourceId,
   convertBlobToBase64,
   getFileExtension,
+  getDashboardHorizontalBounds,
 } from './utils/utils';
 import { inputResourceIdSocketName } from './nodes/draw/video';
 import { sqlQuerySocketName } from './nodes/utility/database';
@@ -511,18 +512,8 @@ export const StyledDropzone: React.FC<StyledDropzoneProps> = ({ children }) => {
   const isEventOverOverlay = (clientX: number, clientY: number): boolean => {
     const overlayState = InterfaceController.getOverlayState();
 
-    // Calculate combined width of left-side overlays
-    const leftDrawerWidth = overlayState.leftSide.visible
-      ? overlayState.leftSide.width
-      : 0;
-    const dashboardWidth = overlayState.dashboard.visible
-      ? window.innerWidth * (overlayState.dashboard.widthPercentage / 100)
-      : 0;
-
-    const overlayExtensionLeft = leftDrawerWidth + dashboardWidth;
-
-    // Check if over any left-side overlay
-    if (clientX < overlayExtensionLeft) {
+    // Over the rail, menu panel or dashboard
+    if (clientX < getDashboardHorizontalBounds(overlayState).right) {
       return true;
     }
 

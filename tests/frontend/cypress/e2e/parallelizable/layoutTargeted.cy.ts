@@ -100,7 +100,7 @@ const containerItem = (
   ...extra,
 });
 
-describe('UI surface targeted layout suites', () => {
+describe('UI page targeted layout suites', () => {
   before(() => {
     openNewGraph();
     doWithTestController(async (tc) => {
