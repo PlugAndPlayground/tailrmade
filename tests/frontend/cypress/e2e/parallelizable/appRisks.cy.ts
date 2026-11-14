@@ -1459,4 +1459,55 @@ describe('app risk review', () => {
       ).to.equal(true);
     });
   });
+
+  it('runs an update-only link target once during the initial graph pass', () => {
+    const node = serializedNode('constant', 'target', [
+      serializedSocket('In', 'saved value'),
+    ]);
+    node.updateBehaviour = { load: false, update: true, interval: false };
+    const values = JSON.stringify([
+      { node: 'target', socket: 'In', data: 'link value' },
+    ]);
+    cy.location('origin').then((origin) => {
+      cy.visit(
+        `${origin}/?toastEverything=true&loadFullGraph=${encodeURIComponent(serializedGraph([node]))}&setSocketData=${encodeURIComponent(values)}`,
+      );
+    });
+    cy.get('[data-cy="app-risk-dialog"]').should('not.exist');
+    shouldWithTestController((controller) => {
+      const target = controller.getNodeByID('target');
+      expect(target.getInputData('In')).to.equal('link value');
+      expect(target.getOutputData('Out')).to.equal('link value');
+      expect(target.debug_timesExecuted).to.equal(1);
+    });
+  });
+
+  it('ignores link values for inputs controlled by a graph connection', () => {
+    const graph = serializedGraph(
+      [
+        serializedNode('constant', 'source', [
+          serializedSocket('In', 'source value'),
+        ]),
+        serializedNode('constant', 'target', [
+          serializedSocket('In', 'saved value'),
+        ]),
+      ],
+      [linkTo('source', 'Out', 'target', 'In')],
+    );
+    const values = JSON.stringify([
+      { node: 'target', socket: 'In', data: 'link value' },
+    ]);
+    cy.location('origin').then((origin) => {
+      cy.visit(
+        `${origin}/?toastEverything=true&loadFullGraph=${encodeURIComponent(graph)}&setSocketData=${encodeURIComponent(values)}`,
+      );
+    });
+    cy.get('[data-cy="app-risk-dialog"]').should('not.exist');
+    shouldWithTestController((controller) => {
+      const target = controller.getNodeByID('target');
+      expect(target.getInputData('In')).to.equal('source value');
+      expect(target.getOutputData('Out')).to.equal('source value');
+      expect(target.debug_timesExecuted).to.equal(1);
+    });
+  });
 });

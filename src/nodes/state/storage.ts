@@ -60,12 +60,6 @@ const STORAGE_BACKEND_OPTIONS = [
   { text: STORAGE_BACKEND_INDEXED_DB },
   { text: SESSION },
 ];
-export interface URLSetSocketData {
-  node: string;
-  socket: string;
-  data: any;
-}
-
 interface StorageSocketOptions {
   includeStorageBackend?: boolean;
   defaultLocation?: string;

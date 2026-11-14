@@ -18,7 +18,12 @@ import PPGraph from './classes/GraphClass';
 import { hri } from 'human-readable-ids';
 import { Button } from '@mui/material';
 import React from 'react';
-import { IGraphSearch, SerializedGraph, AccessType } from './utils/interfaces';
+import {
+  IGraphSearch,
+  SerializedGraph,
+  AccessType,
+  GraphLoadOptions,
+} from './utils/interfaces';
 import * as pako from 'pako';
 import { ActionHandler } from './classes/Action';
 import { CLOUD_MODE } from './services/shared-types';
@@ -395,7 +400,10 @@ export default class PPStorage {
     return wasDeleted;
   }
 
-  async loadGraphFromCloudReference(compactFormat: any): Promise<void> {
+  async loadGraphFromCloudReference(
+    compactFormat: any,
+    options: GraphLoadOptions = {},
+  ): Promise<void> {
     const [owner, name, location, access = 'public'] =
       compactFormat.split(';;');
     const isPublic = access === 'public';
@@ -423,13 +431,16 @@ export default class PPStorage {
     );
     data.isRemote = true;
     console.log('data', data);
-    await this.loadGraphFromData(data);
+    await this.loadGraphFromData(data, options);
     console.log('loaded graph');
     // Remove the URL parameter after loading
     removeUrlParameter(constants.URL_PARAMETER_NAME.LOADGRAPH);
   }
 
-  async loadGraphFromData(fileData: StoredGraph) {
+  async loadGraphFromData(
+    fileData: StoredGraph,
+    options: GraphLoadOptions = {},
+  ) {
     try {
       document.body.style.cursor = 'wait';
       PPStorage.getInstance().dateOfLastGraphLoaded = new Date(fileData.date);
@@ -443,6 +454,7 @@ export default class PPStorage {
           migratedFileData,
           approvalGraphData,
           getGraphSource(fileData),
+          options,
         ))
       ) {
         return undefined;
@@ -478,9 +490,10 @@ export default class PPStorage {
 
   async loadGraphFromDataEmbeddedInURL(
     stringifiedGraph: string,
+    options: GraphLoadOptions = {},
   ): Promise<StoredGraph | undefined> {
     const graph = this.stringToStoredGraph(stringifiedGraph);
-    const result = await this.loadGraphFromData(graph);
+    const result = await this.loadGraphFromData(graph, options);
     // Remove the URL parameter after loading - this is a one-time load from URL
     removeUrlParameter(constants.URL_PARAMETER_NAME.LOADURLGRAPH);
     return result;
@@ -568,7 +581,10 @@ export default class PPStorage {
     history.pushState(null, '', urlObj.toString());
   };
 
-  async loadGraphFromDB(id: string): Promise<void> {
+  async loadGraphFromDB(
+    id: string,
+    options: GraphLoadOptions = {},
+  ): Promise<void> {
     this.debug_timesLoaded++;
 
     // look for the graph in the database
@@ -576,7 +592,7 @@ export default class PPStorage {
     console.log('loaded', loadedGraph);
     if (loadedGraph !== undefined) {
       try {
-        await this.loadGraphFromData(loadedGraph);
+        await this.loadGraphFromData(loadedGraph, options);
       } catch (e) {
         console.warn('Error loading graph:', e);
         await this.createEmptyGraph();

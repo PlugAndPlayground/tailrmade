@@ -58,7 +58,9 @@ nodes.
 Input values carried by a link (`setSocketData`) are applied while the app
 loads, before any node runs and before the review reads the app. They are part
 of what an approval is tied to, so an approved app opened with other values is
-reviewed again. That holds for inputs that only exist since a migration too.
+reviewed again. That holds for inputs that only exist since a migration too. A
+link cannot override an input connected inside the graph; its source remains
+responsible for that value.
 
 Theme strings and custom styles are limited to plain CSS values. Custom styles
 keep properties, `@media`/`@container`/`@supports` blocks, states of the

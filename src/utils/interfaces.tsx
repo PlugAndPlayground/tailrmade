@@ -65,6 +65,16 @@ export interface IDashboardState {
 
 export interface IOverlay extends IDrawerState, IDashboardState {}
 
+export type URLSetSocketData = {
+  node: string;
+  socket: string;
+  data: unknown;
+};
+
+export type GraphLoadOptions = {
+  inputOverrides?: URLSetSocketData[];
+};
+
 export type SerializedGraph = {
   version: number;
   graphSettings: {
@@ -86,8 +96,9 @@ export type SerializedGraph = {
   // absent on graphs saved before groups existed
   groups?: SerializedGroup[];
   // Never saved. Set on the copy an approval is tied to, for input values a
-  // link carried that have no socket entry in the file to hold them.
-  linkValues?: { node: string; socket: string; data: unknown }[];
+  // link carried. Keeping them separate makes the approval describe the
+  // effective load without rewriting the graph file it was based on.
+  inputOverrides?: URLSetSocketData[];
 };
 
 // The group's rectangle is not stored, it is always derived from its members

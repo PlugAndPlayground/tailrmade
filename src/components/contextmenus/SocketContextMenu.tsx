@@ -21,7 +21,7 @@ import { VISIBILITY_ACTION } from '../../utils/constants_shared';
 import { SOCKET_TYPE } from '../../utils/constants';
 import { writeTextToClipboard } from '../../utils/utils';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
-import { URLSetSocketData } from '../../nodes/state/storage';
+import { URLSetSocketData } from '../../utils/interfaces';
 import { useFitInWindow, useSuppressBrowserContextMenu } from './ContextMenus';
 
 function constructRecommendedNodeOptions(selectedSocket: Socket): any {

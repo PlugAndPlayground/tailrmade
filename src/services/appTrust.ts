@@ -23,7 +23,7 @@ export function getAppReviewContent(
         }),
       })),
       links: graph.links,
-      linkValues: graph.linkValues,
+      inputOverrides: graph.inputOverrides,
       risks,
     },
     (_key, value) => {

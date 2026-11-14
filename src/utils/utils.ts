@@ -30,12 +30,14 @@ import {
 import { GraphDatabase, StoredGraph } from './indexedDB';
 import {
   DrawerSide,
+  GraphLoadOptions,
   IGraphSearch,
   IOverlay,
   IWarningHandler,
   Layoutable,
   SerializedSelection,
   TParseType,
+  URLSetSocketData,
 } from './interfaces';
 import { parseElementId } from './elementIds';
 import { Viewport } from 'pixi-viewport';
@@ -57,11 +59,6 @@ import {
 import { BackendGateway } from '../services/BackendGateway';
 import { ActionHandler } from '../classes/Action';
 import { getEmbeddableAddress } from './appHtml';
-import {
-  setLinkSocketData,
-  type LinkSocketData,
-} from '../services/appExecution';
-import FlowLogic from '../classes/FlowLogic';
 
 const numberFormatter = new Intl.NumberFormat();
 
@@ -1319,7 +1316,10 @@ export const getGraphFromIGraphSearch = async (
   }
 };
 
-export const loadGraphFromIGraphSearch = async (graph: IGraphSearch) => {
+export const loadGraphFromIGraphSearch = async (
+  graph: IGraphSearch,
+  options: GraphLoadOptions = {},
+) => {
   if (!checkForUnsavedChanges()) {
     return;
   }
@@ -1328,7 +1328,7 @@ export const loadGraphFromIGraphSearch = async (graph: IGraphSearch) => {
     getGraphFromIGraphSearch(graph),
   ]);
   if (data) {
-    await PPStorage.getInstance().loadGraphFromData(data);
+    await PPStorage.getInstance().loadGraphFromData(data, options);
   } else {
     console.warn(`No graph data found for:`, graph);
     await PPStorage.getInstance().createEmptyGraph();
@@ -1345,13 +1345,13 @@ export const getURLParameters = (): URLSearchParams => {
   return params;
 };
 
-const parseLinkSocketData = (value: string | null): LinkSocketData[] => {
+const parseInputOverrides = (value: string | null): URLSetSocketData[] => {
   if (!value) return [];
   try {
     const parsed: unknown = JSON.parse(value);
     return Array.isArray(parsed)
       ? parsed.filter(
-          (entry): entry is LinkSocketData =>
+          (entry): entry is URLSetSocketData =>
             typeof entry?.node === 'string' &&
             typeof entry?.socket === 'string',
         )
@@ -1375,6 +1375,8 @@ export const loadGraph = async (urlParams: URLSearchParams) => {
   // One-time actions:
   const createEmptyGraph = urlParams.get(URL_PARAMETER_NAME.NEW); // Create empty graph (REMOVED after load)
   const setSocketData = urlParams.get(URL_PARAMETER_NAME.SETSOCKETDATA); // Set socket data on nodes
+  const inputOverrides = parseInputOverrides(setSocketData);
+  const loadOptions: GraphLoadOptions = { inputOverrides };
 
   // Debug/settings:
   const toastEverything = urlParams.get(URL_PARAMETER_NAME.TOASTEVERYTHING); // Show all toast notifications
@@ -1382,18 +1384,22 @@ export const loadGraph = async (urlParams: URLSearchParams) => {
   console.log(
     `${URL_PARAMETER_NAME.LOADGRAPH}: ${loadGraph}, ${URL_PARAMETER_NAME.NEW}: ${createEmptyGraph},${URL_PARAMETER_NAME.TOASTEVERYTHING}: ${toastEverything}, ${URL_PARAMETER_NAME.LOADLOCALGRAPH}: ${loadLocalGraph}, ${URL_PARAMETER_NAME.LOADREMOTEGRAPH}: ${loadRemoteGraph}, ${URL_PARAMETER_NAME.SETSOCKETDATA}: ${setSocketData}`,
   );
-  setLinkSocketData(parseLinkSocketData(setSocketData));
   if (loadGraph) {
-    await PPStorage.getInstance().loadGraphFromCloudReference(loadGraph);
+    await PPStorage.getInstance().loadGraphFromCloudReference(
+      loadGraph,
+      loadOptions,
+    );
   } else if (loadFullGraphFromURL) {
     await PPStorage.getInstance().loadGraphFromDataEmbeddedInURL(
       loadFullGraphFromURL,
+      loadOptions,
     );
   } else if (loadLocalGraph) {
-    await PPStorage.getInstance().loadGraphFromDB(loadLocalGraph);
+    await PPStorage.getInstance().loadGraphFromDB(loadLocalGraph, loadOptions);
   } else if (loadRemoteGraph) {
     await loadGraphFromIGraphSearch(
       JSON.parse(loadRemoteGraph) as IGraphSearch,
+      loadOptions,
     );
   } else if (createEmptyGraph) {
     await PPStorage.getInstance().createEmptyGraph();
@@ -1409,8 +1415,6 @@ export const loadGraph = async (urlParams: URLSearchParams) => {
       await PPStorage.getInstance().createEmptyGraph();
     }
   }
-  // Whatever the load did not use must not reach the next app.
-  setLinkSocketData([]);
   ActionHandler.setUnsavedChange(false); // reset unsaved changes after loading a graph
 };
 

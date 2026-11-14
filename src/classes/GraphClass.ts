@@ -19,8 +19,10 @@ import {
   DrawerSide,
   TNodeSource,
   AccessType,
+  GraphLoadOptions,
   isSurfaceNode,
   DisplacedLink,
+  URLSetSocketData,
 } from '../utils/interfaces';
 import {
   calculateDistance,
@@ -93,7 +95,6 @@ import {
   appRisksAccepted,
   isNodeExecutionAllowed,
   pendingAppRun,
-  takeLinkSocketData,
 } from '../services/appExecution';
 import { PNPWorker } from '../nodes/data/worker/PNPWorker';
 import {
@@ -1652,6 +1653,7 @@ export default class PPGraph {
     storedGraph: StoredGraph,
     approvalGraphData: SerializedGraph = storedGraph.graphData,
     source = getGraphSource(storedGraph),
+    options: GraphLoadOptions = {},
   ): Promise<boolean> {
     if (this.isConfiguring) return false;
     resetAppSessionStorage();
@@ -1674,6 +1676,7 @@ export default class PPGraph {
         storedGraph,
         approvalGraphData,
         source,
+        options,
       );
       return configured;
     } finally {
@@ -1697,6 +1700,7 @@ export default class PPGraph {
     storedGraph: StoredGraph,
     approvalGraphData: SerializedGraph,
     source: GraphSource | undefined,
+    options: GraphLoadOptions,
   ): Promise<boolean> {
     // Loading nodes can add defaults or generated values to their serialized data.
     const loadedGraphData = structuredClone(approvalGraphData);
@@ -1803,13 +1807,17 @@ export default class PPGraph {
       }
     }
 
-    const linkTargets = this.applyLinkSocketData(loadedGraphData);
+    const appliedInputOverrides = this.applyInputOverrides(
+      options.inputOverrides ?? [],
+    );
+    loadedGraphData.inputOverrides = appliedInputOverrides.values.length
+      ? appliedInputOverrides.values
+      : undefined;
     appExecutionAllowed.set(true);
-    await this.executeAllSeedNodes(Object.values(this.nodes));
-    // Nodes that only react to changes still need to see the new value.
-    await FlowLogic.executeOptimizedChainBatch(
-      linkTargets.filter(
-        (node) => node.updateBehaviour.update && !node.updateBehaviour.load,
+    await this.executeAllSeedNodes(
+      Object.values(this.nodes),
+      appliedInputOverrides.targets.filter(
+        (node) => node.updateBehaviour.update,
       ),
     );
 
@@ -1911,45 +1919,54 @@ export default class PPGraph {
     return true;
   }
 
-  // Also written into the data the approval is tied to, so the same app
-  // opened with different values is a different app to the review.
-  private applyLinkSocketData(approvalGraphData: SerializedGraph): PPNode[] {
+  // Link values are external inputs, not replacements for graph wiring. Apply
+  // only the final value for each unconnected input and return exactly what
+  // took effect so the approval can be tied to the same values.
+  private applyInputOverrides(inputOverrides: URLSetSocketData[]): {
+    targets: PPNode[];
+    values: URLSetSocketData[];
+  } {
     const targets = new Set<PPNode>();
-    for (const {
-      node: nodeId,
-      socket: socketName,
-      data,
-    } of takeLinkSocketData()) {
+    const values = new Map<string, URLSetSocketData>();
+    for (const value of inputOverrides) {
+      values.set(JSON.stringify([value.node, value.socket]), value);
+    }
+    const applied: URLSetSocketData[] = [];
+    for (const { node: nodeId, socket: socketName, data } of values.values()) {
       const node = this.nodes[nodeId];
       const socket = node?.inputSocketArray.find(
         (input) => input.name === socketName,
       );
       if (!node || !socket) continue;
+      if (socket.hasLink()) {
+        console.warn(
+          `Ignoring link value for connected input: ${nodeId}/${socketName}`,
+        );
+        continue;
+      }
       socket.data = data;
       targets.add(node);
-      const serialized = approvalGraphData.nodes
-        .find((candidate) => candidate.id === nodeId)
-        ?.socketArray.find(
-          (candidate) =>
-            candidate.name === socketName && candidate.socketType !== 'out',
-        );
-      if (serialized) {
-        serialized.data = socket.serialize().data;
-      } else {
-        // The socket only exists since a migration, so the file has no entry
-        // to carry the value. The approval still has to depend on it.
-        (approvalGraphData.linkValues ??= []).push({
-          node: nodeId,
-          socket: socketName,
-          data: socket.serialize().data,
-        });
-      }
+      applied.push({
+        node: nodeId,
+        socket: socketName,
+        data: socket.serialize().data,
+      });
     }
-    return [...targets];
+    return { targets: [...targets], values: applied };
   }
 
-  async executeAllSeedNodes(nodes: PPNode[]): Promise<void> {
-    const firstIteration = getLoadSeedNodes(nodes);
+  async executeAllSeedNodes(
+    nodes: PPNode[],
+    additionalSeeds: PPNode[] = [],
+  ): Promise<void> {
+    const firstIteration = [
+      ...new Map(
+        [...getLoadSeedNodes(nodes), ...additionalSeeds].map((node) => [
+          node.id,
+          node,
+        ]),
+      ).values(),
+    ];
     await FlowLogic.executeOptimizedChainBatch(firstIteration);
   }
 

@@ -120,7 +120,7 @@ it('requires review when hashing or storage is unavailable', async () => {
 it('ties approval to link values that have no socket entry in the file', async () => {
   const withValue = (data: unknown) => ({
     ...graph(),
-    linkValues: [{ node: 'code', socket: 'Url', data }],
+    inputOverrides: [{ node: 'code', socket: 'Url', data }],
   });
   const plain = await getAppFingerprint(graph(), risks);
   const one = await getAppFingerprint(withValue('one'), risks);
