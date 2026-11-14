@@ -31,6 +31,7 @@ import {
   DASHBOARD_WIDGET_HEADER_HEIGHT,
   RightDrawerView,
 } from '../../utils/constants';
+import { getDashboardItemLabel } from '../../text/migrations';
 
 const IndicatorBox = styled(Box)<{ isActive?: boolean }>(
   ({ theme, isActive }) => ({
@@ -411,7 +412,7 @@ export const RenderNode = ({ render }) => {
   // Helper function to get display name with icon
   const getDisplayNameWithIcon = () => {
     let CustomIcon;
-    let widgetName = isRoot ? 'Root' : displayName;
+    let widgetName = isRoot ? 'Root' : getDashboardItemLabel(displayName);
 
     // For dynamic widgets and containers/pages, get the name from the layoutable element
     if (name === DynamicWidgetName || displayName === DashboardContainerName) {
