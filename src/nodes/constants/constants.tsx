@@ -151,7 +151,9 @@ abstract class PRIMITIVE_CONSTANT extends PPNode {
 
   // --- editing the value in place on the canvas ---
 
-  private editor: HTMLDivElement | undefined;
+  // a textarea, not a contenteditable: its value is exactly the typed text,
+  // where a contenteditable turns line breaks into markup
+  private editor: HTMLTextAreaElement | undefined;
   private editListenIds: string[] = [];
 
   // the value typed text stands for, or undefined while it is not one yet
@@ -195,11 +197,12 @@ abstract class PRIMITIVE_CONSTANT extends PPNode {
     if (this.editor || !socket || socket.hasLink()) {
       return;
     }
-    const editor = document.createElement('div');
-    editor.contentEditable = 'plaintext-only';
+    const editor = document.createElement('textarea');
+    editor.wrap = 'off';
+    editor.spellcheck = false;
     editor.setAttribute(DATA_DASHBOARD_EDITABLE, 'true');
     editor.dataset.cy = `constant-${this.getInputName().toLowerCase()}-editor`;
-    editor.innerText = String(this.getInputData(this.getInputName()) ?? '');
+    editor.value = String(this.getInputData(this.getInputName()) ?? '');
     Object.assign(editor.style, {
       position: 'absolute',
       fontFamily: 'Arial',
@@ -210,8 +213,14 @@ abstract class PRIMITIVE_CONSTANT extends PPNode {
       // PIXI lines up multi-line text on the left inside its centred block
       textAlign: 'left',
       minWidth: '20px',
+      minHeight: `${constantLineHeight}px`,
+      margin: '0',
+      padding: '0',
+      border: '0 none',
       background: 'transparent',
       outline: 'none',
+      resize: 'none',
+      overflow: 'hidden',
       transformOrigin: 'top left',
     });
     editor.addEventListener('input', () => this.onEditorInput());
@@ -235,7 +244,7 @@ abstract class PRIMITIVE_CONSTANT extends PPNode {
     this.drawNodeShape();
     this.positionEditor();
     editor.focus();
-    window.getSelection()?.selectAllChildren(editor);
+    editor.select();
 
     this.editListenIds.push(
       InterfaceController.addListener(ListenEvent.EscapeKeyUsed, () =>
@@ -274,11 +283,11 @@ abstract class PRIMITIVE_CONSTANT extends PPNode {
       this.stopEditing();
       return;
     }
-    const typed = this.parseEditedText(this.editor.innerText);
+    const typed = this.parseEditedText(this.editor.value);
     // a half-typed value ("-") is never overwritten
     if (typed !== undefined && typed !== value) {
-      this.editor.innerText = String(value ?? '');
-      window.getSelection()?.selectAllChildren(this.editor);
+      this.editor.value = String(value ?? '');
+      this.editor.select();
     }
   }
 
@@ -286,7 +295,7 @@ abstract class PRIMITIVE_CONSTANT extends PPNode {
     if (!this.editor) {
       return;
     }
-    const text = this.editor.innerText;
+    const text = this.editor.value;
     const value = this.parseEditedText(text);
     if (value !== undefined) {
       const setValueArgs: SetSocketValueActionArgs = {
@@ -329,7 +338,9 @@ abstract class PRIMITIVE_CONSTANT extends PPNode {
     Object.assign(this.editor.style, {
       left: `${topLeft.x}px`,
       top: `${topLeft.y}px`,
-      width: `${this.drawnConstant.width}px`,
+      // a little wider than the text, so the caret after it is never clipped
+      width: `${this.drawnConstant.width + 4}px`,
+      height: `${this.drawnConstant.height}px`,
       transform: `scale(${scale})`,
     });
   }

@@ -50,7 +50,7 @@ describe('testText', () => {
     doubleClickNode(id);
     cy.get(constantEditor)
       .should('be.visible')
-      .and('have.text', 'Initial text')
+      .and('have.value', 'Initial text')
       .and(($editor) => {
         expect($editor[0].ownerDocument.activeElement).to.eq($editor[0]);
       })
@@ -82,6 +82,34 @@ describe('testText', () => {
     });
   });
 
+  it('shrinks a Constant String back when its extra lines are deleted', () => {
+    let oneLineHeight = 0;
+    doWithTestController(async (testController) => {
+      await testController.addNode('CONSTANT_String', 'lines', 0, 0);
+    });
+    cy.get(constantEditor).type('abc');
+    doWithTestController((testController) => {
+      oneLineHeight = testController.getNodeByID('lines').nodeHeight;
+    });
+    // one Enter is one line break, not two
+    cy.get(constantEditor).type('{enter}def');
+    shouldWithTestController((testController) => {
+      expect(testController.getNodeInputValue('lines', 'String')).to.eq(
+        'abc\ndef',
+      );
+      expect(testController.getNodeByID('lines').nodeHeight).to.be.greaterThan(
+        oneLineHeight,
+      );
+    });
+    cy.get(constantEditor).type('{backspace}{backspace}{backspace}{backspace}');
+    shouldWithTestController((testController) => {
+      expect(testController.getNodeInputValue('lines', 'String')).to.eq('abc');
+      expect(testController.getNodeByID('lines').nodeHeight).to.eq(
+        oneLineHeight,
+      );
+    });
+  });
+
   it('types a new Constant Number, committing only real numbers', () => {
     const numberEditor = '[data-cy="constant-number-editor"]';
     doWithTestController(async (testController) => {
@@ -95,7 +123,7 @@ describe('testText', () => {
       );
     });
     // letters can never be part of a number, so they are not typed
-    cy.get(numberEditor).type('4x.5').should('have.text', '-4.5');
+    cy.get(numberEditor).type('4x.5').should('have.value', '-4.5');
     shouldWithTestController((testController) => {
       expect(testController.getNodeInputValue('typed-number', 'Number')).to.eq(
         -4.5,
