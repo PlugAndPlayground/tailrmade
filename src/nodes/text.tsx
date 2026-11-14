@@ -779,7 +779,7 @@ export class Text extends HybridNode2 {
   }
 
   public getDescription(): string {
-    return 'Text, label or heading that shows live values from its inputs';
+    return 'Rich text with live values from its inputs, for labels, headings and paragraphs';
   }
 
   public getDocs(): string {

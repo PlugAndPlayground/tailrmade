@@ -554,7 +554,7 @@ describe('dynamic Text node', () => {
     cy.get('input#node-search:visible').should('be.visible');
     cy.contains(
       'li',
-      'Text, label or heading that shows live values from its inputs',
+      'Rich text with live values from its inputs, for labels, headings and paragraphs',
     ).click();
     shouldWithTestController((testController) => {
       const [node] = textNodes(testController);
