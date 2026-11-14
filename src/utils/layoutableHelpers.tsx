@@ -43,7 +43,7 @@ export function addDashboardContentOutput(
     node.addOutput(
       SOCKET_NAME_DASHBOARD_CONTENT,
       new DeferredReactType(),
-      false,
+      true,
     );
   }
 }
