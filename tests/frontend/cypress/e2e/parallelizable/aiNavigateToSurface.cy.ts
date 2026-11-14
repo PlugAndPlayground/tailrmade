@@ -5,7 +5,7 @@ import { doWithTestController, openNewGraph } from '../helpers';
 // mistake the AI keeps making is pointing the node at a name no surface has
 // (or at several surfaces that share the default one) - which used to do
 // nothing at all, silently. These cover the two halves of the fix: the node
-// navigates from a plain "Surface" change (no trigger wiring needed), and a
+// navigates from a plain "Page" change (no trigger wiring needed), and a
 // target that does not resolve lands as a warning the AI can read back.
 describe('Navigate to UI page: data flow and misconfiguration warnings', () => {
   beforeEach(() => {
@@ -47,7 +47,7 @@ describe('Navigate to UI page: data flow and misconfiguration warnings', () => {
         i.node_id === nodeId && i.status_name === 'Node Configuration Warning',
     );
 
-  it('navigates from a tabs widget wired into "Surface" alone, with no trigger', () => {
+  it('navigates from a tabs widget wired into "Page" alone, with no trigger', () => {
     doWithTestController(async (tc) => {
       await buildTwoPages(tc, 'Home', 'Settings');
       await tc.addNode('WidgetTabs', 'nav-tabs', -200, 800);
@@ -55,7 +55,7 @@ describe('Navigate to UI page: data flow and misconfiguration warnings', () => {
       tc.setNodeInputValue('nav-tabs', 'Tab Options', ['Home', 'Settings']);
       await tc.waitForPendingExecution();
       // the whole wiring: the selected tab label IS the target surface name
-      await tc.connectNodesByID('nav-tabs', 'nav-go', 'Out', 'Surface');
+      await tc.connectNodesByID('nav-tabs', 'nav-go', 'Out', 'Page');
 
       // select the second tab, as a user click would
       tc.setNodeInputValue('nav-tabs', 'Selected Tab', 1);
@@ -67,6 +67,49 @@ describe('Navigate to UI page: data flow and misconfiguration warnings', () => {
       .should('exist');
   });
 
+  it('moves a v4 "Surface" input to "Page" on load, keeping link and value', () => {
+    doWithTestController(async (tc) => {
+      await buildTwoPages(tc, 'Home', 'Settings');
+      await tc.addNode('WidgetTabs', 'nav-tabs', -200, 800);
+      await tc.addNode('NavigateToPage', 'nav-linked', -200, 1100);
+      await tc.addNode('NavigateToPage', 'nav-fixed', -200, 1400);
+      tc.setNodeInputValue('nav-tabs', 'Tab Options', ['Home', 'Settings']);
+      await tc.waitForPendingExecution();
+      await tc.connectNodesByID('nav-tabs', 'nav-linked', 'Out', 'Page');
+      tc.setNodeInputValue('nav-fixed', 'Page', 'Settings');
+
+      // rewrite the saved graph into what v4 of the node saved
+      const stored = tc.getGraph().getSerializedStoredGraph();
+      const navIds = ['nav-linked', 'nav-fixed'];
+      stored.graphData.nodes
+        .filter((node) => navIds.includes(node.id))
+        .forEach((node) => {
+          node.version = 4;
+          node.socketArray
+            .filter((socket) => socket.name === 'Page')
+            .forEach((socket) => (socket.name = 'Surface'));
+        });
+      stored.graphData.links
+        .filter((link) => navIds.includes(link.targetNodeId))
+        .forEach((link) => (link.targetSocketName = 'Surface'));
+
+      await tc.getGraph().clear();
+      await tc.getGraph().configure(stored);
+      await tc.waitForPendingExecution();
+
+      navIds.forEach((id) => {
+        const node = tc.getNodeByID(id);
+        expect(node.getInputSocketByName('Surface'), id).to.equal(undefined);
+        expect(node.getInputSocketByName('Page'), id).to.not.equal(undefined);
+      });
+      expect(tc.getNodeInputValue('nav-fixed', 'Page')).to.equal('Settings');
+      const [link] = tc
+        .getNodeByID('nav-linked')
+        .getInputSocketByName('Page').links;
+      expect(link?.getSource().getNode().id).to.equal('nav-tabs');
+    });
+  });
+
   it('warns and names the surfaces that exist when the target matches none', () => {
     doWithTestController(async (tc) => {
       await buildTwoPages(tc, 'Home', 'Settings');
@@ -75,7 +118,7 @@ describe('Navigate to UI page: data flow and misconfiguration warnings', () => {
       // lowercase: no route slug matches, and surface names are case-sensitive
       const set = await tc.callAITool('set_socket_value', {
         node_id: 'nav-go',
-        socket_name: 'Surface',
+        socket_name: 'Page',
         value: 'home',
       });
       expect(set.is_error, `set_socket_value: ${set.content}`).to.not.equal(
@@ -108,7 +151,7 @@ describe('Navigate to UI page: data flow and misconfiguration warnings', () => {
 
       await tc.callAITool('set_socket_value', {
         node_id: 'nav-go',
-        socket_name: 'Surface',
+        socket_name: 'Page',
         value: 'UI page',
       });
       await tc.waitForPendingExecution();
@@ -128,7 +171,7 @@ describe('Navigate to UI page: data flow and misconfiguration warnings', () => {
       });
       await tc.callAITool('set_socket_value', {
         node_id: 'nav-go',
-        socket_name: 'Surface',
+        socket_name: 'Page',
         value: 'Settings',
       });
       await tc.waitForPendingExecution();
@@ -144,8 +187,8 @@ describe('Navigate to UI page: data flow and misconfiguration warnings', () => {
       await tc.addNode('NavigateToPage', 'nav-go', -200, 1100);
       await tc.addNode('NavigateToPage', 'nav-back', -200, 1400);
       await tc.waitForPendingExecution();
-      tc.setNodeInputValue('nav-go', 'Surface', 'Settings');
-      tc.setNodeInputValue('nav-back', 'Surface', 'Home');
+      tc.setNodeInputValue('nav-go', 'Page', 'Settings');
+      tc.setNodeInputValue('nav-back', 'Page', 'Home');
 
       // a button-per-destination pair: the target never changes, only the
       // event does, so the trigger must navigate every single time
@@ -169,8 +212,8 @@ describe('Navigate to UI page: data flow and misconfiguration warnings', () => {
       await tc.addNode('NavigateToPage', 'nav-v3', -200, 1100);
       await tc.addNode('NavigateToPage', 'nav-home', -200, 1400);
       await tc.waitForPendingExecution();
-      tc.setNodeInputValue('nav-v3', 'Surface', 'Settings');
-      tc.setNodeInputValue('nav-home', 'Surface', 'Home');
+      tc.setNodeInputValue('nav-v3', 'Page', 'Settings');
+      tc.setNodeInputValue('nav-home', 'Page', 'Home');
 
       // what a v3 graph deserializes as: an "Execute" trigger with no custom
       // function, which executes the node instead of calling navigateNow

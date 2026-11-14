@@ -87,7 +87,7 @@ describe('UI page navigation and management', () => {
     doWithTestController(async (testController) => {
       await testController.addNode('NavigateToPage', 'nav-node-1', -200, 800);
       await testController.waitForPendingExecution();
-      testController.setNodeInputValue('nav-node-1', 'Surface', 'UI page');
+      testController.setNodeInputValue('nav-node-1', 'Page', 'UI page');
       // TriggerType.onDataSet skips the first population of a socket
       // (previousData is undefined), so set 0 first to establish a baseline,
       // then 1 to produce the positiveFlank rising edge that fires the node.
@@ -106,12 +106,12 @@ describe('UI page navigation and management', () => {
     // This variant verifies that manually running the node (e.g. via a
     // parent chain, not the trigger itself) still navigates now that the
     // boolean "shouldNavigate" gate is gone - navigation only depends on a
-    // non-empty "Surface" target.
+    // non-empty "Page" target.
     doWithTestController(async (testController) => {
       // give surface-2 a distinct route slug; navigate by it
       testController.setNodeInputValue('nav-surface-2', 'Route', 'Second Page');
       await testController.waitForPendingExecution();
-      testController.setNodeInputValue('nav-node-1', 'Surface', 'second-page');
+      testController.setNodeInputValue('nav-node-1', 'Page', 'second-page');
       const node = testController.getNodeByID('nav-node-1');
       await node.executeOptimizedChain();
     });

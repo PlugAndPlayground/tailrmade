@@ -62,7 +62,7 @@ ${AGENT_DOCS_HEADING}
 For shared page navigation, reuse one WidgetTabs node and one NavigateToPage
 node. Fan the Tabs node's ReactUI output out to every top-level page where
 the navigation must appear; connect its Out output to the NavigateToPage
-Surface input. Never clone a Tabs node per destination unless the selections
+Page input. Never clone a Tabs node per destination unless the selections
 are intentionally independent.`;
   }
 

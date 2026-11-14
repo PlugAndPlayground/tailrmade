@@ -437,7 +437,7 @@ const ReactUICombineArrayComponent: React.FunctionComponent<any> = (props) => {
 // NavigateToPage Node - Utility node to trigger page navigation
 // ============================================================================
 
-const navigateToSurfaceInputName = 'Surface';
+const navigateToPageInputName = 'Page';
 const executeTriggerSocketName = 'Execute';
 const navigateTriggerFunctionName = 'navigateNow';
 
@@ -472,7 +472,7 @@ export class NavigateToPage extends PPNode {
   }
 
   public getDocs(): string {
-    return `Navigates when "Surface" changes, so a tabs or dropdown widget can
+    return `Navigates when "Page" changes, so a tabs or dropdown widget can
 drive it directly. Nothing happens on graph load - the default page wins.
 
 ## The target must name a real page
@@ -481,11 +481,11 @@ drive it directly. Nothing happens on graph load - the default page wins.
 
 ## Wiring
 - Tabs/dropdown for several destinations: set its options to the exact page
-  names and connect its "Out" to "Surface".
+  names and connect its "Out" to "Page".
 - If that navigation appears on several separate top-level pages, create
   ONE Tabs/dropdown node and fan its SAME "ReactUI" output out to every
-  surface.
-- One button per destination: set "Surface" to the fixed target and connect the
+  page.
+- One button per destination: set "Page" to the fixed target and connect the
   button's "Out" to "Execute".
 
 ## What navigating does
@@ -495,20 +495,20 @@ drive it directly. Nothing happens on graph load - the default page wins.
 
 ${AGENT_DOCS_HEADING}
 Rename pages with set_node_name and pin a fixed destination with
-set_socket_value on "Surface". For shared top-level navigation, reuse one
+set_socket_value on "Page". For shared top-level navigation, reuse one
 WidgetTabs node and one NavigateToPage node; connect that Tabs node's ReactUI
-output to every surface where it should render.`;
+output to every page where it should render.`;
   }
 
   public getVersion(): number {
-    return 4;
+    return 5;
   }
 
   public async migrate(previousVersion: number): Promise<void> {
     if (previousVersion < 2) {
       await this.replaceSocketWithOtherSocket(
         this.getInputSocketByName('Page Name'),
-        this.getInputSocketByName(navigateToSurfaceInputName),
+        this.getInputSocketByName(navigateToPageInputName),
       );
       this.removeSocket(this.getInputSocketByName('Page Group'));
     }
@@ -557,6 +557,13 @@ output to every surface where it should render.`;
           navigateTriggerFunctionName;
       }
     }
+    if (previousVersion < 5) {
+      // the target input was called "Surface" before UI surfaces became UI pages
+      await this.renameInputSocketPreservingData(
+        'Surface',
+        navigateToPageInputName,
+      );
+    }
   }
 
   public getUpdateBehaviour(): UpdateBehaviourClass {
@@ -567,7 +574,7 @@ output to every surface where it should render.`;
     return [
       new PPSocket(
         SOCKET_TYPE.IN,
-        navigateToSurfaceInputName,
+        navigateToPageInputName,
         new StringType(),
         '',
         true,
@@ -577,11 +584,11 @@ output to every surface where it should render.`;
   }
 
   public navigateNow(): void {
-    this.navigateTo(this.getInputData(navigateToSurfaceInputName));
+    this.navigateTo(this.getInputData(navigateToPageInputName));
   }
 
   protected async onExecute(input: any, output: any): Promise<void> {
-    const target = String(input[navigateToSurfaceInputName] ?? '').trim();
+    const target = String(input[navigateToPageInputName] ?? '').trim();
     if (target !== this.lastNavigatedTarget) {
       this.navigateTo(target);
     }
@@ -597,7 +604,7 @@ output to every surface where it should render.`;
     if (!target) {
       this.setStatus(
         new NodeConfigurationWarning(
-          `No target set. Give "${navigateToSurfaceInputName}" a UI page name or route slug.${this.listSurfaces()}`,
+          `No target set. Give "${navigateToPageInputName}" a UI page name or route slug.${this.listSurfaces()}`,
         ),
       );
       return;
