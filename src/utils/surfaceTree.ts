@@ -1,5 +1,5 @@
 // Headless craft-tree types and constants shared between the dashboard React
-// components and node-land code (e.g. the UI surface sync engine). Keep this
+// components and node-land code (e.g. the UI page sync engine). Keep this
 // module free of React and node-class imports.
 import { UNSET_VALUE } from './constants';
 import { RootName, containerName } from './constants_shared';

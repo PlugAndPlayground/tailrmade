@@ -12,6 +12,7 @@ import {
   setSurfaceLayout,
   shouldWithTestController,
 } from '../helpers';
+import { VISIBILITY_ACTION } from '../../../../../src/utils/constants_shared';
 
 const surfaceId = 'static-text-surface';
 
@@ -86,6 +87,15 @@ describe('static Text', () => {
     appText('Caption')
       .closest('[data-cy="static-text"] > div')
       .should('have.css', 'font-size', '12px');
+
+    // stored as "Text", but labelled "Static text" in the outliner
+    doWithTestController((testController) => {
+      testController.toggleRightSideDrawer(VISIBILITY_ACTION.OPEN);
+    });
+    cy.get('[data-cy="interface-settings-tab"]').click({ force: true });
+    cy.get('[data-cy="layers-panel"]')
+      .contains(/^Static text$/)
+      .should('be.visible');
   });
 
   it('shows {{name}} literally and never offers tokens', () => {

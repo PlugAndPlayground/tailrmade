@@ -36,7 +36,10 @@ import {
 import { RightDrawerView } from '../../utils/constants';
 import { DashboardContainerName } from './DashboardContainer';
 import { getLayoutableElement } from '../../utils/utils';
-import { STATIC_TEXT_ITEM_TYPE } from '../../text/migrations';
+import {
+  STATIC_TEXT_ITEM_TYPE,
+  getDashboardItemLabel,
+} from '../../text/migrations';
 import {
   getDisplayedSurfaceElement,
   handleNodeSelection,
@@ -368,7 +371,10 @@ const LayerItem: React.FC<LayerNodeProps> = ({ id, depth }) => {
   if (!node) return null;
 
   // Resolve linked node name (same logic as RenderNode.getDisplayNameWithIcon)
-  let label = id === RootName ? 'Root' : node.displayName || node.name || id;
+  let label =
+    id === RootName
+      ? 'Root'
+      : getDashboardItemLabel(node.displayName) || node.name || id;
   let elementId = node.props?.id;
   let linkedNodeElement: Layoutable | null = null;
   if (id === RootName) {
@@ -403,8 +409,9 @@ const LayerItem: React.FC<LayerNodeProps> = ({ id, depth }) => {
   if (elementId) {
     tooltipLines.push(elementId);
   }
-  if (node.displayName && node.displayName !== label) {
-    tooltipLines.push(node.displayName);
+  const typeLabel = getDashboardItemLabel(node.displayName);
+  if (typeLabel && typeLabel !== label) {
+    tooltipLines.push(typeLabel);
   }
   const tooltipText = tooltipLines.length > 0 ? tooltipLines.join(' — ') : id;
 
@@ -555,7 +562,10 @@ export const DashboardLayersPanel: React.FC = () => {
       while (dashboardId && dashboardId !== RootName) {
         const node = query.node(dashboardId).get();
         if (!node) break;
-        crumbs.unshift({ id: dashboardId, name: node.data.displayName });
+        crumbs.unshift({
+          id: dashboardId,
+          name: getDashboardItemLabel(node.data.displayName),
+        });
         dashboardId = node.data.parent ?? '';
       }
       crumbs.unshift({ id: RootName, name: 'Root' });

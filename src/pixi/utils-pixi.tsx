@@ -271,6 +271,21 @@ export function emitMoved() {
   });
 }
 
+// whether the nodes are wholly inside the part of the canvas no panel covers
+export const areNodesOnScreen = (nodes: PPNode[]): boolean => {
+  const viewport = PPGraph.currentGraph.viewport;
+  const { left, right } = getVisibleCanvasBounds();
+  const topLeft = viewport.toWorld(left, 0);
+  const bottomRight = viewport.toWorld(right, viewport.screenHeight);
+  const bounds = getNodesBounds(nodes);
+  return (
+    bounds.left >= topLeft.x &&
+    bounds.top >= topLeft.y &&
+    bounds.right <= bottomRight.x &&
+    bounds.bottom <= bottomRight.y
+  );
+};
+
 export const ensureVisible = async (
   nodes: PPNode[],
   undoable = false,

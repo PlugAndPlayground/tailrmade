@@ -143,7 +143,7 @@ export default class PPGraph {
 
   _showDebugInfo: boolean;
   _showExecutionVisualisation: boolean;
-  // the UI surface node shown on app load (set in the User Interface tab)
+  // the UI page node shown on app load (set in the User Interface tab)
   defaultUISurfaceNodeId: string | undefined;
   selectedSocket: undefined | PPSocket;
   clickPoint: undefined | PIXI.Point;
@@ -2068,8 +2068,14 @@ export default class PPGraph {
     const groupsSerialized = this.groupLayer.serializeTouching(
       nodesSerialized.map((node) => node.id),
     );
+    const deletedIds = new Set(nodesSerialized.map((node) => node.id));
     const action = async () => {
-      this.selection.deselectAllNodesAndResetSelection();
+      // in one go rather than node by node, so selection listeners never see
+      // a node that is about to go; selected nodes that are not deleted stay
+      // selected
+      this.selection.selectNodes(
+        this.selection.selectedNodes.filter((node) => !deletedIds.has(node.id)),
+      );
       for (let i = 0; i < nodesSerialized.length; i++) {
         await this.removeNode(this.nodes[nodesSerialized[i].id]);
       }
