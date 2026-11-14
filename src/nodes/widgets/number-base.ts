@@ -1,20 +1,10 @@
 import Socket from '../../classes/SocketClass';
-import {
-  ActionHandler,
-  BakedAction,
-  SerializableAction,
-  SerializableActionHandler,
-} from '../../classes/Action';
 import { BackPropagation } from '../../interfaces';
 import { SOCKET_TYPE } from '../../utils/constants';
 import { limitRange } from '../../utils/utils';
 import { NumberType } from '../datatypes/numberType';
-import {
-  WidgetHybridBase,
-  initialValueName,
-  labelName,
-  outName,
-} from './abstract';
+import type { TemplateInstanceHandle } from '../../components/dashboard/templateInstance';
+import { WidgetHybridBase, initialValueName, labelName } from './abstract';
 
 export const minValueName = 'Min';
 export const maxValueName = 'Max';
@@ -68,31 +58,16 @@ export abstract class WidgetNumberBase extends WidgetHybridBase {
     return roundToDecimals(limited, getDecimals(inputObject[decimalsName]));
   }
 
-  handleValueChange = async (value: number) => {
-    const id = this.id;
-    const prev = this.getInputData(initialValueName);
-    const newValue = roundToDecimals(
-      value,
-      getDecimals(this.getInputData(decimalsName)),
-    );
-
-    const applyFunction = async (data: number) => {
-      const safeNode = SerializableActionHandler.getSafeNode(id);
-      safeNode.setInputData(initialValueName, data);
-      safeNode.setOutputData(outName, data);
-      await safeNode.executeOptimizedChain();
-    };
-
-    await ActionHandler.performRawAction(
-      new BakedAction(
-        new SerializableAction(
-          applyFunction,
-          applyFunction,
-          `Set ${this.getName()} Value`,
-        ),
-        newValue,
-        prev,
-      ),
+  handleValueChange = async (
+    value: number,
+    instance?: TemplateInstanceHandle,
+  ) => {
+    const decimals = this.readWidgetValue(decimalsName, instance) as number;
+    await this.commitWidgetEdit(
+      initialValueName,
+      roundToDecimals(value, getDecimals(decimals)),
+      instance,
+      `Set ${this.getName()} Value`,
     );
   };
 

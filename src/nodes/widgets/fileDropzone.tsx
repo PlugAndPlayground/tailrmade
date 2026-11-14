@@ -33,6 +33,7 @@ import {
   SOCKET_TYPE,
 } from '../../utils/constants';
 import { DEFAULT_DASHBOARD_ICON } from '../../components/dashboard/dashboardIcons';
+import type { TemplateInstanceHandle } from '../../components/dashboard/templateInstance';
 import {
   handleFileDrop,
   SUPPORTED_FILE_EXTENSIONS,
@@ -60,6 +61,8 @@ const maxSizeName = 'MaxSize';
 const persistName = 'Persist data';
 const labelName = 'Label';
 const dataName = 'Data';
+// what FileInfo puts out, stored next to Data for the same reasons
+const infoName = 'Info';
 const outputFilesData = 'Filedata';
 const outputFileInfoName = 'FileInfo';
 const showPasteFromClipboardName = 'Show paste from clipboard button';
@@ -165,6 +168,7 @@ export class FileDropzone extends PPNode implements Layoutable {
         true,
       ),
       new PPSocket(SOCKET_TYPE.IN, dataName, new ArrayType(), [], false),
+      new PPSocket(SOCKET_TYPE.IN, infoName, new ArrayType(), [], false),
       new PPSocket(SOCKET_TYPE.OUT, outputFilesData, new ArrayType(), [], true),
       new PPSocket(
         SOCKET_TYPE.OUT,
@@ -216,8 +220,10 @@ export class FileDropzone extends PPNode implements Layoutable {
     inputObject: any,
     outputObject: Record<string, unknown>,
   ): Promise<void> {
-    if (inputObject[persistName]) {
+    // inside a template a row's files arrive through these inputs either way
+    if (inputObject[persistName] || this.isInTemplateBody()) {
       outputObject[outputFilesData] = inputObject[dataName] || [];
+      outputObject[outputFileInfoName] = inputObject[infoName] || [];
     }
     return Promise.resolve();
   }
@@ -267,6 +273,7 @@ export class FileDropzone extends PPNode implements Layoutable {
 const FileDropzoneComponent: React.FC<{
   node: PPNode;
   disabled?: boolean;
+  templateInstance?: TemplateInstanceHandle;
   [activeExtensionsName]?: string[];
   [disabledName]?: boolean;
   [maxFilesName]?: number;
@@ -302,19 +309,24 @@ const FileDropzoneComponent: React.FC<{
       setFileInfo(newFileInfo);
       setDataArray(newDataArray);
 
-      // Update node data
-      if (node.getInputData(persistName)) {
-        node.setInputData(dataName, newDataArray);
+      // A placement keeps its files in its own edits either way: without that
+      // they would be written to the node every row shares
+      if (props.templateInstance || node.getInputData(persistName)) {
+        await node.applyWidgetEdits(
+          { [dataName]: newDataArray, [infoName]: newFileInfo },
+          props.templateInstance,
+          {
+            [outputFilesData]: newDataArray,
+            [outputFileInfoName]: newFileInfo,
+          },
+        );
+      } else {
+        node.setOutputData(outputFilesData, newDataArray);
+        node.setOutputData(outputFileInfoName, newFileInfo);
+        await node.executeOptimizedChain();
       }
-
-      // Update outputs
-      node.setOutputData(outputFilesData, newDataArray);
-      node.setOutputData(outputFileInfoName, newFileInfo);
-
-      // Execute the node to update downstream nodes
-      await node.executeOptimizedChain();
     },
-    [files, fileInfo, dataArray, node],
+    [files, fileInfo, dataArray, node, props.templateInstance],
   );
 
   const onDrop = async (acceptedFiles: File[]) => {
@@ -376,17 +388,21 @@ const FileDropzoneComponent: React.FC<{
     const updatedDataArray = [...dataArray, ...newDataItems];
     setDataArray(updatedDataArray);
 
-    if (node.getInputData(persistName)) {
-      // store on input side to persist data
-      node.setInputData(dataName, updatedDataArray);
+    if (props.templateInstance || node.getInputData(persistName)) {
+      // store on input side to persist data, per placement when in one
+      await node.applyWidgetEdits(
+        { [dataName]: updatedDataArray, [infoName]: updatedFileInfo },
+        props.templateInstance,
+        {
+          [outputFilesData]: updatedDataArray,
+          [outputFileInfoName]: updatedFileInfo,
+        },
+      );
+    } else {
+      node.setOutputData(outputFilesData, updatedDataArray);
+      node.setOutputData(outputFileInfoName, updatedFileInfo);
+      await node.executeOptimizedChain();
     }
-
-    // Update outputs
-    node.setOutputData(outputFilesData, updatedDataArray);
-    node.setOutputData(outputFileInfoName, updatedFileInfo);
-
-    // Execute the node to update downstream nodes
-    await node.executeOptimizedChain();
   };
 
   const handlePasteFromClipboard = async () => {

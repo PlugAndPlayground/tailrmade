@@ -34,6 +34,7 @@ import { ArrayType } from '../datatypes/arrayType';
 import { StringType } from '../datatypes/stringType';
 import { WidgetContentProps } from '../../utils/interfaces';
 import { useResolvedInputVariant } from '../../utils/theme';
+import type { TemplateInstanceHandle } from '../../components/dashboard/templateInstance';
 
 enum DropdownType {
   SINGLE = 'Dropdown (single select)',
@@ -60,11 +61,11 @@ abstract class WidgetDropdownBase extends WidgetSelectableBase {
     return this.isSingle() ? DropdownType.SINGLE : DropdownType.MULTI;
   }
 
-  handleOnChange = async (event) => {
+  handleOnChange = async (event, instance?: TemplateInstanceHandle) => {
     const {
       target: { value },
     } = event;
-    await this.performValueChange(value);
+    await this.performValueChange(value, instance);
   };
 
   protected getDefaultIO(): Socket[] {
@@ -136,7 +137,7 @@ abstract class WidgetDropdownBase extends WidgetSelectableBase {
             multiple={!node.isSingle()}
             value={node.formatSelected(props[selectedOptionName])}
             onChange={(event) => {
-              void node.handleOnChange(event);
+              void node.handleOnChange(event, props.templateInstance);
             }}
             renderValue={(selected) =>
               Array.isArray(selected) ? selected.join(', ') : String(selected)
