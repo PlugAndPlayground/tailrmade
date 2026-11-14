@@ -49,11 +49,14 @@ const coarseMinBox = {
 };
 
 // Switch cannot use coarseMinBox
-const coarseSwitchRoot = (trackHeight: number) => ({
+const coarseSwitchRoot = (trackHeight: number, defaultHeight: number) => ({
   [COARSE]: {
     height: `${TOUCH_TARGET_PX}px`,
     paddingTop: `${(TOUCH_TARGET_PX - trackHeight) / 2}px`,
     paddingBottom: `${(TOUCH_TARGET_PX - trackHeight) / 2}px`,
+    '& .MuiSwitch-switchBase': {
+      top: `${(TOUCH_TARGET_PX - defaultHeight) / 2}px`,
+    },
   },
 });
 
@@ -129,8 +132,8 @@ export const tokensToThemeOptions = (resolved: ResolvedTheme): ThemeOptions => {
       MuiSwitch: {
         defaultProps: { size: density.size },
         styleOverrides: {
-          root: coarseSwitchRoot(14),
-          sizeSmall: coarseSwitchRoot(10),
+          root: coarseSwitchRoot(14, 38),
+          sizeSmall: coarseSwitchRoot(10, 24),
         },
       },
       MuiTable: { defaultProps: { size: density.size } },

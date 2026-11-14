@@ -149,16 +149,21 @@ describe('touch targets', () => {
     const components = tokensToThemeOptions(resolvedWith({}))!.components!;
     const medium = coarseRule(components.MuiSwitch?.styleOverrides?.root);
     const small = coarseRule(components.MuiSwitch?.styleOverrides?.sizeSmall);
-    // height minus the two paddings is the track: 14px medium, 10px small
+    // height minus the two paddings is the track: 14px medium, 10px small.
+    // The thumb's switchBase is absolutely positioned at top: 0, so it moves
+    // down by half of what the root grew (38px medium, 24px small) to stay
+    // centred on the track
     expect(medium).toEqual({
       height: '44px',
       paddingTop: '15px',
       paddingBottom: '15px',
+      '& .MuiSwitch-switchBase': { top: '3px' },
     });
     expect(small).toEqual({
       height: '44px',
       paddingTop: '17px',
       paddingBottom: '17px',
+      '& .MuiSwitch-switchBase': { top: '10px' },
     });
   });
 
