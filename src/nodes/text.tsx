@@ -15,6 +15,7 @@ import {
 } from '../text/model';
 import {
   createTokenInput,
+  getBindableInputSockets,
   getTokenInputs,
   getTokenPickerProps,
 } from '../text/nodeInputs';
@@ -30,7 +31,7 @@ import {
 import { TextView } from '../text/TextView';
 import { shouldAutoFocusWidgetContent } from '../utils/nodeInteractivity';
 import PPSocket from '../classes/SocketClass';
-import { StaticValue } from '../classes/StaticValue';
+import { StaticValue, UNKNOWN_STATIC_VALUE } from '../classes/StaticValue';
 import PPGraph from '../classes/GraphClass';
 import InterfaceController, { ListenEvent } from '../InterfaceController';
 import { SOCKET_TYPE } from '../utils/constants';
@@ -324,6 +325,32 @@ appended.
 
   getWidgetContent(props: HybridWidgetContentProps<Text>): React.ReactElement {
     return <TextNodeWidget {...props} />;
+  }
+
+  // The risk review follows a constant through the rendered text, as it did
+  // through the Label nodes that load as Dynamic text.
+  public getStaticOutputData(
+    name: string,
+    visited: Set<PPSocket>,
+  ): StaticValue {
+    if (name !== TEXT_NODE_SOCKETS.output) return UNKNOWN_STATIC_VALUE;
+    const content = this.getStaticInputData(TEXT_NODE_SOCKETS.content, visited);
+    if (!content.known) return UNKNOWN_STATIC_VALUE;
+    const inputs: Record<string, unknown> = {};
+    for (const socket of getBindableInputSockets(this)) {
+      const value = this.getStaticInputData(socket.name, visited);
+      if (!value.known) return UNKNOWN_STATIC_VALUE;
+      inputs[socket.name] = value.value;
+    }
+    return {
+      known: true,
+      value: markdownToPlainText(
+        textPropsFromSocketValues({
+          [TEXT_NODE_SOCKETS.content]: content.value,
+        }).content,
+        inputs,
+      ),
+    };
   }
 
   protected async onExecute(input: any, output: any): Promise<void> {

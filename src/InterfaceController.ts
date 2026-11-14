@@ -6,7 +6,6 @@ import {
   combineSelectedDrawNodes,
   combineSelectedLayoutablesIntoSurface,
   combineToArray,
-  getCurrentCursorPosition,
   isEventComingFromWithinTextInput,
   isMac,
   getDashboardHorizontalBounds,
@@ -27,12 +26,7 @@ import {
   TVisibilityAction,
   surfaceElementVisibleSuffix,
 } from './utils/constants_shared';
-import {
-  ActionHandler,
-  ACTIONS,
-  AddNodeActionArgs,
-  PNPAction,
-} from './classes/Action';
+import { ActionHandler } from './classes/Action';
 import {
   ALIGNOPTIONS,
   DASHBOARD_DEFAULT,
@@ -595,19 +589,6 @@ export default class InterfaceController {
             e.preventDefault();
             this.toggleAppView(VISIBILITY_ACTION.TOGGLE);
             break;
-          case 'KeyL': {
-            e.preventDefault();
-            // a Constant String at the cursor, ready to type into
-            const addArgs = new AddNodeActionArgs(
-              'CONSTANT_String',
-              getCurrentCursorPosition(),
-            );
-            await PNPAction(ACTIONS.ADD_NODE, addArgs);
-            await PPGraph.currentGraph
-              .getNodeById(addArgs.nodeID)
-              ?.enableInteraction();
-            break;
-          }
         }
       }
     }

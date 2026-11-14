@@ -12,6 +12,12 @@ import {
 
 const constantEditor = '[data-cy="constant-string-editor"]';
 
+// a new Constant String opens its editor; Escape leaves it
+const closeEditor = () => {
+  cy.get(constantEditor).type('{esc}');
+  cy.get(constantEditor).should('not.exist');
+};
+
 // double-clicking a Constant String on the canvas edits its text in place
 const doubleClickNode = (nodeId: string) => {
   getStableScreenCoordinates((testController) =>
@@ -39,6 +45,7 @@ describe('testText', () => {
       testController.setNodeInputValue(id, 'String', 'Initial text');
       await testController.executeNodeByID(id);
     });
+    closeEditor();
 
     doubleClickNode(id);
     cy.get(constantEditor)
@@ -59,6 +66,46 @@ describe('testText', () => {
     cy.get(constantEditor).should('not.exist');
   });
 
+  it('opens a new Constant String ready to type into', () => {
+    doWithTestController(async (testController) => {
+      await testController.addNode('CONSTANT_String', 'typed-string', 0, 0);
+    });
+    cy.get(constantEditor)
+      .should(($editor) => {
+        expect($editor[0].ownerDocument.activeElement).to.eq($editor[0]);
+      })
+      .type('Typed right away');
+    shouldWithTestController((testController) => {
+      expect(testController.getNodeOutputValue('typed-string', 'String')).to.eq(
+        'Typed right away',
+      );
+    });
+  });
+
+  it('types a new Constant Number, committing only real numbers', () => {
+    const numberEditor = '[data-cy="constant-number-editor"]';
+    doWithTestController(async (testController) => {
+      await testController.addNode('CONSTANT_Number', 'typed-number', 0, 0);
+    });
+    cy.get(numberEditor).type('{selectall}-');
+    // "-" is on its way to a number, so the value is unchanged
+    shouldWithTestController((testController) => {
+      expect(testController.getNodeInputValue('typed-number', 'Number')).to.eq(
+        0,
+      );
+    });
+    // letters can never be part of a number, so they are not typed
+    cy.get(numberEditor).type('4x.5').should('have.text', '-4.5');
+    shouldWithTestController((testController) => {
+      expect(testController.getNodeInputValue('typed-number', 'Number')).to.eq(
+        -4.5,
+      );
+    });
+    // Enter finishes a number rather than adding a line
+    cy.get(numberEditor).type('{enter}');
+    cy.get(numberEditor).should('not.exist');
+  });
+
   it('does not edit a Constant String whose value is linked', () => {
     doWithTestController(async (testController) => {
       await testController.addNode('Constant', 'linked-source', -300, 0);
@@ -71,6 +118,8 @@ describe('testText', () => {
       );
       await testController.waitForPendingExecution();
     });
+    // linking the value closes the editor the new node opened with
+    cy.get(constantEditor).should('not.exist');
     doubleClickNode('linked-string');
     cy.get(constantEditor).should('not.exist');
   });
@@ -133,6 +182,7 @@ describe('testText', () => {
       testController.setNodeInputValue(id, 'String', initialText);
       await testController.executeNodeByID(id);
     });
+    closeEditor();
 
     doubleClickNode(id);
     cy.get(constantEditor).type(`{selectall}${editedText}`);
