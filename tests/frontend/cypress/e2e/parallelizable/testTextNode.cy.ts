@@ -451,7 +451,7 @@ describe('dynamic Text node', () => {
     cy.get('[data-cy="convert-to-static-text"]').should('be.disabled');
     cy.get('[data-cy="text-conversion-guard"]').should(
       'contain.text',
-      'Other nodes use this text node',
+      'Other nodes use this Dynamic text',
     );
 
     doWithTestController(async (testController) => {

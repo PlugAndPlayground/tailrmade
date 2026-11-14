@@ -64,7 +64,7 @@ export function getStaticConversionGuard(node: PPNode): StaticConversionGuard {
   if (hasOtherConsumers) {
     return {
       allowed: false,
-      reason: 'Other nodes use this text node, so it has to stay a node.',
+      reason: 'Other nodes use this Dynamic text, so it has to stay a node.',
     };
   }
   const surface = placements[0].surface as UISurfaceNode;
