@@ -34,6 +34,7 @@ import NodeContextMenu from './components/contextmenus/NodeContextMenu';
 import PPGroup from './classes/groups/GroupClass';
 import SocketContextMenu from './components/contextmenus/SocketContextMenu';
 import SpinnerContainer from './containers/SpinnerContainer';
+import { SubtitleOverlay } from './components/SubtitleOverlay';
 import { CLOUD_MODE } from './services/shared-types';
 // TODO: Add SDKs for Firebase products that you want to use
 // https://firebase.google.com/docs/web/setup#available-libraries
@@ -319,6 +320,7 @@ const App = (): React.JSX.Element => {
             <EditDialog graphToBeModified={graphToBeModified} />
           )}
           <SpinnerContainer />
+          <SubtitleOverlay />
           <AuthDialogHost />
 
           {isGraphContextMenuOpen && (

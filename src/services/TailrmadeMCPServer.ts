@@ -2,6 +2,7 @@ import * as PIXI from 'pixi.js';
 import {
   ACTIONS,
   ActionHandler,
+  ActionSource,
   AddNodeActionArgs,
   ConnectSocketsActionArgs,
   PNPAction,
@@ -28,7 +29,11 @@ import Socket from '../classes/SocketClass';
 import { PNPStatus } from '../classes/ErrorClass';
 import InterfaceController from '../InterfaceController';
 import { getAllNodeTypes, getAINodesInDetail } from '../nodes/allNodes';
-import { ensureVisible, zoomToFitNodes } from '../pixi/utils-pixi';
+import {
+  areNodesOnScreen,
+  ensureVisible,
+  zoomToFitNodes,
+} from '../pixi/utils-pixi';
 import { TRIGGER_TYPE_OPTIONS } from '../utils/constants';
 import {
   dashboardLayoutInputName,
@@ -94,6 +99,17 @@ export interface MCPToolResult {
   images?: string[];
 }
 
+/** Who a tool call acts for */
+export interface ToolCaller {
+  source: ActionSource;
+  // skips the spinner and the edit effect, so a filmed replay stays clean
+  quiet: boolean;
+  // never moves the camera to show an edit
+  keepCamera?: boolean;
+}
+
+const AI_CALLER: ToolCaller = { source: 'ai', quiet: false };
+
 type MCPToolName =
   | 'inspect_graph'
   | 'inspect_nodes'
@@ -103,6 +119,7 @@ type MCPToolName =
   | 'describe_node'
   | 'add_node'
   | 'remove_node'
+  | 'move_nodes'
   | 'inspect_history'
   | 'undo'
   | 'redo'
@@ -130,16 +147,23 @@ type MCPToolName =
 interface AddNodeInput {
   node_type: string;
   node_id: string;
+  x?: number;
+  y?: number;
 }
 
 interface RemoveNodeInput {
   node_id: string;
 }
 
+interface MoveNodesInput {
+  nodes: { node_id: string; x: number; y: number }[];
+}
+
 interface GroupNodesInput {
   node_ids: string[];
   name: string;
   color?: string;
+  group_id?: string;
 }
 
 interface UngroupInput {
@@ -318,6 +342,10 @@ export class TailrmadeMCPServer {
   // the user placed themselves.
   private turnCreatedNodeIds = new Set<string>();
 
+  // set by callTool for the length of one call. Calls are expected one at a
+  // time; an AI turn and a replay running at once would mix their sources
+  private caller: ToolCaller = AI_CALLER;
+
   // The spot the turn's first add_node anchors to. Captured once (from the
   // viewport centre) and reused for every subsequent add so deOverlap stacks
   // the turn's nodes into a consistent column
@@ -428,7 +456,7 @@ export class TailrmadeMCPServer {
       },
       { Nodes: nodeIds, Positions: previousPositions, group },
       undefined,
-      'ai',
+      this.caller.source,
     );
 
     const bounds = PPSelection.getNodesMinMax(placementNodes);
@@ -581,8 +609,40 @@ export class TailrmadeMCPServer {
               description:
                 'Unique ID chosen by the caller in the format ai-node-UNIQUENUMBER, for example ai-node-1.',
             },
+            x: {
+              type: 'number',
+              description:
+                'Canvas x of the top-left corner. Give x and y only to place the node exactly; it is then left out of automatic layout. Omit both to have it placed and aligned for you (preferred).',
+            },
+            y: {
+              type: 'number',
+              description: 'Canvas y of the top-left corner. See x.',
+            },
           },
           required: ['node_type', 'node_id'],
+        },
+      },
+      {
+        name: 'move_nodes',
+        description:
+          'Move nodes to exact canvas positions (top-left corner), as one undoable step. Prefer finish_section to arrange what you build; use this for precise adjustments.',
+        input_schema: {
+          type: 'object',
+          properties: {
+            nodes: {
+              type: 'array',
+              items: {
+                type: 'object',
+                properties: {
+                  node_id: { type: 'string' },
+                  x: { type: 'number' },
+                  y: { type: 'number' },
+                },
+                required: ['node_id', 'x', 'y'],
+              },
+            },
+          },
+          required: ['nodes'],
         },
       },
       {
@@ -876,6 +936,11 @@ export class TailrmadeMCPServer {
               type: 'string',
               description: `Optional hex colour. Defaults cycle through ${GROUP_COLORS.join(', ')}.`,
             },
+            group_id: {
+              type: 'string',
+              description:
+                'Optional unique ID for the new group. Omit to get a generated one back.',
+            },
           },
           required: ['node_ids', 'name'],
         },
@@ -951,6 +1016,19 @@ export class TailrmadeMCPServer {
   async callTool(
     name: string,
     input: Record<string, unknown>,
+    caller: ToolCaller = AI_CALLER,
+  ): Promise<MCPToolResult> {
+    this.caller = caller;
+    try {
+      return await this.runTool(name, input);
+    } finally {
+      this.caller = AI_CALLER;
+    }
+  }
+
+  private async runTool(
+    name: string,
+    input: Record<string, unknown>,
   ): Promise<MCPToolResult> {
     try {
       const toolName = name as MCPToolName;
@@ -982,6 +1060,8 @@ export class TailrmadeMCPServer {
           return await this.addNode(input as unknown as AddNodeInput);
         case 'remove_node':
           return await this.removeNode(input as unknown as RemoveNodeInput);
+        case 'move_nodes':
+          return await this.moveNodes(input as unknown as MoveNodesInput);
         case 'connect_sockets':
           return await this.connectSockets(
             input as unknown as ConnectSocketsInput,
@@ -1111,10 +1191,19 @@ export class TailrmadeMCPServer {
     if (!name) {
       return { content: 'name must not be empty', is_error: true };
     }
+    if (
+      input.group_id !== undefined &&
+      PPGraph.currentGraph.groupLayer.getGroup(input.group_id)
+    ) {
+      return {
+        content: `Group ID already exists: ${input.group_id}`,
+        is_error: true,
+      };
+    }
     const groupId = await groupNodes(
       this.getExistingNodes(nodeIds),
-      { name, color: input.color },
-      'ai',
+      { name, color: input.color, id: input.group_id },
+      this.caller.source,
     );
     return {
       content: JSON.stringify({ status: 'grouped', group_id: groupId }),
@@ -1126,7 +1215,7 @@ export class TailrmadeMCPServer {
     if (!group) {
       return { content: `Group not found: ${input.group_id}`, is_error: true };
     }
-    await ungroupNodes(group.getMembers(), 'ai');
+    await ungroupNodes(group.getMembers(), this.caller.source);
     return {
       content: JSON.stringify({
         status: 'ungrouped',
@@ -1143,7 +1232,11 @@ export class TailrmadeMCPServer {
     if (name === '') {
       return { content: 'name must not be empty', is_error: true };
     }
-    await updateGroup(input.group_id, { name, color: input.color }, 'ai');
+    await updateGroup(
+      input.group_id,
+      { name, color: input.color },
+      this.caller.source,
+    );
     return {
       content: JSON.stringify({
         status: 'group_updated',
@@ -1164,7 +1257,11 @@ export class TailrmadeMCPServer {
     if (missingNodesError) {
       return missingNodesError;
     }
-    await addNodesToGroup(group.id, this.getExistingNodes(nodeIds), 'ai');
+    await addNodesToGroup(
+      group.id,
+      this.getExistingNodes(nodeIds),
+      this.caller.source,
+    );
     return {
       content: JSON.stringify({
         status: 'added_to_group',
@@ -1182,7 +1279,10 @@ export class TailrmadeMCPServer {
     if (missingNodesError) {
       return missingNodesError;
     }
-    await removeNodesFromGroups(this.getExistingNodes(nodeIds), 'ai');
+    await removeNodesFromGroups(
+      this.getExistingNodes(nodeIds),
+      this.caller.source,
+    );
     return {
       content: JSON.stringify({
         status: 'removed_from_group',
@@ -1573,10 +1673,38 @@ export class TailrmadeMCPServer {
   private async removeNode(input: RemoveNodeInput): Promise<MCPToolResult> {
     const node = this.requireNode(input.node_id, 'remove_node');
     const graph = PPGraph.currentGraph;
-    await graph.perform_action_DeleteNodes([node], 'ai');
+    await graph.perform_action_DeleteNodes([node], this.caller.source);
     this.turnCreatedNodeIds.delete(input.node_id);
     return {
       content: JSON.stringify({ node_id: input.node_id, status: 'removed' }),
+    };
+  }
+
+  private async moveNodes(input: MoveNodesInput): Promise<MCPToolResult> {
+    if (!Array.isArray(input.nodes) || input.nodes.length === 0) {
+      return { content: 'nodes must not be empty', is_error: true };
+    }
+    const nodes = input.nodes.map((move) =>
+      this.requireNode(move.node_id, 'move_nodes'),
+    );
+    const nodeIds = nodes.map((node) => node.id);
+    await PNPAction(
+      ACTIONS.MOVE_NODES,
+      {
+        Nodes: nodeIds,
+        Positions: input.nodes.map((move) => new PIXI.Point(move.x, move.y)),
+      },
+      {
+        Nodes: nodeIds,
+        Positions: nodes.map((node) => new PIXI.Point(node.x, node.y)),
+      },
+      undefined,
+      this.caller.source,
+    );
+    nodes.forEach((node) => this.spawnEditEffect(node));
+    await this.reveal(nodes);
+    return {
+      content: JSON.stringify({ moved: nodeIds, status: 'moved' }),
     };
   }
 
@@ -1587,7 +1715,8 @@ export class TailrmadeMCPServer {
     if (!input.node_id) {
       throw new Error('add_node requires node_id');
     }
-    if (!/^ai-node-\d+$/.test(input.node_id)) {
+    // the format keeps the AI's ids apart; a replay brings back recorded ids
+    if (this.caller.source === 'ai' && !/^ai-node-\d+$/.test(input.node_id)) {
       return {
         content:
           'Invalid node_id. Use the format ai-node-UNIQUENUMBER, for example ai-node-1.',
@@ -1613,34 +1742,44 @@ export class TailrmadeMCPServer {
     }
 
     const nodeId = input.node_id;
+    const placedExactly =
+      typeof input.x === 'number' && typeof input.y === 'number';
     // Anchor every node in the turn to the same point (captured on the first
     // add) and let deOverlap fan them out; clone so the node can't mutate the
     // shared anchor. autoAlignNodes lays out the final positions end-of-turn.
-    if (!this.turnNodeAnchor) {
-      this.turnNodeAnchor = PPGraph.currentGraph.getDefaultNewNodeLocation();
+    let position: PIXI.Point;
+    if (placedExactly) {
+      position = new PIXI.Point(input.x, input.y);
+    } else {
+      this.turnNodeAnchor ??= PPGraph.currentGraph.getDefaultNewNodeLocation();
+      position = this.turnNodeAnchor.clone();
     }
-    const args = new AddNodeActionArgs(
-      nodeTypeKey,
-      this.turnNodeAnchor.clone(),
-      nodeId,
-    );
+    const args = new AddNodeActionArgs(nodeTypeKey, position, nodeId);
 
     const spinnerLabel = `AI adding node: ${nodeTypeKey}`;
-    InterfaceController.showSpinner(spinnerLabel);
+    this.showProgress(spinnerLabel);
     try {
-      await PNPAction(ACTIONS.ADD_NODE, args, args, undefined, 'ai');
+      await PNPAction(
+        ACTIONS.ADD_NODE,
+        args,
+        args,
+        undefined,
+        this.caller.source,
+      );
     } finally {
-      InterfaceController.hideSpinner(spinnerLabel);
+      this.hideProgress(spinnerLabel);
     }
 
     const addedNode = PPGraph.currentGraph.nodes[nodeId];
-    if (addedNode) {
+    if (addedNode && !placedExactly) {
       this.turnCreatedNodeIds.add(addedNode.id);
       // de-overlap immediately so intermediate states (before end-of-turn
       // auto-alignment) don't stack nodes on top of each other either
       addedNode.deOverlap();
+    }
+    if (addedNode) {
       this.spawnEditEffect(addedNode);
-      await ensureVisible([addedNode]);
+      await this.reveal([addedNode]);
     }
 
     return {
@@ -1696,11 +1835,17 @@ export class TailrmadeMCPServer {
     );
 
     const spinnerLabel = 'AI connecting sockets';
-    InterfaceController.showSpinner(spinnerLabel);
+    this.showProgress(spinnerLabel);
     try {
-      await PNPAction(ACTIONS.CONNECT_SOCKETS, args, args, undefined, 'ai');
+      await PNPAction(
+        ACTIONS.CONNECT_SOCKETS,
+        args,
+        args,
+        undefined,
+        this.caller.source,
+      );
     } finally {
-      InterfaceController.hideSpinner(spinnerLabel);
+      this.hideProgress(spinnerLabel);
     }
 
     const affectedNodes = [input.from_node, input.to_node]
@@ -1708,7 +1853,7 @@ export class TailrmadeMCPServer {
       .filter((node): node is PPNode => Boolean(node));
     affectedNodes.forEach((node) => this.spawnEditEffect(node));
     if (affectedNodes.length > 0) {
-      await ensureVisible(affectedNodes);
+      await this.reveal(affectedNodes);
     }
 
     return {
@@ -1776,7 +1921,7 @@ export class TailrmadeMCPServer {
       to: { node_id: string; socket: string };
     }> = [];
     const spinnerLabel = 'AI disconnecting sockets';
-    InterfaceController.showSpinner(spinnerLabel);
+    this.showProgress(spinnerLabel);
     try {
       for (const socket of sockets) {
         const source = socket.links[0].getSource();
@@ -1793,7 +1938,7 @@ export class TailrmadeMCPServer {
           args,
           args,
           undefined,
-          'ai',
+          this.caller.source,
         );
         disconnected.push({
           from: { node_id: source.getNode().id, socket: source.name },
@@ -1801,7 +1946,7 @@ export class TailrmadeMCPServer {
         });
       }
     } finally {
-      InterfaceController.hideSpinner(spinnerLabel);
+      this.hideProgress(spinnerLabel);
     }
 
     const affectedNodes = [input.to_node, input.from_node]
@@ -1809,7 +1954,7 @@ export class TailrmadeMCPServer {
       .filter((node): node is PPNode => Boolean(node));
     affectedNodes.forEach((node) => this.spawnEditEffect(node));
     if (affectedNodes.length > 0) {
-      await ensureVisible(affectedNodes);
+      await this.reveal(affectedNodes);
     }
 
     return {
@@ -1925,7 +2070,9 @@ export class TailrmadeMCPServer {
 
     // A surface's layout has a dedicated, validated tool pair; a raw write to
     // its craft-tree socket bypasses spec validation and widget auto-connect.
+    // A replay writes back a tree recorded from the editor, so it may.
     if (
+      this.caller.source === 'ai' &&
       targetNode?.isSurface() &&
       input.socket_name === surfaceJsonSocketName
     ) {
@@ -1968,23 +2115,23 @@ export class TailrmadeMCPServer {
     };
 
     const spinnerLabel = `AI setting ${input.socket_name}`;
-    InterfaceController.showSpinner(spinnerLabel);
+    this.showProgress(spinnerLabel);
     try {
       await PNPAction(
         ACTIONS.SET_SOCKET_VALUE,
         args,
         undoArgs,
         undefined,
-        'ai',
+        this.caller.source,
       );
     } finally {
-      InterfaceController.hideSpinner(spinnerLabel);
+      this.hideProgress(spinnerLabel);
     }
 
     const node = PPGraph.currentGraph.nodes[input.node_id];
     if (node) {
       this.spawnEditEffect(node);
-      await ensureVisible([node]);
+      await this.reveal([node]);
     }
 
     return {
@@ -2036,11 +2183,17 @@ export class TailrmadeMCPServer {
     const undoArgs = new SetCommentActionArgs(input.node_id, oldComment);
 
     const spinnerLabel = 'AI setting node comment';
-    InterfaceController.showSpinner(spinnerLabel);
+    this.showProgress(spinnerLabel);
     try {
-      await PNPAction(ACTIONS.SET_COMMENT, args, undoArgs, undefined, 'ai');
+      await PNPAction(
+        ACTIONS.SET_COMMENT,
+        args,
+        undoArgs,
+        undefined,
+        this.caller.source,
+      );
     } finally {
-      InterfaceController.hideSpinner(spinnerLabel);
+      this.hideProgress(spinnerLabel);
     }
 
     if (node) {
@@ -2099,17 +2252,17 @@ export class TailrmadeMCPServer {
     );
 
     const spinnerLabel = 'AI setting update behaviour';
-    InterfaceController.showSpinner(spinnerLabel);
+    this.showProgress(spinnerLabel);
     try {
       await PNPAction(
         ACTIONS.SET_UPDATE_BEHAVIOUR,
         args,
         undoArgs,
         undefined,
-        'ai',
+        this.caller.source,
       );
     } finally {
-      InterfaceController.hideSpinner(spinnerLabel);
+      this.hideProgress(spinnerLabel);
     }
 
     this.spawnEditEffect(node);
@@ -2422,17 +2575,17 @@ export class TailrmadeMCPServer {
     const args = new SetUISurfaceLayoutActionArgs(nodeId, newTreeJSON);
     const undoArgs = new SetUISurfaceLayoutActionArgs(nodeId, previousTreeJSON);
 
-    InterfaceController.showSpinner(spinnerLabel);
+    this.showProgress(spinnerLabel);
     try {
       await PNPAction(
         ACTIONS.SET_UI_SURFACE_LAYOUT,
         args,
         undoArgs,
         undefined,
-        'ai',
+        this.caller.source,
       );
     } finally {
-      InterfaceController.hideSpinner(spinnerLabel);
+      this.hideProgress(spinnerLabel);
     }
   }
 
@@ -2675,7 +2828,7 @@ export class TailrmadeMCPServer {
     );
 
     this.spawnEditEffect(node);
-    await ensureVisible([node]);
+    await this.reveal([node]);
 
     const { root } = decompileSurfaceTree(surface.getSurfaceTree());
 
@@ -2719,9 +2872,30 @@ export class TailrmadeMCPServer {
     };
   }
 
+  private showProgress(label: string): void {
+    if (!this.caller.quiet) {
+      InterfaceController.showSpinner(label);
+    }
+  }
+
+  private hideProgress(label: string): void {
+    if (!this.caller.quiet) {
+      InterfaceController.hideSpinner(label);
+    }
+  }
+
+  // a replay keeps the camera still while what it edits is already in view,
+  // otherwise every step restarts the camera animation
+  private async reveal(nodes: PPNode[]): Promise<void> {
+    if (this.caller.keepCamera) return;
+    if (this.caller.quiet && areNodesOnScreen(nodes)) return;
+    await ensureVisible(nodes);
+  }
+
   private spawnEditEffect(node: PPNode): void {
     const graph = PPGraph.currentGraph;
-    if (!graph?.app || !graph.viewport || node.destroyed) return;
+    if (this.caller.quiet || !graph?.app || !graph.viewport || node.destroyed)
+      return;
 
     const cx = node.x + node.nodeWidth / 2;
     const cy = node.y + node.nodeHeight / 2;
