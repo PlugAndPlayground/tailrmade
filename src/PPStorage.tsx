@@ -28,6 +28,7 @@ import { BackendGateway } from './services/BackendGateway';
 import { collectAppRisks } from './classes/NodeRisk';
 import { getGraphSource } from './services/graphSource';
 import { getAppFingerprint, rememberAppApproval } from './services/appTrust';
+import { appRisksAccepted, pendingAppRun } from './services/appExecution';
 
 (window as any).__PIXI_INSPECTOR_GLOBAL_HOOK__ &&
   (window as any).__PIXI_INSPECTOR_GLOBAL_HOOK__.register({ PIXI: PIXI });
@@ -696,12 +697,15 @@ export default class PPStorage {
     try {
       const storedGraph = PPGraph.currentGraph.getSerializedStoredGraph();
       // Bind trust to the snapshot being saved, even if editing continues during IO.
-      const savedApproval = setAsCurrentGraph
-        ? getAppFingerprint(
-            storedGraph.graphData,
-            collectAppRisks(Object.values(PPGraph.currentGraph.nodes)),
-          )
-        : null;
+      // Saving is not a decision about risks: an app still waiting for its
+      // review must ask again the next time it opens.
+      const savedApproval =
+        setAsCurrentGraph && appRisksAccepted.get() && !pendingAppRun.get()
+          ? getAppFingerprint(
+              storedGraph.graphData,
+              collectAppRisks(Object.values(PPGraph.currentGraph.nodes)),
+            )
+          : null;
       const savedDate = storedGraph.date;
 
       const oldName = storedGraph.name;

@@ -93,6 +93,7 @@ import {
   appRisksAccepted,
   isNodeExecutionAllowed,
   pendingAppRun,
+  takeLinkSocketData,
 } from '../services/appExecution';
 import { PNPWorker } from '../nodes/data/worker/PNPWorker';
 import {
@@ -1802,8 +1803,15 @@ export default class PPGraph {
       }
     }
 
+    const linkTargets = this.applyLinkSocketData(loadedGraphData);
     appExecutionAllowed.set(true);
     await this.executeAllSeedNodes(Object.values(this.nodes));
+    // Nodes that only react to changes still need to see the new value.
+    await FlowLogic.executeOptimizedChainBatch(
+      linkTargets.filter(
+        (node) => node.updateBehaviour.update && !node.updateBehaviour.load,
+      ),
+    );
 
     InterfaceController.hideSpinner();
     document.body.style.cursor = 'default';
@@ -1901,6 +1909,43 @@ export default class PPGraph {
     });
 
     return true;
+  }
+
+  // Also written into the data the approval is tied to, so the same app
+  // opened with different values is a different app to the review.
+  private applyLinkSocketData(approvalGraphData: SerializedGraph): PPNode[] {
+    const targets = new Set<PPNode>();
+    for (const {
+      node: nodeId,
+      socket: socketName,
+      data,
+    } of takeLinkSocketData()) {
+      const node = this.nodes[nodeId];
+      const socket = node?.inputSocketArray.find(
+        (input) => input.name === socketName,
+      );
+      if (!node || !socket) continue;
+      socket.data = data;
+      targets.add(node);
+      const serialized = approvalGraphData.nodes
+        .find((candidate) => candidate.id === nodeId)
+        ?.socketArray.find(
+          (candidate) =>
+            candidate.name === socketName && candidate.socketType !== 'out',
+        );
+      if (serialized) {
+        serialized.data = socket.serialize().data;
+      } else {
+        // The socket only exists since a migration, so the file has no entry
+        // to carry the value. The approval still has to depend on it.
+        (approvalGraphData.linkValues ??= []).push({
+          node: nodeId,
+          socket: socketName,
+          data: socket.serialize().data,
+        });
+      }
+    }
+    return [...targets];
   }
 
   async executeAllSeedNodes(nodes: PPNode[]): Promise<void> {

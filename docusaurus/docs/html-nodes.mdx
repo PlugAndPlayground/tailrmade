@@ -336,6 +336,8 @@ HTML nodes support all [Tailwind CSS](https://tailwindcss.com/docs) classes. Use
 
 :::tip Sanitize input
 The "Sanitize input" socket is enabled by default to prevent XSS attacks. Disable it only if you trust the HTML source and need to render scripts or advanced HTML. Turning it off makes the whole app report [Unrestricted access](app-risk-review.mdx), so leave it on for anything you publish.
+
+While it is on, scripts, event handlers and `<form>` elements are removed. The HTML node also removes `<style>` blocks and keeps its content inside its own box, so `position: fixed` stays within the node; use inline `style` attributes or theme variables there. The IFrame nodes keep `<style>` blocks, and Slides keeps them scoped to the deck.
 :::
 
 :::tip Preview changes

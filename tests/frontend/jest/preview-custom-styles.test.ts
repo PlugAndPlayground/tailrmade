@@ -26,7 +26,7 @@ describe('resolveCustomStylesForPreviewWidth', () => {
   };
 
   it('passes styles through unchanged without a preview width', () => {
-    expect(resolveCustomStylesForPreviewWidth(customStyles, null)).toBe(
+    expect(resolveCustomStylesForPreviewWidth(customStyles, null)).toEqual(
       customStyles,
     );
   });

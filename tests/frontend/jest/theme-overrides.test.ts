@@ -43,3 +43,26 @@ describe('parseThemeOverrides', () => {
     ]);
   });
 });
+
+describe('theme strings stay CSS values', () => {
+  const { parseThemeDocument } = jest.requireActual(
+    '../../../src/utils/theme/document',
+  );
+  it('keeps ordinary colors and font stacks', () => {
+    const override = {
+      primary: 'rgba(10, 20, 30, 0.5)',
+      fontFamily: "'Courier New', monospace",
+    };
+    expect(parseThemeDocument({ override }).override).toEqual(override);
+  });
+  it.each([
+    ['primary', 'red; background: blue'],
+    ['primary', 'url(https://example.com/a.png)'],
+    ['fontFamily', 'Roboto"; } body { display: none'],
+    ['fontFamily', 'Roboto" , x'],
+  ])('drops %s: %s', (key, value) => {
+    expect(parseThemeDocument({ override: { [key]: value } }).override).toBe(
+      undefined,
+    );
+  });
+});
