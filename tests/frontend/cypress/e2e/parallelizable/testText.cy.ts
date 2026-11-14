@@ -8,22 +8,17 @@ import {
   getStableScreenCoordinates,
   openNewGraph,
   shouldWithTestController,
-  waitForStableRect,
 } from '../helpers';
 
-// the Label's canvas editor is a single element named after the socket it
-// edits
-const labelEditorSelector = '#Label-Input';
+const constantEditor = '[data-cy="constant-string-editor"]';
 
-// double-clicking the node on the canvas opens its text editor there
-const editLabelOnCanvas = (nodeId: string, text: string) => {
+// double-clicking a Constant String on the canvas edits its text in place
+const doubleClickNode = (nodeId: string) => {
   getStableScreenCoordinates((testController) =>
     testController.getNodeCenterById(nodeId),
   ).then(([x, y]) => {
     cy.get('#pixi-container').dblclick(x, y);
   });
-
-  cy.get(labelEditorSelector).should('be.visible').type(`{selectall}${text}`);
 };
 
 describe('testText', () => {
@@ -36,51 +31,48 @@ describe('testText', () => {
     closeBothDrawers();
   });
 
-  it('adds Label node to dashboard and tests editability', () => {
+  it('edits a Constant String in place on the canvas', () => {
     const id = 'amber-otter-11';
-    const initialText = 'Initial Label Text';
-    const editedText = 'Edited Label Text';
-    const widgetSelector = `[data-cy="widget of NODE_${id}"]`;
 
     doWithTestController(async (testController) => {
-      await testController.addNode('Label', id, 0, -200);
-      await testController.setNodeInputValue(id, 'Font size', 80);
-      await testController.setNodeInputValue(id, 'Input', initialText);
+      await testController.addNode('CONSTANT_String', id, 0, -200);
+      testController.setNodeInputValue(id, 'String', 'Initial text');
       await testController.executeNodeByID(id);
     });
 
-    doWithTestController((testController) => {
-      expect(testController.getNodeOutputValue(id, 'Output')).to.eq(
-        initialText,
+    doubleClickNode(id);
+    cy.get(constantEditor)
+      .should('be.visible')
+      .and('have.text', 'Initial text')
+      .and(($editor) => {
+        expect($editor[0].ownerDocument.activeElement).to.eq($editor[0]);
+      })
+      .type('{selectall}Edited{enter}on two lines');
+    shouldWithTestController((testController) => {
+      expect(testController.getNodeOutputValue(id, 'String')).to.eq(
+        'Edited\non two lines',
       );
     });
 
-    addToDashboard(id);
+    // Escape leaves the editor and shows the canvas text again
+    cy.get(constantEditor).type('{esc}');
+    cy.get(constantEditor).should('not.exist');
+  });
 
-    cy.get('[data-cy="dashboard"]').should('be.visible');
-    cy.get(widgetSelector)
-      .should('be.visible')
-      .and('contain.text', initialText);
-
-    // the text is edited on the canvas only - the dashboard widget just
-    // displays what the node outputs
-    cy.get(`${widgetSelector} [contenteditable="true"]`).should('not.exist');
-
-    // adding opened the dashboard in edit mode; leave it and let the panel
-    // settle, then bring the node back into the uncovered part of the canvas
-    exitDashboardEditMode();
-    waitForStableRect('[data-cy="dashboard"]');
-    doWithTestController((testController) => {
-      testController.zoomToFitNodesById([id]);
+  it('does not edit a Constant String whose value is linked', () => {
+    doWithTestController(async (testController) => {
+      await testController.addNode('Constant', 'linked-source', -300, 0);
+      await testController.addNode('CONSTANT_String', 'linked-string', 0, 0);
+      await testController.connectNodesByID(
+        'linked-source',
+        'linked-string',
+        'Out',
+        'String',
+      );
+      await testController.waitForPendingExecution();
     });
-
-    editLabelOnCanvas(id, editedText);
-
-    shouldWithTestController((testController) => {
-      expect(testController.getNodeOutputValue(id, 'Output')).to.eq(editedText);
-    });
-
-    cy.get(widgetSelector).should('contain.text', editedText);
+    doubleClickNode('linked-string');
+    cy.get(constantEditor).should('not.exist');
   });
 
   it('edits a Text node on the canvas and in edit mode, never in the app', () => {
@@ -131,31 +123,33 @@ describe('testText', () => {
     cy.get(widgetSelector).should('contain.text', 'Set from the graph');
   });
 
-  it('undo restores Label text edited on the canvas', () => {
+  it('undo restores Constant String text edited on the canvas', () => {
     const id = 'scarlet-lynx-33';
     const initialText = 'Initial canvas text';
     const editedText = 'Edited canvas text';
 
     doWithTestController(async (testController) => {
-      await testController.addNode('Label', id, 0, 0);
-      await testController.setNodeInputValue(id, 'Input', initialText);
+      await testController.addNode('CONSTANT_String', id, 0, 0);
+      testController.setNodeInputValue(id, 'String', initialText);
       await testController.executeNodeByID(id);
     });
 
-    editLabelOnCanvas(id, editedText);
+    doubleClickNode(id);
+    cy.get(constantEditor).type(`{selectall}${editedText}`);
 
     doWithTestController((testController) => {
-      expect(testController.getNodeInputValue(id, 'Input')).to.eq(editedText);
+      expect(testController.getNodeInputValue(id, 'String')).to.eq(editedText);
     });
 
     // leave the editor before undoing - ctrl+z inside the contenteditable
     // would trigger the browser's own text undo instead of the app's
     cy.get('#pixi-container').click(100, 500);
+    cy.get(constantEditor).should('not.exist');
 
     cy.get('body').type(`${controlOrMetaKey()}z`);
 
     doWithTestController((testController) => {
-      expect(testController.getNodeInputValue(id, 'Input')).to.eq(initialText);
+      expect(testController.getNodeInputValue(id, 'String')).to.eq(initialText);
     });
   });
 });

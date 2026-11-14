@@ -21,7 +21,7 @@ describe('UI surface editing in the dashboard', () => {
     openNewGraph();
     doWithTestController(async (testController) => {
       await testController.addNode('UISurfaceNode', 'ui-surface-1', 600, 0);
-      await testController.addNode('Label', 'test-label-1', -200, 0);
+      await testController.addNode('Text', 'test-label-1', -200, 0);
       await testController.waitForPendingExecution();
       testController.setShowUnsavedChangesWarning(false);
     });
@@ -157,7 +157,7 @@ describe('UI surface editing in the dashboard', () => {
     // its own: an empty surface renders with no area, so "can a pointer reach
     // the content" would have nothing to reach and would hold either way
     doWithTestController(async (testController) => {
-      await testController.addNode('Label', 'test-label-2', -200, 900);
+      await testController.addNode('Text', 'test-label-2', -200, 900);
       await testController.waitForPendingExecution();
       await testController.connectNodesByID(
         'test-label-2',

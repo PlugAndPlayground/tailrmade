@@ -23,7 +23,7 @@ export class AnyType extends AbstractType {
   }
 
   recommendedOutputNodeWidgets(): string[] {
-    return ['label', 'codeeditor', 'jsoneditor', 'logviewer', 'consoleprint'];
+    return ['text', 'codeeditor', 'jsoneditor', 'logviewer', 'consoleprint'];
   }
 
   prefersToChangeAwayFromThisType(): boolean {
@@ -38,7 +38,6 @@ export class AnyType extends AbstractType {
       'widgetbutton',
       'widgetslider',
       'widgetswitch',
-      'label',
       'widgetcolorpicker',
     ];
   }

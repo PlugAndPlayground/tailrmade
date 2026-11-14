@@ -45,7 +45,7 @@ export class TwoDVectorType extends AbstractType {
   }
 
   recommendedOutputNodeWidgets(): string[] {
-    return ['label', 'break'];
+    return ['text', 'break'];
   }
 
   recommendedInputNodeWidgets(): string[] {

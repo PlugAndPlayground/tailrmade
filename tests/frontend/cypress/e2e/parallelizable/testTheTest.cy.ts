@@ -46,21 +46,25 @@ describe('tests', () => {
     clickSocket('Constant', 'In');
 
     doWithTestController(async (testController) => {
-      await testController.addNode('Label', 'Label');
+      await testController.addNode('CONSTANT_String', 'ConstantString');
       await testController.moveNodeByID('Constant', -200, 0);
-      await testController.moveNodeByID('Label', 230, 0);
+      await testController.moveNodeByID('ConstantString', 230, 0);
       await testController.setNodeInputValue('Constant', 'In', testValue);
-      await testController.connectNodesByID('Constant', 'Label', 'Out');
+      await testController.connectNodesByID(
+        'Constant',
+        'ConstantString',
+        'Out',
+      );
       await testController.executeNodeByID('Constant');
     });
 
     assertNodesCount(2, smokeTimeout);
-    clickSocket('Label', 'Input');
+    clickSocket('ConstantString', 'String');
 
     doWithTestController((testController) => {
-      expect(testController.getNodeInputValue('Label', 'Input')).to.eq(
-        testValue,
-      );
+      expect(
+        testController.getNodeInputValue('ConstantString', 'String'),
+      ).to.eq(testValue);
     });
   });
 });

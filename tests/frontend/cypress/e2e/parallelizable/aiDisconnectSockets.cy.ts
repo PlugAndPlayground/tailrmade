@@ -66,12 +66,12 @@ describe('AI disconnect_sockets', () => {
     doWithTestController(async (tc) => {
       await tc.addNode('UISurfaceNode', 'dis-surface-1', 0, 0);
       await tc.addNode('UISurfaceNode', 'dis-surface-2', 0, 400);
-      await tc.addNode('Label', 'dis-label-1', 300, 0);
+      await tc.addNode('Text', 'dis-label-1', 300, 0);
       await tc.callAITool('connect_sockets', {
         from_node: 'dis-label-1',
         from_socket: 'ReactUI',
         to_node: 'dis-surface-1',
-        to_socket: 'Label',
+        to_socket: 'Text',
       });
 
       await tc.callAITool('disconnect_sockets', {
@@ -82,7 +82,7 @@ describe('AI disconnect_sockets', () => {
         from_node: 'dis-label-1',
         from_socket: 'ReactUI',
         to_node: 'dis-surface-2',
-        to_socket: 'Label',
+        to_socket: 'Text',
       });
 
       expect(await widgetIdsOn(tc, 'dis-surface-1')).to.not.include(
@@ -121,7 +121,7 @@ describe('AI disconnect_sockets', () => {
     doWithTestController(async (tc) => {
       await tc.addNode('UISurfaceNode', 'dis-surface-1', 0, 0);
       await tc.addNode('WidgetButton', 'dis-btn-1', 300, 0);
-      await tc.addNode('Label', 'dis-label-1', 300, 400);
+      await tc.addNode('Text', 'dis-label-1', 300, 400);
       await tc.callAITool('connect_sockets', {
         from_node: 'dis-btn-1',
         from_socket: 'Out',

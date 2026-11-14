@@ -73,8 +73,13 @@ describe('graph execution', () => {
   it('see that nodes behind a non-executing-on-load node is executing on load, prepare them', () => {
     doWithTestController(async (testController) => {
       await testController.addNode('Constant', 'Constant6', 0, -400);
-      await testController.addNode('Label', 'Label', 200, -400);
-      await testController.connectNodesByID('Constant6', 'Label');
+      await testController.addNode(
+        'CONSTANT_String',
+        'ConstantString',
+        200,
+        -400,
+      );
+      await testController.connectNodesByID('Constant6', 'ConstantString');
       testController.getNodeByID('Constant6').updateBehaviour.update = false;
       testController.getNodeByID('Constant6').updateBehaviour.load = false;
     });
@@ -87,7 +92,9 @@ describe('graph execution', () => {
 
   it('see that nodes behind a non-executing-on-load node is executing on load, test them', () => {
     doWithTestController(async (testController) => {
-      expect(testController.getNodeOutputValue('Label', 'Output')).to.eq('0');
+      expect(
+        testController.getNodeOutputValue('ConstantString', 'String'),
+      ).to.eq('0');
     });
   });
 

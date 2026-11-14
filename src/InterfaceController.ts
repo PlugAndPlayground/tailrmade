@@ -595,15 +595,19 @@ export default class InterfaceController {
             e.preventDefault();
             this.toggleAppView(VISIBILITY_ACTION.TOGGLE);
             break;
-          case 'KeyL':
+          case 'KeyL': {
             e.preventDefault();
-            const currPos = getCurrentCursorPosition();
-
-            await PNPAction(
-              ACTIONS.ADD_NODE,
-              new AddNodeActionArgs('Label', currPos),
+            // a Constant String at the cursor, ready to type into
+            const addArgs = new AddNodeActionArgs(
+              'CONSTANT_String',
+              getCurrentCursorPosition(),
             );
+            await PNPAction(ACTIONS.ADD_NODE, addArgs);
+            await PPGraph.currentGraph
+              .getNodeById(addArgs.nodeID)
+              ?.enableInteraction();
             break;
+          }
         }
       }
     }
