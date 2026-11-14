@@ -30,7 +30,7 @@ import {
 //     on; (2) the parent direction reported to children was the *declared*
 //     flexDirection, not the *rendered* one (getNewDirection flips row to
 //     column under mobileBehavior:'column' on a narrow dashboard).
-// 'surface' siblings (embedded UI surfaces) additionally exercise the
+// 'surface' siblings (embedded UI pages) additionally exercise the
 // non-craft SurfaceRenderer pipeline, which had its own direction bug.
 // generateMatrixCases() (layoutMatrixHelpers.ts) is the single source of
 // truth for the combinations exercised below - see it for how to add an
@@ -82,7 +82,7 @@ export function runLayoutMatrix(kindPairs: SiblingKindPair[]): void {
     );
   };
 
-  describe(`UI surface layout matrix (generated) - ${kindPairs.join(', ')}`, () => {
+  describe(`UI page layout matrix (generated) - ${kindPairs.join(', ')}`, () => {
     before(() => {
       openNewGraph();
       doWithTestController(async (tc) => {
@@ -97,7 +97,7 @@ export function runLayoutMatrix(kindPairs: SiblingKindPair[]): void {
         const nodeB = await tc.addNode('WidgetSwitch', undefined, 400, 200);
         tc.setNodeInputValue(nodeA.id, 'Label', WRAPPABLE_LABEL);
         tc.setNodeInputValue(nodeB.id, 'Label', WRAPPABLE_LABEL);
-        // two embeddable UI surfaces for the 'surface' sibling kind, each
+        // two embeddable UI pages for the 'surface' sibling kind, each
         // given a minimal inner layout (one WidgetButton)
         const surfA = await tc.addNode('UISurfaceNode', undefined, 800, 0);
         const surfB = await tc.addNode('UISurfaceNode', undefined, 800, 400);

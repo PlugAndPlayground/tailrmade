@@ -258,7 +258,7 @@ export const DynamicWidget = (props: Partial<DynamicWidgetProps>) => {
 
   const parentDirection = useParentDirection(parent);
 
-  // double-clicking an embedded UI surface in edit mode dives into it
+  // double-clicking an embedded UI page in edit mode dives into it
   // (makes it the edited surface; the breadcrumb navigates back up)
   const layoutableElement = props.id
     ? getLayoutableElement(props.id)
@@ -285,7 +285,7 @@ export const DynamicWidget = (props: Partial<DynamicWidgetProps>) => {
       parentDirection={parentDirection}
       innerRef={(ref) => ref && connect(drag(ref))}
       onDoubleClick={handleDive}
-      title={handleDive ? 'Double-click to edit this UI surface' : undefined}
+      title={handleDive ? 'Double-click to edit this UI page' : undefined}
     />
   );
 };
@@ -331,7 +331,7 @@ const DynamicWidgetSettings = () => {
           }}
         />
       </FormWrapper>
-      {/* collapse is a per-placement option for embedded UI surfaces */}
+      {/* collapse is a per-placement option for embedded UI pages */}
       {props.id && getLayoutableElement(props.id)?.isSurface() && (
         <FormWrapper>
           <StyledFormLabel>Collapsible</StyledFormLabel>

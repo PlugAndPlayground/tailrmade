@@ -16,8 +16,8 @@ const assertEventually = (
   cy.window().its('testController', { timeout }).should(callback);
 };
 
-describe('UI surface editing in the dashboard', () => {
-  it('setup: add a UI surface and a label node', () => {
+describe('UI page editing in the dashboard', () => {
+  it('setup: add a UI page and a label node', () => {
     openNewGraph();
     doWithTestController(async (testController) => {
       await testController.addNode('UISurfaceNode', 'ui-surface-1', 600, 0);

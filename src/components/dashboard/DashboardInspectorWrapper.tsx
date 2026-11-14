@@ -76,7 +76,7 @@ export const DashboardInspectorWrapper = () => {
           gap: 0.5,
         }}
       >
-        {/* All UI surface nodes; select to show/edit, star = default */}
+        {/* All UI page nodes; select to show/edit, star = default */}
         <Box sx={{ flex: '0 0 auto', maxHeight: '30vh', overflow: 'auto' }}>
           <SurfaceListPanel />
         </Box>

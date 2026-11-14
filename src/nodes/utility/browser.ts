@@ -108,7 +108,7 @@ addresses are opened.
 
 Opening an address is a navigation risk, so an app with this node pauses
 behind the risk review until the user approves it. When the user only needs a
-link to click, a Markdown link in a Text node, such as [Open map](https://...),
+link to click, a Markdown link in a Dynamic text node, such as [Open map](https://...),
 does the job without the review.`;
   }
 

@@ -156,7 +156,7 @@ abstract class HtmlNodeBase extends HybridNode2 {
 
   public getDocs(): string {
     return `Use HTML/IFrame only for custom markup, embeds, or behavior not
-covered by widgets and UI surfaces.
+covered by widgets and UI pages.
 
 ## Handlebars templating
 Connect data to the "Data" input to inject values. In the template that input
@@ -1118,7 +1118,7 @@ export class ElementRenderer extends HybridNode2 {
   }
 
   public getDescription(): string {
-    return 'Display a DOM element created by a Custom function on a UI surface.';
+    return 'Display a DOM element created by a Custom function on a UI page.';
   }
 
   public getDocs(): string {

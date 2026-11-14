@@ -775,15 +775,18 @@ const enumOptions = (values: readonly string[]) =>
 
 export class Text extends HybridNode2 {
   public getName(): string {
-    return 'Text';
+    return 'Dynamic text';
   }
 
   public getDescription(): string {
-    return 'Rich text that shows live values from its inputs';
+    return 'Rich text with live values from its inputs, for labels, headings and paragraphs';
   }
 
   public getDocs(): string {
-    return `Shows rich text on a UI surface, with live values from its own inputs.
+    return `Shows rich text on a UI page, with live values from its own inputs.
+
+For fixed text, add static text in the user interface editor instead.
+"Convert to static text" turns a Dynamic text into static text.
 
 Tokens are Handlebars paths into this node's inputs: {{temp}}, or {{d.temp}}
 for a field of an object input. Only paths work - no blocks or helpers, so

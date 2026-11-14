@@ -2,7 +2,7 @@ import { GlowFilter } from 'pixi-filters';
 import * as PIXI from 'pixi.js';
 
 // ReactUI connections are drawn fainter so they don't visually dominate the
-// canvas now that UI surfaces live alongside regular nodes
+// canvas now that UI pages live alongside regular nodes
 export const REACT_UI_CONNECTION_ALPHA = 0.1;
 
 export async function drawExecutionFilter(

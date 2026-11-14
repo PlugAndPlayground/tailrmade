@@ -10,7 +10,7 @@ import {
 
 // Visual "zoo" of every case generateMatrixCases() produces (the
 // layoutMatrix.*.cy.ts specs assert geometry invariants on these same
-// combinations; this spec is for a human to look at). Builds ONE UI surface
+// combinations; this spec is for a human to look at). Builds ONE UI page
 // with a text label + the tested parent container for every combination, then
 // leaves the app open and interactive so a person running `yarn test-editor`
 // can resize the window and drag the dashboard divider to watch the mobile
@@ -22,7 +22,7 @@ import {
 // `yarn test-editor` (open mode uses the config specPattern, no exclude).
 const SURFACE_ID = 'layout-zoo-surface';
 
-describe('UI surface layout zoo (visual - run via yarn test-editor)', () => {
+describe('UI page layout zoo (visual - run via yarn test-editor)', () => {
   it('builds one surface containing every generated layout-matrix combination', () => {
     openNewGraph();
     const cases = generateMatrixCases();
@@ -34,7 +34,7 @@ describe('UI surface layout zoo (visual - run via yarn test-editor)', () => {
 
       let y = 0;
       // a placeable node per sibling: WidgetSwitch for 'widget'/'container'
-      // siblings, a fresh embeddable UI surface (one WidgetButton inside)
+      // siblings, a fresh embeddable UI page (one WidgetButton inside)
       // for 'surface' siblings - fresh nodes per section because one node
       // may appear only once per surface. ids left to default (hri.random())
       // - set_surface_layout rejects non-resolvable hand-picked ids.
