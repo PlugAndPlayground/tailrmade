@@ -133,7 +133,12 @@ export function shareOptions(onClose: () => void): React.ReactElement[] {
 
   const shareLink = async () => {
     onClose();
-    const result = await shareContent({ title: graph.name, url });
+    // Chat apps drop the title, so the text carries the invitation.
+    const result = await shareContent({
+      title: graph.name,
+      text: 'Try this Tailrmade app:',
+      url,
+    });
     if (result === 'copied') InterfaceController.showSnackBar('Link copied');
   };
 

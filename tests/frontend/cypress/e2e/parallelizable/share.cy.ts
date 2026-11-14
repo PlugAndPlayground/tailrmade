@@ -88,6 +88,7 @@ describe('Share menu', () => {
         .its('firstCall.args.0')
         .should((data) => {
           expect(data.title).to.equal('Shared app');
+          expect(data.text).to.equal('Try this Tailrmade app:');
           expect(data.url).to.contain('?loadGraph=someone;;Shared%20app;;');
         });
     });
@@ -119,7 +120,7 @@ describe('Share menu', () => {
       cy.contains('Link copied').should('be.visible');
       cy.get('@writeText')
         .its('firstCall.args.0')
-        .should('contain', '?loadGraph=someone;;');
+        .should('match', /^Try this Tailrmade app:\n.*\?loadGraph=someone;;/);
     });
   });
 });
