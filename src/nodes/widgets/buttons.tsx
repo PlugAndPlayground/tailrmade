@@ -51,6 +51,8 @@ import {
 } from '../../classes/Action';
 import UpdateBehaviourClass from '../../classes/UpdateBehaviourClass';
 import PPGraph from '../../classes/GraphClass';
+import InterfaceController from '../../InterfaceController';
+import { buildShareContent, shareContent } from '../../utils/share';
 
 const disabledName = 'Disabled';
 
@@ -265,6 +267,121 @@ export class WidgetButton extends WidgetHybridBase {
       </WidgetPaper>
     );
   }
+}
+
+const shareTitleName = 'Title';
+const shareTextName = 'Text';
+const shareURLName = 'URL';
+const shareFilesName = 'Files';
+const shareFileNameName = 'File name';
+const shareResultName = 'Result';
+
+// Button's look and sizing, with a click that shares instead of sending values
+export class WidgetShareButton extends WidgetButton {
+  public getName(): string {
+    return 'Share Button';
+  }
+
+  public getDescription(): string {
+    return "Opens the device's share sheet for text, a link or files";
+  }
+
+  public getDocs(): string {
+    return `A button that shares "Title", "Text", "URL" and "Files" through the
+device's share sheet. Where there is none, it copies the text and link, or
+downloads the files.
+
+"URL" must be an HTTP or HTTPS address; others are left out. Feed it the URL
+Parameter node's "App link", optionally with your own #part, to share this app.
+"Files" takes a data URL or a list of them, such as an Image output; they are
+named after "File name".
+
+"Result" is shared, copied, downloaded or cancelled once the user is done,
+and runs the nodes after it. The click itself never waits for the graph, so
+browsers allow the share sheet to open. Sharing needs no risk review: the
+user picks where the content goes.`;
+  }
+
+  public getTags(): string[] {
+    return ['Share'].concat(super.getTags());
+  }
+
+  public getVersion(): number {
+    return 1;
+  }
+
+  protected getDefaultIO(): Socket[] {
+    const button = super.getDefaultIO();
+    const kept = button.filter(
+      (socket) =>
+        socket.isInput() &&
+        socket.name !== onValueName &&
+        socket.name !== offValueName,
+    );
+    kept.find((socket) => socket.name === labelName)!.data = 'Share';
+    return [
+      new Socket(SOCKET_TYPE.IN, shareTextName, new StringType(), ''),
+      new Socket(SOCKET_TYPE.IN, shareURLName, new StringType(), ''),
+      new Socket(SOCKET_TYPE.IN, shareFilesName, new AnyType(), ''),
+      new Socket(SOCKET_TYPE.IN, shareTitleName, new StringType(), '', false),
+      new Socket(
+        SOCKET_TYPE.IN,
+        shareFileNameName,
+        new StringType(),
+        'shared',
+        false,
+      ),
+      ...kept,
+      new Socket(SOCKET_TYPE.OUT, shareResultName, new StringType()),
+    ];
+  }
+
+  protected getBackPropagationTargets(): BackPropagation {
+    return {
+      SocketToGetValue: this.getInputSocketByName(shareTextName),
+      SocketToTakeName: this.getInputSocketByName(labelName),
+    };
+  }
+
+  // Nothing may await before shareContent: the browser only opens the share
+  // sheet during the click's user activation.
+  handleOnClick = async () => {
+    if (
+      this.isCurrentlyForceDisabled ||
+      !PPGraph.currentGraph?.graphConfiguredAndReady
+    ) {
+      return;
+    }
+    const content = buildShareContent({
+      title: this.getInputData(shareTitleName),
+      text: this.getInputData(shareTextName),
+      url: this.getInputData(shareURLName),
+      files: this.getInputData(shareFilesName),
+      fileName: this.getInputData(shareFileNameName),
+    });
+    if (!content) {
+      InterfaceController.showSnackBar(
+        this.getInputSocketByName(shareURLName).hasLink()
+          ? 'Nothing to share yet: the link is empty. Is the app public?'
+          : 'Nothing to share yet.',
+        { variant: 'warning' },
+      );
+      return;
+    }
+    this.isCurrentlyForceDisabled = true;
+    const id = this.id;
+    try {
+      const result = await shareContent(content);
+      if (result === 'copied') InterfaceController.showSnackBar('Copied');
+      const safeNode = SerializableActionHandler.getSafeNode(id);
+      await safeNode
+        .getOutputSocketByName(shareResultName)
+        .setDataAndWait(result);
+      await safeNode.executeOptimizedChain();
+    } finally {
+      this.isCurrentlyForceDisabled = false;
+    }
+  };
 }
 
 const buttonGroupOptionsName = 'Button Options';

@@ -29,6 +29,7 @@ import { getTMBuildLabel } from './buildInfo';
 import { BackendGateway } from './services/BackendGateway';
 import GraphContextMenu from './components/contextmenus/GraphContextMenu';
 import { AuthDialogHost } from './components/AuthDialog';
+import { ManualCopyDialog } from './components/ManualCopyDialog';
 import { isCanvasExploreOnly } from './utils/stackLayout';
 import NodeContextMenu from './components/contextmenus/NodeContextMenu';
 import PPGroup from './classes/groups/GroupClass';
@@ -322,6 +323,7 @@ const App = (): React.JSX.Element => {
           <SpinnerContainer />
           <SubtitleOverlay />
           <AuthDialogHost />
+          <ManualCopyDialog />
 
           {isGraphContextMenuOpen && (
             <GraphContextMenu
