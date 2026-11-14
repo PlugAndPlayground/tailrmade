@@ -141,7 +141,7 @@ export default class PPGraph {
 
   _showDebugInfo: boolean;
   _showExecutionVisualisation: boolean;
-  // the UI surface node shown on app load (set in the User Interface tab)
+  // the UI page node shown on app load (set in the User Interface tab)
   defaultUISurfaceNodeId: string | undefined;
   selectedSocket: undefined | PPSocket;
   clickPoint: undefined | PIXI.Point;

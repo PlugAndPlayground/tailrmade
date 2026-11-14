@@ -13,7 +13,7 @@ const setVisible = async (testController, value: boolean) => {
   await testController.waitForPendingExecution();
 };
 
-describe('UI surface override sockets', () => {
+describe('UI page override sockets', () => {
   it('setup: a surface with one connected label', () => {
     openNewGraph();
     doWithTestController(async (testController) => {

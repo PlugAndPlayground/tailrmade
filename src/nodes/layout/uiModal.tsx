@@ -90,8 +90,8 @@ const UIModalWidget: React.FunctionComponent<
 };
 
 /**
- * A UI surface presented as a modal dialog: it holds its own layout like any
- * UI surface, plus open/close triggers, title and dismiss options.
+ * A UI page presented as a modal dialog: it holds its own layout like any
+ * UI page, plus open/close triggers, title and dismiss options.
  */
 export class UIModalNode extends UISurfaceNode {
   // last open state we emitted ModalOpenChanged for, so onExecute only

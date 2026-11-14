@@ -23,7 +23,7 @@ import { UNSET_VALUE } from '../../utils/constants';
 import { AppThemeProvider } from './AppThemeProvider';
 import { appSurfaceSx } from '../../utils/theme';
 
-// ids of UI surface nodes currently being rendered up the React tree; used
+// ids of UI page nodes currently being rendered up the React tree; used
 // to break render cycles between mutually embedded surfaces
 export const SurfaceVisitedContext = React.createContext<string[]>([]);
 
@@ -39,7 +39,7 @@ export interface SurfaceRendererProps {
   rootId?: string;
   // false = preview only (e.g. on the canvas), pointer events are disabled
   interactive?: boolean;
-  // ids of UI surface nodes already being rendered up the tree (cycle guard)
+  // ids of UI page nodes already being rendered up the tree (cycle guard)
   visitedSurfaceIds?: string[];
 }
 
@@ -125,7 +125,7 @@ const DashboardContainerPreview: React.FC<{
 };
 
 // Walks a serialized craft tree and renders it with plain (non-craftjs)
-// view components. Used for read-only/live renderings of UI surface trees
+// view components. Used for read-only/live renderings of UI page trees
 // outside the single craftjs Editor: canvas previews and embedded surfaces.
 export const SurfaceRenderer: React.FC<SurfaceRendererProps> = ({
   tree,
