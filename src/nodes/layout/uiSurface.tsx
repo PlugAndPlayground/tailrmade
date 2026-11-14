@@ -149,7 +149,7 @@ export class UISurfaceNode extends HybridNode2 implements Layoutable {
   }
 
   public getDescription(): string {
-    return 'Build a page from connected widgets. Embed it in other pages to reuse it.';
+    return 'Build a user interface page from connected widgets and lay it out in the user interface editor. Embed it in other pages to reuse it.';
   }
 
   public getDocs(): string {
@@ -164,7 +164,7 @@ another page is a disconnect plus a connect. A ReactUI output can also fan out
 to several pages when the SAME widget and its state should be shared, such
 as one navigation Tabs node shown on every top-level page.
 
-Arrange the page in the dashboard editor. If "Layout JSON" is linked, the
+Arrange the page in the user interface editor. If "Layout JSON" is linked, the
 graph owns the layout and it can no longer be arranged by hand.
 
 ## Layout
