@@ -16,6 +16,8 @@ type Store<T> = {
   // imperative read, for the paths that are not React - serialization,
   // graph load, anything reaching for the value outside a render
   get: () => T;
+  // for the paths that are not React; returns the unsubscribe
+  subscribe: (listener: () => void) => () => void;
 };
 
 export function createStore<T>(
@@ -50,5 +52,5 @@ export function createStore<T>(
     return useSyncExternalStore(subscribe, get);
   }
 
-  return { set, useStore, get };
+  return { set, useStore, get, subscribe };
 }

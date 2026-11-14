@@ -33,6 +33,12 @@ import { AIBackend } from './services/AIBackend';
 import { createTokenInput } from './text/nodeInputs';
 import PPGroup from './classes/groups/GroupClass';
 import { pendingAppRun } from './services/appExecution';
+import {
+  GetReplaySettings,
+  ReplayProgress,
+  ReplayService,
+  ReplayStep,
+} from './services/ReplayService';
 
 export default class TestController {
   isLoadedAppRunning(): boolean {
@@ -417,6 +423,56 @@ export default class TestController {
     input: Record<string, unknown>,
   ): Promise<MCPToolResult> {
     return TailrmadeMCPServer.getInstance().callTool(name, input);
+  }
+
+  // resolves with every progress report once the replay ended
+  async playReplay(
+    steps: ReplayStep[],
+    speed = 100,
+    loop = false,
+  ): Promise<ReplayProgress[]> {
+    const reports: ReplayProgress[] = [];
+    await ReplayService.getInstance().play(
+      steps,
+      () => ({ speed, loop, camera: true }),
+      (progress) => reports.push(progress),
+    );
+    return reports;
+  }
+
+  stopReplay(): Promise<void> {
+    return ReplayService.getInstance().stop();
+  }
+
+  async playReplayWith(
+    steps: ReplayStep[],
+    getSettings: GetReplaySettings,
+    onProgress?: (progress: ReplayProgress) => void,
+  ): Promise<ReplayProgress[]> {
+    const reports: ReplayProgress[] = [];
+    await ReplayService.getInstance().play(steps, getSettings, (progress) => {
+      reports.push(progress);
+      onProgress?.(progress);
+    });
+    return reports;
+  }
+
+  async stepReplay(
+    steps: ReplayStep[],
+    direction: 'next' | 'back',
+    loop = false,
+  ): Promise<ReplayProgress> {
+    let last: ReplayProgress | undefined;
+    await ReplayService.getInstance()[direction](
+      steps,
+      () => ({ speed: 100, loop, camera: true }),
+      (progress) => (last = progress),
+    );
+    return last as ReplayProgress;
+  }
+
+  resetReplay(steps: ReplayStep[]): Promise<void> {
+    return ReplayService.getInstance().reset(steps);
   }
 
   beginAIAgentTurn(): void {

@@ -20,6 +20,8 @@ export const DEFAULT_GROUP_NAME = 'Group';
 
 type GroupProperties = { name?: string; color?: string };
 type UpdateGroupArgs = GroupProperties & { id: string };
+// a caller-chosen id lets a replay script refer to the group it made
+type NewGroupProperties = GroupProperties & { id?: string };
 
 const groupLayer = () => PPGraph.currentGraph.groupLayer;
 
@@ -73,7 +75,7 @@ registerGroupActions();
 // can return it
 export function createGroupData(
   nodes: PPNode[],
-  properties: GroupProperties = {},
+  properties: NewGroupProperties = {},
 ): SerializedGroup {
   if (nodes.length === 0) {
     throw new Error('Select at least one node to group.');
@@ -84,7 +86,7 @@ export function createGroupData(
     );
   }
   return {
-    id: hri.random(),
+    id: properties.id ?? hri.random(),
     name: properties.name ?? DEFAULT_GROUP_NAME,
     color: properties.color ?? groupLayer().getNextColor(),
     nodeIds: nodes.map((node) => node.id),
@@ -93,7 +95,7 @@ export function createGroupData(
 
 export async function groupNodes(
   nodes: PPNode[],
-  properties: GroupProperties = {},
+  properties: NewGroupProperties = {},
   source: ActionSource = 'human',
 ): Promise<string> {
   const group = createGroupData(nodes, properties);

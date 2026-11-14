@@ -14,6 +14,7 @@ import {
 } from '@mui/material';
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
 import PersonIcon from '@mui/icons-material/Person';
+import ReplayIcon from '@mui/icons-material/Replay';
 import RadioButtonCheckedIcon from '@mui/icons-material/RadioButtonChecked';
 import RadioButtonUncheckedIcon from '@mui/icons-material/RadioButtonUnchecked';
 import FirstPageIcon from '@mui/icons-material/FirstPage';
@@ -27,9 +28,22 @@ import {
 const sourceLabel: Record<ActionSource, string> = {
   human: 'Human',
   ai: 'AI',
+  replay: 'Replay',
 };
 
 const SourceIcon = ({ source }: { source: ActionSource }) => {
+  if (source === 'replay') {
+    return (
+      <Tooltip title="Replay action" placement="top">
+        <ReplayIcon
+          fontSize="small"
+          data-cy="action-source-replay"
+          sx={{ color: 'text.secondary' }}
+        />
+      </Tooltip>
+    );
+  }
+
   if (source === 'ai') {
     return (
       <Tooltip title="AI action" placement="top">
