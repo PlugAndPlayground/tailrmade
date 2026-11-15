@@ -21,6 +21,7 @@ import {
   roundNumber,
 } from '../utils/utils';
 import { initGraphNavigation } from '../utils/graphNavigation';
+import { initWireNavigation } from '../utils/wireNavigation';
 import { InputParser } from '../utils/inputParser';
 import { isStackLayout } from '../utils/stackLayout';
 import { SerializedNode } from '../utils/interfaces';
@@ -584,6 +585,8 @@ export const createPixiApp = (
 
       void loadGraph(getURLParameters());
     });
+
+    initWireNavigation(viewport.current);
 
     // register key events
     initGraphNavigation();

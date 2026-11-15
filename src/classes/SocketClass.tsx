@@ -734,7 +734,7 @@ export default class Socket
   onPointerOver(): void {
     this.cursor = 'pointer';
     (this._SocketRef as PIXI.Graphics).tint = TRgba.white().hexNumber();
-    this.links.forEach((link) => link.nodeHoveredOver());
+    this.links.forEach((link) => link.highlight());
     PPGraph.currentGraph.socketFocus.hoverOver(this);
   }
 
@@ -742,7 +742,7 @@ export default class Socket
     this.alpha = 1.0;
     this.cursor = 'default';
     (this._SocketRef as PIXI.Graphics).tint = 0xffffff;
-    this.links.forEach((link) => link.nodeHoveredOut());
+    this.links.forEach((link) => link.unhighlight());
     PPGraph.currentGraph.socketFocus.hoverOut(this);
   }
 

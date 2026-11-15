@@ -24,6 +24,7 @@ import FlowLogic from './classes/FlowLogic';
 import { BackendGateway } from './services/BackendGateway';
 import { DASHBOARD_DEFAULT, LeftDrawerView } from './utils/constants';
 import { zoomToFitNodes } from './pixi/utils-pixi';
+import { bezierAt } from './utils/wireNavigation';
 import { VISIBILITY_ACTION, TVisibilityAction } from './utils/constants_shared';
 import {
   MCPToolResult,
@@ -209,6 +210,13 @@ export default class TestController {
 
   getSocketLinks(nodeID: string, socketName: string): PPLink[] {
     return this.getNodeByID(nodeID).getSocketByName(socketName).links;
+  }
+
+  // screen point on the first wire of a socket, t from 0 at the source to 1
+  getWirePoint(nodeID: string, socketName: string, t: number): number[] {
+    const curve = this.getSocketLinks(nodeID, socketName)[0].getCurve();
+    const pos = PPGraph.currentGraph.viewport.toScreen(bezierAt(curve, t));
+    return [pos.x, pos.y];
   }
 
   getInputSocketType(nodeID: string, socketName: string) {

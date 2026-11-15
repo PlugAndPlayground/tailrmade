@@ -28,7 +28,7 @@ export type NavigationPickerRequest = {
   onPick: (node: PPNode) => void;
 };
 
-type Place = {
+export type Place = {
   graphId: string;
   nodeIds: string[];
   center: PIXI.Point;
@@ -68,7 +68,7 @@ const linkedPairs = (sockets: Socket[]): [Socket, Socket][] =>
 export const getSocketTargets = (socket: Socket): NavigationTarget[] =>
   groupByNode(linkedPairs([socket]));
 
-const currentPlace = (): Place => {
+export const currentPlace = (): Place => {
   const graph = PPGraph.currentGraph;
   return {
     graphId: graph.id,
@@ -113,11 +113,8 @@ const isFullyVisible = (bounds: PIXI.Rectangle): boolean => {
 
 // pans at the current zoom so the jump stays easy to follow; only zooms out
 // when the node would not fit
-const bringIntoView = (node: PPNode) => {
+const centerNode = (node: PPNode) => {
   const bounds = getNodesBounds([node]);
-  if (isFullyVisible(bounds)) {
-    return;
-  }
   const { left, right } = getVisibleCanvasBounds();
   const graph = PPGraph.currentGraph;
   const fits =
@@ -178,16 +175,23 @@ const pulseNode = (node: PPNode) => {
   requestAnimationFrame(frame);
 };
 
-const showNode = (node: PPNode) => {
+// center moves the view even when the node is already in it
+const showNode = (node: PPNode, center = false) => {
   PPGraph.currentGraph.selection.selectNodes([node]);
-  bringIntoView(node);
+  if (center || !isFullyVisible(getNodesBounds([node]))) {
+    centerNode(node);
+  }
   pulseNode(node);
 };
 
-export const jumpToNode = (node: PPNode): void => {
-  pushBounded(backStack, currentPlace());
+// from is where back returns to, for callers that change the view first
+export const jumpToNode = (
+  node: PPNode,
+  { from = currentPlace(), center = false } = {},
+): void => {
+  pushBounded(backStack, from);
   forwardStack.length = 0;
-  showNode(node);
+  showNode(node, center);
 };
 
 const restorePlace = (place: Place) => {

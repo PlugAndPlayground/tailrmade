@@ -47,11 +47,11 @@ export default class PPLink extends PIXI.Container {
     return undefined;
   }
 
-  public nodeHoveredOver() {
+  public highlight() {
     this.setLineThickness(5);
   }
 
-  public nodeHoveredOut() {
+  public unhighlight() {
     this.setLineThickness(2);
   }
 
@@ -117,29 +117,38 @@ export default class PPLink extends PIXI.Container {
     await drawExecutionFilter(this.executionFilter, this);
   }
 
+  // the cubic bezier from source to target, in canvas coordinates
+  getCurve(): [PIXI.Point, PIXI.Point, PIXI.Point, PIXI.Point] {
+    const source = PPGraph.currentGraph.getSocketCenter(this.source);
+    const target = PPGraph.currentGraph.getSocketCenter(this.target);
+    const handle = Math.abs(target.x - source.x) / 2;
+    return [
+      source,
+      new PIXI.Point(source.x + handle, source.y),
+      new PIXI.Point(target.x - handle, target.y),
+      target,
+    ];
+  }
+
   _drawConnection(
     connection: PIXI.Graphics,
     color = this.source.dataType.getColor().multiply(0.9),
   ): void {
-    const sourcePoint = PPGraph.currentGraph.getSocketCenter(this.source);
-    const targetPoint = PPGraph.currentGraph.getSocketCenter(this.target);
-
-    // draw curve from 0,0 as PIXI.Graphics sourceates from 0,0
-    const toX = targetPoint.x - sourcePoint.x;
-    const toY = targetPoint.y - sourcePoint.y;
-    const cpX = Math.abs(toX) / 2;
-    const cpY = 0;
-    const cpX2 = toX - cpX;
-    const cpY2 = toY;
-
+    const [source, control1, control2, target] = this.getCurve();
     const alpha = this.source.dataType.getConnectionAlpha();
 
+    // drawn from 0,0 and moved to the source, as PIXI.Graphics starts at 0,0
     connection
-      .bezierCurveTo(cpX, cpY, cpX2, cpY2, toX, toY)
+      .bezierCurveTo(
+        control1.x - source.x,
+        control1.y - source.y,
+        control2.x - source.x,
+        control2.y - source.y,
+        target.x - source.x,
+        target.y - source.y,
+      )
       .stroke({ width: this.lineThickness, color: color.hexNumber(), alpha });
-
-    // offset curve to start from source
-    connection.x = sourcePoint.x;
-    connection.y = sourcePoint.y;
+    connection.x = source.x;
+    connection.y = source.y;
   }
 }

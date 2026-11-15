@@ -94,6 +94,79 @@ describe('graph navigation', () => {
     shouldSelect('TheMacro');
   });
 
+  describe('wires', () => {
+    // the First → Middle wire, near its source or near its target
+    const wirePoint = (t: number) =>
+      doWithTestController((controller) =>
+        controller.getWirePoint('First', 'Out', t),
+      );
+    const wireThickness = () =>
+      doWithTestController(
+        (controller) =>
+          controller.getSocketLinks('First', 'Out')[0].lineThickness,
+      );
+
+    before(() => {
+      doWithTestController((controller) => {
+        controller.selectNodesById([]);
+        controller.zoomToFitNodesById(['First', 'Second', 'Middle']);
+      });
+      cy.wait(900);
+    });
+
+    // Pixi counts canvas clicks within 200ms as a double click, wherever
+    // they land, and a double click opens the node search
+    beforeEach(() => cy.wait(300));
+
+    it('thickens a wire under the pointer', () => {
+      wirePoint(0.3).then(([x, y]) => {
+        cy.get('#pixi-container').realHover({ position: { x, y } });
+      });
+      wireThickness().should('equal', 5);
+      cy.get('#pixi-container').realHover({ position: { x: 900, y: 40 } });
+      wireThickness().should('equal', 2);
+    });
+
+    it('goes to the target when clicked near the source', () => {
+      wirePoint(0.15).then(([x, y]) => {
+        cy.get('#pixi-container').realClick({ x, y });
+      });
+      shouldSelect('Middle');
+      shouldWithTestController((controller) => {
+        const [x, y] = controller.getNodeCenterById('Middle');
+        expect(x).to.be.closeTo(Cypress.config('viewportWidth') / 2, 20);
+        expect(y).to.be.closeTo(Cypress.config('viewportHeight') / 2, 20);
+      });
+    });
+
+    it('goes to the source when clicked near the target', () => {
+      wirePoint(0.85).then(([x, y]) => {
+        cy.get('#pixi-container').realClick({ x, y });
+      });
+      shouldSelect('First');
+    });
+
+    it('goes back to where the wire was clicked from', () => {
+      cy.realPress(['Alt', 'Shift', 'ArrowLeft']);
+      shouldSelect('Middle');
+    });
+
+    it('still drags a selection from a wire', () => {
+      select('Second');
+      wirePoint(0.15).then(([x, y]) => {
+        cy.get('#pixi-container')
+          .realMouseDown({ x, y })
+          .realMouseMove(x + 30, y + 30)
+          .realMouseUp({ x: x + 30, y: y + 30 });
+      });
+      shouldWithTestController((controller) => {
+        expect(
+          controller.getSelectedNodes().map((node) => node.id),
+        ).not.to.include('Middle');
+      });
+    });
+  });
+
   describe('picker for a macro with several callers', () => {
     // a macro that was never entered, so Shift+Enter has no caller to return to
     before(() => {
