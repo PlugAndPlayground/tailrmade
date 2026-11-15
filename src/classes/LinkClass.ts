@@ -120,8 +120,6 @@ export default class PPLink extends PIXI.Container {
   _drawConnection(
     connection: PIXI.Graphics,
     color = this.source.dataType.getColor().multiply(0.9),
-    width = this.lineThickness,
-    alpha = this.source.dataType.getConnectionAlpha(),
   ): void {
     const sourcePoint = PPGraph.currentGraph.getSocketCenter(this.source);
     const targetPoint = PPGraph.currentGraph.getSocketCenter(this.target);
@@ -134,9 +132,11 @@ export default class PPLink extends PIXI.Container {
     const cpX2 = toX - cpX;
     const cpY2 = toY;
 
+    const alpha = this.source.dataType.getConnectionAlpha();
+
     connection
       .bezierCurveTo(cpX, cpY, cpX2, cpY2, toX, toY)
-      .stroke({ width, color: color.hexNumber(), alpha });
+      .stroke({ width: this.lineThickness, color: color.hexNumber(), alpha });
 
     // offset curve to start from source
     connection.x = sourcePoint.x;

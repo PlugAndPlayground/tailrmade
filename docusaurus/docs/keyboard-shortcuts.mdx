@@ -47,13 +47,11 @@ Select a node, then move with the arrow keys. Each move pulses the node you land
 | Action                                      | Windows/Linux                | macOS                           |
 | ------------------------------------------- | ---------------------------- | ------------------------------- |
 | Go to the nearest node in that direction    | `Arrow keys`                 | `Arrow keys`                    |
-| Follow the wires upstream/downstream        | `Alt+Arrow left/right`       | `Option+Arrow left/right`       |
-| Switch to the other nodes on that wire step | `Alt+Arrow up/down`          | `Option+Arrow up/down`          |
-| Back/forward through your wire jumps        | `Alt+Shift+Arrow left/right` | `Option+Shift+Arrow left/right` |
 | Go from a macro call to the macro           | `Enter`                      | `Enter`                         |
 | Go from a macro back to where it was called | `Shift+Enter`                | `Shift+Enter`                   |
+| Back/forward through your jumps             | `Alt+Shift+Arrow left/right` | `Option+Shift+Arrow left/right` |
 
-The arrow keys alone ignore wires and go to the nearest node on the canvas. With `Alt`/`Option` they follow wires: upstream starts at the node's top-most input and `Alt+Arrow down` goes through the others; downstream starts at the top-most target. The node you came from is outlined, with rings on its sockets: the wire you took is highlighted and the other wires of that step are shown faintly. Going back the way you came returns to the node you came from. Clicking a socket also lists the nodes at the other end of its wires.
+The arrow keys ignore wires and go to the nearest node on the canvas. Clicking a socket lists the nodes at the other end of its wires; clicking one jumps there.
 
 ## Node Management
 

@@ -328,9 +328,8 @@ export const COMMENT_TEXTSTYLE = new TextStyle({
   fontStyle: 'italic',
 });
 
-export const SELECTION_COLOR = TRgba.fromString(COLOR[4]).desaturate(0.3);
 export const SELECTION_COLOR_HEX = new PIXI.Color(
-  SELECTION_COLOR.hex(),
+  TRgba.fromString(COLOR[4]).desaturate(0.3).hex(),
 ).toNumber();
 
 export const SELECTION_DOWNSTREAM_TEXTURE =

@@ -3,11 +3,7 @@ import PPGraph from '../classes/GraphClass';
 import type PPNode from '../classes/NodeClass';
 import type Socket from '../classes/SocketClass';
 import InterfaceController, { ListenEvent } from '../InterfaceController';
-import {
-  SELECTION_COLOR,
-  SELECTION_COLOR_HEX,
-  SOCKET_WIDTH,
-} from './constants';
+import { SELECTION_COLOR_HEX } from './constants';
 import {
   calculateOverlayOffsets,
   ensureVisible,
@@ -15,8 +11,6 @@ import {
   getVisibleCanvasBounds,
   smoothMoveViewport,
 } from '../pixi/utils-pixi';
-
-export type NavigationDirection = 'upstream' | 'downstream';
 
 export type NavigationTarget = {
   node: PPNode;
@@ -73,18 +67,6 @@ const linkedPairs = (sockets: Socket[]): [Socket, Socket][] =>
 
 export const getSocketTargets = (socket: Socket): NavigationTarget[] =>
   groupByNode(linkedPairs([socket]));
-
-export const getNodeTargets = (
-  node: PPNode,
-  direction: NavigationDirection,
-): NavigationTarget[] =>
-  groupByNode(
-    linkedPairs(
-      direction === 'upstream'
-        ? node.getAllInputSocketsInDisplayOrder()
-        : node.outputSocketArray,
-    ),
-  ).filter((target) => target.node !== node);
 
 const currentPlace = (): Place => {
   const graph = PPGraph.currentGraph;
@@ -230,135 +212,6 @@ export const goForward = (): void => {
     pushBounded(backStack, currentPlace());
     restorePlace(place);
   }
-};
-
-// The nodes one wire away from origin; the selected one is
-// candidates[index], Alt+Arrow up/down move to the others
-type Step = {
-  origin: PPNode;
-  candidates: PPNode[];
-  index: number;
-};
-
-let step: Step | undefined;
-let stepOverlay: PIXI.Container[] = [];
-
-const clearStep = () => {
-  step = undefined;
-  stepOverlay.forEach((overlay) => overlay.destroy());
-  stepOverlay = [];
-};
-
-const linksBetween = (a: PPNode, b: PPNode) =>
-  a
-    .getAllSockets()
-    .flatMap((socket) => socket.links)
-    .filter(
-      (link) =>
-        link.getSource().getNode() === b || link.getTarget().getNode() === b,
-    );
-
-// the wire just taken stands out, the other wires of the step stay visible,
-// and the other candidates are outlined in case their wires are off screen.
-// The origin and its sockets on those wires are marked, as Alt+Arrow up/down
-// go through the wires of that node
-const drawStep = (current: Step) => {
-  const graph = PPGraph.currentGraph;
-  const wires = new PIXI.Container();
-  const outlines = new PIXI.Graphics();
-  const origin = new PIXI.Graphics();
-  wires.eventMode = 'none';
-  outlines.eventMode = 'none';
-  origin.eventMode = 'none';
-  const originBounds = getNodesBounds([current.origin]);
-  origin
-    .roundRect(
-      originBounds.x - 6,
-      originBounds.y - 6,
-      originBounds.width + 12,
-      originBounds.height + 12,
-      12,
-    )
-    .stroke({ width: 3, color: SELECTION_COLOR_HEX });
-  current.candidates.forEach((candidate, i) => {
-    const isCurrent = i === current.index;
-    linksBetween(current.origin, candidate).forEach((link) => {
-      const socket =
-        link.getSource().getNode() === current.origin
-          ? link.getSource()
-          : link.getTarget();
-      const center = graph.getSocketCenter(socket);
-      origin
-        .circle(center.x, center.y, SOCKET_WIDTH)
-        .stroke({
-          width: 3,
-          color: SELECTION_COLOR_HEX,
-          alpha: isCurrent ? 1 : 0.5,
-        });
-      const wire = new PIXI.Graphics();
-      link._drawConnection(
-        wire,
-        SELECTION_COLOR,
-        isCurrent ? 6 : 3,
-        isCurrent ? 1 : 0.5,
-      );
-      wires.addChild(wire);
-    });
-    if (!isCurrent) {
-      const bounds = getNodesBounds([candidate]);
-      outlines.rect(bounds.x, bounds.y, bounds.width, bounds.height);
-    }
-  });
-  outlines.stroke({ pixelLine: true, color: SELECTION_COLOR_HEX, alpha: 0.6 });
-  graph.connectionContainer.addChild(wires);
-  graph.viewport.addChild(outlines, origin);
-  stepOverlay = [wires, outlines, origin];
-};
-
-const setStep = (next: Step) => {
-  clearStep();
-  step = next;
-  drawStep(next);
-};
-
-const byPosition = (a: PPNode, b: PPNode) => a.y - b.y || a.x - b.x;
-
-// upstream keeps the order of the node's inputs, downstream the targets'
-// order on the canvas, as they usually hang off a single output
-const connectedNodes = (node: PPNode, direction: NavigationDirection) => {
-  const nodes = getNodeTargets(node, direction).map((target) => target.node);
-  return direction === 'upstream' ? nodes : nodes.sort(byPosition);
-};
-
-// starts with the first wire, except that going back the way you came
-// returns to the node you came from
-export const followConnections = (
-  node: PPNode,
-  direction: NavigationDirection,
-): void => {
-  const candidates = connectedNodes(node, direction);
-  if (!candidates.length) {
-    pulseNode(node);
-    return;
-  }
-  const cameFrom =
-    step?.candidates[step.index] === node ? step.origin : undefined;
-  const index = Math.max(0, cameFrom ? candidates.indexOf(cameFrom) : 0);
-  jumpToNode(candidates[index]);
-  setStep({ origin: node, candidates, index });
-};
-
-// only meaningful right after following a wire
-export const moveToSibling = (node: PPNode, offset: 1 | -1): void => {
-  const current = step?.candidates[step.index] === node ? step : undefined;
-  const index = current ? current.index + offset : -1;
-  if (!current || index < 0 || index >= current.candidates.length) {
-    pulseNode(node);
-    return;
-  }
-  // switching siblings is not a jump of its own, so it stays out of history
-  showNode(current.candidates[index]);
-  setStep({ ...current, index });
 };
 
 type ArrowDirection = 'left' | 'right' | 'up' | 'down';
@@ -541,16 +394,6 @@ export const initGraphNavigation = (): void => {
     },
     true,
   );
-  InterfaceController.addListener(ListenEvent.SelectionChanged, () => {
-    const selected = PPGraph.currentGraph.selection.selectedNodes;
-    if (
-      step &&
-      !(selected.length === 1 && selected[0] === step.candidates[step.index])
-    ) {
-      clearStep();
-    }
-  });
-  InterfaceController.addListener(ListenEvent.GraphChanged, clearStep);
 };
 
 const ARROW_KEYS = ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'];
@@ -575,10 +418,9 @@ const arrowsBelongToTarget = (event: KeyboardEvent): boolean =>
   event.target instanceof Element &&
   event.target.closest(ARROW_KEY_OWNERS) !== null;
 
-// Arrows move to the nearest node on the canvas. With Alt, left/right follow
-// wires and up/down switch between the nodes of that wire step; with
-// Alt+Shift, left/right go back/forward. Shift+Enter leaves a macro, plain
-// Enter goes through node.onEnterKeyPressed
+// Arrows move to the nearest node on the canvas, Alt+Shift+left/right go
+// back/forward through jumps. Shift+Enter leaves a macro, plain Enter goes
+// through node.onEnterKeyPressed
 export const handleGraphNavigationKey = (event: KeyboardEvent): boolean => {
   if (InterfaceController.isInAppView() || event.metaKey || event.ctrlKey) {
     return false;
@@ -588,32 +430,21 @@ export const handleGraphNavigationKey = (event: KeyboardEvent): boolean => {
   const direction = ARROW_DIRECTIONS[event.code];
 
   if (direction) {
-    if (arrowsBelongToTarget(event) || (event.shiftKey && !event.altKey)) {
+    if (arrowsBelongToTarget(event)) {
       return false;
     }
-    const horizontal = direction === 'left' || direction === 'right';
     if (event.altKey && event.shiftKey) {
-      if (!horizontal) {
-        return false;
-      }
       if (direction === 'left') {
         goBack();
-      } else {
+      } else if (direction === 'right') {
         goForward();
+      } else {
+        return false;
       }
-    } else if (selected.length > 1) {
+    } else if (event.altKey || event.shiftKey || selected.length > 1) {
       return false;
-    } else if (!event.altKey) {
-      moveSpatially(single, direction);
-    } else if (!single) {
-      return false;
-    } else if (horizontal) {
-      followConnections(
-        single,
-        direction === 'left' ? 'upstream' : 'downstream',
-      );
     } else {
-      moveToSibling(single, direction === 'up' ? -1 : 1);
+      moveSpatially(single, direction);
     }
   } else if (event.shiftKey && event.key === 'Enter' && single) {
     exitToMacroCaller(single);

@@ -13,19 +13,10 @@ const shouldSelect = (nodeId: string) =>
     ]);
   });
 
-const shouldBeOnScreen = (nodeId: string) =>
-  shouldWithTestController((controller) => {
-    const [x, y] = controller.getNodeCenterById(nodeId);
-    expect(x).to.be.within(0, Cypress.config('viewportWidth'));
-    expect(y).to.be.within(0, Cypress.config('viewportHeight'));
-  });
-
 const select = (nodeId: string) =>
   doWithTestController((controller) => controller.selectNodesById([nodeId]));
 
-// First and Second feed Middle (First into the top input, though Second sits
-// higher); Middle feeds Far (higher) and Farther (lower); Loner sits below
-// Middle without any wires
+// First and Second feed Middle; Loner sits below Middle without any wires
 describe('graph navigation', () => {
   before(() => {
     openNewGraph();
@@ -35,18 +26,8 @@ describe('graph navigation', () => {
       await controller.addNode('Constant', 'Second', -400, 0);
       await controller.addNode('Add', 'Middle', 0, 0);
       await controller.addNode('Add', 'Loner', 0, 400);
-      await controller.addNode('Add', 'Far', 3000, 0);
-      await controller.addNode('Add', 'Farther', 3000, 400);
       await controller.connectNodesByID('First', 'Middle', 'Out', 'Addend');
       await controller.connectNodesByID('Second', 'Middle', 'Out', 'Addend 2');
-      // connected lower node first, so the order comes from position
-      await controller.connectNodesByID(
-        'Middle',
-        'Farther',
-        undefined,
-        'Addend',
-      );
-      await controller.connectNodesByID('Middle', 'Far', undefined, 'Addend');
       controller.zoomToFitNodesById(['First', 'Middle', 'Loner']);
     });
     // key presses go to the app frame only once it has focus
@@ -69,53 +50,6 @@ describe('graph navigation', () => {
     shouldWithTestController((controller) => {
       expect(controller.getSelectedNodes()).to.have.length(1);
     });
-  });
-
-  it('follows the top-most wire downstream and brings the node into view', () => {
-    select('Middle');
-    cy.realPress(['Alt', 'ArrowRight']);
-    shouldSelect('Far');
-    shouldBeOnScreen('Far');
-  });
-
-  it('switches to the other targets with Alt+Arrow up/down', () => {
-    cy.realPress(['Alt', 'ArrowDown']);
-    shouldSelect('Farther');
-    cy.realPress(['Alt', 'ArrowDown']);
-    shouldSelect('Farther');
-    cy.realPress(['Alt', 'ArrowUp']);
-    shouldSelect('Far');
-  });
-
-  it('goes upstream in the order of the inputs', () => {
-    select('Middle');
-    cy.realPress(['Alt', 'ArrowLeft']);
-    shouldSelect('First');
-    cy.realPress(['Alt', 'ArrowDown']);
-    shouldSelect('Second');
-  });
-
-  it('returns to the node it came from when going back the same way', () => {
-    cy.realPress(['Alt', 'ArrowRight']);
-    shouldSelect('Middle');
-    cy.realPress(['Alt', 'ArrowLeft']);
-    shouldSelect('Second');
-  });
-
-  it('switches only within a wire step just taken', () => {
-    select('Far');
-    cy.realPress(['Alt', 'ArrowDown']);
-    shouldSelect('Far');
-  });
-
-  it('goes back and forward through the wire jumps', () => {
-    select('Middle');
-    cy.realPress(['Alt', 'ArrowRight']);
-    shouldSelect('Far');
-    cy.realPress(['Alt', 'Shift', 'ArrowLeft']);
-    shouldSelect('Middle');
-    cy.realPress(['Alt', 'Shift', 'ArrowRight']);
-    shouldSelect('Far');
   });
 
   it('links to the other end of a wire from the socket inspector', () => {
@@ -144,6 +78,20 @@ describe('graph navigation', () => {
     shouldSelect('TheMacro');
     cy.realPress(['Shift', 'Enter']);
     shouldSelect('MacroCall');
+  });
+
+  it('goes back and forward through the jumps', () => {
+    cy.realPress(['Alt', 'Shift', 'ArrowLeft']);
+    shouldSelect('TheMacro');
+    cy.realPress(['Alt', 'Shift', 'ArrowLeft']);
+    shouldSelect('MacroCall');
+    cy.realPress(['Alt', 'Shift', 'ArrowRight']);
+    shouldSelect('TheMacro');
+  });
+
+  it('leaves Alt+Arrow to the nodes', () => {
+    cy.realPress(['Alt', 'ArrowLeft']);
+    shouldSelect('TheMacro');
   });
 
   describe('picker for a macro with several callers', () => {

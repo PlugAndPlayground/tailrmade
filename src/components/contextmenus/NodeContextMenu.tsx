@@ -35,12 +35,9 @@ import {
 } from '../../utils/utils';
 import FitScreenIcon from '@mui/icons-material/FitScreen';
 import TuneIcon from '@mui/icons-material/Tune';
-import WestIcon from '@mui/icons-material/West';
-import EastIcon from '@mui/icons-material/East';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import CachedIcon from '@mui/icons-material/Cached';
 import { VISIBILITY_ACTION } from '../../utils/constants_shared';
-import { followConnections, getNodeTargets } from '../../utils/graphNavigation';
 import * as styles from '../../utils/style.module.css';
 import {
   SubMenuItem,
@@ -184,28 +181,6 @@ export const NodeContextMenu = (props) => {
             3
           </Typography>
         </MenuItem>
-        {selectedNodes.length === 1 &&
-          (['upstream', 'downstream'] as const).map((direction) => (
-            <MenuItem
-              key={direction}
-              disabled={!getNodeTargets(selectedNodes[0], direction).length}
-              onClick={() => followConnections(selectedNodes[0], direction)}
-            >
-              <ListItemIcon>
-                {direction === 'upstream' ? (
-                  <WestIcon fontSize="small" />
-                ) : (
-                  <EastIcon fontSize="small" />
-                )}
-              </ListItemIcon>
-              <ListItemText>
-                {direction === 'upstream' ? 'Go upstream' : 'Go downstream'}
-              </ListItemText>
-              <Typography variant="body2" color="text.secondary">
-                {direction === 'upstream' ? 'Alt+←' : 'Alt+→'}
-              </Typography>
-            </MenuItem>
-          ))}
         <Divider />
         {selectedNodes.length === 1 && (
           <MenuItem
