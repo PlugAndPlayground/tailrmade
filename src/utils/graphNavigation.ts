@@ -3,6 +3,7 @@ import PPGraph from '../classes/GraphClass';
 import type PPNode from '../classes/NodeClass';
 import type Socket from '../classes/SocketClass';
 import InterfaceController, { ListenEvent } from '../InterfaceController';
+import { SELECTION_COLOR, SELECTION_COLOR_HEX } from './constants';
 import {
   calculateOverlayOffsets,
   ensureVisible,
@@ -149,19 +150,66 @@ const bringIntoView = (node: PPNode) => {
   );
 };
 
+const PULSE_MS = 700;
+const PULSE_SPREAD_PX = 48;
+
+// a ring that grows out of the node in screen pixels, so the landing spot
+// is easy to find at any zoom
+const pulseNode = (node: PPNode) => {
+  const graph = PPGraph.currentGraph;
+  const bounds = getNodesBounds([node]);
+  const ring = new PIXI.Graphics();
+  ring.eventMode = 'none';
+  graph.viewport.addChild(ring);
+  const start = performance.now();
+  const frame = (now: number) => {
+    if (ring.destroyed) {
+      return;
+    }
+    const progress = Math.min(1, (now - start) / PULSE_MS);
+    const scale = graph.viewportScaleX;
+    const spread = (4 + PULSE_SPREAD_PX * progress) / scale;
+    ring
+      .clear()
+      .roundRect(
+        bounds.x - spread,
+        bounds.y - spread,
+        bounds.width + 2 * spread,
+        bounds.height + 2 * spread,
+        12 / scale,
+      )
+      .stroke({
+        width: 3 / scale,
+        color: SELECTION_COLOR_HEX,
+        alpha: 1 - progress,
+      });
+    if (progress < 1) {
+      requestAnimationFrame(frame);
+    } else {
+      ring.destroy();
+    }
+  };
+  requestAnimationFrame(frame);
+};
+
+const showNode = (node: PPNode) => {
+  PPGraph.currentGraph.selection.selectNodes([node]);
+  bringIntoView(node);
+  pulseNode(node);
+};
+
 export const jumpToNode = (node: PPNode): void => {
   pushBounded(backStack, currentPlace());
   forwardStack.length = 0;
-  PPGraph.currentGraph.selection.selectNodes([node]);
-  bringIntoView(node);
+  showNode(node);
 };
 
 const restorePlace = (place: Place) => {
   const graph = PPGraph.currentGraph;
-  graph.selection.selectNodes(
-    place.nodeIds.map((id) => graph.nodes[id]).filter(Boolean),
-  );
+  const nodes = place.nodeIds.map((id) => graph.nodes[id]).filter(Boolean);
+  graph.selection.selectNodes(nodes);
   smoothMoveViewport(place.center, place.scale);
+  nodes.forEach(pulseNode);
 };
 
 export const goBack = (): void => {
@@ -177,6 +225,188 @@ export const goForward = (): void => {
   if (place) {
     pushBounded(backStack, currentPlace());
     restorePlace(place);
+  }
+};
+
+// The nodes one wire away from origin; the selected one is
+// candidates[index], Alt+Arrow up/down move to the others
+type Step = {
+  origin: PPNode;
+  candidates: PPNode[];
+  index: number;
+};
+
+let step: Step | undefined;
+let stepOverlay: PIXI.Container[] = [];
+
+const clearStep = () => {
+  step = undefined;
+  stepOverlay.forEach((overlay) => overlay.destroy());
+  stepOverlay = [];
+};
+
+const linksBetween = (a: PPNode, b: PPNode) =>
+  a
+    .getAllSockets()
+    .flatMap((socket) => socket.links)
+    .filter(
+      (link) =>
+        link.getSource().getNode() === b || link.getTarget().getNode() === b,
+    );
+
+// the wire just taken stands out, the other wires of the step stay visible,
+// and the other candidates are outlined in case their wires are off screen
+const drawStep = (current: Step) => {
+  const graph = PPGraph.currentGraph;
+  const wires = new PIXI.Container();
+  const outlines = new PIXI.Graphics();
+  wires.eventMode = 'none';
+  outlines.eventMode = 'none';
+  current.candidates.forEach((candidate, i) => {
+    const isCurrent = i === current.index;
+    linksBetween(current.origin, candidate).forEach((link) => {
+      const wire = new PIXI.Graphics();
+      link._drawConnection(
+        wire,
+        SELECTION_COLOR,
+        isCurrent ? 6 : 3,
+        isCurrent ? 1 : 0.5,
+      );
+      wires.addChild(wire);
+    });
+    if (!isCurrent) {
+      const bounds = getNodesBounds([candidate]);
+      outlines.rect(bounds.x, bounds.y, bounds.width, bounds.height);
+    }
+  });
+  outlines.stroke({ pixelLine: true, color: SELECTION_COLOR_HEX, alpha: 0.6 });
+  graph.connectionContainer.addChild(wires);
+  graph.viewport.addChild(outlines);
+  stepOverlay = [wires, outlines];
+};
+
+const setStep = (next: Step) => {
+  clearStep();
+  step = next;
+  drawStep(next);
+};
+
+const byPosition = (a: PPNode, b: PPNode) => a.y - b.y || a.x - b.x;
+
+// upstream keeps the order of the node's inputs, downstream the targets'
+// order on the canvas, as they usually hang off a single output
+const connectedNodes = (node: PPNode, direction: NavigationDirection) => {
+  const nodes = getNodeTargets(node, direction).map((target) => target.node);
+  return direction === 'upstream' ? nodes : nodes.sort(byPosition);
+};
+
+// starts with the first wire, except that going back the way you came
+// returns to the node you came from
+export const followConnections = (
+  node: PPNode,
+  direction: NavigationDirection,
+): void => {
+  const candidates = connectedNodes(node, direction);
+  if (!candidates.length) {
+    pulseNode(node);
+    return;
+  }
+  const cameFrom =
+    step?.candidates[step.index] === node ? step.origin : undefined;
+  const index = Math.max(0, cameFrom ? candidates.indexOf(cameFrom) : 0);
+  jumpToNode(candidates[index]);
+  setStep({ origin: node, candidates, index });
+};
+
+// only meaningful right after following a wire
+export const moveToSibling = (node: PPNode, offset: 1 | -1): void => {
+  const current = step?.candidates[step.index] === node ? step : undefined;
+  const index = current ? current.index + offset : -1;
+  if (!current || index < 0 || index >= current.candidates.length) {
+    pulseNode(node);
+    return;
+  }
+  // switching siblings is not a jump of its own, so it stays out of history
+  showNode(current.candidates[index]);
+  setStep({ ...current, index });
+};
+
+type ArrowDirection = 'left' | 'right' | 'up' | 'down';
+
+const gapBetween = (
+  aStart: number,
+  aEnd: number,
+  bStart: number,
+  bEnd: number,
+) => Math.max(0, bStart - aEnd, aStart - bEnd);
+
+// The nearest node in the arrow's direction, connected or not. Being out of
+// line counts double, so the node in the same row or column wins
+const nearestInDirection = (
+  node: PPNode,
+  direction: ArrowDirection,
+): PPNode | undefined => {
+  const from = getNodesBounds([node]);
+  const horizontal = direction === 'left' || direction === 'right';
+  const sign = direction === 'right' || direction === 'down' ? 1 : -1;
+  let best: PPNode | undefined;
+  let bestScore = Infinity;
+  Object.values(PPGraph.currentGraph.nodes).forEach((candidate) => {
+    if (candidate === node) {
+      return;
+    }
+    const to = getNodesBounds([candidate]);
+    const along = horizontal
+      ? to.x + to.width / 2 - (from.x + from.width / 2)
+      : to.y + to.height / 2 - (from.y + from.height / 2);
+    if (along * sign <= 0) {
+      return;
+    }
+    const gap = horizontal
+      ? gapBetween(from.x, from.right, to.x, to.right)
+      : gapBetween(from.y, from.bottom, to.y, to.bottom);
+    const offLine = horizontal
+      ? gapBetween(from.y, from.bottom, to.y, to.bottom)
+      : gapBetween(from.x, from.right, to.x, to.right);
+    const score = gap + 2 * offLine + Math.abs(along) / 1000;
+    if (score < bestScore) {
+      bestScore = score;
+      best = candidate;
+    }
+  });
+  return best;
+};
+
+const nodeNearestToViewCenter = (): PPNode | undefined => {
+  const center = PPGraph.currentGraph.viewport.center;
+  const distance = (node: PPNode) => {
+    const bounds = getNodesBounds([node]);
+    return Math.hypot(
+      bounds.x + bounds.width / 2 - center.x,
+      bounds.y + bounds.height / 2 - center.y,
+    );
+  };
+  return Object.values(PPGraph.currentGraph.nodes).sort(
+    (a, b) => distance(a) - distance(b),
+  )[0];
+};
+
+export const moveSpatially = (
+  node: PPNode | undefined,
+  direction: ArrowDirection,
+): void => {
+  if (!node) {
+    const start = nodeNearestToViewCenter();
+    if (start) {
+      showNode(start);
+    }
+    return;
+  }
+  const next = nearestInDirection(node, direction);
+  if (next) {
+    showNode(next);
+  } else {
+    pulseNode(node);
   }
 };
 
@@ -209,19 +439,6 @@ const goToOneOf = (
       request,
     );
   }
-};
-
-export const followConnections = (
-  node: PPNode,
-  direction: NavigationDirection,
-): void => {
-  goToOneOf(
-    getNodeTargets(node, direction),
-    direction === 'upstream' ? 'Go upstream' : 'Go downstream',
-    node,
-    direction === 'upstream' ? 'left' : 'right',
-    jumpToNode,
-  );
 };
 
 const macrosCalledBy = (node: PPNode): PPNode[] =>
@@ -277,9 +494,9 @@ export const exitToMacroCaller = (node: PPNode): void => {
 
 let graphClickedAfterDashboard = true;
 
-// The UI editor binds Enter and Alt+arrows to its selected widget too; it
-// keeps them only while it was clicked more recently than the graph
-export const trackKeyboardOwner = (): void => {
+export const initGraphNavigation = (): void => {
+  // The UI editor binds Enter and the arrow keys to its selected widget
+  // too; it keeps them only while it was clicked more recently than the graph
   window.addEventListener(
     'pointerdown',
     (event) => {
@@ -294,34 +511,79 @@ export const trackKeyboardOwner = (): void => {
     },
     true,
   );
+  InterfaceController.addListener(ListenEvent.SelectionChanged, () => {
+    const selected = PPGraph.currentGraph.selection.selectedNodes;
+    if (
+      step &&
+      !(selected.length === 1 && selected[0] === step.candidates[step.index])
+    ) {
+      clearStep();
+    }
+  });
+  InterfaceController.addListener(ListenEvent.GraphChanged, clearStep);
+};
+
+const ARROW_KEYS = ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'];
+
+const ARROW_DIRECTIONS: Record<string, ArrowDirection> = {
+  ArrowLeft: 'left',
+  ArrowRight: 'right',
+  ArrowUp: 'up',
+  ArrowDown: 'down',
 };
 
 export const isGraphNavigationKey = (event: KeyboardEvent): boolean =>
-  event.key === 'Enter' ||
-  (event.altKey && ['ArrowLeft', 'ArrowRight'].includes(event.code));
+  event.key === 'Enter' || ARROW_KEYS.includes(event.code);
 
 export const isGraphOwningKeyboard = (): boolean => graphClickedAfterDashboard;
 
-// Alt+←/→ follow wires, Alt+Shift+←/→ go back/forward, Shift+Enter leaves
-// a macro. Plain Enter goes through node.onEnterKeyPressed
+// node content, the UI and widgets like sliders use the arrow keys themselves
+const ARROW_KEY_OWNERS =
+  '[id^="Container-"], [data-cy="dashboard-column"], [contenteditable="true"], [role="slider"], [role="grid"], [role="listbox"], [role="menu"], [role="tablist"], [role="tree"], select';
+
+const arrowsBelongToTarget = (event: KeyboardEvent): boolean =>
+  event.target instanceof Element &&
+  event.target.closest(ARROW_KEY_OWNERS) !== null;
+
+// Arrows move to the nearest node on the canvas. With Alt, left/right follow
+// wires and up/down switch between the nodes of that wire step; with
+// Alt+Shift, left/right go back/forward. Shift+Enter leaves a macro, plain
+// Enter goes through node.onEnterKeyPressed
 export const handleGraphNavigationKey = (event: KeyboardEvent): boolean => {
-  if (InterfaceController.isInAppView()) {
+  if (InterfaceController.isInAppView() || event.metaKey || event.ctrlKey) {
     return false;
   }
   const selected = PPGraph.currentGraph.selection.selectedNodes;
   const single = selected.length === 1 ? selected[0] : undefined;
+  const direction = ARROW_DIRECTIONS[event.code];
 
-  if (event.altKey && event.code === 'ArrowLeft') {
-    if (event.shiftKey) {
-      goBack();
-    } else if (single) {
-      followConnections(single, 'upstream');
+  if (direction) {
+    if (arrowsBelongToTarget(event) || (event.shiftKey && !event.altKey)) {
+      return false;
     }
-  } else if (event.altKey && event.code === 'ArrowRight') {
-    if (event.shiftKey) {
-      goForward();
-    } else if (single) {
-      followConnections(single, 'downstream');
+    const horizontal = direction === 'left' || direction === 'right';
+    if (event.altKey && event.shiftKey) {
+      if (!horizontal) {
+        return false;
+      }
+      if (direction === 'left') {
+        goBack();
+      } else {
+        goForward();
+      }
+    } else if (selected.length > 1) {
+      return false;
+    } else if (!event.altKey) {
+      moveSpatially(single, direction);
+    } else if (!single) {
+      return false;
+    } else if (horizontal) {
+      followConnections(
+        single,
+        direction === 'left' ? 'upstream' : 'downstream',
+      );
+    } else {
+      moveToSibling(single, direction === 'up' ? -1 : 1);
     }
   } else if (event.shiftKey && event.key === 'Enter' && single) {
     exitToMacroCaller(single);

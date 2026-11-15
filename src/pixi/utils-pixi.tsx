@@ -20,7 +20,7 @@ import {
   pasteClipboard,
   roundNumber,
 } from '../utils/utils';
-import { trackKeyboardOwner } from '../utils/graphNavigation';
+import { initGraphNavigation } from '../utils/graphNavigation';
 import { InputParser } from '../utils/inputParser';
 import { isStackLayout } from '../utils/stackLayout';
 import { SerializedNode } from '../utils/interfaces';
@@ -586,7 +586,7 @@ export const createPixiApp = (
     });
 
     // register key events
-    trackKeyboardOwner();
+    initGraphNavigation();
     window.addEventListener('keydown', InterfaceController.keysDown);
 
     window.addEventListener('keydown', (e: KeyboardEvent) =>

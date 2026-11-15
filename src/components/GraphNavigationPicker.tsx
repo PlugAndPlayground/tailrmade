@@ -171,10 +171,7 @@ export const GraphNavigationPicker: React.FC = () => {
         return;
       } else if (event.key === 'ArrowUp') {
         move(-1);
-      } else if (
-        event.key === 'ArrowDown' ||
-        (event.altKey && ['ArrowLeft', 'ArrowRight'].includes(event.code))
-      ) {
+      } else if (event.key === 'ArrowDown') {
         move(1);
       } else {
         // any other key closes the picker and keeps its usual meaning
