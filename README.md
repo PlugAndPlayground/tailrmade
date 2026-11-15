@@ -18,7 +18,18 @@ yarn dev
 ```
 
 The development server is available at <http://localhost:8080> and uses local,
-browser-only storage..
+browser-only storage.
+
+To work against the real cloud backend (sign-in, cloud storage, AI, cloud
+companion), run the dev server in cloud mode and proxy backend requests to
+tailrmade.app:
+
+```sh
+BACKEND_URL=https://tailrmade.app/ yarn dev:cloud
+```
+
+On Windows PowerShell, set `$env:BACKEND_URL = "https://tailrmade.app/"` first,
+then run `yarn dev:cloud`. This uses production accounts and data.
 
 Useful commands:
 

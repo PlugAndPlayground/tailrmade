@@ -95,7 +95,7 @@ const TextSettings = () => {
             )
           }
         >
-          Convert to text node
+          Convert to dynamic text
         </Button>
       </Box>
     </TextStyleSettings>

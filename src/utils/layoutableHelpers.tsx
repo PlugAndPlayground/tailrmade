@@ -43,7 +43,7 @@ export function addDashboardContentOutput(
     node.addOutput(
       SOCKET_NAME_DASHBOARD_CONTENT,
       new DeferredReactType(),
-      false,
+      true,
     );
   }
 }
@@ -167,7 +167,7 @@ export const getContainerLayoutStyle = (
 };
 
 // ROOT in the craftjs tree isn't itself a graph node - it represents the
-// UI surface node currently open for editing. Resolve that as a Layoutable
+// UI page node currently open for editing. Resolve that as a Layoutable
 // so ROOT can be focused/selected/jumped-to like any other dashboard item.
 export function getDisplayedSurfaceElement(): Layoutable | null {
   const surfaceId = InterfaceController.displayedSurfaceNodeId;

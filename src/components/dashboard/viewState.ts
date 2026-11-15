@@ -127,7 +127,7 @@ export const useToolboxOpen = toolboxOpenStore.useStore;
 export const toggleToolbox = (): void => toolboxOpenStore.set((open) => !open);
 
 // --- surface stack --------------------------------------------------------
-// The dive path of nested UI surfaces (first entry = the top-level selected
+// The dive path of nested UI pages (first entry = the top-level selected
 // surface, last = the one currently displayed). Maintained by DashboardEditor,
 // which owns the surface load listeners, and rendered by DashboardHeader's
 // breadcrumb.

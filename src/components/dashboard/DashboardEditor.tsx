@@ -449,7 +449,7 @@ export const DashboardEditor: React.FC<DashboardEditorProps> = ({
     return node && isSurfaceNode(node) ? node : undefined;
   }, []);
 
-  // creates a UI surface node and makes it the app-load default and the
+  // creates a UI page node and makes it the app-load default and the
   // displayed/edited surface. showSurface() synchronously notifies this
   // component's own DisplayedSurfaceChanged listener, which loads the new
   // (empty) surface's tree into the editor before this returns.
@@ -462,7 +462,7 @@ export const DashboardEditor: React.FC<DashboardEditorProps> = ({
       NODE_SOURCE.NEW_DASHBOARD,
     )) as UISurfaceNode;
     if (!added) {
-      throw new Error('Failed to create default UI surface node');
+      throw new Error('Failed to create default UI page node');
     }
     added.deOverlap(new PIXI.Point(200, 0));
     PPGraph.currentGraph.defaultUISurfaceNodeId = added.id;
@@ -493,7 +493,7 @@ export const DashboardEditor: React.FC<DashboardEditorProps> = ({
     deserializeTree(JSON.stringify(emptyLayout));
   }, [deserializeTree]);
 
-  // load a UI surface node's layout into the editor, or an empty layout
+  // load a UI page node's layout into the editor, or an empty layout
   // when nodeId is null / not a surface
   const loadSurface = useCallback(
     (nodeId: string | null) => {
@@ -504,7 +504,7 @@ export const DashboardEditor: React.FC<DashboardEditorProps> = ({
           deserializeTree(getDisplayTreeString(surface));
           return;
         } catch (error) {
-          console.error('Failed to load UI surface layout', error);
+          console.error('Failed to load UI page layout', error);
         }
       }
       loadEmptyLayout();
@@ -723,7 +723,7 @@ export const DashboardEditor: React.FC<DashboardEditorProps> = ({
         }
         const relatedNode = itemToAdd.getRelatedNode();
         if (relatedNode.id === displayedSurface.id) {
-          InterfaceController.showSnackBar("Can't add a UI surface to itself");
+          InterfaceController.showSnackBar("Can't add a UI page to itself");
           return;
         }
         // already wired into this surface - the widget-sync layer dedupes by
@@ -963,7 +963,7 @@ export const DashboardEditor: React.FC<DashboardEditorProps> = ({
     actions,
   ]);
 
-  // UI only exists inside UI surface nodes. When the dashboard is opened for
+  // UI only exists inside UI page nodes. When the dashboard is opened for
   // editing while genuinely empty (no surface nodes and no legacy layout
   // content), auto-create a surface so added widgets have somewhere to live.
   // Runs at most once per graph session, so deleting/undoing it won't recreate.
@@ -1196,7 +1196,7 @@ const EmptyStateBuildSteps: React.FC = () => (
       <br />
       2. Drag new or existing widgets into it
       <br />
-      3. Nest UI surfaces to build pages, containers and dialogs
+      3. Nest UI pages to build containers and dialogs
       <br />
       4. Style them all at once with <em>App theme</em> (press 5)
       <br />

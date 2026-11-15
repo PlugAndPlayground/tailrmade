@@ -21,8 +21,8 @@ import {
   useIsSmallScreen,
   getLoadCloudGraphURL,
   loadGraphFromIGraphSearch,
-  writeTextToClipboard,
 } from '../utils/utils';
+import { copyText } from '../utils/share';
 import PPStorage from '../PPStorage';
 import * as styles from '../utils/style.module.css';
 
@@ -49,10 +49,12 @@ const handleMainClick = async (graph: IGraphSearch, smallScreen: boolean) => {
   }
 };
 
-const handleCopyUrl = (url: string | null, event: React.MouseEvent) => {
+const handleCopyUrl = async (url: string | null, event: React.MouseEvent) => {
   event.stopPropagation();
   InterfaceController.setIsGraphSearchOpen(false);
-  if (url) writeTextToClipboard(url);
+  if (url && (await copyText(url, 'Copy link')) === 'copied') {
+    InterfaceController.showSnackBar('Link copied');
+  }
 };
 
 const handleOpenNewTab = (url: string | null, event: React.MouseEvent) => {
@@ -285,7 +287,13 @@ export const GraphItem = ({ property: graph, sx }: GraphItemProps) => {
       >
         {graph.isRemote &&
           (() => {
-            const copyUrlTooltip = 'Copy URL';
+            const copyUrlTooltip =
+              graph.access === 'private'
+                ? graph.owner ===
+                  BackendGateway.getInstance().getCurrentUserId()
+                  ? 'Copy link (only you can open it)'
+                  : 'Copy link (only its owner can open it)'
+                : 'Copy link';
             const openNewTabTooltip = 'Open in new tab';
 
             return (
@@ -296,7 +304,7 @@ export const GraphItem = ({ property: graph, sx }: GraphItemProps) => {
                     {/* Wrapper for Tooltip on disabled button */}
                     <IconButton
                       size="small"
-                      onClick={(e) => handleCopyUrl(url, e)}
+                      onClick={(e) => void handleCopyUrl(url, e)}
                       data-cy="copyURLButton"
                       className={styles.menuItemButton}
                       sx={{ p: 0.4 }}

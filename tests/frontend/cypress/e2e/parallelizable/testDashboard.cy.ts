@@ -525,7 +525,7 @@ describe('Test dashboard', () => {
 
     cy.get('[data-cy="tool-vertical-container"]').click({ force: true });
     cy.get('[data-cy="tool-text"]').click({ force: true });
-    // scoped to the dashboard: the UI surface node renders the same content
+    // scoped to the dashboard: the UI page node renders the same content
     // a second time in its canvas overlay. The full-width Text element, not
     // its text run, which a narrow panel's toolbox overlay can cover
     getDashboardText('Hello world')
@@ -536,7 +536,7 @@ describe('Test dashboard', () => {
       force: true,
     });
 
-    // entering edit mode on an empty dashboard auto-creates a UI surface
+    // entering edit mode on an empty dashboard auto-creates a UI page
     // node, so the graph now holds the HtmlRenderer + the surface
     assertNodesCount(2);
     cy.get(`[data-cy="widget of NODE_${existingNodeId}"]`).should('be.visible');
@@ -610,7 +610,7 @@ describe('Test dashboard', () => {
   // });
   it('Supports undo and redo operations', () => {
     // dashboard edits are undoable via the app-wide undo stack when the
-    // layout lives in a UI surface node (legacy layouts are not undoable)
+    // layout lives in a UI page node (legacy layouts are not undoable)
     doWithTestController(async (testController) => {
       await testController.addNode(
         'UISurfaceNode',

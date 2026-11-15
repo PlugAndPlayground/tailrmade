@@ -1495,7 +1495,7 @@ export const combineSelectedDrawNodes = async () => {
   }
 };
 
-// combine all selected layoutable nodes into a new UI surface node by
+// combine all selected layoutable nodes into a new UI page node by
 // connecting their ReactUI outputs to it
 export const combineSelectedLayoutablesIntoSurface = async () => {
   const selectedNodes = PPGraph.currentGraph.selection.selectedNodes.filter(

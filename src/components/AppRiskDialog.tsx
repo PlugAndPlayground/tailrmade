@@ -196,7 +196,7 @@ function AccessBars({
   );
 }
 
-function AccessLevel({
+export function AccessLevel({
   level,
   variant = 'caption',
   describe = true,

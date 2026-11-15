@@ -14,6 +14,7 @@ import BugReportIcon from '@mui/icons-material/BugReport';
 import { getNodeIdFromElementId } from '../../utils/utils';
 import { RootName } from '../../utils/constants_shared';
 import { emptyLayout } from '../../utils/surfaceTree';
+import { getDashboardItemLabel } from '../../text/migrations';
 
 // Props debugger component for displaying dashboardItem properties
 const PropsDebugger = ({ dashboardItem }) => {
@@ -183,7 +184,9 @@ export const WidgetInspector = () => {
           title={selected.id}
           data-cy="selected-node-name"
         >
-          {isRoot ? 'Root container' : selected.displayName}
+          {isRoot
+            ? 'Root container'
+            : getDashboardItemLabel(selected.displayName)}
         </Typography>
         {isRoot && (
           <Tooltip title="Delete all">

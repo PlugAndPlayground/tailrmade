@@ -6,6 +6,12 @@ import { TEXT_ALIGNMENTS, TextAlignment, textDefaultProps } from './model';
 
 export const STATIC_TEXT_ITEM_TYPE = 'Text';
 
+// Static text items keep "Text" as their stored craft displayName, which the
+// editor also uses to identify them, so only the label shown to users changes.
+export function getDashboardItemLabel(displayName: string): string {
+  return displayName === STATIC_TEXT_ITEM_TYPE ? 'Static text' : displayName;
+}
+
 // the old widget rendered with these whatever its props said
 const LEGACY_FONT_SIZE = 20;
 const LEGACY_LINE_HEIGHT = 1.2;
