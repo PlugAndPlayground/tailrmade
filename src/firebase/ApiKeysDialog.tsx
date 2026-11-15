@@ -414,6 +414,7 @@ const ApiKeysDialog = ({ onClose }: { onClose: () => void }) => {
         <DialogActions>
           <Button
             autoFocus
+            color="secondary"
             onClick={closeDeleteDialog}
             disabled={busy}
             data-cy="cancel-delete-api-key-button"
