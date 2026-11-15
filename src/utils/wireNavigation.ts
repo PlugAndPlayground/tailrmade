@@ -3,7 +3,7 @@ import type { Viewport } from 'pixi-viewport';
 import PPGraph from '../classes/GraphClass';
 import type PPLink from '../classes/LinkClass';
 import InterfaceController from '../InterfaceController';
-import { currentPlace, jumpToNode, Place } from './graphNavigation';
+import { currentPlace, jumpToNodes, Place } from './graphNavigation';
 
 // how close to a wire counts as on it, in screen pixels
 const HIT_DISTANCE_PX = 6;
@@ -112,8 +112,9 @@ const setHovered = (link: PPLink | undefined) => {
   }
 };
 
-// Clicking a wire centers its far end: near the source the target node,
-// near the target the source node. Dragging from a wire still pans or
+// Clicking a wire centers what lies beyond the part clicked: the first third
+// goes to the target node, the last third to the source node, the middle
+// shows both. Dragging from a wire still pans or
 // selects as on the empty canvas
 export const initWireNavigation = (viewport: Viewport): void => {
   let pressed: { hit: WireHit; global: PIXI.Point; from: Place } | undefined;
@@ -174,8 +175,11 @@ export const initWireNavigation = (viewport: Viewport): void => {
         return;
       }
       const { link, t } = press.hit;
-      const end = t < 0.5 ? link.getTarget() : link.getSource();
-      jumpToNode(end.getNode(), { from: press.from, center: true });
+      const source = link.getSource().getNode();
+      const target = link.getTarget().getNode();
+      const nodes =
+        t < 1 / 3 ? [target] : t > 2 / 3 ? [source] : [source, target];
+      jumpToNodes(nodes, { from: press.from, center: true });
     },
     { capture: true },
   );

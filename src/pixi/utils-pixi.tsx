@@ -138,7 +138,7 @@ export const calculateOverlayOffsets = (
 };
 
 // viewport.findFit, but against the visible strip instead of the window
-const findVisibleFit = (bounds: PIXI.Rectangle): number => {
+export const findVisibleFit = (bounds: PIXI.Rectangle): number => {
   const { left, right } = getVisibleCanvasBounds();
   return Math.min(
     (right - left) / bounds.width,

@@ -6,7 +6,7 @@ import InterfaceController, { ListenEvent } from '../InterfaceController';
 import { SELECTION_COLOR_HEX } from './constants';
 import {
   calculateOverlayOffsets,
-  ensureVisible,
+  findVisibleFit,
   getNodesBounds,
   getVisibleCanvasBounds,
   smoothMoveViewport,
@@ -111,25 +111,21 @@ const isFullyVisible = (bounds: PIXI.Rectangle): boolean => {
   );
 };
 
+// leaves some room around nodes it has to zoom out for
+const FIT_MARGIN = 0.8;
+
 // pans at the current zoom so the jump stays easy to follow; only zooms out
-// when the node would not fit
-const centerNode = (node: PPNode) => {
-  const bounds = getNodesBounds([node]);
-  const { left, right } = getVisibleCanvasBounds();
-  const graph = PPGraph.currentGraph;
-  const fits =
-    bounds.width * graph.viewportScaleX <= right - left &&
-    bounds.height * graph.viewportScaleX <= graph.viewport.screenHeight;
-  if (!fits) {
-    void ensureVisible([node]);
-    return;
-  }
+// as far as needed to fit the nodes
+const centerNodes = (nodes: PPNode[]) => {
+  const bounds = getNodesBounds(nodes);
+  const fit = findVisibleFit(bounds) * FIT_MARGIN;
+  const scale = fit < PPGraph.currentGraph.viewportScaleX ? fit : undefined;
   smoothMoveViewport(
     new PIXI.Point(
-      bounds.x + bounds.width / 2 - calculateOverlayOffsets(),
+      bounds.x + bounds.width / 2 - calculateOverlayOffsets(scale),
       bounds.y + bounds.height / 2,
     ),
-    undefined,
+    scale,
   );
 };
 
@@ -175,24 +171,32 @@ const pulseNode = (node: PPNode) => {
   requestAnimationFrame(frame);
 };
 
-// center moves the view even when the node is already in it
-const showNode = (node: PPNode, center = false) => {
-  PPGraph.currentGraph.selection.selectNodes([node]);
-  if (center || !isFullyVisible(getNodesBounds([node]))) {
-    centerNode(node);
+// center moves the view even when the nodes are already in it
+const showNodes = (nodes: PPNode[], center = false) => {
+  PPGraph.currentGraph.selection.selectNodes(nodes);
+  if (center || !isFullyVisible(getNodesBounds(nodes))) {
+    centerNodes(nodes);
   }
-  pulseNode(node);
+  nodes.forEach(pulseNode);
 };
 
-// from is where back returns to, for callers that change the view first
-export const jumpToNode = (
-  node: PPNode,
-  { from = currentPlace(), center = false } = {},
+type JumpOptions = {
+  // where back returns to, for callers that change the view first
+  from?: Place;
+  center?: boolean;
+};
+
+export const jumpToNodes = (
+  nodes: PPNode[],
+  { from = currentPlace(), center = false }: JumpOptions = {},
 ): void => {
   pushBounded(backStack, from);
   forwardStack.length = 0;
-  showNode(node, center);
+  showNodes(nodes, center);
 };
+
+export const jumpToNode = (node: PPNode, options?: JumpOptions): void =>
+  jumpToNodes([node], options);
 
 const restorePlace = (place: Place) => {
   const graph = PPGraph.currentGraph;
@@ -285,13 +289,13 @@ export const moveSpatially = (
   if (!node) {
     const start = nodeNearestToViewCenter();
     if (start) {
-      showNode(start);
+      showNodes([start]);
     }
     return;
   }
   const next = nearestInDirection(node, direction);
   if (next) {
-    showNode(next);
+    showNodes([next]);
   } else {
     pulseNode(node);
   }

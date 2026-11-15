@@ -13,6 +13,13 @@ const shouldSelect = (nodeId: string) =>
     ]);
   });
 
+const shouldBeOnScreen = (nodeId: string) =>
+  shouldWithTestController((controller) => {
+    const [x, y] = controller.getNodeCenterById(nodeId);
+    expect(x).to.be.within(0, Cypress.config('viewportWidth'));
+    expect(y).to.be.within(0, Cypress.config('viewportHeight'));
+  });
+
 const select = (nodeId: string) =>
   doWithTestController((controller) => controller.selectNodesById([nodeId]));
 
@@ -149,6 +156,22 @@ describe('graph navigation', () => {
     it('goes back to where the wire was clicked from', () => {
       cy.realPress(['Alt', 'Shift', 'ArrowLeft']);
       shouldSelect('Middle');
+    });
+
+    it('shows both ends when clicked in the middle', () => {
+      wirePoint(0.6).then(([x, y]) => {
+        cy.get('#pixi-container').realClick({ x, y });
+      });
+      shouldWithTestController((controller) => {
+        expect(
+          controller
+            .getSelectedNodes()
+            .map((node) => node.id)
+            .sort(),
+        ).to.deep.equal(['First', 'Middle']);
+      });
+      shouldBeOnScreen('First');
+      shouldBeOnScreen('Middle');
     });
 
     it('still drags a selection from a wire', () => {
