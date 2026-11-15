@@ -171,32 +171,34 @@ const pulseNode = (node: PPNode) => {
   requestAnimationFrame(frame);
 };
 
-// center moves the view even when the nodes are already in it
-const showNodes = (nodes: PPNode[], center = false) => {
-  PPGraph.currentGraph.selection.selectNodes(nodes);
+type ShowOptions = {
+  // moves the view even when the nodes are already in it
+  center?: boolean;
+  // shown and pulsed with the node, without being selected
+  alongWith?: PPNode[];
+};
+
+const showNode = (
+  node: PPNode,
+  { center = false, alongWith = [] }: ShowOptions = {},
+) => {
+  const nodes = [node, ...alongWith];
+  PPGraph.currentGraph.selection.selectNodes([node]);
   if (center || !isFullyVisible(getNodesBounds(nodes))) {
     centerNodes(nodes);
   }
   nodes.forEach(pulseNode);
 };
 
-type JumpOptions = {
-  // where back returns to, for callers that change the view first
-  from?: Place;
-  center?: boolean;
-};
-
-export const jumpToNodes = (
-  nodes: PPNode[],
-  { from = currentPlace(), center = false }: JumpOptions = {},
+export const jumpToNode = (
+  node: PPNode,
+  // from is where back returns to, for callers that change the view first
+  { from = currentPlace(), ...show }: ShowOptions & { from?: Place } = {},
 ): void => {
   pushBounded(backStack, from);
   forwardStack.length = 0;
-  showNodes(nodes, center);
+  showNode(node, show);
 };
-
-export const jumpToNode = (node: PPNode, options?: JumpOptions): void =>
-  jumpToNodes([node], options);
 
 const restorePlace = (place: Place) => {
   const graph = PPGraph.currentGraph;
@@ -289,13 +291,13 @@ export const moveSpatially = (
   if (!node) {
     const start = nodeNearestToViewCenter();
     if (start) {
-      showNodes([start]);
+      showNode(start);
     }
     return;
   }
   const next = nearestInDirection(node, direction);
   if (next) {
-    showNodes([next]);
+    showNode(next);
   } else {
     pulseNode(node);
   }

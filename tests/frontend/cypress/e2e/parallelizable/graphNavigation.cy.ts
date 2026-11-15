@@ -158,18 +158,11 @@ describe('graph navigation', () => {
       shouldSelect('Middle');
     });
 
-    it('shows both ends when clicked in the middle', () => {
+    it('shows both ends but selects the far one when clicked in the middle', () => {
       wirePoint(0.6).then(([x, y]) => {
         cy.get('#pixi-container').realClick({ x, y });
       });
-      shouldWithTestController((controller) => {
-        expect(
-          controller
-            .getSelectedNodes()
-            .map((node) => node.id)
-            .sort(),
-        ).to.deep.equal(['First', 'Middle']);
-      });
+      shouldSelect('First');
       shouldBeOnScreen('First');
       shouldBeOnScreen('Middle');
     });
