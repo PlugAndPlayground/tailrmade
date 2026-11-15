@@ -3,7 +3,11 @@ import PPGraph from '../classes/GraphClass';
 import type PPNode from '../classes/NodeClass';
 import type Socket from '../classes/SocketClass';
 import InterfaceController, { ListenEvent } from '../InterfaceController';
-import { SELECTION_COLOR, SELECTION_COLOR_HEX } from './constants';
+import {
+  SELECTION_COLOR,
+  SELECTION_COLOR_HEX,
+  SOCKET_WIDTH,
+} from './constants';
 import {
   calculateOverlayOffsets,
   ensureVisible,
@@ -255,16 +259,42 @@ const linksBetween = (a: PPNode, b: PPNode) =>
     );
 
 // the wire just taken stands out, the other wires of the step stay visible,
-// and the other candidates are outlined in case their wires are off screen
+// and the other candidates are outlined in case their wires are off screen.
+// The origin and its sockets on those wires are marked, as Alt+Arrow up/down
+// go through the wires of that node
 const drawStep = (current: Step) => {
   const graph = PPGraph.currentGraph;
   const wires = new PIXI.Container();
   const outlines = new PIXI.Graphics();
+  const origin = new PIXI.Graphics();
   wires.eventMode = 'none';
   outlines.eventMode = 'none';
+  origin.eventMode = 'none';
+  const originBounds = getNodesBounds([current.origin]);
+  origin
+    .roundRect(
+      originBounds.x - 6,
+      originBounds.y - 6,
+      originBounds.width + 12,
+      originBounds.height + 12,
+      12,
+    )
+    .stroke({ width: 3, color: SELECTION_COLOR_HEX });
   current.candidates.forEach((candidate, i) => {
     const isCurrent = i === current.index;
     linksBetween(current.origin, candidate).forEach((link) => {
+      const socket =
+        link.getSource().getNode() === current.origin
+          ? link.getSource()
+          : link.getTarget();
+      const center = graph.getSocketCenter(socket);
+      origin
+        .circle(center.x, center.y, SOCKET_WIDTH)
+        .stroke({
+          width: 3,
+          color: SELECTION_COLOR_HEX,
+          alpha: isCurrent ? 1 : 0.5,
+        });
       const wire = new PIXI.Graphics();
       link._drawConnection(
         wire,
@@ -281,8 +311,8 @@ const drawStep = (current: Step) => {
   });
   outlines.stroke({ pixelLine: true, color: SELECTION_COLOR_HEX, alpha: 0.6 });
   graph.connectionContainer.addChild(wires);
-  graph.viewport.addChild(outlines);
-  stepOverlay = [wires, outlines];
+  graph.viewport.addChild(outlines, origin);
+  stepOverlay = [wires, outlines, origin];
 };
 
 const setStep = (next: Step) => {
