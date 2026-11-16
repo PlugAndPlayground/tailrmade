@@ -1,9 +1,26 @@
-import {
-  replaceCopySocketValue,
-  replaceLegacyStorageNode,
-  replaceStateNode,
-} from '../../../src/nodes/state/migrations';
-import { replaceLabelNode } from '../../../src/text/nodeMigrations';
+// Runs the real stubs. Their base classes and the graph are mocked here, so a
+// test needs nothing of the app beyond the serialized data it loads.
+jest.mock('../../../src/classes/NodeClass', () => ({
+  __esModule: true,
+  default: class {},
+}));
+jest.mock('../../../src/classes/GraphClass', () => ({
+  __esModule: true,
+  default: {},
+}));
+// sockets are only built when a stub is added to a graph
+jest.mock('../../../src/classes/SocketClass', () => ({
+  __esModule: true,
+  default: class {},
+}));
+jest.mock('../../../src/nodes/datatypes/deferredHtmlType', () => ({
+  DeferredReactType: class {},
+}));
+jest.mock('../../../src/nodes/datatypes/stringType', () => ({
+  StringType: class {},
+}));
+
+import * as deprecatedNodes from '../../../src/nodes/deprecated/deprecatedNodes';
 import type {
   NodeReplacement,
   NodeReplacementContext,
@@ -12,27 +29,20 @@ import type {
   SerializedSelection,
 } from '../../../src/utils/interfaces';
 
-// what each stub in src/nodes/deprecated replaces itself with
-const stubs: Record<
-  string,
-  (node: SerializedNode, context: NodeReplacementContext) => NodeReplacement
-> = {
-  label: replaceLabelNode,
-  state: replaceStateNode,
-  numberstate: replaceStateNode,
-  arraystate: replaceStateNode,
-  objectstate: replaceStateNode,
-  stateread: replaceStateNode,
-  statewrite: replaceStateNode,
-  copysocketvalue: replaceCopySocketValue,
-  localstoragewrite: replaceLegacyStorageNode,
-  localstoragedelete: replaceLegacyStorageNode,
-  localstoragebrowse: replaceLegacyStorageNode,
-  userstoragewrite: replaceLegacyStorageNode,
-  userstorageread: replaceLegacyStorageNode,
-  userstoragedelete: replaceLegacyStorageNode,
-  userstoragebrowse: replaceLegacyStorageNode,
+type Stub = {
+  getReplacement(
+    node: SerializedNode,
+    context: NodeReplacementContext,
+  ): NodeReplacement;
 };
+
+// registered the way allNodes.ts does: by export name, lowercased
+const stubs: Record<string, Stub> = Object.fromEntries(
+  Object.entries(deprecatedNodes).map(([name, Node]) => [
+    name.toLowerCase(),
+    new (Node as any)(name.toLowerCase()) as Stub,
+  ]),
+);
 
 // an input holds one link; connecting another replaces it
 const connect = (links: SerializedLink[], link: SerializedLink) => [
@@ -54,13 +64,14 @@ export function loadWithStubs<T extends SerializedSelection>(graph: T): T {
   let links = graph.links.reduce(connect, [] as SerializedLink[]);
   let groups = structuredClone(graph.groups);
   for (const { id, type } of graph.nodes) {
-    const replace = stubs[String(type).toLowerCase()];
-    if (!replace) continue;
+    const stub = stubs[String(type).toLowerCase()];
+    if (!stub) continue;
     const node = nodes.find((candidate) => candidate.id === id)!;
-    const { nodes: replacements, links: replacementLinks } = replace(node, {
-      links,
-      getNode: (nodeId) => nodes.find((candidate) => candidate.id === nodeId),
-    });
+    const { nodes: replacements, links: replacementLinks } =
+      stub.getReplacement(node, {
+        links,
+        getNode: (nodeId) => nodes.find((candidate) => candidate.id === nodeId),
+      });
     const [main, ...extras] = replacements;
     nodes = [
       ...nodes.map((candidate) => (candidate.id === id ? main : candidate)),
