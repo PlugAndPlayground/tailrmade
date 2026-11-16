@@ -6,11 +6,43 @@ import {
   replaceLegacyStorageNode,
   replaceStateNode,
 } from '../state/migrations';
+import { replaceLabelNode } from '../../text/nodeMigrations';
+import Socket from '../../classes/SocketClass';
+import { SOCKET_TYPE } from '../../utils/constants';
+import { SOCKET_NAME_DASHBOARD_CONTENT } from '../../utils/layoutableHelpers';
+import { DeferredReactType } from '../datatypes/deferredHtmlType';
+import { StringType } from '../datatypes/stringType';
 import {
   NodeReplacement,
   NodeReplacementContext,
   SerializedNode,
 } from '../../utils/interfaces';
+
+export class Label extends DeprecatedNode {
+  public getName(): string {
+    return 'Label';
+  }
+  // the sockets its replacement keeps links on, there even if not saved
+  protected getDefaultIO(): Socket[] {
+    return [
+      new Socket(SOCKET_TYPE.IN, 'Input', new StringType()),
+      new Socket(SOCKET_TYPE.OUT, 'Output', new StringType()),
+      new Socket(
+        SOCKET_TYPE.OUT,
+        SOCKET_NAME_DASHBOARD_CONTENT,
+        new DeferredReactType(),
+        undefined,
+        false,
+      ),
+    ];
+  }
+  protected getReplacement(
+    node: SerializedNode,
+    context: NodeReplacementContext,
+  ): NodeReplacement {
+    return replaceLabelNode(node, context);
+  }
+}
 
 abstract class DeprecatedStateNode extends DeprecatedNode {
   protected getReplacement(

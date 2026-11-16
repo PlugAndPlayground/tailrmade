@@ -1,10 +1,11 @@
 // Pre-v2 Text nodes (a Label with an Input string and styling sockets) become
 // the token-based Text node. Headless: runs inside graph migrations.
 import type {
+  NodeReplacement,
+  NodeReplacementContext,
   SerializedGraph,
   SerializedLink,
   SerializedNode,
-  SerializedSelection,
   SerializedSocket,
 } from '../utils/interfaces';
 import { colorSettingToCss } from '../utils/themeColors';
@@ -171,7 +172,6 @@ export function migrateLegacyTextNodes(
   };
 }
 
-const LABEL_NODE_TYPE = 'label';
 const LABEL_OUTPUT = 'Output';
 const REACT_UI_OUTPUT = 'ReactUI';
 const CONSTANT_STRING_NODE_TYPE = 'CONSTANT_String';
@@ -205,6 +205,7 @@ function labelToDynamicText(
   return {
     ...node,
     type: TEXT_NODE_TYPE,
+    version: undefined,
     socketArray: [
       ...node.socketArray.filter(
         (socket) =>
@@ -241,52 +242,40 @@ function labelToConstantString(node: SerializedNode): SerializedNode {
 /**
  * The Label node is gone. A Label whose Input is linked, or that sits on a UI
  * page, becomes Dynamic text; every other Label becomes a Constant String
- * holding its text. Styling is dropped, along with links into it. Node ids
- * stay, so links out of the Label and page placements survive.
+ * holding its text. Styling is dropped, along with links into it. The id
+ * stays, so links out of the Label and page placements survive.
  */
-export function migrateLabelNodes<T extends SerializedSelection>(graph: T): T {
-  const labels = graph.nodes.filter(
-    (node) => String(node.type).toLowerCase() === LABEL_NODE_TYPE,
+export function replaceLabelNode(
+  node: SerializedNode,
+  { links }: NodeReplacementContext,
+): NodeReplacement {
+  const inputIsLinked = links.some(
+    (link) =>
+      link.targetNodeId === node.id && link.targetSocketName === LEGACY_INPUT,
   );
-  if (labels.length === 0) {
-    return graph;
-  }
-  const textIds = new Set<string>();
-  const linkedInputIds = new Set<string>();
-  for (const label of labels) {
-    const inputIsLinked = graph.links.some(
-      (link) =>
-        link.targetNodeId === label.id &&
-        link.targetSocketName === LEGACY_INPUT,
-    );
-    const onPage = graph.links.some(
-      (link) =>
-        link.sourceNodeId === label.id &&
-        link.sourceSocketName === REACT_UI_OUTPUT,
-    );
-    if (inputIsLinked) linkedInputIds.add(label.id);
-    if (inputIsLinked || onPage) textIds.add(label.id);
-  }
-  const labelIds = new Set(labels.map((label) => label.id));
-
+  const onPage = links.some(
+    (link) =>
+      link.sourceNodeId === node.id &&
+      link.sourceSocketName === REACT_UI_OUTPUT,
+  );
+  const asText = inputIsLinked || onPage;
   return {
-    ...graph,
-    nodes: graph.nodes.map((node) => {
-      if (!labelIds.has(node.id)) return node;
-      return textIds.has(node.id)
-        ? labelToDynamicText(node, linkedInputIds.has(node.id))
-        : labelToConstantString(node);
-    }),
-    links: graph.links
+    nodes: [
+      asText
+        ? labelToDynamicText(node, inputIsLinked)
+        : labelToConstantString(node),
+    ],
+    links: links
       .filter(
         (link) =>
-          !labelIds.has(link.targetNodeId) ||
-          (linkedInputIds.has(link.targetNodeId) &&
+          link.sourceNodeId === node.id ||
+          (link.targetNodeId === node.id &&
+            inputIsLinked &&
             link.targetSocketName === LEGACY_INPUT),
       )
       .map((link) =>
-        labelIds.has(link.sourceNodeId) &&
-        !textIds.has(link.sourceNodeId) &&
+        link.sourceNodeId === node.id &&
+        !asText &&
         link.sourceSocketName === LABEL_OUTPUT
           ? { ...link, sourceSocketName: CONSTANT_STRING_SOCKET }
           : link,

@@ -1,6 +1,6 @@
 // The Label node is gone: Labels load as Constant String, or as Dynamic text
 // when they show a linked value or sit on a UI page.
-import { migrateLabelNodes } from '../../../src/text/nodeMigrations';
+import { loadWithStubs } from './loadWithStubs';
 import {
   TEXT_NODE_SOCKETS,
   textPropsFromSocketValues,
@@ -67,9 +67,9 @@ const graph = (
 const inputData = (node: SerializedNode, name: string) =>
   node.socketArray.find((s) => s.name === name && s.socketType === 'in')?.data;
 
-describe('migrateLabelNodes', () => {
+describe('the Label stub', () => {
   it('turns a note Label into a Constant String holding its text', () => {
-    const migrated = migrateLabelNodes(
+    const migrated = loadWithStubs(
       graph(
         [
           labelNode(
@@ -106,7 +106,7 @@ describe('migrateLabelNodes', () => {
   });
 
   it('turns a Label showing a linked value into Dynamic text with {{Input}}', () => {
-    const migrated = migrateLabelNodes(
+    const migrated = loadWithStubs(
       graph(
         [otherNode('source'), labelNode('shows', 'stale')],
         [
@@ -130,7 +130,7 @@ describe('migrateLabelNodes', () => {
   });
 
   it('keeps a Label on a UI page on the page as Dynamic text', () => {
-    const migrated = migrateLabelNodes(
+    const migrated = loadWithStubs(
       graph(
         [labelNode('placed', 'Hello *world*'), otherNode('page')],
         [link('placed', 'ReactUI', 'page', 'Label')],
@@ -148,9 +148,11 @@ describe('migrateLabelNodes', () => {
     ]);
   });
 
-  it('returns graphs without Labels unchanged', () => {
-    const untouched = graph([otherNode('a')]);
-    expect(migrateLabelNodes(untouched)).toBe(untouched);
+  it('leaves the version to the replacement type', () => {
+    const migrated = loadWithStubs(
+      graph([{ ...labelNode('saved', 'text'), version: 2 }]),
+    );
+    expect(migrated.nodes[0].version).toBeUndefined();
   });
 });
 

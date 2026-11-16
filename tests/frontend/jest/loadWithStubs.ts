@@ -3,6 +3,7 @@ import {
   replaceLegacyStorageNode,
   replaceStateNode,
 } from '../../../src/nodes/state/migrations';
+import { replaceLabelNode } from '../../../src/text/nodeMigrations';
 import type {
   NodeReplacement,
   NodeReplacementContext,
@@ -16,6 +17,7 @@ const stubs: Record<
   string,
   (node: SerializedNode, context: NodeReplacementContext) => NodeReplacement
 > = {
+  label: replaceLabelNode,
   state: replaceStateNode,
   numberstate: replaceStateNode,
   arraystate: replaceStateNode,

@@ -7,9 +7,9 @@ import {
   shouldWithTestController,
 } from '../helpers';
 
-// The transforms are covered by tests/frontend/jest/state-migrations; what
-// only the app can show is the swap itself: same ids, links and groups,
-// replacement nodes running.
+// The transforms are covered by tests/frontend/jest/state-migrations and
+// label-migration; what only the app can show is the swap itself: same ids,
+// links, groups and page placements, replacement nodes running.
 
 const link = (
   sourceNodeId: string,
@@ -35,7 +35,21 @@ const numberState = (id: string, value: number, y: number) =>
     { x: 0, y },
   );
 
+const label = (id: string, text: string, y: number) =>
+  serializedNode(
+    'Label',
+    id,
+    [
+      serializedSocket('Output', undefined, 'StringType', 'out'),
+      serializedSocket('ReactUI', undefined, 'DeferredReactType', 'out'),
+      serializedSocket('Input', text),
+      serializedSocket('Font size', 64, 'NumberType'),
+    ],
+    { x: 0, y },
+  );
+
 const deprecatedTypes = [
+  'label',
   'state',
   'numberstate',
   'stateread',
@@ -205,6 +219,70 @@ describe('deprecated nodes', () => {
         node_id: 'from-ai',
       });
       expect(result.is_error).to.eq(true);
+    });
+  });
+
+  it('replaces Labels with Constant String or Dynamic text', () => {
+    load(
+      serializedGraph(
+        [
+          label('note', 'A note', 0),
+          constant('sink', '', 0),
+          label('shows', 'stale', 200),
+          constant('value', 42, 200),
+        ],
+        [
+          link('note', 'Output', 'sink', 'In'),
+          link('value', 'Out', 'shows', 'Input'),
+        ],
+      ),
+    );
+    shouldWithTestController((testController) => {
+      expect(testController.getNodeByID('note').type).to.eq('constant_string');
+      expect(testController.getNodeOutputValue('sink', 'Out')).to.eq('A note');
+      expect(testController.getInputLinkSourceNodeID('sink', 'In')).to.eq(
+        'note',
+      );
+      expect(testController.getNodeByID('shows').type).to.eq('text');
+      expect(testController.getNodeOutputValue('shows', 'Output')).to.eq('42');
+    });
+  });
+
+  it('keeps a Label on its UI page where it was placed', () => {
+    doWithTestController(async (testController) => {
+      await testController.addNode('UISurfaceNode', 'page', 600, 0);
+      await testController.addNode('Text', 'placed', 0, 0);
+      await testController.addNode('WidgetButton', 'button', 0, 300);
+      for (const [node, socket] of [
+        ['placed', 'Text'],
+        ['button', 'Button'],
+      ]) {
+        const result = await testController.callAITool('connect_sockets', {
+          from_node: node,
+          from_socket: 'ReactUI',
+          to_node: 'page',
+          to_socket: socket,
+        });
+        expect(result.is_error, result.content).to.not.equal(true);
+      }
+      await testController.waitForPendingExecution();
+
+      // save it as the Label it would have been before Labels were removed
+      const saved = testController.getGraph().serialize();
+      const placed = saved.nodes.find((node) => node.id === 'placed');
+      Object.assign(placed, label('placed', 'On the page', 0));
+      await testController.loadStringifiedGraph(JSON.stringify(saved));
+      await testController.waitForPendingExecution();
+    });
+
+    shouldWithTestController((testController) => {
+      expect(testController.getNodeByID('placed').type).to.eq('text');
+      expect(testController.getSocketLinks('placed', 'ReactUI')).to.have.length(
+        1,
+      );
+      const tree = testController.getNodeInputValue('page', 'Layout JSON').tree;
+      const ids = tree.ROOT.nodes.map((item: string) => tree[item].props.id);
+      expect(ids).to.deep.eq(['NODE_placed', 'NODE_button']);
     });
   });
 });
