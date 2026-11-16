@@ -1,7 +1,14 @@
-// Runs the real stubs. DeprecatedNode extends PPNode and reaches the graph
-// through PPGraph, so a test using this mocks both:
-//   jest.mock('../../../src/classes/NodeClass', () => ({ __esModule: true, default: class {} }));
-//   jest.mock('../../../src/classes/GraphClass', () => ({ __esModule: true, default: {} }));
+// Runs the real stubs. Their base classes and the graph are mocked here, so a
+// test needs nothing of the app beyond the serialized data it loads.
+jest.mock('../../../src/classes/NodeClass', () => ({
+  __esModule: true,
+  default: class {},
+}));
+jest.mock('../../../src/classes/GraphClass', () => ({
+  __esModule: true,
+  default: {},
+}));
+
 import * as deprecatedNodes from '../../../src/nodes/deprecated/deprecatedNodes';
 import type {
   NodeReplacement,
