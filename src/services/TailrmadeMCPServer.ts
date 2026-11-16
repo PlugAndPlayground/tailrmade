@@ -1558,10 +1558,13 @@ export class TailrmadeMCPServer {
   // Resolve a caller-supplied node type to its canonical registry key. Accepts
   // either the key itself (e.g. "httpnode") or the display name (e.g. "HTTP"),
   // both case-insensitive - list_available_nodes exposes both and the AI often
-  // reaches for the name. Returns undefined if neither matches.
+  // reaches for the name. Returns undefined if neither matches; removed nodes
+  // never match.
   private resolveNodeTypeKey(nodeType: string): string | undefined {
     const requested = nodeType.toLowerCase();
-    const allTypes = getAllNodeTypes();
+    const allTypes = Object.fromEntries(
+      Object.entries(getAllNodeTypes()).filter(([, type]) => !type.deprecated),
+    );
     if (allTypes[requested] !== undefined) {
       return requested;
     }

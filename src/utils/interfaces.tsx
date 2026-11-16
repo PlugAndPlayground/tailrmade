@@ -26,6 +26,8 @@ export type RegisteredNodeTypes = Record<
     tags: string[];
     hasExample: boolean;
     showInNodeSearch: boolean;
+    // a removed node kept only so saved graphs load, see DeprecatedNode
+    deprecated: boolean;
   }
 >;
 
@@ -274,6 +276,20 @@ export type SerializedLink = {
   sourceSocketName: string;
   targetNodeId: string;
   targetSocketName: string;
+};
+
+// What a removed node turns into, see DeprecatedNode. The first node takes over
+// the removed node's id; links lists every link to or from the new nodes.
+// Nodes are in their type's format at their version (unset is 1).
+export type NodeReplacement = {
+  nodes: SerializedNode[];
+  links: SerializedLink[];
+};
+
+export type NodeReplacementContext = {
+  // every link in the graph
+  links: SerializedLink[];
+  getNode: (id: string) => SerializedNode | undefined;
 };
 
 // the link an input socket held before a connect displaced it, kept so undo
