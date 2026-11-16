@@ -8,7 +8,12 @@ describe('String and Code Widgets', () => {
   it('Add nodes', () => {
     openNewGraph();
     doWithTestController(async (testController) => {
-      await testController.addNode('Label', 'Label', 0, -400);
+      await testController.addNode(
+        'CONSTANT_String',
+        'ConstantString',
+        0,
+        -400,
+      );
       await testController.addNode('CustomFunction', 'CustomFunction', 0, -200);
       await testController.addNode('CodeEditor', 'CodeEditor', -300, 0);
     });
@@ -19,7 +24,7 @@ describe('String and Code Widgets', () => {
   });
   it('test inspector text field', () => {
     doWithTestController(async (testController) => {
-      await testController.selectNodesById(['Label']);
+      await testController.selectNodesById(['ConstantString']);
     });
     cy.get('[data-cy="textinput"]')
       .eq(0)
@@ -30,9 +35,9 @@ describe('String and Code Widgets', () => {
     cy.get('[data-cy="textinput"]').eq(0).type('iii', { delay: 50 });
 
     doWithTestController(async (testController) => {
-      expect(testController.getNodeOutputValue('Label', 'Output')).to.eq(
-        'Testiiiing',
-      );
+      expect(
+        testController.getNodeOutputValue('ConstantString', 'String'),
+      ).to.eq('Testiiiing');
     });
   });
 

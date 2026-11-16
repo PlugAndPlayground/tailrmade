@@ -8,6 +8,18 @@ import type {
   SerializedNode,
   SerializedSocket,
 } from '../../utils/interfaces';
+import Socket from '../../classes/SocketClass';
+import { SOCKET_TYPE } from '../../utils/constants';
+import { DeferredReactType } from '../datatypes/deferredHtmlType';
+import { StringType } from '../datatypes/stringType';
+import { plainTextToMarkdown } from '../../text/markdownEscaping';
+import { textDefaultProps } from '../../text/model';
+import {
+  TEXT_NODE_TYPE,
+  textPropsToSocketValues,
+} from '../../text/nodeSockets';
+import { TEXT_SOCKET_TYPES } from '../../text/nodeMigrations';
+import { formatToken } from '../../text/tokens';
 
 const input = (
   name: string,
@@ -44,6 +56,139 @@ const linksOf = (node: SerializedNode, links: SerializedLink[]) =>
   );
 
 const kindOf = (node: SerializedNode) => String(node.type).toLowerCase();
+
+const LEGACY_INPUT = 'Input';
+const LABEL_OUTPUT = 'Output';
+const REACT_UI_OUTPUT = 'ReactUI';
+const CONSTANT_STRING_NODE_TYPE = 'CONSTANT_String';
+const CONSTANT_STRING_SOCKET = 'String';
+
+const stringSocket = (
+  socketType: 'in' | 'out',
+  data: unknown,
+): SerializedSocket => ({
+  socketType,
+  name: CONSTANT_STRING_SOCKET,
+  dataType: JSON.stringify({ class: 'StringType' }),
+  data,
+  visible: true,
+  dependentSocketName: undefined,
+});
+
+// A Label showing a linked value, or placed on a UI page, keeps doing that as
+// Dynamic text; its Input stays as the {{Input}} token's socket.
+function labelToDynamicText(
+  node: SerializedNode,
+  inputIsLinked: boolean,
+): SerializedNode {
+  const input = node.socketArray.find(
+    (socket) => socket.name === LEGACY_INPUT && socket.socketType !== 'out',
+  );
+  const content = inputIsLinked
+    ? formatToken({ path: [LEGACY_INPUT] })
+    : plainTextToMarkdown(input?.data == null ? '' : String(input.data));
+  const values = textPropsToSocketValues({ ...textDefaultProps, content });
+  return {
+    ...node,
+    type: TEXT_NODE_TYPE,
+    version: undefined,
+    socketArray: [
+      ...node.socketArray.filter(
+        (socket) =>
+          socket.socketType === 'out' || (inputIsLinked && socket === input),
+      ),
+      ...Object.entries(values).map(([name, value]) => ({
+        socketType: 'in' as const,
+        name,
+        dataType: JSON.stringify({
+          class: TEXT_SOCKET_TYPES[name],
+        }),
+        data: value,
+        visible: false,
+        dependentSocketName: undefined,
+      })),
+    ],
+  };
+}
+
+function labelToConstantString(node: SerializedNode): SerializedNode {
+  const input = node.socketArray.find(
+    (socket) => socket.name === LEGACY_INPUT && socket.socketType !== 'out',
+  );
+  const text = input?.data == null ? '' : String(input.data);
+  return {
+    ...node,
+    type: CONSTANT_STRING_NODE_TYPE,
+    version: undefined,
+    // the Label's box fitted its own font size; the Constant sizes to its text
+    width: 0,
+    height: 0,
+    socketArray: [stringSocket('in', text), stringSocket('out', text)],
+  };
+}
+
+/**
+ * The Label node is gone. A Label whose Input is linked, or that sits on a UI
+ * page, becomes Dynamic text; every other Label becomes a Constant String
+ * holding its text. Styling is dropped, along with links into it. The id
+ * stays, so links out of the Label and page placements survive.
+ */
+export class Label extends DeprecatedNode {
+  public getName(): string {
+    return 'Label';
+  }
+  // the sockets its replacement keeps links on, there even if not saved
+  protected getDefaultIO(): Socket[] {
+    return [
+      new Socket(SOCKET_TYPE.IN, LEGACY_INPUT, new StringType()),
+      new Socket(SOCKET_TYPE.OUT, LABEL_OUTPUT, new StringType()),
+      new Socket(
+        SOCKET_TYPE.OUT,
+        REACT_UI_OUTPUT,
+        new DeferredReactType(),
+        undefined,
+        false,
+      ),
+    ];
+  }
+  protected getReplacement(
+    node: SerializedNode,
+    { links }: NodeReplacementContext,
+  ): NodeReplacement {
+    const inputIsLinked = links.some(
+      (link) =>
+        link.targetNodeId === node.id && link.targetSocketName === LEGACY_INPUT,
+    );
+    const onPage = links.some(
+      (link) =>
+        link.sourceNodeId === node.id &&
+        link.sourceSocketName === REACT_UI_OUTPUT,
+    );
+    const asText = inputIsLinked || onPage;
+    return {
+      nodes: [
+        asText
+          ? labelToDynamicText(node, inputIsLinked)
+          : labelToConstantString(node),
+      ],
+      links: links
+        .filter(
+          (link) =>
+            link.sourceNodeId === node.id ||
+            (link.targetNodeId === node.id &&
+              inputIsLinked &&
+              link.targetSocketName === LEGACY_INPUT),
+        )
+        .map((link) =>
+          link.sourceNodeId === node.id &&
+          !asText &&
+          link.sourceSocketName === LABEL_OUTPUT
+            ? { ...link, sourceSocketName: CONSTANT_STRING_SOCKET }
+            : link,
+        ),
+    };
+  }
+}
 
 // Socket names, the id and links stay, including custom trigger methods.
 abstract class DeprecatedStateNode extends DeprecatedNode {

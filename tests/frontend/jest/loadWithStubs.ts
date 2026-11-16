@@ -8,6 +8,17 @@ jest.mock('../../../src/classes/GraphClass', () => ({
   __esModule: true,
   default: {},
 }));
+// sockets are only built when a stub is added to a graph
+jest.mock('../../../src/classes/SocketClass', () => ({
+  __esModule: true,
+  default: class {},
+}));
+jest.mock('../../../src/nodes/datatypes/deferredHtmlType', () => ({
+  DeferredReactType: class {},
+}));
+jest.mock('../../../src/nodes/datatypes/stringType', () => ({
+  StringType: class {},
+}));
 
 import * as deprecatedNodes from '../../../src/nodes/deprecated/deprecatedNodes';
 import type {

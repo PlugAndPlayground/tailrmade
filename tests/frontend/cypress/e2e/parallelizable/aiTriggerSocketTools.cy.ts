@@ -98,8 +98,8 @@ describe('AI trigger socket tools', () => {
     doWithTestController(async (tc) => {
       await tc.addNode('UISurfaceNode', 'trig-surface-1', 600, 0);
       await tc.addNode('UISurfaceNode', 'trig-surface-2', 600, 400);
-      await tc.addNode('Label', 'trig-label-1', -200, 0);
-      await tc.addNode('Label', 'trig-label-2', -200, 400);
+      await tc.addNode('Text', 'trig-label-1', -200, 0);
+      await tc.addNode('Text', 'trig-label-2', -200, 400);
       await tc.addNode('NavigateToPage', 'trig-nav-1', -200, 800);
       await tc.waitForPendingExecution();
       await tc.connectNodesByID('trig-label-1', 'trig-surface-1', 'ReactUI');

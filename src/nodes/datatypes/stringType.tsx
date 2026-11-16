@@ -49,11 +49,11 @@ export class StringType extends AbstractType {
   }
 
   recommendedOutputNodeWidgets(): string[] {
-    return ['label', 'draw_text', 'concatenate'];
+    return ['text', 'draw_text', 'concatenate'];
   }
 
   recommendedInputNodeWidgets(): string[] {
-    return ['label', 'constant_string'];
+    return ['constant_string'];
   }
 
   prefersToChangeAwayFromThisType(): boolean {

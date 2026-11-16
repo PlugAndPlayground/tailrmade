@@ -120,17 +120,17 @@ describe('testWidgetNodes', () => {
     doWithTestController(async (testController) => {
       await testController.addNode('Constant', 'Constant');
       await testController.addNode('WidgetDropdown', 'WidgetDropdown');
-      await testController.addNode('Label', 'Label');
+      await testController.addNode('Text', 'Display');
 
       await testController.moveNodeByID('Constant', -200, 0);
-      await testController.moveNodeByID('Label', 230, 0);
+      await testController.moveNodeByID('Display', 230, 0);
       await testController.connectNodesByID(
         'Constant',
         'WidgetDropdown',
         'Out',
         'Selected Option',
       );
-      await testController.connectNodesByID('WidgetDropdown', 'Label', 'Out');
+      await testController.connectNodesByID('WidgetDropdown', 'Display', 'Out');
       await testController.executeNodeByID('Constant');
     });
 
@@ -164,10 +164,10 @@ describe('testWidgetNodes', () => {
         'WidgetMultiDropdown',
         'WidgetMultiDropdown',
       );
-      await testController.addNode('Label', 'Label');
+      await testController.addNode('Text', 'Display');
 
       await testController.moveNodeByID('Constant', -200, 0);
-      await testController.moveNodeByID('Label', 230, 0);
+      await testController.moveNodeByID('Display', 230, 0);
       await testController.connectNodesByID(
         'Constant',
         'WidgetMultiDropdown',
@@ -176,7 +176,7 @@ describe('testWidgetNodes', () => {
       );
       await testController.connectNodesByID(
         'WidgetMultiDropdown',
-        'Label',
+        'Display',
         'Out',
       );
       await testController.executeNodeByID('Constant');
@@ -231,10 +231,10 @@ describe('testWidgetNodes', () => {
     doWithTestController(async (testController) => {
       await testController.addNode('Constant', 'Constant');
       await testController.addNode('WidgetAutocomplete', 'WidgetAutocomplete');
-      await testController.addNode('Label', 'Label');
+      await testController.addNode('Text', 'Display');
 
       await testController.moveNodeByID('Constant', -200, 0);
-      await testController.moveNodeByID('Label', 280, 0);
+      await testController.moveNodeByID('Display', 280, 0);
       await testController.connectNodesByID(
         'Constant',
         'WidgetAutocomplete',
@@ -243,7 +243,7 @@ describe('testWidgetNodes', () => {
       );
       await testController.connectNodesByID(
         'WidgetAutocomplete',
-        'Label',
+        'Display',
         'Out',
       );
       await testController.executeNodeByID('Constant');
@@ -283,10 +283,10 @@ describe('testWidgetNodes', () => {
         'WidgetMultiAutocomplete',
         'WidgetMultiAutocomplete',
       );
-      await testController.addNode('Label', 'Label');
+      await testController.addNode('Text', 'Display');
 
       await testController.moveNodeByID('Constant', -200, 0);
-      await testController.moveNodeByID('Label', 280, 0);
+      await testController.moveNodeByID('Display', 280, 0);
       await testController.connectNodesByID(
         'Constant',
         'WidgetMultiAutocomplete',
@@ -295,7 +295,7 @@ describe('testWidgetNodes', () => {
       );
       await testController.connectNodesByID(
         'WidgetMultiAutocomplete',
-        'Label',
+        'Display',
         'Out',
       );
       await testController.executeNodeByID('Constant');

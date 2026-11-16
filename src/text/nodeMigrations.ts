@@ -36,7 +36,7 @@ const LEGACY_ALIGNMENTS: Record<string, TextAlignment> = {
 };
 const LEGACY_WEIGHTS: Record<string, string> = { Regular: '400', Bold: '700' };
 
-const SOCKET_TYPES: Record<string, string> = {
+export const TEXT_SOCKET_TYPES: Record<string, string> = {
   [TEXT_NODE_SOCKETS.content]: 'StringType',
   [TEXT_NODE_SOCKETS.variant]: 'EnumType',
   [TEXT_NODE_SOCKETS.tone]: 'EnumType',
@@ -114,7 +114,7 @@ function migrateNode(
     ([name, value]) => ({
       socketType: 'in',
       name,
-      dataType: JSON.stringify({ class: SOCKET_TYPES[name] }),
+      dataType: JSON.stringify({ class: TEXT_SOCKET_TYPES[name] }),
       data: value,
       visible: false,
       dependentSocketName: undefined,

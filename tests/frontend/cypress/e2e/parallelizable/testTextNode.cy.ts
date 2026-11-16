@@ -435,12 +435,12 @@ describe('dynamic Text node', () => {
     addTextNode('shared-text');
     placeOnSurface([{ widget: 'shared-text' }]);
     doWithTestController(async (testController) => {
-      await testController.addNode('Label', 'consumer', 0, 300);
+      await testController.addNode('CONSTANT_String', 'consumer', 0, 300);
       await testController.connectNodesByID(
         'shared-text',
         'consumer',
         'Output',
-        'Input',
+        'String',
       );
     });
     enterDashboardEditMode();
@@ -455,7 +455,7 @@ describe('dynamic Text node', () => {
     );
 
     doWithTestController(async (testController) => {
-      await testController.disconnectLink('consumer', 'Input');
+      await testController.disconnectLink('consumer', 'String');
     });
     placeOnSurface([{ widget: 'shared-text' }], 'second-surface');
     doWithTestController((testController) => {
