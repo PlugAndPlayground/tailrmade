@@ -21,7 +21,7 @@ import { getNodesBounds } from '../pixi/utils-pixi';
 // the nodes wired to it stay lit and everything else dims. Its sources are
 // numbered in input order, its targets by position on the canvas. Alt+Arrow
 // left/right move between the sources, the origin and the targets,
-// up/down through the sources or targets. Releasing Alt ends it.
+// up/down cycle through the sources or targets. Releasing Alt ends it.
 
 const DIM_ALPHA = 0.2;
 
@@ -124,7 +124,10 @@ const drawLabels = (current: Focus) => {
     current.labelLayer.addChild(view);
     current.labels.push({ node, view });
   };
-  add(current.origin, 'Origin');
+  add(
+    current.origin,
+    `← ${current.sources.length} · Origin · ${current.targets.length} →`,
+  );
   current.sources.forEach((node, i) => add(node, `← ${i + 1}`));
   current.targets.forEach((node, i) => add(node, `→ ${i + 1}`));
   placeLabels();
@@ -206,16 +209,15 @@ const move = (current: Focus, direction: ArrowDirection) => {
       pulseNode(currentNode(current));
       return;
     }
+  } else if (current.column === 'origin') {
+    pulseNode(current.origin);
+    return;
   } else {
-    const index =
-      current.column === 'origin'
-        ? -1
-        : current.index[current.column] + (direction === 'down' ? 1 : -1);
-    if (current.column === 'origin' || !current[current.column][index]) {
-      pulseNode(currentNode(current));
-      return;
-    }
-    current.index[current.column] = index;
+    // wraps around, as the numbers show where it will land
+    const count = current[current.column].length;
+    const step = direction === 'down' ? 1 : -1;
+    current.index[current.column] =
+      (current.index[current.column] + step + count) % count;
   }
   showNode(currentNode(current));
   highlightWires(current);

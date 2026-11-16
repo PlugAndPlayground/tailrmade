@@ -163,7 +163,10 @@ describe('graph navigation', () => {
       shouldSelect('Far');
       pressWithAlt('ArrowDown');
       shouldSelect('Farther');
+      // wraps around both ways
       pressWithAlt('ArrowDown');
+      shouldSelect('Far');
+      pressWithAlt('ArrowUp');
       shouldSelect('Farther');
       pressWithAlt('ArrowLeft');
       shouldSelect('Middle');
