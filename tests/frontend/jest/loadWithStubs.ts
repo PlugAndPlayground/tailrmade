@@ -45,7 +45,7 @@ const connect = (links: SerializedLink[], link: SerializedLink) => [
 /**
  * Loads serialized data the way PPGraph.configure does: links are made, then
  * every stub, in order, swaps itself for its replacement
- * (PPGraph.replaceNodeInPlace).
+ * (DeprecatedNode.replaceWith).
  */
 export function loadWithStubs<T extends SerializedSelection>(graph: T): T {
   let nodes = structuredClone(graph.nodes);
