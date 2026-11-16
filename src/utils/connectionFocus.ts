@@ -20,8 +20,9 @@ import { getNodesBounds } from '../pixi/utils-pixi';
 // While Alt is held, the node selected when it was pressed (the origin) and
 // the nodes wired to it stay lit and everything else dims. Its sources are
 // numbered in input order, its targets by position on the canvas. Alt+Arrow
-// left/right move between the sources, the origin and the targets,
-// up/down cycle through the sources or targets. Releasing Alt ends it.
+// left/right move between the sources, the origin and the targets, and past
+// them make the source or target the new origin; up/down cycle through the
+// sources or targets. Releasing Alt ends it.
 
 const DIM_ALPHA = 0.2;
 
@@ -128,8 +129,13 @@ const drawLabels = (current: Focus) => {
     current.origin,
     `← ${current.sources.length} · Origin · ${current.targets.length} →`,
   );
-  current.sources.forEach((node, i) => add(node, `← ${i + 1}`));
-  current.targets.forEach((node, i) => add(node, `→ ${i + 1}`));
+  // with the total, as the others may be off screen
+  current.sources.forEach((node, i, all) =>
+    add(node, `← ${i + 1}/${all.length}`),
+  );
+  current.targets.forEach((node, i, all) =>
+    add(node, `→ ${i + 1}/${all.length}`),
+  );
   placeLabels();
 };
 
@@ -146,28 +152,35 @@ const highlightWires = (current: Focus) => {
   current.highlighted.forEach((link) => link.highlight());
 };
 
-const startFocus = (origin: PPNode) => {
-  const graph = PPGraph.currentGraph;
+// lights the origin and its neighbours, and starts at the origin again
+const setOrigin = (current: Focus, origin: PPNode) => {
   const sources = sourcesOf(origin);
   const targets = targetsOf(origin);
   const lit = new Set([origin, ...sources, ...targets]);
-  Object.values(graph.nodes).forEach((node) => {
-    if (!lit.has(node)) {
-      setNodeAlpha(node, DIM_ALPHA);
-    }
-  });
+  Object.values(PPGraph.currentGraph.nodes).forEach((node) =>
+    setNodeAlpha(node, lit.has(node) ? 1 : DIM_ALPHA),
+  );
   allLinks().forEach((link) => {
-    if (!touches(link, origin)) {
-      link.alpha = DIM_ALPHA;
-    }
+    link.alpha = touches(link, origin) ? 1 : DIM_ALPHA;
   });
+  Object.assign(current, {
+    origin,
+    sources,
+    targets,
+    column: 'origin',
+    index: { sources: 0, targets: 0 },
+  });
+};
+
+const startFocus = (origin: PPNode) => {
+  const graph = PPGraph.currentGraph;
   const labelLayer = new PIXI.Container();
   labelLayer.eventMode = 'none';
   graph.overlayContainer.addChild(labelLayer);
   focus = {
     origin,
-    sources,
-    targets,
+    sources: [],
+    targets: [],
     column: 'origin',
     index: { sources: 0, targets: 0 },
     from: currentPlace(),
@@ -175,6 +188,7 @@ const startFocus = (origin: PPNode) => {
     labels: [],
     highlighted: [],
   };
+  setOrigin(focus, origin);
   graph.viewport.addEventListener('moved', placeLabels);
   drawLabels(focus);
 };
@@ -192,7 +206,7 @@ const endFocus = () => {
   graph.viewport.removeEventListener('moved', placeLabels);
   focus.labelLayer.destroy(true);
   // the whole walk is one jump for back/forward
-  if (currentNode(focus) !== focus.origin) {
+  if (currentNode(focus).id !== focus.from.nodeIds[0]) {
     recordJump(focus.from);
   }
   focus = undefined;
@@ -201,10 +215,20 @@ const endFocus = () => {
 const move = (current: Focus, direction: ArrowDirection) => {
   if (direction === 'left' || direction === 'right') {
     const ahead = direction === 'left' ? 'sources' : 'targets';
-    if (current.column === 'origin' && current[ahead].length) {
-      current.column = ahead;
-    } else if (current.column !== 'origin' && current.column !== ahead) {
+    const behind = ahead === 'sources' ? 'targets' : 'sources';
+    if (current.column === ahead) {
+      // past the outer column the node becomes the origin and the walk goes
+      // on; going back the other way returns to the previous origin
+      const previous = current.origin;
+      setOrigin(current, currentNode(current));
+      current.index[behind] = Math.max(0, current[behind].indexOf(previous));
+      if (current[ahead].length) {
+        current.column = ahead;
+      }
+    } else if (current.column === behind) {
       current.column = 'origin';
+    } else if (current[ahead].length) {
+      current.column = ahead;
     } else {
       pulseNode(currentNode(current));
       return;

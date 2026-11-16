@@ -185,6 +185,27 @@ describe('graph navigation', () => {
       shouldSelect('Middle');
     });
 
+    it('makes the node the origin when going past the outer column', () => {
+      holdAlt();
+      pressWithAlt('ArrowRight');
+      shouldSelect('Far');
+      // Far feeds nothing, so it becomes the origin and stays selected
+      pressWithAlt('ArrowRight');
+      shouldSelect('Far');
+      shouldHaveAlpha('First', 0.2);
+      shouldHaveAlpha('Middle', 1);
+      pressWithAlt('ArrowLeft');
+      shouldSelect('Middle');
+      // Middle becomes the origin and the walk goes on to its first source
+      pressWithAlt('ArrowLeft');
+      shouldSelect('First');
+      shouldHaveAlpha('First', 1);
+      shouldHaveAlpha('Far', 1);
+      releaseAlt();
+      cy.realPress(['Alt', 'Shift', 'ArrowLeft']);
+      shouldSelect('Middle');
+    });
+
     it('starts from the newly selected node the next time', () => {
       select('First');
       holdAlt();
