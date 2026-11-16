@@ -1,3 +1,11 @@
+jest.mock('../../../src/classes/NodeClass', () => ({
+  __esModule: true,
+  default: class {},
+}));
+jest.mock('../../../src/classes/GraphClass', () => ({
+  __esModule: true,
+  default: {},
+}));
 import {
   migrateGraphDataOnLoad,
   GRAPH_DATA_VERSION,
