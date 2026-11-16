@@ -5,7 +5,6 @@ import { TextStyle } from 'pixi.js';
 import React, { useEffect, useState } from 'react';
 import { Box } from '@mui/material';
 import { SocketBody } from '../containers/SocketContainer';
-import { SocketConnections } from '../components/GraphNavigationPicker';
 import {
   DashboardIconProps,
   DashboardWidgetProps,
@@ -637,7 +636,6 @@ export default class Socket
           selectedNode={props.selectedNode}
           widget={widget}
         />
-        <SocketConnections socket={this} />
       </Box>
     );
   }

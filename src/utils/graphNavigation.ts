@@ -1,7 +1,7 @@
 import * as PIXI from 'pixi.js';
+import FlowLogic from '../classes/FlowLogic';
 import PPGraph from '../classes/GraphClass';
 import type PPNode from '../classes/NodeClass';
-import type Socket from '../classes/SocketClass';
 import InterfaceController, { ListenEvent } from '../InterfaceController';
 import { SELECTION_COLOR_HEX } from './constants';
 import {
@@ -14,7 +14,7 @@ import {
 
 export type NavigationTarget = {
   node: PPNode;
-  // the wires leading there, e.g. "Output → Input"
+  // shown after the node name, e.g. "Calls this macro"
   detail: string;
 };
 
@@ -28,72 +28,8 @@ export type NavigationPickerRequest = {
   onPick: (node: PPNode) => void;
 };
 
-export type Place = {
-  graphId: string;
-  nodeIds: string[];
-  center: PIXI.Point;
-  scale: number;
-};
-
-const MAX_HISTORY = 50;
-const backStack: Place[] = [];
-const forwardStack: Place[] = [];
 // macro id -> id of the caller it was last entered from
 const macroEnteredFrom = new Map<string, string>();
-
-// one entry per linked node, listing every wire between the two
-const groupByNode = (pairs: [Socket, Socket][]): NavigationTarget[] => {
-  const byNode = new Map<PPNode, string[]>();
-  pairs.forEach(([own, other]) => {
-    const wire = own.isInput()
-      ? `${other.name} → ${own.name}`
-      : `${own.name} → ${other.name}`;
-    const node = other.getNode();
-    byNode.set(node, [...(byNode.get(node) ?? []), wire]);
-  });
-  return [...byNode].map(([node, wires]) => ({
-    node,
-    detail: wires.join(', '),
-  }));
-};
-
-const linkedPairs = (sockets: Socket[]): [Socket, Socket][] =>
-  sockets.flatMap((socket) =>
-    socket.links.map((link): [Socket, Socket] => [
-      socket,
-      socket.isInput() ? link.getSource() : link.getTarget(),
-    ]),
-  );
-
-export const getSocketTargets = (socket: Socket): NavigationTarget[] =>
-  groupByNode(linkedPairs([socket]));
-
-export const currentPlace = (): Place => {
-  const graph = PPGraph.currentGraph;
-  return {
-    graphId: graph.id,
-    nodeIds: graph.selection.selectedNodes.map((node) => node.id),
-    center: graph.viewport.center.clone(),
-    scale: graph.viewportScaleX,
-  };
-};
-
-const pushBounded = (stack: Place[], place: Place) => {
-  stack.push(place);
-  if (stack.length > MAX_HISTORY) {
-    stack.shift();
-  }
-};
-
-// places from a graph that is no longer open are dropped on the way
-const popPlace = (stack: Place[]): Place | undefined => {
-  const graphId = PPGraph.currentGraph.id;
-  let place = stack.pop();
-  while (place && place.graphId !== graphId) {
-    place = stack.pop();
-  }
-  return place;
-};
 
 const isFullyVisible = (bounds: PIXI.Rectangle): boolean => {
   const viewport = PPGraph.currentGraph.viewport;
@@ -174,7 +110,7 @@ export const pulseNode = (node: PPNode): void => {
 type ShowOptions = {
   // moves the view even when the nodes are already in it
   center?: boolean;
-  // shown and pulsed with the node, without being selected
+  // kept in view with the node, without being selected or pulsed
   alongWith?: PPNode[];
 };
 
@@ -187,46 +123,7 @@ export const showNode = (
   if (center || !isFullyVisible(getNodesBounds(nodes))) {
     centerNodes(nodes);
   }
-  nodes.forEach(pulseNode);
-};
-
-// from is where back returns to
-export const recordJump = (from: Place): void => {
-  pushBounded(backStack, from);
-  forwardStack.length = 0;
-};
-
-export const jumpToNode = (
-  node: PPNode,
-  // from is where back returns to, for callers that change the view first
-  { from = currentPlace(), ...show }: ShowOptions & { from?: Place } = {},
-): void => {
-  recordJump(from);
-  showNode(node, show);
-};
-
-const restorePlace = (place: Place) => {
-  const graph = PPGraph.currentGraph;
-  const nodes = place.nodeIds.map((id) => graph.nodes[id]).filter(Boolean);
-  graph.selection.selectNodes(nodes);
-  smoothMoveViewport(place.center, place.scale);
-  nodes.forEach(pulseNode);
-};
-
-export const goBack = (): void => {
-  const place = popPlace(backStack);
-  if (place) {
-    pushBounded(forwardStack, currentPlace());
-    restorePlace(place);
-  }
-};
-
-export const goForward = (): void => {
-  const place = popPlace(forwardStack);
-  if (place) {
-    pushBounded(backStack, currentPlace());
-    restorePlace(place);
-  }
+  pulseNode(node);
 };
 
 export type ArrowDirection = 'left' | 'right' | 'up' | 'down';
@@ -354,7 +251,7 @@ export const enterCalledMacro = (caller: PPNode): boolean => {
     'right',
     (macro) => {
       macroEnteredFrom.set(macro.id, caller.id);
-      jumpToNode(macro);
+      showNode(macro);
     },
   );
   return macros.length > 0;
@@ -386,7 +283,7 @@ export const exitToMacroCaller = (node: PPNode): void => {
     'Go to caller',
     macro,
     'left',
-    jumpToNode,
+    showNode,
   );
 };
 
@@ -433,9 +330,9 @@ export const arrowsBelongToTarget = (event: KeyboardEvent): boolean =>
   event.target instanceof Element &&
   event.target.closest(ARROW_KEY_OWNERS) !== null;
 
-// Arrows move to the nearest node on the canvas, Alt+Shift+left/right go
-// back/forward through jumps. Shift+Enter leaves a macro, plain Enter goes
-// through node.onEnterKeyPressed
+// Arrows move to the nearest node on the canvas, Alt+Shift+left/right select
+// everything upstream/downstream like the node header's buttons. Shift+Enter
+// leaves a macro, plain Enter goes through node.onEnterKeyPressed
 export const handleGraphNavigationKey = (event: KeyboardEvent): boolean => {
   if (InterfaceController.isInAppView() || event.metaKey || event.ctrlKey) {
     return false;
@@ -445,18 +342,22 @@ export const handleGraphNavigationKey = (event: KeyboardEvent): boolean => {
   const direction = ARROW_DIRECTIONS[event.code];
 
   if (direction) {
-    if (arrowsBelongToTarget(event)) {
+    const horizontal = direction === 'left' || direction === 'right';
+    if (arrowsBelongToTarget(event) || selected.length > 1) {
       return false;
-    }
-    if (event.altKey && event.shiftKey) {
-      if (direction === 'left') {
-        goBack();
-      } else if (direction === 'right') {
-        goForward();
-      } else {
+    } else if (event.altKey && event.shiftKey) {
+      if (!single || !horizontal) {
         return false;
       }
-    } else if (event.altKey || event.shiftKey || selected.length > 1) {
+      PPGraph.currentGraph.selection.selectNodes(
+        FlowLogic.getAllUpDownstreamNodes(
+          single,
+          direction === 'left',
+          direction === 'right',
+          false,
+        ),
+      );
+    } else if (event.altKey || event.shiftKey) {
       return false;
     } else {
       moveSpatially(single, direction);

@@ -1,5 +1,4 @@
 import {
-  clickSocket,
   closeBothDrawers,
   doWithTestController,
   openNewGraph,
@@ -30,6 +29,7 @@ const shouldHaveAlpha = (nodeId: string, alpha: number) =>
 
 // cy.realPress releases every key at the end, so Alt is held through CDP
 const ALT = 1;
+const SHIFT = 8;
 const KEY_CODES: Record<string, number> = {
   Alt: 18,
   ArrowLeft: 37,
@@ -108,21 +108,6 @@ describe('graph navigation', () => {
     });
   });
 
-  it('links to the other end of a wire from the socket inspector', () => {
-    doWithTestController((controller) => {
-      controller.selectNodesById([]);
-      controller.zoomToFitNodesById(['First', 'Middle']);
-    });
-    cy.wait(900);
-    clickSocket('First', 'Out');
-    cy.get('[data-cy="socket-connections"]')
-      .should('be.visible')
-      .and('contain', 'To')
-      .and('contain', 'Out → Addend');
-    cy.get('[data-cy="navigation-target-Middle"]').click();
-    shouldSelect('Middle');
-  });
-
   it('enters a macro with Enter and leaves it with Shift+Enter', () => {
     doWithTestController(async (controller) => {
       const macro = await controller.addNode('Macro', 'TheMacro', 0, 1200);
@@ -136,13 +121,39 @@ describe('graph navigation', () => {
     shouldSelect('MacroCall');
   });
 
-  it('goes back and forward through the jumps', () => {
-    cy.realPress(['Alt', 'Shift', 'ArrowLeft']);
-    shouldSelect('TheMacro');
-    cy.realPress(['Alt', 'Shift', 'ArrowLeft']);
-    shouldSelect('MacroCall');
-    cy.realPress(['Alt', 'Shift', 'ArrowRight']);
-    shouldSelect('TheMacro');
+  describe('selecting a branch', () => {
+    const shouldSelectAll = (nodeIds: string[]) =>
+      shouldWithTestController((controller) => {
+        expect(
+          controller
+            .getSelectedNodes()
+            .map((node) => node.id)
+            .sort(),
+        ).to.deep.equal(nodeIds);
+      });
+
+    it('selects everything downstream with Alt+Shift+Arrow right', () => {
+      select('Middle');
+      cy.realPress(['Alt', 'Shift', 'ArrowRight']);
+      shouldSelectAll(['Far', 'Farther', 'Middle']);
+    });
+
+    it('selects everything upstream with Alt+Shift+Arrow left', () => {
+      select('Middle');
+      cy.realPress(['Alt', 'Shift', 'ArrowLeft']);
+      shouldSelectAll(['First', 'Middle', 'Second']);
+    });
+
+    it('ends the dimmed view of a held Alt', () => {
+      select('Middle');
+      holdAlt();
+      shouldHaveAlpha('Loner', 0.2);
+      dispatchKey('keyDown', 'ArrowRight', ALT | SHIFT);
+      dispatchKey('keyUp', 'ArrowRight', ALT | SHIFT);
+      shouldSelectAll(['Far', 'Farther', 'Middle']);
+      shouldHaveAlpha('Loner', 1);
+      releaseAlt();
+    });
   });
 
   describe('holding Alt', () => {
@@ -153,11 +164,17 @@ describe('graph navigation', () => {
       shouldHaveAlpha('Loner', 0.2);
       shouldHaveAlpha('First', 1);
       shouldHaveAlpha('Far', 1);
+      shouldWithTestController((controller) => {
+        expect(controller.getGraph().groupLayer.alpha).to.equal(0.2);
+      });
       releaseAlt();
       shouldHaveAlpha('Loner', 1);
+      shouldWithTestController((controller) => {
+        expect(controller.getGraph().groupLayer.alpha).to.equal(1);
+      });
     });
 
-    it('walks the sources and targets of that node, as one jump', () => {
+    it('walks the sources and targets of that node', () => {
       holdAlt();
       pressWithAlt('ArrowRight');
       shouldSelect('Far');
@@ -181,8 +198,7 @@ describe('graph navigation', () => {
       shouldSelect('Farther');
       releaseAlt();
       shouldHaveAlpha('Loner', 1);
-      cy.realPress(['Alt', 'Shift', 'ArrowLeft']);
-      shouldSelect('Middle');
+      shouldSelect('Farther');
     });
 
     it('makes the node the origin when going past the outer column', () => {
@@ -202,8 +218,7 @@ describe('graph navigation', () => {
       shouldHaveAlpha('First', 1);
       shouldHaveAlpha('Far', 1);
       releaseAlt();
-      cy.realPress(['Alt', 'Shift', 'ArrowLeft']);
-      shouldSelect('Middle');
+      shouldSelect('First');
     });
 
     it('starts from the newly selected node the next time', () => {
@@ -249,38 +264,39 @@ describe('graph navigation', () => {
       wireThickness().should('equal', 2);
     });
 
-    it('goes to the target when clicked near the source', () => {
+    it('shows both ends and selects the target', () => {
+      // close in on First, with Middle off screen
+      doWithTestController((controller) => {
+        const first = controller.getNodeByID('First');
+        const viewport = controller.getGraph().viewport;
+        viewport.setZoom(2);
+        viewport.moveCenter(first.x + first.nodeWidth / 2, first.y + 50);
+      });
+      shouldWithTestController((controller) => {
+        const [x] = controller.getNodeCenterById('Middle');
+        expect(x).to.be.greaterThan(Cypress.config('viewportWidth'));
+      });
       wirePoint(0.15).then(([x, y]) => {
         cy.get('#pixi-container').realClick({ x, y });
       });
       shouldSelect('Middle');
-      shouldWithTestController((controller) => {
-        const [x, y] = controller.getNodeCenterById('Middle');
-        // centered on the node's bounds, which take in its socket labels
-        expect(x).to.be.closeTo(Cypress.config('viewportWidth') / 2, 50);
-        expect(y).to.be.closeTo(Cypress.config('viewportHeight') / 2, 50);
-      });
+      shouldBeOnScreen('First');
+      shouldBeOnScreen('Middle');
     });
 
-    it('goes to the source when clicked near the target', () => {
-      wirePoint(0.85).then(([x, y]) => {
+    it('goes to the source when clicked in the third at the target', () => {
+      wirePoint(0.8).then(([x, y]) => {
         cy.get('#pixi-container').realClick({ x, y });
       });
       shouldSelect('First');
     });
 
-    it('goes back to where the wire was clicked from', () => {
-      cy.realPress(['Alt', 'Shift', 'ArrowLeft']);
-      shouldSelect('Middle');
-    });
-
-    it('shows both ends but selects the far one when clicked in the middle', () => {
+    it('selects the target from past the middle too', () => {
+      select('First');
       wirePoint(0.6).then(([x, y]) => {
         cy.get('#pixi-container').realClick({ x, y });
       });
-      shouldSelect('First');
-      shouldBeOnScreen('First');
-      shouldBeOnScreen('Middle');
+      shouldSelect('Middle');
     });
 
     it('still drags a selection from a wire', () => {

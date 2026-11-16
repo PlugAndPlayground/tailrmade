@@ -4,12 +4,9 @@ import PPGraph from '../classes/GraphClass';
 import type PPNode from '../classes/NodeClass';
 import InterfaceController, { ListenEvent } from '../InterfaceController';
 import { customTheme } from '../utils/constants';
-import type Socket from '../classes/SocketClass';
-import {
-  getSocketTargets,
-  jumpToNode,
-  type NavigationPickerRequest,
-  type NavigationTarget,
+import type {
+  NavigationPickerRequest,
+  NavigationTarget,
 } from '../utils/graphNavigation';
 
 const PICKER_WIDTH = 280;
@@ -32,7 +29,7 @@ type NavigationTargetListProps = {
   showNumbers?: boolean;
 };
 
-export const NavigationTargetList: React.FunctionComponent<
+const NavigationTargetList: React.FunctionComponent<
   NavigationTargetListProps
 > = (props) => (
   <Box role="listbox">
@@ -91,33 +88,6 @@ export const NavigationTargetList: React.FunctionComponent<
     ))}
   </Box>
 );
-
-// the socket inspector's links to the other end of each wire
-export const SocketConnections: React.FunctionComponent<{
-  socket: Socket;
-}> = ({ socket }) => {
-  const targets = getSocketTargets(socket);
-  if (!targets.length) {
-    return null;
-  }
-  return (
-    <Box data-cy="socket-connections" sx={{ mt: 1 }}>
-      <Box sx={{ px: 0.5, fontSize: '11px', color: 'text.secondary' }}>
-        {socket.isInput() ? 'From' : 'To'}
-      </Box>
-      <NavigationTargetList
-        targets={targets}
-        onPick={(node) => {
-          InterfaceController.notifyListeners(
-            ListenEvent.ToggleTooltipInspector,
-            { open: false },
-          );
-          jumpToNode(node);
-        }}
-      />
-    </Box>
-  );
-};
 
 export const GraphNavigationPicker: React.FC = () => {
   const [request, setRequest] = useState<NavigationPickerRequest>();

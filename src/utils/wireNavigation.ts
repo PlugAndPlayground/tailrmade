@@ -3,7 +3,7 @@ import type { Viewport } from 'pixi-viewport';
 import PPGraph from '../classes/GraphClass';
 import type PPLink from '../classes/LinkClass';
 import InterfaceController from '../InterfaceController';
-import { currentPlace, jumpToNode, Place } from './graphNavigation';
+import { showNode } from './graphNavigation';
 
 // how close to a wire counts as on it, in screen pixels
 const HIT_DISTANCE_PX = 6;
@@ -112,11 +112,11 @@ const setHovered = (link: PPLink | undefined) => {
   }
 };
 
-// Clicking a wire selects and centers the node at its far end. In the middle
-// third, the near end is centered and pulsed along with it. Dragging from a wire still pans or
-// selects as on the empty canvas
+// Clicking a wire shows both its ends and selects the target, or the source
+// when clicked in the third at the target end.
+// Dragging from a wire still pans or selects as on the empty canvas
 export const initWireNavigation = (viewport: Viewport): void => {
-  let pressed: { hit: WireHit; global: PIXI.Point; from: Place } | undefined;
+  let pressed: { hit: WireHit; global: PIXI.Point } | undefined;
 
   // after the canvas and groups have set their cursor
   viewport.addEventListener('pointermove', (event) => {
@@ -134,7 +134,7 @@ export const initWireNavigation = (viewport: Viewport): void => {
     }
   });
 
-  // before the canvas starts a selection, which clears the selected nodes
+  // on the way down, as groups stop presses from reaching the canvas
   viewport.addEventListener(
     'pointerdown',
     (event) => {
@@ -147,11 +147,7 @@ export const initWireNavigation = (viewport: Viewport): void => {
         isOverWire(event)
           ? wireAt(event.global)
           : undefined;
-      pressed = hit && {
-        hit,
-        global: event.global.clone(),
-        from: currentPlace(),
-      };
+      pressed = hit && { hit, global: event.global.clone() };
     },
     { capture: true },
   );
@@ -176,12 +172,10 @@ export const initWireNavigation = (viewport: Viewport): void => {
       const { link, t } = press.hit;
       const source = link.getSource().getNode();
       const target = link.getTarget().getNode();
-      const [far, near] = t < 0.5 ? [target, source] : [source, target];
-      jumpToNode(far, {
-        from: press.from,
-        center: true,
-        alongWith: Math.abs(t - 0.5) < 1 / 6 ? [near] : [],
-      });
+      // a third of the wire at the target end goes back to the source
+      const nearTarget = t > 2 / 3;
+      const [far, near] = nearTarget ? [source, target] : [target, source];
+      showNode(far, { center: true, alongWith: [near] });
     },
     { capture: true },
   );

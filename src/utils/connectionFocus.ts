@@ -8,17 +8,14 @@ import {
   ARROW_DIRECTIONS,
   ArrowDirection,
   arrowsBelongToTarget,
-  currentPlace,
   isGraphOwningKeyboard,
-  Place,
   pulseNode,
-  recordJump,
   showNode,
 } from './graphNavigation';
 import { getNodesBounds } from '../pixi/utils-pixi';
 
 // While Alt is held, the node selected when it was pressed (the origin) and
-// the nodes wired to it stay lit and everything else dims. Its sources are
+// the nodes wired to it stay lit and everything else, groups included, dims. Its sources are
 // numbered in input order, its targets by position on the canvas. Alt+Arrow
 // left/right move between the sources, the origin and the targets, and past
 // them make the source or target the new origin; up/down cycle through the
@@ -35,7 +32,6 @@ type Focus = {
   column: Column;
   // the source and target last visited, so crossing the origin returns there
   index: Record<'sources' | 'targets', number>;
-  from: Place;
   labelLayer: PIXI.Container;
   labels: { node: PPNode; view: PIXI.Container }[];
   highlighted: PPLink[];
@@ -177,13 +173,14 @@ const startFocus = (origin: PPNode) => {
   const labelLayer = new PIXI.Container();
   labelLayer.eventMode = 'none';
   graph.overlayContainer.addChild(labelLayer);
+  // groups only frame nodes, so they recede whatever they hold
+  graph.groupLayer.alpha = DIM_ALPHA;
   focus = {
     origin,
     sources: [],
     targets: [],
     column: 'origin',
     index: { sources: 0, targets: 0 },
-    from: currentPlace(),
     labelLayer,
     labels: [],
     highlighted: [],
@@ -202,13 +199,10 @@ const endFocus = () => {
   allLinks().forEach((link) => {
     link.alpha = 1;
   });
+  graph.groupLayer.alpha = 1;
   focus.highlighted.forEach((link) => link.unhighlight());
   graph.viewport.removeEventListener('moved', placeLabels);
   focus.labelLayer.destroy(true);
-  // the whole walk is one jump for back/forward
-  if (currentNode(focus).id !== focus.from.nodeIds[0]) {
-    recordJump(focus.from);
-  }
   focus = undefined;
 };
 
@@ -274,7 +268,7 @@ export const handleConnectionFocusKey = (event: KeyboardEvent): boolean => {
     return false;
   }
   if (!mayFocus(event)) {
-    // Alt+Shift+Arrow goes back/forward from where the walk got to
+    // Alt+Shift+Arrow selects a whole branch, which the labels don't describe
     endFocus();
     return false;
   }
