@@ -19,3 +19,15 @@ export const getLoadCloudGraphURL = (
   }?loadGraph=${encodedOwner};;${encodedName};;${encodedLocation};;${encodedAccess}`;
   return fullPath;
 };
+
+// The address that reopens this app for someone else. Built from the loaded
+// app's cloud reference, not window.location: loading rewrites the address to
+// loadRemoteGraph/loadLocalGraph, and a local id only works in this browser.
+export function getAppLink(
+  graph:
+    | Pick<IGraphSearch, 'isRemote' | 'access' | 'owner' | 'name' | 'location'>
+    | undefined,
+): string {
+  if (!graph?.isRemote || graph.access !== 'public') return '';
+  return getLoadCloudGraphURL(graph);
+}

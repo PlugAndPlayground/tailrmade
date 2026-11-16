@@ -8,8 +8,8 @@ const getWidgetElementIds = (tree) =>
     .map((item: any) => item?.props?.id)
     .filter(Boolean);
 
-describe('UI surface node', () => {
-  it('adds a UI surface and a label node', () => {
+describe('UI page node', () => {
+  it('adds a UI page and a label node', () => {
     openNewGraph();
     doWithTestController(async (testController) => {
       await testController.addNode('UISurfaceNode', 'ui-surface-1', 400, 0);

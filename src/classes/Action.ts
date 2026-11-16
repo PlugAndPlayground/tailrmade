@@ -60,7 +60,7 @@ export class BakedAction {
   }
 }
 
-export type ActionSource = 'human' | 'ai';
+export type ActionSource = 'human' | 'ai' | 'replay';
 
 export interface ActionHistoryEntry {
   id: string;

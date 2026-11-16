@@ -213,6 +213,7 @@ export function appMenuOptions(controlOrMetaKey?: string): any {
 }
 
 export const GraphContextMenu = (props) => {
+  const closeMenu = () => InterfaceController.setIsGraphContextMenuOpen(false);
   useSuppressBrowserContextMenu();
 
   const menuRef = useFitInWindow(
@@ -264,12 +265,12 @@ export const GraphContextMenu = (props) => {
             >
               Share app
             </Divider>,
-            shareOptions(),
+            shareOptions(closeMenu),
             <Divider key="Share app - end" variant="inset" />,
           ]
         ) : (
           <SubMenuItem autoFocus={false} label="Share app">
-            {shareOptions()}
+            {shareOptions(closeMenu)}
           </SubMenuItem>
         )}
         <MenuItem

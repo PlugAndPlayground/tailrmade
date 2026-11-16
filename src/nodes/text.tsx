@@ -152,15 +152,18 @@ const enumOptions = (values: readonly string[]) =>
 
 export class Text extends HybridNode2 {
   public getName(): string {
-    return 'Text';
+    return 'Dynamic text';
   }
 
   public getDescription(): string {
-    return 'Rich text that shows live values from its inputs';
+    return 'Rich text with live values from its inputs, for labels, headings and paragraphs';
   }
 
   public getDocs(): string {
-    return `Shows rich text on a UI surface, with live values from its own inputs.
+    return `Shows rich text on a UI page, with live values from its own inputs.
+
+For fixed text, add static text in the user interface editor instead.
+"Convert to static text" turns a Dynamic text into static text.
 
 Tokens are Handlebars paths into this node's inputs: {{temp}}, or {{d.temp}}
 for a field of an object input. Only paths work - no blocks or helpers, so
@@ -171,6 +174,12 @@ input is missing or null shows nothing.
 blocks, **bold**, *italic*, \`code\`, [link](https://…), and
 [words]{.primary .nowrap} for a run's tone or no-wrap; each line is a
 paragraph, so a blank line is an empty one.
+Share links open the device's share sheet, or copy when there is none:
+[Share](share:?text=…&url=…&title=…) shares those values, URL-encoded
+(encodeURIComponent, plus ( and ) as %28 and %29); [Share this app](share:app)
+shares this app's public link, with optional ?text=…&title=…. Combine the URL
+Parameter node's "App link" with your own #part for links that open the app
+differently.
 Styling: Variant (display|h1|h2|body|caption|label|stat) sets size, weight and
 line height; Tone (default|muted|primary|secondary|success|warning|error) a
 theme color; Alignment. "Custom styles" takes CSS for anything else.

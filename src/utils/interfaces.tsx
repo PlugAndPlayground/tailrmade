@@ -26,6 +26,8 @@ export type RegisteredNodeTypes = Record<
     tags: string[];
     hasExample: boolean;
     showInNodeSearch: boolean;
+    // a removed node kept only so saved graphs load, see DeprecatedNode
+    deprecated: boolean;
   }
 >;
 
@@ -71,7 +73,7 @@ export type SerializedGraph = {
     showExecutionVisualisation: boolean;
     viewportCenterPosition: PIXI.Point;
     viewportScale: number;
-    // the UI surface node shown on app load
+    // the UI page node shown on app load
     defaultUISurfaceNodeId?: string;
     // the app theme, stored as a SPARSE DIFF against a shipped preset. It
     // lives in the document rather than being produced by the graph so the
@@ -185,7 +187,7 @@ export interface DashboardWidgetProps {
   // to skip its click-capturing overlay when disabled, since these headless
   // renders have no craftjs ancestor for a click to bubble to (clicks should
   // fall through to whatever is underneath instead, e.g. PIXI's canvas for
-  // drag-and-drop link creation onto a UI surface node).
+  // drag-and-drop link creation onto a UI page node).
   isSurfacePreview?: boolean;
   // Add any additional props you need
 }
@@ -230,7 +232,7 @@ export interface Layoutable {
   getRelatedNode(): PPNode;
   isContainer(): boolean;
   isModalDialog?(): boolean;
-  isSurface(): boolean; // Returns true for UI surface nodes
+  isSurface(): boolean; // Returns true for UI page nodes
 }
 
 // isLayoutable() is PPNode's marker for implementing Layoutable - narrow to
@@ -274,6 +276,20 @@ export type SerializedLink = {
   sourceSocketName: string;
   targetNodeId: string;
   targetSocketName: string;
+};
+
+// What a removed node turns into, see DeprecatedNode. The first node takes over
+// the removed node's id; links lists every link to or from the new nodes.
+// Nodes are in their type's format at their version (unset is 1).
+export type NodeReplacement = {
+  nodes: SerializedNode[];
+  links: SerializedLink[];
+};
+
+export type NodeReplacementContext = {
+  // every link in the graph
+  links: SerializedLink[];
+  getNode: (id: string) => SerializedNode | undefined;
 };
 
 // the link an input socket held before a connect displaced it, kept so undo

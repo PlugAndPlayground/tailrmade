@@ -4,8 +4,6 @@ import { hri } from 'human-readable-ids';
 import { v4 as uuid } from 'uuid';
 
 import { NODE_SOURCE, NODE_WIDTH, SOCKET_TYPE } from '../utils/constants';
-import { migrateLegacyStorageNodes } from '../nodes/state/migrations';
-import { migrateLabelNodes } from '../text/nodeMigrations';
 import { GRAPH_DATA_VERSION } from '../utils/graphMigrations';
 import { serializeSocketData } from '../utils/serializeSocketData';
 import { resetAppSessionStorage } from '../utils/appSessionStorage';
@@ -16,6 +14,7 @@ import {
   SerializedLink,
   SerializedNode,
   SerializedSelection,
+  NodeReplacement,
   INodeSearch,
   DrawerSide,
   TNodeSource,
@@ -142,7 +141,7 @@ export default class PPGraph {
 
   _showDebugInfo: boolean;
   _showExecutionVisualisation: boolean;
-  // the UI surface node shown on app load (set in the User Interface tab)
+  // the UI page node shown on app load (set in the User Interface tab)
   defaultUISurfaceNodeId: string | undefined;
   selectedSocket: undefined | PPSocket;
   clickPoint: undefined | PIXI.Point;
@@ -914,6 +913,41 @@ export default class PPGraph {
     return newNode;
   };
 
+  // Swaps a node for its replacement under the same id, so groups and UI page
+  // placements that point at it still do. The old node's links are dropped
+  // and the replacement's links made; extra nodes join the old node's group.
+  // Replacement nodes older than their type migrate, as they would on load.
+  async replaceNodeInPlace(
+    oldNode: PPNode,
+    replacement: NodeReplacement,
+  ): Promise<PPNode[]> {
+    const [main, ...extras] = replacement.nodes;
+    delete this.nodes[oldNode.id];
+    const newNodes = [
+      await this.addSerializedNode(main, { overrideId: oldNode.id }),
+    ];
+    for (const extra of extras) {
+      newNodes.push(
+        await this.addSerializedNode(extra, { overrideId: extra.id }),
+      );
+    }
+    oldNode
+      .getAllSockets()
+      .flatMap((socket) => socket.links)
+      .forEach((link) => link.delete(true));
+    replacement.links.forEach((link) => this.addSerializedLink(link));
+    oldNode.destroy();
+    this.groupLayer.onNodesAddedNextTo(
+      oldNode.id,
+      extras.map((extra) => extra.id),
+    );
+    for (const [i, node] of newNodes.entries()) {
+      const version = replacement.nodes[i].version ?? 1;
+      if (version !== node.getVersion()) await node.migrate(version);
+    }
+    return newNodes;
+  }
+
   // returns the link that had to be dropped to free the input socket
   async linkConnect(
     sourceNodeID: string,
@@ -1434,7 +1468,6 @@ export default class PPGraph {
       if (!(await reviewNodePaste(data.nodes.length))) return [];
       if (session !== getNodePasteSession()) return [];
     }
-    data = migrateLabelNodes(migrateLegacyStorageNodes(data));
     const newNodes: PPNode[] = [];
     const mappingOfOldAndNewNodes: { [key: string]: PPNode } = {};
 
@@ -1655,12 +1688,6 @@ export default class PPGraph {
   ): Promise<boolean> {
     if (this.isConfiguring) return false;
     resetAppSessionStorage();
-    storedGraph = {
-      ...storedGraph,
-      graphData: migrateLabelNodes(
-        migrateLegacyStorageNodes(storedGraph.graphData),
-      ),
-    };
     FlowLogic.clearPausedExecutions();
     PNPWorker.resetSession();
     resetNodePasteTrust();
@@ -2014,8 +2041,14 @@ export default class PPGraph {
     const groupsSerialized = this.groupLayer.serializeTouching(
       nodesSerialized.map((node) => node.id),
     );
+    const deletedIds = new Set(nodesSerialized.map((node) => node.id));
     const action = async () => {
-      this.selection.deselectAllNodesAndResetSelection();
+      // in one go rather than node by node, so selection listeners never see
+      // a node that is about to go; selected nodes that are not deleted stay
+      // selected
+      this.selection.selectNodes(
+        this.selection.selectedNodes.filter((node) => !deletedIds.has(node.id)),
+      );
       for (let i = 0; i < nodesSerialized.length; i++) {
         await this.removeNode(this.nodes[nodesSerialized[i].id]);
       }

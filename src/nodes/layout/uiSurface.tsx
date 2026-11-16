@@ -83,7 +83,7 @@ export const UISurfaceWidget: React.FunctionComponent<
           textAlign: 'center',
         }}
       >
-        Recursive UI surface ({node.getDashboardName()}) — not rendered
+        Recursive UI page ({node.getDashboardName()}) — not rendered
       </Box>
     );
   }
@@ -145,26 +145,26 @@ export class UISurfaceNode extends HybridNode2 implements Layoutable {
   );
 
   public getName(): string {
-    return 'UI surface';
+    return 'UI page';
   }
 
   public getDescription(): string {
-    return 'Build a page or reusable UI container from connected widgets.';
+    return 'Build a user interface page from connected widgets and lay it out in the user interface editor. Embed it in other pages to reuse it.';
   }
 
   public getDocs(): string {
-    return `A top-level surface is a page; a surface nested in another is a
-reusable container or component.
+    return `A top-level UI page is shown as its own page. Embed a page in other pages
+to reuse it: connect its "ReactUI" output to each page it should appear on.
 
-Connect any "ReactUI" output (widgets, charts, or other surfaces) to place it
-on the surface. This creates an element socket and two control sockets:
+Connect any "ReactUI" output (widgets, charts, or other UI pages) to place it
+on the page. This creates an element socket and two control sockets:
 "<name> visible" (boolean) and "<name> layout" (layout object). Self-embedding
 loops are rejected. Disconnecting a widget takes it back off, so moving one to
 another page is a disconnect plus a connect. A ReactUI output can also fan out
-to several surfaces when the SAME widget and its state should be shared, such
+to several pages when the SAME widget and its state should be shared, such
 as one navigation Tabs node shown on every top-level page.
 
-Arrange the surface in the dashboard editor. If "Layout JSON" is linked, the
+Arrange the page in the user interface editor. If "Layout JSON" is linked, the
 graph owns the layout and it can no longer be arranged by hand.
 
 ## Layout
@@ -178,36 +178,37 @@ graph owns the layout and it can no longer be arranged by hand.
 - A row's mobile behaviour decides what it does on a narrow dashboard
   (< 600px): stack its children (the default), let them wrap, or keep them
   side by side.
-- The root defaults to zero desktop padding, so content touches the surface
+- The root defaults to zero desktop padding, so content touches the page
   edges. On a scrollable content page (root height 'auto') give the root
   padding ~16-24 and gap ~8-16; on a fullscreen dashboard (root height
   '100dvh') keep padding minimal.
 - Static text is Markdown. Its variant sets size, weight and line height and
   its tone a theme color, so text follows the app theme. It shows {{…}}
-  literally - to show a value from the graph, use a Text node widget.
+  literally - to show a value from the graph, use a Dynamic text node.
 - Heading variants are fluid: display, h1, h2 and stat shrink on a narrow app
   and grow on a wide one, so pick the variant for the heading's job rather
   than a smaller one to fit a phone. body, caption, label and h3 hold one size.
-- Leave colors on Theme so the surface follows the app's preset and
+- Leave colors on Theme so the page follows the app's preset and
   light/dark mode; use a container's emphasis to group or highlight. A picked
   background or text color is fixed, so it only reads well in one mode.
 
 ## Navigation and multi-view apps
-Switch surfaces with "Navigate to UI surface", which resolves a surface by its
-NODE name or route slug. The first surface is the default.
+Switch pages with "Navigate to UI page", which resolves a page by its
+NODE name or route slug. The first page is the default.
 
 Two patterns:
 1. Separate pages: create ONE navigation widget node whose options are the
-surface NODE names. Connect the SAME widget's ReactUI output to every top-level
-surface and wire its selection output into one "Navigate to UI surface" node.
-2. Nav shell with embedded pages: connect each child surface's ReactUI output
-into one main surface that holds the navigation, with a shared non-empty
+page NODE names. Connect the SAME widget's ReactUI output to every top-level
+page and wire its selection output into one "Navigate to UI page" node.
+2. Nav shell with embedded pages: connect each child page's ReactUI output
+into one main page that holds the navigation, with a shared non-empty
 "Radio Group" so navigating shows one child and hides the rest. Children
 default to visible; set each non-default child's hidden
-"<child name> visible" companion socket on the main surface to false -
+"<child name> visible" companion socket on the main page to false -
 otherwise all pages render at once.
 
 ${AGENT_DOCS_HEADING}
+The tools below call a UI page a "surface".
 disconnect_sockets takes a widget back off (pass the surface as to_node and the
 widget as from_node).
 
@@ -399,7 +400,7 @@ everything to keep. Omitted connected widgets are appended with a warning.
       // block embedding a surface into itself or into one it already contains
       if (wouldCreateSurfaceEmbeddingLoop(sourceNode, this)) {
         InterfaceController.showSnackBar(
-          'Cannot embed a UI surface into itself or into one it already contains',
+          'Cannot embed a UI page into itself or into one it already contains',
         );
         return undefined as unknown as PPSocket;
       }

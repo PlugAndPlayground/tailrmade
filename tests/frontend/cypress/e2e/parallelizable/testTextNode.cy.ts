@@ -451,7 +451,7 @@ describe('dynamic Text node', () => {
     cy.get('[data-cy="convert-to-static-text"]').should('be.disabled');
     cy.get('[data-cy="text-conversion-guard"]').should(
       'contain.text',
-      'Other nodes use this text node',
+      'Other nodes use this Dynamic text',
     );
 
     doWithTestController(async (testController) => {
@@ -463,7 +463,7 @@ describe('dynamic Text node', () => {
     });
     cy.get('[data-cy="text-conversion-guard"]').should(
       'contain.text',
-      'more than one UI surface',
+      'more than one UI page',
     );
   });
 
@@ -554,7 +554,7 @@ describe('dynamic Text node', () => {
     cy.get('input#node-search:visible').should('be.visible');
     cy.contains(
       'li',
-      'Rich text that shows live values from its inputs',
+      'Rich text with live values from its inputs, for labels, headings and paragraphs',
     ).click();
     shouldWithTestController((testController) => {
       const [node] = textNodes(testController);

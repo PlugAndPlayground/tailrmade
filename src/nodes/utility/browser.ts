@@ -14,8 +14,9 @@ import { AnyType } from '../datatypes/anyType';
 import { BooleanType } from '../datatypes/booleanType';
 import { StringType } from '../datatypes/stringType';
 import { migrateFromCustomFunctionCommon } from '../data/array';
-import { getLoadCloudGraphURL } from '../../utils/cloudGraphURL';
-import type { IGraphSearch } from '../../utils/interfaces';
+import { getAppLink } from '../../utils/cloudGraphURL';
+
+export { getAppLink };
 
 const URLName = 'url';
 
@@ -47,18 +48,6 @@ export function readURLParameters(
     sourceValues.forEach((values, name) => parameters.set(name, values));
   }
   return parameters;
-}
-
-// The address that reopens this app for someone else. Built from the loaded
-// app's cloud reference, not window.location: loading rewrites the address to
-// loadRemoteGraph/loadLocalGraph, and a local id only works in this browser.
-export function getAppLink(
-  graph:
-    | Pick<IGraphSearch, 'isRemote' | 'access' | 'owner' | 'name' | 'location'>
-    | undefined,
-): string {
-  if (!graph?.isRemote || graph.access !== 'public') return '';
-  return getLoadCloudGraphURL(graph);
 }
 
 export class OpenURL extends PPNode {
@@ -108,7 +97,7 @@ addresses are opened.
 
 Opening an address is a navigation risk, so an app with this node pauses
 behind the risk review until the user approves it. When the user only needs a
-link to click, a Markdown link in a Text node, such as [Open map](https://...),
+link to click, a Markdown link in a Dynamic text node, such as [Open map](https://...),
 does the job without the review.`;
   }
 

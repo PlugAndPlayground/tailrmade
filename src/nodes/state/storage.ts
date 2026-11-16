@@ -685,6 +685,24 @@ abstract class StorageNode extends AbstractStorageNode {
     );
   }
 
+  public getVersion(): number {
+    return 2;
+  }
+
+  // Version 1 offered 'Local storage', kept per session or for good by a
+  // Persistence input.
+  public async migrate(previousVersion: number): Promise<void> {
+    if (previousVersion >= 2) return;
+    const persistence = this.getInputSocketByName('Persistence');
+    const backend = this.getInputSocketByName(STORAGE_BACKEND_NAME);
+    if (backend?.data === 'Local storage') {
+      backend.data =
+        persistence?.data === SESSION ? SESSION : STORAGE_BACKEND_INDEXED_DB;
+      backend.defaultData = backend.data;
+    }
+    if (persistence) this.removeSocket(persistence);
+  }
+
   protected storageOptions(): StorageSocketOptions {
     return {
       includeStorageBackend: true,

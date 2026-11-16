@@ -23,7 +23,7 @@ export interface SurfaceChromeProps {
   isDefault: boolean;
 }
 
-// Wraps a UI surface canvas preview in a browser-like frame to emphasise its
+// Wraps a UI page canvas preview in a browser-like frame to emphasise its
 // purpose: a top-level surface gets a window bezel + header with a route badge;
 // an embedded surface gets a subtle accent rail instead.
 export const SurfaceChrome: React.FunctionComponent<SurfaceChromeProps> = ({

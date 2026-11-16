@@ -51,6 +51,11 @@ interface EditorComponentProps {
   value: string;
   readOnly: boolean;
   isInteractionEnabled: boolean;
+  /**
+   * take the keyboard when interaction is switched on. False in the dashboard,
+   * where every copy is interactive from its mount and only a click picks one
+   */
+  focusWhenEnabled: boolean;
   onChange: (value: string) => void;
   onBlur?: () => void;
   /** false while the mode commits on its own, so Cmd/Ctrl+Enter is left alone */
@@ -64,6 +69,7 @@ const EditorComponent = React.memo(
     value,
     readOnly,
     isInteractionEnabled,
+    focusWhenEnabled,
     onChange,
     onBlur,
     canCommitOnShortcut,
@@ -87,9 +93,11 @@ const EditorComponent = React.memo(
       }
 
       if (isInteractionEnabled) {
-        requestAnimationFrame(() => {
-          editorRef.current?.focus();
-        });
+        if (focusWhenEnabled) {
+          requestAnimationFrame(() => {
+            editorRef.current?.focus();
+          });
+        }
         return;
       }
 
@@ -135,7 +143,7 @@ const EditorComponent = React.memo(
             editor.onDidBlurEditorText(() => {
               onBlur?.();
             });
-            if (isInteractionEnabled) {
+            if (isInteractionEnabled && focusWhenEnabled) {
               requestAnimationFrame(() => {
                 editor.focus();
               });
@@ -295,6 +303,7 @@ export abstract class CodeEditorAbstract extends HybridNode2 {
               value={commit.value}
               readOnly={readOnly}
               isInteractionEnabled={isEditorInteractive}
+              focusWhenEnabled={!props.inDashboard}
               onChange={handleChange}
               onBlur={handleBlur}
               canCommitOnShortcut={!commitsImmediately(props[commitModeName])}

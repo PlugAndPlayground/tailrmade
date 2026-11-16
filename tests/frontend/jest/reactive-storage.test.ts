@@ -492,7 +492,29 @@ test('loading a saved storage node replaces obsolete backend enum choices', asyn
   ]);
 });
 
-import { migrateCopySocketNodes } from '../../../src/nodes/state/migrations';
+test.each([
+  ['Local storage', 'Session', 'Session'],
+  ['Local storage', 'Saved locally', 'IndexedDB'],
+  ['Cloud', 'Session', 'Cloud'],
+])(
+  'a version 1 storage node on %s kept %s migrates to %s',
+  async (backend, persistence, expected) => {
+    const writer = node(StorageWrite);
+    const sockets = {
+      'Storage type': { data: backend },
+      Persistence: { data: persistence },
+    };
+    writer.getInputSocketByName = (name) => sockets[name];
+    writer.removeSocket = (socket) => {
+      if (socket === sockets.Persistence) delete sockets.Persistence;
+    };
+    await writer.migrate(1);
+    expect(sockets['Storage type'].data).toBe(expected);
+    expect(sockets.Persistence).toBeUndefined();
+  },
+);
+
+import { loadWithStubs } from './loadWithStubs';
 
 test('migrated overlapping copy triggers update only their own destinations in one batch', async () => {
   const input = (name, data) => ({
@@ -511,22 +533,23 @@ test('migrated overlapping copy triggers update only their own destinations in o
       ...['a', 'b', 'c'].map((id) => ({
         id,
         type: 'Constant',
-        socketArray: [input('Value', 0)],
+        socketArray: [input('Value', 0), input('Other', 0)],
       })),
     ],
+    // both copy into b's Value: first by name through its link into Other
     links: [
-      ['first', 'a'],
-      ['first', 'b'],
-      ['second', 'b'],
-      ['second', 'c'],
-    ].map(([sourceNodeId, targetNodeId]) => ({
+      ['first', 'a', 'Value'],
+      ['first', 'b', 'Other'],
+      ['second', 'b', 'Value'],
+      ['second', 'c', 'Value'],
+    ].map(([sourceNodeId, targetNodeId, targetSocketName]) => ({
       sourceNodeId,
       targetNodeId,
       sourceSocketName: 'Value',
-      targetSocketName: 'Value',
+      targetSocketName,
     })),
   } as any;
-  const migrated = migrateCopySocketNodes(original);
+  const migrated = loadWithStubs(original);
   const instances = Object.fromEntries(
     migrated.nodes
       .filter((node) => ['StorageRead', 'StorageWrite'].includes(node.type))
@@ -549,7 +572,10 @@ test('migrated overlapping copy triggers update only their own destinations in o
   );
   const value = (target) =>
     instances[
-      migrated.links.find((link) => link.targetNodeId === target).sourceNodeId
+      migrated.links.find(
+        (link) =>
+          link.targetNodeId === target && link.targetSocketName === 'Value',
+      ).sourceNodeId
     ].output.Value;
   for (const reader of Object.values(PPGraph.currentGraph.nodes) as any[])
     await reader.run();
