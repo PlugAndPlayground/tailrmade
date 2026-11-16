@@ -49,13 +49,47 @@ export abstract class DeprecatedNode extends PPNode {
 
   public async migrate(): Promise<void> {
     const graph = PPGraph.currentGraph;
-    const replacement = this.getReplacement(this.serialize(), {
-      links: graph
-        .getLinks()
-        .map((link) => link.serialize())
-        .filter((link) => link !== undefined),
-      getNode: (id) => graph.nodes[id]?.serialize(),
-    });
-    await graph.replaceNodeInPlace(this, replacement);
+    await this.replaceWith(
+      this.getReplacement(this.serialize(), {
+        links: graph
+          .getLinks()
+          .map((link) => link.serialize())
+          .filter((link) => link !== undefined),
+        getNode: (id) => graph.nodes[id]?.serialize(),
+      }),
+    );
+  }
+
+  // Created under this id rather than renamed to it afterwards: nodes use
+  // their id as they are added, for their page placement and DOM container.
+  // This node's links are dropped and the replacement's made; extra nodes
+  // join its group. Replacement nodes behind their type migrate, as on load.
+  private async replaceWith(replacement: NodeReplacement): Promise<void> {
+    const graph = PPGraph.currentGraph;
+    const [main, ...extras] = replacement.nodes;
+    delete graph.nodes[this.id];
+    const newNodes = [
+      await graph.addSerializedNode(main, { overrideId: this.id }),
+    ];
+    for (const extra of extras) {
+      newNodes.push(
+        await graph.addSerializedNode(extra, { overrideId: extra.id }),
+      );
+    }
+    this.getAllSockets()
+      .flatMap((socket) => socket.links)
+      .forEach((link) => link.delete(true));
+    replacement.links.forEach((link) => graph.addSerializedLink(link));
+    this.destroy();
+
+    const group = graph.groupLayer.getGroupOfNode(this.id);
+    if (group && extras.length > 0) {
+      group.nodeIds = [...group.nodeIds, ...extras.map((extra) => extra.id)];
+      group.draw();
+    }
+    for (const [i, node] of newNodes.entries()) {
+      const version = replacement.nodes[i].version ?? 1;
+      if (version !== node.getVersion()) await node.migrate(version);
+    }
   }
 }
