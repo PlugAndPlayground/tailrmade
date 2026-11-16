@@ -1,4 +1,5 @@
 import PPNode from '../classes/NodeClass';
+import { DeprecatedNode } from './deprecated/DeprecatedNode';
 import { RegisteredNodeTypes } from '../utils/interfaces';
 
 declare const require: (path: string) => any;
@@ -73,6 +74,7 @@ const getNodeCategories = () => ({
   events: require('./events'),
   uiSurface: require('./layout/uiSurface'),
   uiModal: require('./layout/uiModal'),
+  deprecated: require('./deprecated/deprecatedNodes'),
 });
 
 const getAINodeCategories = () => {
@@ -125,6 +127,7 @@ export const getAllNodeTypes = (): RegisteredNodeTypes => {
             tags: node.getTags(),
             hasExample: node.hasExample(),
             showInNodeSearch: node.showInNodeSearch(),
+            deprecated: node instanceof DeprecatedNode,
           };
         }
       }

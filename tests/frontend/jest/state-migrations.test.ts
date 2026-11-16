@@ -1,14 +1,9 @@
 import {
-  migrateStateNodes,
-  migrateCopySocketNodes,
-  migrateStorageBackends,
-  migrateLegacyStorageNodes,
-} from '../../../src/nodes/state/migrations';
-import {
   migrateGraphDataOnLoad,
   GRAPH_DATA_VERSION,
 } from '../../../src/utils/graphMigrations';
 import type { SerializedGraph } from '../../../src/utils/interfaces';
+import { loadWithStubs } from './loadWithStubs';
 
 const socket = (name, data, socketType = 'in') => ({
   name,
@@ -91,6 +86,9 @@ const data = (node, name) =>
   node.socketArray.find(
     (socket) => socket.name === name && socket.socketType === 'in',
   )?.data;
+const load = (graph: SerializedGraph) =>
+  loadWithStubs(migrateGraphDataOnLoad(graph));
+const linkSet = (links) => links.map((link) => JSON.stringify(link)).sort();
 
 test.each([7, 8, 9, 10, 11])(
   'v%s apps migrate every old state type without changing ids, sockets or wiring',
@@ -98,7 +96,7 @@ test.each([7, 8, 9, 10, 11])(
     const original = graph();
     original.version = version;
     const snapshot = structuredClone(original);
-    const migrated = migrateGraphDataOnLoad(original);
+    const migrated = load(original);
     expect(migrated.version).toBe(GRAPH_DATA_VERSION);
     expect(migrated.nodes.map((node) => node.type)).toEqual([
       'StorageRead',
@@ -109,7 +107,7 @@ test.each([7, 8, 9, 10, 11])(
       'StorageObjectState',
       'Constant',
     ]);
-    expect(migrated.links).toEqual(original.links);
+    expect(linkSet(migrated.links)).toEqual(linkSet(original.links));
     expect(migrated.groups).toEqual(original.groups);
     migrated.nodes.forEach((node, i) => {
       expect(node.id).toBe(original.nodes[i].id);
@@ -117,13 +115,14 @@ test.each([7, 8, 9, 10, 11])(
         node.socketArray.slice(0, original.nodes[i].socketArray.length),
       ).toEqual(original.nodes[i].socketArray);
       expect(node.updateBehaviour).toEqual(original.nodes[i].updateBehaviour);
+      expect(node.version).toBeUndefined();
     });
     expect(original).toEqual(snapshot);
   },
 );
 
 test('read/write share session storage; accumulator addresses are isolated', () => {
-  const migrated = migrateStateNodes(graph());
+  const migrated = loadWithStubs(graph());
   for (const node of migrated.nodes.slice(0, 2)) {
     expect(data(node, 'Storage type')).toBe('Session');
     expect(data(node, 'Persistence')).toBeUndefined();
@@ -144,10 +143,11 @@ test('migration is idempotent and preserves explicitly configured addresses', ()
     socket('Location', 'custom'),
     socket('Persistence', 'Saved locally'),
   );
-  const migrated = migrateStateNodes(original);
+  const migrated = loadWithStubs(original);
   expect(data(migrated.nodes[0], 'Location')).toBe('custom');
+  // Storage Read's own migrate() drops it once the node exists
   expect(data(migrated.nodes[0], 'Persistence')).toBe('Saved locally');
-  expect(migrateStateNodes(migrated)).toEqual(migrated);
+  expect(loadWithStubs(migrated)).toEqual(migrated);
   const loaded = migrateGraphDataOnLoad(original);
   expect(migrateGraphDataOnLoad(loaded)).toBe(loaded);
 });
@@ -233,7 +233,7 @@ function copyGraph(): SerializedGraph {
 test('copy migration keeps the writer id, value, trigger and execution settings', () => {
   const original = copyGraph();
   const snapshot = structuredClone(original);
-  const migrated = migrateGraphDataOnLoad(original);
+  const migrated = load(original);
   const writer = migrated.nodes.find((node) => node.id === 'copy')!;
   expect(writer.type).toBe('StorageWrite');
   expect(writer.updateBehaviour).toEqual(original.nodes[0].updateBehaviour);
@@ -250,7 +250,7 @@ test('copy migration keeps the writer id, value, trigger and execution settings'
 });
 
 test('copy migration wires readers to fixed inputs and former output destinations', () => {
-  const migrated = migrateCopySocketNodes(copyGraph());
+  const migrated = loadWithStubs(copyGraph());
   const readers = migrated.nodes.filter((node) => node.type === 'StorageRead');
   expect(readers).toHaveLength(3);
   expect(new Set(migrated.nodes.map((node) => node.id)).size).toBe(
@@ -291,98 +291,82 @@ test('copy migration wires readers to fixed inputs and former output destination
     'copy',
     ...readers.map((reader) => reader.id),
   ]);
-  expect(migrateCopySocketNodes(migrated)).toBe(migrated);
-  const loaded = migrateGraphDataOnLoad(copyGraph());
-  expect(migrateGraphDataOnLoad(loaded)).toBe(loaded);
+  expect(loadWithStubs(migrated)).toEqual(migrated);
 });
 
-test('multiple copy buttons for the same destinations share readers and storage', () => {
+// An input holds one link, so two copies only meet through the input they
+// copy into by name: both copy into target's Selected here.
+function twoCopiesGraph(): SerializedGraph {
   const original = copyGraph();
-  original.nodes.push({ ...original.nodes[0], id: 'copy2' });
-  original.links.push(
-    ...original.links
-      .filter((link) => link.sourceNodeId === 'copy')
-      .map((link) => ({ ...link, sourceNodeId: 'copy2' })),
-  );
-  const migrated = migrateCopySocketNodes(original);
-  const writers = migrated.nodes.filter((node) => node.type === 'StorageWrite');
-  expect(writers).toHaveLength(2);
-  expect(data(writers[0], 'Key')).toBe(data(writers[1], 'Key'));
-  expect(
-    migrated.nodes.filter((node) => node.type === 'StorageRead'),
-  ).toHaveLength(3);
-});
-
-test('overlapping copies migrate with independent keys for each destination', () => {
-  const original = copyGraph();
-  original.version = 10; // Previously saved after the incomplete migration.
+  original.nodes[1].socketArray.push(socket('Other', 'other'));
   original.nodes.push({ ...original.nodes[0], id: 'copy2' });
   original.links.push({
     sourceNodeId: 'copy2',
     sourceSocketName: 'Value',
     targetNodeId: 'target',
-    targetSocketName: 'Input',
+    targetSocketName: 'Other',
   });
-  const migrated = migrateGraphDataOnLoad(original);
+  return original;
+}
+
+test('copies into the same input share its reader and storage key', () => {
+  const migrated = loadWithStubs(twoCopiesGraph());
+  const keys = (id) => {
+    const node = migrated.nodes.find((candidate) => candidate.id === id)!;
+    return [data(node, 'Key'), ...(data(node, 'Additional keys') ?? [])];
+  };
+  const shared = 'Copy/["target","Selected"]';
+  expect(keys('copy')).toContain(shared);
+  expect(keys('copy2')).toEqual([shared, 'Copy/["target","Other"]']);
+  const readers = migrated.nodes.filter((node) => node.type === 'StorageRead');
+  expect(readers).toHaveLength(4);
+  expect(
+    migrated.links.filter(
+      (link) =>
+        link.targetNodeId === 'target' && link.targetSocketName === 'Selected',
+    ),
+  ).toEqual([
+    {
+      sourceNodeId: readers.find((reader) => data(reader, 'Key') === shared)!
+        .id,
+      sourceSocketName: 'Value',
+      targetNodeId: 'target',
+      targetSocketName: 'Selected',
+    },
+  ]);
+});
+
+test('a v10 app saved with copies still loads them as storage nodes', () => {
+  const original = twoCopiesGraph();
+  original.version = 10;
+  const migrated = load(original);
   expect(migrated.version).toBe(GRAPH_DATA_VERSION);
   expect(
     migrated.nodes.some(
       (node) => node.type.toLowerCase() === 'copysocketvalue',
     ),
   ).toBe(false);
-  const keys = (node) => [
-    data(node, 'Key'),
-    ...(data(node, 'Additional keys') ?? []),
-  ];
-  const first = keys(migrated.nodes.find((node) => node.id === 'copy'));
-  const second = keys(migrated.nodes.find((node) => node.id === 'copy2'));
-  expect(first).toHaveLength(3);
-  expect(second).toHaveLength(2);
-  expect(second.every((key) => first.includes(key))).toBe(true);
-  expect(
-    migrated.nodes.filter((node) => node.type === 'StorageRead'),
-  ).toHaveLength(3);
-  expect(migrateGraphDataOnLoad(migrated)).toBe(migrated);
+  expect(loadWithStubs(migrated)).toEqual(migrated);
 });
 
-test('v9 storage backend migration replaces Local storage and removes Persistence', () => {
-  const kinds = [
-    'StorageRead',
-    'StorageWrite',
-    'StorageUpdate',
-    'StorageDelete',
-    'StorageBrowse',
-  ];
-  const graph = {
+test('v9 apps keep Storage node sockets for the nodes to migrate', () => {
+  const original = {
     version: 9,
-    nodes: kinds.map((type, i) => ({
-      id: String(i),
-      type,
-      socketArray: [
-        socket(
-          'Storage type',
-          i === 3 ? 'Cloud' : i === 4 ? 'IndexedDB' : 'Local storage',
-        ),
-        socket('Persistence', i === 0 || i === 3 ? 'Session' : 'Saved locally'),
-      ],
-    })),
+    nodes: [
+      {
+        id: '0',
+        type: 'StorageRead',
+        socketArray: [
+          socket('Storage type', 'Local storage'),
+          socket('Persistence', 'Session'),
+        ],
+      },
+    ],
     links: [],
   } as unknown as SerializedGraph;
-  const migrated = migrateGraphDataOnLoad(graph);
-  expect(migrated.nodes.map((node) => data(node, 'Storage type'))).toEqual([
-    'Session',
-    'IndexedDB',
-    'IndexedDB',
-    'Cloud',
-    'IndexedDB',
-  ]);
-  expect(
-    migrated.nodes.every(
-      (node) =>
-        !node.socketArray.some((socket) => socket.name === 'Persistence'),
-    ),
-  ).toBe(true);
-  expect(migrateStorageBackends(migrated)).toEqual(migrated);
+  const migrated = migrateGraphDataOnLoad(original);
+  expect(migrated.version).toBe(GRAPH_DATA_VERSION);
+  expect(migrated.nodes).toEqual(original.nodes);
 });
 
 test('legacy local/cloud classes migrate as data, preserving renamed inputs and wiring', () => {
@@ -427,7 +411,7 @@ test('legacy local/cloud classes migrate as data, preserving renamed inputs and 
     ],
   } as any;
   const snapshot = structuredClone(original);
-  const migrated = migrateLegacyStorageNodes(original);
+  const migrated = loadWithStubs(original);
   expect(migrated.nodes.map((node) => node.type)).toEqual([
     'StorageWrite',
     'StorageDelete',
@@ -457,27 +441,7 @@ test('legacy local/cloud classes migrate as data, preserving renamed inputs and 
     'Key',
     'Key',
   ]);
-  expect(migrateLegacyStorageNodes(migrated)).toEqual(migrated);
+  expect(migrated.nodes.every((node) => node.version === undefined)).toBe(true);
+  expect(loadWithStubs(migrated)).toEqual(migrated);
   expect(original).toEqual(snapshot);
-});
-
-test('normalization handles legacy clipboard selections without graph settings', () => {
-  const original = copyGraph();
-  const selection = {
-    version: GRAPH_DATA_VERSION,
-    nodes: original.nodes,
-    links: original.links,
-    groups: original.groups,
-  };
-  const migrated = migrateLegacyStorageNodes(selection);
-  expect(migrated.nodes.some((node) => node.type === 'CopySocketValue')).toBe(
-    false,
-  );
-  expect(migrated.nodes.some((node) => node.type === 'StorageWrite')).toBe(
-    true,
-  );
-  expect(
-    migrated.nodes.filter((node) => node.type === 'StorageRead'),
-  ).toHaveLength(3);
-  expect(migrateLegacyStorageNodes(migrated)).toEqual(migrated);
 });

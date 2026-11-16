@@ -36,8 +36,6 @@ import { migrateLegacyMentions } from '../text/tokens';
 import { migrateStaticTextItemsInTree } from '../text/migrations';
 import { migrateLegacyTextNodes } from '../text/nodeMigrations';
 
-import { migrateLegacyStorageNodes } from '../nodes/state/migrations';
-
 export const GRAPH_DATA_VERSION = 12;
 const LEGACY_GRAPH_DATA_VERSION = 0.1;
 
@@ -992,14 +990,11 @@ function migrateSurfaceDefaultsV6ToV7(
 }
 
 const GRAPH_MIGRATIONS: GraphMigration[] = [
-  // Consolidate storage migrations while accepting intermediate saved versions.
+  // 8 to 12 changed only storage nodes, which now migrate themselves on load.
   ...[7, 8, 9, 10, 11].map((fromVersion) => ({
     fromVersion,
     toVersion: 12,
-    migrate: (graph: SerializedGraph) => ({
-      ...migrateLegacyStorageNodes(graph),
-      version: 12,
-    }),
+    migrate: (graph: SerializedGraph) => ({ ...graph, version: 12 }),
   })),
   {
     fromVersion: LEGACY_GRAPH_DATA_VERSION,
