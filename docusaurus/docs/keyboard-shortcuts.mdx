@@ -47,11 +47,14 @@ Select a node, then move with the arrow keys. Each move pulses the node you land
 | Action                                      | Windows/Linux                | macOS                           |
 | ------------------------------------------- | ---------------------------- | ------------------------------- |
 | Go to the nearest node in that direction    | `Arrow keys`                 | `Arrow keys`                    |
+| Show the selected node's connections        | Hold `Alt`                   | Hold `Option`                   |
+| Go to its sources/targets while held        | `Alt+Arrow left/right`       | `Option+Arrow left/right`       |
+| Go through its sources or targets           | `Alt+Arrow up/down`          | `Option+Arrow up/down`          |
 | Go from a macro call to the macro           | `Enter`                      | `Enter`                         |
 | Go from a macro back to where it was called | `Shift+Enter`                | `Shift+Enter`                   |
 | Back/forward through your jumps             | `Alt+Shift+Arrow left/right` | `Option+Shift+Arrow left/right` |
 
-The arrow keys ignore wires and go to the nearest node on the canvas. Clicking a wire selects and centers the node at its far end: click near its source to go to its target and the other way round. Clicking the middle third also keeps the near end in view. Clicking a socket lists the nodes at the other end of its wires; clicking one jumps there. Both count as jumps for back/forward.
+The arrow keys ignore wires and go to the nearest node on the canvas. Holding `Alt`/`Option` dims everything except the selected node and the nodes wired to it, and numbers its sources (`← 1`, `← 2`, in the order of its inputs) and targets (`→ 1`, `→ 2`, top to bottom). While you hold it, left and right move between the sources, the node and the targets, and up and down go through the sources or targets. Release it to stay where you are; back returns to the node you started from. Clicking a wire selects and centers the node at its far end: click near its source to go to its target and the other way round. Clicking the middle third also keeps the near end in view. Clicking a socket lists the nodes at the other end of its wires; clicking one jumps there. Both count as jumps for back/forward.
 
 ## Node Management
 

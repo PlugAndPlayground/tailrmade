@@ -15,6 +15,7 @@ import PPGraph from './classes/GraphClass';
 import type { Tooltipable } from './components/Tooltip';
 import PPStorage from './PPStorage';
 import { handleGraphNavigationKey } from './utils/graphNavigation';
+import { handleConnectionFocusKey } from './utils/connectionFocus';
 import { zoomInOutViewport, zoomToFitNodes } from './pixi/utils-pixi';
 import { getDefaultDrawerState } from './utils/sessionStorageHandler';
 import {
@@ -404,7 +405,10 @@ export default class InterfaceController {
   static keysDown = async (e: KeyboardEvent): Promise<void> => {
     const modKey = isMac() ? e.metaKey : e.ctrlKey;
     if (!isEventComingFromWithinTextInput(e)) {
-      if (!modKey && handleGraphNavigationKey(e)) {
+      if (
+        !modKey &&
+        (handleConnectionFocusKey(e) || handleGraphNavigationKey(e))
+      ) {
         return;
       }
       if (modKey) {

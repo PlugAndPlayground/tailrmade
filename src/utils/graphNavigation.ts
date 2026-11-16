@@ -134,7 +134,7 @@ const PULSE_SPREAD_PX = 48;
 
 // a ring that grows out of the node in screen pixels, so the landing spot
 // is easy to find at any zoom
-const pulseNode = (node: PPNode) => {
+export const pulseNode = (node: PPNode): void => {
   const graph = PPGraph.currentGraph;
   const bounds = getNodesBounds([node]);
   const ring = new PIXI.Graphics();
@@ -178,10 +178,10 @@ type ShowOptions = {
   alongWith?: PPNode[];
 };
 
-const showNode = (
+export const showNode = (
   node: PPNode,
   { center = false, alongWith = [] }: ShowOptions = {},
-) => {
+): void => {
   const nodes = [node, ...alongWith];
   PPGraph.currentGraph.selection.selectNodes([node]);
   if (center || !isFullyVisible(getNodesBounds(nodes))) {
@@ -190,13 +190,18 @@ const showNode = (
   nodes.forEach(pulseNode);
 };
 
+// from is where back returns to
+export const recordJump = (from: Place): void => {
+  pushBounded(backStack, from);
+  forwardStack.length = 0;
+};
+
 export const jumpToNode = (
   node: PPNode,
   // from is where back returns to, for callers that change the view first
   { from = currentPlace(), ...show }: ShowOptions & { from?: Place } = {},
 ): void => {
-  pushBounded(backStack, from);
-  forwardStack.length = 0;
+  recordJump(from);
   showNode(node, show);
 };
 
@@ -224,7 +229,7 @@ export const goForward = (): void => {
   }
 };
 
-type ArrowDirection = 'left' | 'right' | 'up' | 'down';
+export type ArrowDirection = 'left' | 'right' | 'up' | 'down';
 
 const gapBetween = (
   aStart: number,
@@ -408,7 +413,7 @@ export const initGraphNavigation = (): void => {
 
 const ARROW_KEYS = ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'];
 
-const ARROW_DIRECTIONS: Record<string, ArrowDirection> = {
+export const ARROW_DIRECTIONS: Record<string, ArrowDirection> = {
   ArrowLeft: 'left',
   ArrowRight: 'right',
   ArrowUp: 'up',
@@ -424,7 +429,7 @@ export const isGraphOwningKeyboard = (): boolean => graphClickedAfterDashboard;
 const ARROW_KEY_OWNERS =
   '[id^="Container-"], [data-cy="dashboard-column"], [contenteditable="true"], [role="slider"], [role="grid"], [role="listbox"], [role="menu"], [role="tablist"], [role="tree"], select';
 
-const arrowsBelongToTarget = (event: KeyboardEvent): boolean =>
+export const arrowsBelongToTarget = (event: KeyboardEvent): boolean =>
   event.target instanceof Element &&
   event.target.closest(ARROW_KEY_OWNERS) !== null;
 

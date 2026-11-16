@@ -23,7 +23,46 @@ const shouldBeOnScreen = (nodeId: string) =>
 const select = (nodeId: string) =>
   doWithTestController((controller) => controller.selectNodesById([nodeId]));
 
-// First and Second feed Middle; Loner sits below Middle without any wires
+const shouldHaveAlpha = (nodeId: string, alpha: number) =>
+  shouldWithTestController((controller) => {
+    expect(controller.getNodeByID(nodeId).alpha).to.equal(alpha);
+  });
+
+// cy.realPress releases every key at the end, so Alt is held through CDP
+const ALT = 1;
+const KEY_CODES: Record<string, number> = {
+  Alt: 18,
+  ArrowLeft: 37,
+  ArrowUp: 38,
+  ArrowRight: 39,
+  ArrowDown: 40,
+};
+const dispatchKey = (
+  type: 'keyDown' | 'keyUp',
+  key: string,
+  modifiers: number,
+) =>
+  cy.then(() =>
+    Cypress.automation('remote:debugger:protocol', {
+      command: 'Input.dispatchKeyEvent',
+      params: {
+        type,
+        key,
+        code: key === 'Alt' ? 'AltLeft' : key,
+        windowsVirtualKeyCode: KEY_CODES[key],
+        modifiers,
+      },
+    }),
+  );
+const holdAlt = () => dispatchKey('keyDown', 'Alt', ALT);
+const releaseAlt = () => dispatchKey('keyUp', 'Alt', 0);
+const pressWithAlt = (key: string) => {
+  dispatchKey('keyDown', key, ALT);
+  dispatchKey('keyUp', key, ALT);
+};
+
+// First and Second feed Middle (First into the top input, though it sits
+// lower); Middle feeds Far and Farther; Loner sits below Middle without wires
 describe('graph navigation', () => {
   before(() => {
     openNewGraph();
@@ -33,8 +72,18 @@ describe('graph navigation', () => {
       await controller.addNode('Constant', 'Second', -400, 0);
       await controller.addNode('Add', 'Middle', 0, 0);
       await controller.addNode('Add', 'Loner', 0, 400);
+      await controller.addNode('Add', 'Far', 500, -150);
+      await controller.addNode('Add', 'Farther', 500, 250);
       await controller.connectNodesByID('First', 'Middle', 'Out', 'Addend');
       await controller.connectNodesByID('Second', 'Middle', 'Out', 'Addend 2');
+      // connected lower node first, so the order comes from position
+      await controller.connectNodesByID(
+        'Middle',
+        'Farther',
+        undefined,
+        'Addend',
+      );
+      await controller.connectNodesByID('Middle', 'Far', undefined, 'Addend');
       controller.zoomToFitNodesById(['First', 'Middle', 'Loner']);
     });
     // key presses go to the app frame only once it has focus
@@ -96,9 +145,51 @@ describe('graph navigation', () => {
     shouldSelect('TheMacro');
   });
 
-  it('leaves Alt+Arrow to the nodes', () => {
-    cy.realPress(['Alt', 'ArrowLeft']);
-    shouldSelect('TheMacro');
+  describe('holding Alt', () => {
+    beforeEach(() => select('Middle'));
+
+    it('dims all but the node and the nodes wired to it', () => {
+      holdAlt();
+      shouldHaveAlpha('Loner', 0.2);
+      shouldHaveAlpha('First', 1);
+      shouldHaveAlpha('Far', 1);
+      releaseAlt();
+      shouldHaveAlpha('Loner', 1);
+    });
+
+    it('walks the sources and targets of that node, as one jump', () => {
+      holdAlt();
+      pressWithAlt('ArrowRight');
+      shouldSelect('Far');
+      pressWithAlt('ArrowDown');
+      shouldSelect('Farther');
+      pressWithAlt('ArrowDown');
+      shouldSelect('Farther');
+      pressWithAlt('ArrowLeft');
+      shouldSelect('Middle');
+      // sources in the order of the inputs
+      pressWithAlt('ArrowLeft');
+      shouldSelect('First');
+      pressWithAlt('ArrowDown');
+      shouldSelect('Second');
+      pressWithAlt('ArrowRight');
+      shouldSelect('Middle');
+      pressWithAlt('ArrowRight');
+      shouldSelect('Farther');
+      releaseAlt();
+      shouldHaveAlpha('Loner', 1);
+      cy.realPress(['Alt', 'Shift', 'ArrowLeft']);
+      shouldSelect('Middle');
+    });
+
+    it('starts from the newly selected node the next time', () => {
+      select('First');
+      holdAlt();
+      shouldHaveAlpha('Second', 0.2);
+      pressWithAlt('ArrowRight');
+      shouldSelect('Middle');
+      releaseAlt();
+    });
   });
 
   describe('wires', () => {
@@ -141,8 +232,9 @@ describe('graph navigation', () => {
       shouldSelect('Middle');
       shouldWithTestController((controller) => {
         const [x, y] = controller.getNodeCenterById('Middle');
-        expect(x).to.be.closeTo(Cypress.config('viewportWidth') / 2, 20);
-        expect(y).to.be.closeTo(Cypress.config('viewportHeight') / 2, 20);
+        // centered on the node's bounds, which take in its socket labels
+        expect(x).to.be.closeTo(Cypress.config('viewportWidth') / 2, 50);
+        expect(y).to.be.closeTo(Cypress.config('viewportHeight') / 2, 50);
       });
     });
 

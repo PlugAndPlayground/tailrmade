@@ -22,6 +22,7 @@ import {
 } from '../utils/utils';
 import { initGraphNavigation } from '../utils/graphNavigation';
 import { initWireNavigation } from '../utils/wireNavigation';
+import { initConnectionFocus } from '../utils/connectionFocus';
 import { InputParser } from '../utils/inputParser';
 import { isStackLayout } from '../utils/stackLayout';
 import { SerializedNode } from '../utils/interfaces';
@@ -587,6 +588,7 @@ export const createPixiApp = (
     });
 
     initWireNavigation(viewport.current);
+    initConnectionFocus();
 
     // register key events
     initGraphNavigation();
