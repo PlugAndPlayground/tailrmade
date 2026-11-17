@@ -41,17 +41,17 @@ describe('UI page node', () => {
       const inputNames = testController
         .getInputSockets('ui-surface-1')
         .map((socket) => socket.name);
-      expect(inputNames).to.include('Text');
-      expect(inputNames).to.include('Text visible');
-      expect(inputNames).to.include('Text layout');
+      expect(inputNames).to.include('Dynamic text');
+      expect(inputNames).to.include('Dynamic text visible');
+      expect(inputNames).to.include('Dynamic text layout');
 
       // the paired sockets stay hidden until wired
       const visibleNames = testController
         .getVisibleInputSockets('ui-surface-1')
         .map((socket) => socket.name);
-      expect(visibleNames).to.include('Text');
-      expect(visibleNames).to.not.include('Text visible');
-      expect(visibleNames).to.not.include('Text layout');
+      expect(visibleNames).to.include('Dynamic text');
+      expect(visibleNames).to.not.include('Dynamic text visible');
+      expect(visibleNames).to.not.include('Dynamic text layout');
 
       const tree = getSurfaceTree(testController);
       expect(getWidgetElementIds(tree)).to.include('NODE_test-label-1');
@@ -89,16 +89,16 @@ describe('UI page node', () => {
 
   it('disconnecting removes the widget and the element sockets', () => {
     doWithTestController(async (testController) => {
-      await testController.disconnectLink('ui-surface-1', 'Text');
+      await testController.disconnectLink('ui-surface-1', 'Dynamic text');
       await testController.waitForPendingExecution();
     });
     doWithTestController((testController) => {
       const inputNames = testController
         .getInputSockets('ui-surface-1')
         .map((socket) => socket.name);
-      expect(inputNames).to.not.include('Text');
-      expect(inputNames).to.not.include('Text visible');
-      expect(inputNames).to.not.include('Text layout');
+      expect(inputNames).to.not.include('Dynamic text');
+      expect(inputNames).to.not.include('Dynamic text visible');
+      expect(inputNames).to.not.include('Dynamic text layout');
 
       const tree = getSurfaceTree(testController);
       expect(getWidgetElementIds(tree)).to.not.include('NODE_test-label-1');
@@ -133,7 +133,7 @@ describe('UI page node', () => {
       const inputNames = testController
         .getInputSockets('ui-surface-1')
         .map((socket) => socket.name);
-      expect(inputNames).to.not.include('Text');
+      expect(inputNames).to.not.include('Dynamic text');
 
       const tree = getSurfaceTree(testController);
       expect(getWidgetElementIds(tree)).to.not.include('NODE_test-label-1');

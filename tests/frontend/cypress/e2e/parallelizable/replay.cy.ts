@@ -17,7 +17,7 @@ const script = [
   },
   {
     tool: 'add_node',
-    input: { node_type: 'Label', node_id: 'ai-node-2', x: 600, y: 200 },
+    input: { node_type: 'Constant', node_id: 'ai-node-2', x: 600, y: 200 },
   },
   {
     tool: 'connect_sockets',
@@ -25,7 +25,7 @@ const script = [
       from_node: 'ai-node-1',
       from_socket: 'Out',
       to_node: 'ai-node-2',
-      to_socket: 'Input',
+      to_socket: 'In',
     },
   },
   {
@@ -81,16 +81,14 @@ describe('Replay', () => {
       const reports = await tc.playReplay(script);
       expect(reports[reports.length - 1].status).to.eq('Done');
 
-      const label = tc.getNodeByID('ai-node-2');
+      const copy = tc.getNodeByID('ai-node-2');
       expect([
         tc.getNodeByID('ai-node-1').x,
         tc.getNodeByID('ai-node-1').y,
       ]).to.deep.eq([100, 200]);
-      expect([label.x, label.y]).to.deep.eq([500, 300]);
+      expect([copy.x, copy.y]).to.deep.eq([500, 300]);
       expect(tc.getNodeInputValue('ai-node-1', 'In')).to.eq('Hello');
-      expect(tc.getInputLinkSourceNodeID('ai-node-2', 'Input')).to.eq(
-        'ai-node-1',
-      );
+      expect(tc.getInputLinkSourceNodeID('ai-node-2', 'In')).to.eq('ai-node-1');
       const group = tc.getGroups().find((g) => g.id === 'greeting');
       expect(group?.name).to.eq('Hello world');
 
@@ -282,8 +280,8 @@ describe('Replay', () => {
 
       // by hand, and through the AI's tools, which recording treats alike
       await tc.addNodeAction('Constant', 'city', 0, 0);
-      await tc.addNodeAction('Label', 'title', 300, 0);
-      await tc.connectNodesByIDAction('city', 'title', 'Out', 'Input');
+      await tc.addNodeAction('Constant', 'title', 300, 0);
+      await tc.connectNodesByIDAction('city', 'title', 'Out', 'In');
       for (const value of ['V', 'Vi', 'Vienna']) {
         await tc.callMCPTool('set_socket_value', {
           node_id: 'city',
@@ -343,7 +341,7 @@ describe('Replay', () => {
         [700, 100],
       );
       expect(tc.getNodeInputValue('city', 'In')).to.eq('Vienna');
-      expect(tc.getInputLinkSourceNodeID('title', 'Input')).to.eq('city');
+      expect(tc.getInputLinkSourceNodeID('title', 'In')).to.eq('city');
       expect(tc.getGroups().map((group) => group.name)).to.deep.eq(['Weather']);
     });
   });
@@ -361,7 +359,7 @@ describe('Replay', () => {
       },
       {
         tool: 'add_node',
-        input: { node_type: 'Label', node_id: 'b', x: 400, y: 0 },
+        input: { node_type: 'Constant', node_id: 'b', x: 400, y: 0 },
       },
       {
         tool: 'connect_sockets',
@@ -369,7 +367,7 @@ describe('Replay', () => {
           from_node: 'a',
           from_socket: 'Out',
           to_node: 'b',
-          to_socket: 'Input',
+          to_socket: 'In',
         },
       },
     ];
@@ -385,12 +383,12 @@ describe('Replay', () => {
       }
       expect((await tc.stepReplay(steps, 'next')).status).to.eq('Done');
       expect((await tc.stepReplay(steps, 'next')).status).to.eq('Done');
-      expect(tc.getInputLinkSourceNodeID('b', 'Input')).to.eq('a');
+      expect(tc.getInputLinkSourceNodeID('b', 'In')).to.eq('a');
     });
 
     doWithTestController(async (tc) => {
       expect((await tc.stepReplay(steps, 'back')).step).to.eq(4);
-      expect(tc.getInputLinkSourceNodeID('b', 'Input')).to.eq(undefined);
+      expect(tc.getInputLinkSourceNodeID('b', 'In')).to.eq(undefined);
       await tc.stepReplay(steps, 'back');
       expect(tc.getGraph().nodes['b']).to.eq(undefined);
       await tc.stepReplay(steps, 'back');
@@ -410,7 +408,7 @@ describe('Replay', () => {
       }
       await tc.addNodeAction('Constant', 'mine', 0, 400);
       await tc.stepReplay(steps, 'back');
-      expect(tc.getInputLinkSourceNodeID('b', 'Input')).to.eq(undefined);
+      expect(tc.getInputLinkSourceNodeID('b', 'In')).to.eq(undefined);
       expect(tc.getNodeInputValue('a', 'In')).to.eq('Hi');
       expect(tc.getGraph().nodes['mine']).not.to.eq(undefined);
     });
@@ -565,9 +563,7 @@ describe('Replay', () => {
     doWithTestController(async (tc) => {
       await waitForReplayStatus(tc, 'Done');
       expect(tc.getNodeOutputValue('replay', 'Status')).to.eq('Done');
-      expect(tc.getInputLinkSourceNodeID('ai-node-2', 'Input')).to.eq(
-        'ai-node-1',
-      );
+      expect(tc.getInputLinkSourceNodeID('ai-node-2', 'In')).to.eq('ai-node-1');
     });
   });
 
@@ -586,7 +582,7 @@ describe('Replay', () => {
     doWithTestController((tc) => {
       expect(tc.getNodeOutputValue('replay', 'Step')).to.eq(1);
       expect(tc.getNodeOutputValue('replay', 'Caption')).to.eq(
-        'A value and a label',
+        'A value, passed on',
       );
     });
     cy.get('body').trigger('keydown', { key: 'n' });
@@ -615,7 +611,7 @@ describe('Replay', () => {
       const centerX = () => tc.getGraph().viewport.center.x;
 
       await tc.addNode('Constant', 'a', 0, 0);
-      await tc.addNode('Label', 'b', 3000, 0);
+      await tc.addNode('Constant', 'b', 3000, 0);
       await tc.callMCPTool('group_nodes', {
         node_ids: ['b'],
         name: 'Output',
@@ -673,9 +669,7 @@ describe('Replay', () => {
       expect(tc.getNodeOutputValue('replay', 'Status')).not.to.eq('Done');
       await waitForReplayStatus(tc, 'Done');
       expect(tc.getNodeOutputValue('replay', 'Status')).to.eq('Done');
-      expect(tc.getInputLinkSourceNodeID('ai-node-2', 'Input')).to.eq(
-        'ai-node-1',
-      );
+      expect(tc.getInputLinkSourceNodeID('ai-node-2', 'In')).to.eq('ai-node-1');
     });
   });
 
@@ -703,7 +697,7 @@ describe('Replay', () => {
     });
     shouldWithTestController((tc) =>
       expect(tc.getNodeOutputValue('replay', 'Caption')).to.eq(
-        'A value and a label',
+        'A value, passed on',
       ),
     );
     press(' ');

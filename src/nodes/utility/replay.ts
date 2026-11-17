@@ -58,7 +58,7 @@ const socketNames = {
 };
 
 const exampleScript: ReplayStep[] = [
-  { delay: 0, tool: 'caption', input: { text: 'A value and a label' } },
+  { delay: 0, tool: 'caption', input: { text: 'A value, passed on' } },
   {
     tool: 'add_node',
     input: { node_type: 'Constant', node_id: 'ai-node-1', x: 0, y: 0 },
@@ -69,7 +69,7 @@ const exampleScript: ReplayStep[] = [
   },
   {
     tool: 'add_node',
-    input: { node_type: 'Label', node_id: 'ai-node-2', x: 400, y: 0 },
+    input: { node_type: 'Constant', node_id: 'ai-node-2', x: 400, y: 0 },
   },
   {
     tool: 'connect_sockets',
@@ -77,7 +77,7 @@ const exampleScript: ReplayStep[] = [
       from_node: 'ai-node-1',
       from_socket: 'Out',
       to_node: 'ai-node-2',
-      to_socket: 'Input',
+      to_socket: 'In',
     },
   },
   { tool: 'camera', input: { fit: ['ai-node-1', 'ai-node-2'] } },
@@ -153,7 +153,7 @@ export class Replay extends PPNode {
   public getDocs(): string {
     return `Each step of the script is one MCP tool call, the same ones the AI uses:
 
-\`{ "delay": 0.5, "tool": "add_node", "input": { "node_type": "Label", "node_id": "ai-node-1", "x": 0, "y": 0 } }\`
+\`{ "delay": 0.5, "tool": "add_node", "input": { "node_type": "Constant", "node_id": "ai-node-1", "x": 0, "y": 0 } }\`
 
 - **delay** is waited after the previous step has finished (default 0.5s), divided by Speed. Speed can change while it plays.
 - **camera** is a replay-only step: \`{ "fit": ["ai-node-1", "group-id"] }\` frames nodes and groups by id, wherever they are now (an empty list frames the whole graph), \`{ "x", "y", "zoom" }\` moves to a point. \`duration\` is in seconds. Ids no longer in the graph are skipped; the step only fails when none are left.
