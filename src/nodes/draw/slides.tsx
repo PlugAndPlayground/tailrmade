@@ -3,14 +3,13 @@ import { TRgba } from '../../utils/color';
 import { Box, BoxProps } from '@mui/material';
 import { ErrorBoundary } from 'react-error-boundary';
 import ErrorFallback from '../../components/ErrorFallback';
-import DOMPurify from 'dompurify';
+import { findExternalAddresses, sanitizeAppHtml } from '../../utils/appHtml';
 import {
   NodeRisk,
   UnrestrictedCodeRisk,
   NetworkRisk,
   DynamicContentRisk,
   ExternalHtmlRisk,
-  getImageSourceRisks,
 } from '../../classes/NodeRisk';
 import PPSocket from '../../classes/SocketClass';
 import UpdateBehaviourClass from '../../classes/UpdateBehaviourClass';
@@ -66,12 +65,11 @@ export class Slideshow extends HybridNode2 {
     const sanitized = sanitizeSlides(
       typeof data.value === 'string' ? data.value : '',
     );
-    const urls = sanitized.match(/(?:https?:)?\/\/[^\s<>"'()]+/g) ?? [];
     return [
       theme,
-      ...[...new Set(urls)]
-        .filter((url) => getImageSourceRisks(url, false).length > 0)
-        .map((url) => new ExternalHtmlRisk(url)),
+      ...findExternalAddresses(sanitized).map(
+        (url) => new ExternalHtmlRisk(url),
+      ),
     ];
   }
   eventTarget: EventTarget;
@@ -268,22 +266,11 @@ Check out its documentation for more details.`;
   }
 }
 
-// Slide decks rely on <style> blocks, data-background attributes and links,
-// all of which survive sanitizing. Scripts and event handlers do not.
+// Slide decks rely on <style> blocks, data-background attributes and links.
+// Stylesheets are kept but only apply inside a deck. Scripts and event
+// handlers do not survive.
 export function sanitizeSlides(markup: string): string {
-  DOMPurify.addHook('afterSanitizeAttributes', (node) => {
-    if (node.tagName === 'A' && node.hasAttribute('target')) {
-      node.setAttribute('rel', 'noopener noreferrer');
-    }
-  });
-  try {
-    return DOMPurify.sanitize(markup, {
-      ADD_TAGS: ['style'],
-      ADD_ATTR: ['target'],
-    });
-  } finally {
-    DOMPurify.removeHook('afterSanitizeAttributes');
-  }
+  return sanitizeAppHtml(markup, 'scoped', '.reveal');
 }
 
 const initializing: string = `<section>

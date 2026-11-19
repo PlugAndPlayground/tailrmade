@@ -67,6 +67,16 @@ export interface IDashboardState {
 
 export interface IOverlay extends IDrawerState, IDashboardState {}
 
+export type InputOverride = {
+  node: string;
+  socket: string;
+  data: unknown;
+};
+
+export type GraphLoadOptions = {
+  inputOverrides?: InputOverride[];
+};
+
 export type SerializedGraph = {
   version: number;
   graphSettings: {
@@ -87,6 +97,10 @@ export type SerializedGraph = {
   links: SerializedLink[];
   // absent on graphs saved before groups existed
   groups?: SerializedGroup[];
+  // Never saved. Set on the copy an approval is tied to, for input values the
+  // load request carried. Keeping them separate makes the approval describe the
+  // effective load without rewriting the graph file it was based on.
+  inputOverrides?: InputOverride[];
 };
 
 // The group's rectangle is not stored, it is always derived from its members

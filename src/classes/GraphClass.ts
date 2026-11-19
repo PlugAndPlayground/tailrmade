@@ -18,8 +18,10 @@ import {
   DrawerSide,
   TNodeSource,
   AccessType,
+  GraphLoadOptions,
   isSurfaceNode,
   DisplacedLink,
+  InputOverride,
 } from '../utils/interfaces';
 import {
   calculateDistance,
@@ -1649,6 +1651,7 @@ export default class PPGraph {
     storedGraph: StoredGraph,
     approvalGraphData: SerializedGraph = storedGraph.graphData,
     source = getGraphSource(storedGraph),
+    options: GraphLoadOptions = {},
   ): Promise<boolean> {
     if (this.isConfiguring) return false;
     resetAppSessionStorage();
@@ -1667,6 +1670,7 @@ export default class PPGraph {
         storedGraph,
         approvalGraphData,
         source,
+        options,
       );
       return configured;
     } finally {
@@ -1690,6 +1694,7 @@ export default class PPGraph {
     storedGraph: StoredGraph,
     approvalGraphData: SerializedGraph,
     source: GraphSource | undefined,
+    options: GraphLoadOptions,
   ): Promise<boolean> {
     // Loading nodes can add defaults or generated values to their serialized data.
     const loadedGraphData = structuredClone(approvalGraphData);
@@ -1796,8 +1801,19 @@ export default class PPGraph {
       }
     }
 
+    const appliedInputOverrides = this.applyInputOverrides(
+      options.inputOverrides ?? [],
+    );
+    loadedGraphData.inputOverrides = appliedInputOverrides.values.length
+      ? appliedInputOverrides.values
+      : undefined;
     appExecutionAllowed.set(true);
-    await this.executeAllSeedNodes(Object.values(this.nodes));
+    await this.executeAllSeedNodes(
+      Object.values(this.nodes),
+      appliedInputOverrides.targets.filter(
+        (node) => node.updateBehaviour.update,
+      ),
+    );
 
     InterfaceController.hideSpinner();
     document.body.style.cursor = 'default';
@@ -1897,8 +1913,49 @@ export default class PPGraph {
     return true;
   }
 
-  async executeAllSeedNodes(nodes: PPNode[]): Promise<void> {
-    const firstIteration = getLoadSeedNodes(nodes);
+  // Input overrides are external values, not replacements for graph wiring. Apply
+  // only the final value for each unconnected input and return exactly what
+  // took effect so the approval can be tied to the same values.
+  private applyInputOverrides(inputOverrides: InputOverride[]): {
+    targets: PPNode[];
+    values: InputOverride[];
+  } {
+    const targets = new Set<PPNode>();
+    const values = new Map<string, InputOverride>();
+    for (const value of inputOverrides) {
+      values.set(JSON.stringify([value.node, value.socket]), value);
+    }
+    const applied: InputOverride[] = [];
+    for (const { node: nodeId, socket: socketName, data } of values.values()) {
+      const node = this.nodes[nodeId];
+      const socket = node?.inputSocketArray.find(
+        (input) => input.name === socketName,
+      );
+      if (!node || !socket) continue;
+      if (socket.hasLink()) {
+        console.warn(
+          `Ignoring override for connected input: ${nodeId}/${socketName}`,
+        );
+        continue;
+      }
+      socket.data = data;
+      targets.add(node);
+      applied.push({
+        node: nodeId,
+        socket: socketName,
+        data: socket.serialize().data,
+      });
+    }
+    return { targets: [...targets], values: applied };
+  }
+
+  async executeAllSeedNodes(
+    nodes: PPNode[],
+    additionalSeeds: PPNode[] = [],
+  ): Promise<void> {
+    const firstIteration = [
+      ...new Set([...getLoadSeedNodes(nodes), ...additionalSeeds]),
+    ];
     await FlowLogic.executeOptimizedChainBatch(firstIteration);
   }
 

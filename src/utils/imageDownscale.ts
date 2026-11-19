@@ -115,6 +115,8 @@ export const downscaleImageForAI = async (
   dataURL: string,
   options: DownscaleOptions = {},
 ): Promise<string> => {
+  // Only image data is decoded here. An address would be fetched instead.
+  if (typeof dataURL !== 'string' || !/^data:/i.test(dataURL)) return dataURL;
   try {
     return await resize(dataURL, options);
   } catch (error) {

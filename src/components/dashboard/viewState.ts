@@ -1,3 +1,4 @@
+import { sanitizeCustomStyles } from '../../utils/cssValue';
 import { createStore } from '../createStore';
 
 // Per-session view state of the dashboard. None of it belongs in the overlay
@@ -65,6 +66,8 @@ export const resolveCustomStylesForPreviewWidth = (
   customStyles: Record<string, any>,
   previewWidth: number | null,
 ): Record<string, any> => {
+  // Every container style passes through here on its way to the page.
+  customStyles = sanitizeCustomStyles(customStyles);
   if (previewWidth === null) {
     return customStyles;
   }

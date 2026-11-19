@@ -21,7 +21,7 @@ import { VISIBILITY_ACTION } from '../../utils/constants_shared';
 import { SOCKET_TYPE } from '../../utils/constants';
 import { writeTextToClipboard } from '../../utils/utils';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
-import { URLSetSocketData } from '../../nodes/state/storage';
+import { InputOverride } from '../../utils/interfaces';
 import { useFitInWindow, useSuppressBrowserContextMenu } from './ContextMenus';
 
 function constructRecommendedNodeOptions(selectedSocket: Socket): any {
@@ -176,7 +176,7 @@ export const SocketContextMenu = (props) => {
               node: node.id,
               socket: selectedSocket.name,
               data: '',
-            } as URLSetSocketData;
+            } as InputOverride;
             writeTextToClipboard(JSON.stringify(reference));
           }}
         >
