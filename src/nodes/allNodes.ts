@@ -103,6 +103,12 @@ const getAINodeCategories = () => {
     statistics: categories.statistics,
     plotlyChart: categories.plotlyChart,
     browser: categories.browser,
+    // single nodes from categories that are otherwise too noisy for the AI
+    aiExtras: {
+      LoadNPM: categories.utility.LoadNPM,
+      Tailrmade: categories.tailrmade.Tailrmade,
+      DRAW_Shape: categories.draw.DRAW_Shape,
+    },
   };
 };
 

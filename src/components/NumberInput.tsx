@@ -31,6 +31,8 @@ export interface NumberInputProps {
   step?: number | 'any';
   /** Rounds to this many fraction digits; omit to keep every digit. */
   decimals?: number;
+  /** Shows thousands separators ("2,026"); off for years, IDs and ports. */
+  grouping?: boolean;
   disabled?: boolean;
   readOnly?: boolean;
   required?: boolean;
@@ -68,6 +70,7 @@ export const NumberInput = ({
   max,
   step,
   decimals,
+  grouping = true,
   disabled,
   readOnly,
   required,
@@ -111,7 +114,14 @@ export const NumberInput = ({
       max={max}
       step={step}
       format={
-        decimals === undefined ? undefined : { maximumFractionDigits: decimals }
+        decimals === undefined && grouping
+          ? undefined
+          : {
+              ...(decimals === undefined
+                ? {}
+                : { maximumFractionDigits: decimals }),
+              useGrouping: grouping,
+            }
       }
       disabled={disabled}
       readOnly={readOnly}
