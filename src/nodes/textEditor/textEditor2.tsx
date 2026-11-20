@@ -87,6 +87,11 @@ import {
 } from '../../utils/constants';
 import { DynamicInputNodeFunctions } from '../abstract/DynamicInputNode';
 import { BackPropagation } from '../../interfaces';
+import {
+  ownsNode,
+  readWidgetValue,
+  writeWidgetInputs,
+} from '../widgets/widgetEdits';
 
 export const textEditorMarkdownName = 'Markdown';
 export const textEditorAutoHeightName = 'Auto height';
@@ -305,6 +310,9 @@ export class TextEditor2 extends HybridNode2 {
     }, []);
     const backgroundColor = TRgba.fromObject(props[SOCKETNAME_BACKGROUNDCOLOR]);
     const tokenInputs = getTokenInputs(node, props.reactUIProps);
+    // false when this is one of several views of the node (see widgetEdits):
+    // then its size and outputs are not this rendering's to write
+    const isNodeItself = ownsNode(props.templateInstance);
 
     const editorConfig = useMemo(
       () => createTextEditorConfig('TextEditor2'),
@@ -403,7 +411,8 @@ export class TextEditor2 extends HybridNode2 {
           setPauseUpdate(false);
           if (props.inDashboard) {
             setIsDashboardFocused(false);
-            if (!props.templateInstance) {
+            // a view's edits already re-ran it
+            if (isNodeItself) {
               void node.execute();
             }
           }
@@ -439,12 +448,7 @@ export class TextEditor2 extends HybridNode2 {
     }, [props.disabled]);
 
     useEffect(() => {
-      // the canvas node is shared, a row's height says nothing about it
-      if (
-        contentHeight &&
-        props[textEditorAutoHeightName] &&
-        !props.templateInstance
-      ) {
+      if (contentHeight && props[textEditorAutoHeightName] && isNodeItself) {
         node.resizeAndDraw(node.nodeWidth, contentHeight + 32); // add container padding
       }
     }, [contentHeight, props[textEditorAutoHeightName]]);
@@ -487,11 +491,10 @@ export class TextEditor2 extends HybridNode2 {
     ]);
 
     const updateOutputsAndEditorHeight = () => {
-      // one row rendering must not write the outputs every row shares
-      if (props.templateInstance) {
-        registerTokenInputs(editorRef.current!, tokenInputs);
-      } else {
+      if (isNodeItself) {
         node.updateOutputs(editorRef.current!, tokenInputs);
+      } else {
+        registerTokenInputs(editorRef.current!, tokenInputs);
       }
       const target = document.querySelector(`[data-cy='${props.dataCyId}']`);
       if (target?.scrollHeight) {
@@ -529,18 +532,18 @@ export class TextEditor2 extends HybridNode2 {
       // EditorRefPlugin is a child, so its effect has set the ref by now
       const editor = editorRef.current!;
       const markdown = lexicalStateToMarkdown(editorState.toJSON());
-      if (props.templateInstance) {
-        // a pass updating this row's text arrives tagged and returned above, so
-        // what lands here is the viewer's typing
-        if (markdown !== props[textEditorMarkdownName]) {
-          void node.applyWidgetEdit(
-            textEditorMarkdownName,
-            markdown,
-            props.templateInstance,
-          );
-        }
-      } else {
-        node.setInputData(textEditorMarkdownName, markdown);
+      // an update from outside arrives tagged and returned above, so what
+      // lands here is the viewer's typing; the node runs on blur
+      if (
+        markdown !==
+        readWidgetValue(node, textEditorMarkdownName, props.templateInstance)
+      ) {
+        void writeWidgetInputs(
+          node,
+          { [textEditorMarkdownName]: markdown },
+          props.templateInstance,
+          { execute: false },
+        );
       }
       const hasAutoLinks = editorState.read(
         () => $nodesOfType(AutoLinkNode).length > 0,

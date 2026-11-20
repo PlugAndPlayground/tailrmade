@@ -5,6 +5,7 @@ import { limitRange } from '../../utils/utils';
 import { NumberType } from '../datatypes/numberType';
 import type { TemplateInstanceHandle } from '../../components/dashboard/templateInstance';
 import { WidgetHybridBase, initialValueName, labelName } from './abstract';
+import { readWidgetValue } from './widgetEdits';
 
 export const minValueName = 'Min';
 export const maxValueName = 'Max';
@@ -62,7 +63,7 @@ export abstract class WidgetNumberBase extends WidgetHybridBase {
     value: number,
     instance?: TemplateInstanceHandle,
   ) => {
-    const decimals = this.readWidgetValue(decimalsName, instance) as number;
+    const decimals = readWidgetValue(this, decimalsName, instance) as number;
     await this.commitWidgetEdit(
       initialValueName,
       roundToDecimals(value, getDecimals(decimals)),

@@ -29,6 +29,7 @@ import {
   useWidgetSize,
   useSizeTokens,
 } from './abstract';
+import { readWidgetValue } from './widgetEdits';
 import Socket from '../../classes/SocketClass';
 import { ArrayType } from '../datatypes/arrayType';
 import { StringType } from '../datatypes/stringType';
@@ -343,12 +344,15 @@ export class WidgetCheckbox extends WidgetHybridBase {
     instance?: TemplateInstanceHandle,
   ) => {
     const value = event.target.value;
-    const options = this.readWidgetValue(optionsName, instance) as string[];
+    const options = readWidgetValue(this, optionsName, instance) as string[];
 
     if (!options.includes(value)) return;
 
-    const prevSelected = (this.readWidgetValue(selectedOptionsName, instance) ??
-      []) as string[];
+    const prevSelected = (readWidgetValue(
+      this,
+      selectedOptionsName,
+      instance,
+    ) ?? []) as string[];
 
     // Create new array based on checked state
     let newSelectedSet;

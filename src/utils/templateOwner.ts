@@ -4,6 +4,7 @@ import type {
   TemplateNodeValues,
   TemplateRowRef,
 } from '../components/dashboard/templateInstance';
+import type PPNode from '../classes/NodeClass';
 
 export interface TemplateOwner {
   /** Resolves to the row's edits from before this one, which is what undo needs. */
@@ -28,3 +29,23 @@ export interface TemplateOwner {
 
 export const isTemplateOwner = (node: object): node is TemplateOwner =>
   'applyTemplateEdit' in node;
+
+// What a UI template asks of the nodes that place it, as seen from code that
+// iterates every node in the graph or must not import the placement module.
+export interface TemplatePlacement {
+  isPlacingTemplate(templateName: string): boolean;
+  placedTemplateChangedName(oldName: string, newName: string): void;
+  // the template's parameters changed
+  placedTemplateUpdatedMeta(): void;
+  // the template's contents changed
+  placedTemplateUpdated(): void;
+  // the surface this placement embeds, for surface loop detection
+  getTemplateBodySurface(): PPNode | undefined;
+  // what a snapshot taken during a pass adds, for a placement nested in a template
+  getTemplateSnapshotProps(): Record<string, unknown>;
+}
+
+export const isTemplatePlacement = (
+  node: object | undefined,
+): node is TemplatePlacement =>
+  node !== undefined && 'isPlacingTemplate' in node;

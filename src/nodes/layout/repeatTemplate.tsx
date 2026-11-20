@@ -4,7 +4,6 @@
 import React from 'react';
 import { Box } from '@mui/material';
 import { HybridWidgetContentProps } from '../../classes/HybridNode2';
-import PPNode from '../../classes/NodeClass';
 import PPSocket from '../../classes/SocketClass';
 import {
   TEMPLATE_PLACED_STATE_PROP,
@@ -203,57 +202,30 @@ export class RepeatTemplate extends TemplatePlacementNode {
   }
 
   public getDocs(): string {
-    return `Repeats a "UI template" over data: one placement per entry of an
-array or an object, each with its own values.
+    return `Shows a "UI template" once per entry of "${itemsSocketName}" (an array
+or object). Pick the template under "${templateSocketName}".
 
-Pick the template under "${templateSocketName}" and feed "${itemsSocketName}"
-an array or a JSON object. Each entry becomes one placement.
+Each entry fills the template's parameters by name: "entry", "item" or "value"
+get the whole entry, "key" or "index" get its key, any other name gets the field
+of that name. To bind a parameter to something else, set its "<parameter> from"
+input to a field name, "key" or "entry".
 
-Entries are bound to the template's parameters by NAME, so there is no mapping
-to configure:
-- a parameter called entry, item or value gets the whole entry
-- a parameter called key or index gets the entry's key (an object's key, an
-  array's index)
-- any other parameter gets the entry's field of the same name
-- if the entry is not an object, an unmatched parameter gets the entry itself
+"${keyFieldSocketName}" names the field that identifies a row, so rows survive a
+reorder. "${maxItemsSocketName}" caps the rows; each one runs the template once.
+"${directionSocketName}" and "${columnsSocketName}" set the layout.
 
-When a parameter's name does not match the field you want - above all when it
-should take the row's KEY but feeds a widget's "Label" socket - set its
-"<parameter> from" input to a field name, or to "key" or "entry". A field of that
-name wins, so a field called "key" or "value" can be asked for too.
-
-"${directionSocketName}" and "${columnsSocketName}" decide the layout: one
-column is a list, several is a grid, and a row direction puts the entries side
-by side. "${keyFieldSocketName}" names the field that identifies a row, which
-keeps rows stable when the data is reordered; repeated values get told apart by
-position, which does not survive a reorder. "${maxItemsSocketName}" caps how
-many are rendered - every row costs one evaluation of the template, so an
-unbounded array is slow.
-
-A button in a row can change "${itemsSocketName}" itself (remove a row, open a
-nested level): wire the row's value into a State Write and the button's Out into
-its Execute, and feed "${itemsSocketName}" from a State Read of the same key.
-
-Whatever a viewer changes in a row's widget stays in that row. A template's
-"${templateOutputPrefixName}" values are collected per row into this node's
-"${outName}".
+What a viewer changes in a row stays in that row. The template's
+"${templateOutputPrefixName}" values are collected per row into "${outName}".
 
 ${AGENT_DOCS_HEADING}
-The template is referenced by NAME, and template names are kept unique. See
-describe_node "UI template" for how to build one.
-
-Setting "${templateSocketName}" with set_socket_value creates the "<parameter>
-from" inputs, named after the template's sockets ("Parameter 1 from"), so wire
-the template's parameters first. When a parameter's name matches no field, point
-it at one with those inputs rather than adding nodes that reshape the data. Check
-the result with inspect_ui.
-
-Connect this node's ReactUI output to the surface it should appear on, not the
-template's body surface.
-
-"Edits" holds what viewers changed, per row. Leave it alone: to change what every
-row starts from, set the value on the widget inside the template. Fire
-"Clear edits" to drop every row's changes, for example when new data arrives.`;
+See describe_node "UI template" for how to build one; it is referenced by name.
+Wire the template's parameters before setting "${templateSocketName}", which
+creates the "<parameter> from" inputs. Prefer those inputs over reshaping the
+data with extra nodes. Connect this node's ReactUI to the surface it appears on,
+not the template's body. Leave "Edits" alone; fire "Clear edits" to reset rows.
+For a row button that changes the list, feed "${itemsSocketName}" from a
+Storage Read and fire a Storage Write of the same key from the button. Check
+with inspect_ui.`;
   }
 
   public getTags(): string[] {
@@ -312,8 +284,8 @@ row starts from, set the value on the widget inside the template. Fire
     ];
   }
 
-  public placedTemplateUpdatedMeta(template: PPNode): void {
-    super.placedTemplateUpdatedMeta(template);
+  public placedTemplateUpdatedMeta(): void {
+    super.placedTemplateUpdatedMeta();
     void this.executeOptimizedChain();
   }
 

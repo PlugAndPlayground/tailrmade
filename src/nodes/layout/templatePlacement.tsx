@@ -46,7 +46,10 @@ import {
   Layoutable,
   WidgetProps,
 } from '../../utils/interfaces';
-import type { TemplateOwner } from '../../utils/templateOwner';
+import type {
+  TemplateOwner,
+  TemplatePlacement,
+} from '../../utils/templateOwner';
 import {
   prepareTemplateRun,
   runTemplateAsInstance,
@@ -166,7 +169,7 @@ export const TemplateBody = React.memo(function TemplateBody({
 
 export abstract class TemplatePlacementNode
   extends HybridNode2
-  implements Layoutable, TemplateOwner
+  implements Layoutable, TemplateOwner, TemplatePlacement
 {
   // A placement is placed to be seen, so it is never "unused".
   public getSeemsUnused(): boolean {
@@ -268,8 +271,17 @@ export abstract class TemplatePlacementNode
   // the sockets that depend on which template is placed
   public abstract updateTemplateSockets(): void;
 
-  public placedTemplateUpdatedMeta(_template: PPNode): void {
+  public placedTemplateUpdatedMeta(): void {
     this.updateTemplateSockets();
+  }
+
+  // a debounced re-run, the same a macro caller gets when its macro changes
+  public placedTemplateUpdated(): void {
+    this.calledMacroUpdated();
+  }
+
+  public getTemplateSnapshotProps(): Record<string, unknown> {
+    return {};
   }
 
   // Also how a template set by the AI or undo arrives: a socket value set from

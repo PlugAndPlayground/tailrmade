@@ -18,6 +18,7 @@ import {
   useWidgetSize,
   useSizeTokens,
 } from './abstract';
+import { isSharedNode } from '../../utils/sharedNodes';
 import {
   WidgetNumberBase,
   decimalsName,
@@ -126,10 +127,10 @@ current value should appear, for example "Volume: ${valueToken}" or
 
     let valueToSet = this.getOutputValue(inputObject, true);
     // if we just changed our min or max value, we might want to also adjust the actual value (if it was previously at a limit)
-    // Not in a template: the previous run was another row, and following its
-    // limit would move this row and the value every row starts from.
+    // Not on a shared node: the previous run was another context, and following
+    // its limit would move this one and the value every context starts from.
     if (
-      !this.isInTemplateBody() &&
+      !isSharedNode(this) &&
       this.hasSetPrevValues &&
       (minValue !== this.prevMinValue || maxValue !== this.prevMaxValue) &&
       this.prevMinValue !== this.prevMaxValue &&

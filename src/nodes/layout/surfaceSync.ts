@@ -32,6 +32,7 @@ import {
   SerializedCraftItem,
   SerializedCraftTree,
 } from '../../utils/surfaceTree';
+import { isTemplatePlacement } from '../../utils/templateOwner';
 
 export const SURFACE_TREE_VERSION = 1;
 const NODE_ELEMENT_PREFIX = 'NODE_';
@@ -121,6 +122,10 @@ export function findEmbeddingsOf(
 // Ids of all surfaces (transitively) reachable inside the given surface -
 // embedded directly, or through a UI template placed on it, whose body surface
 // is just as much a part of what this surface renders.
+// a Place/Repeat template embeds its template's body surface
+const getPlacedBodySurface = (node: PPNode): PPNode | undefined =>
+  isTemplatePlacement(node) ? node.getTemplateBodySurface() : undefined;
+
 export function getDescendantSurfaceIds(surface: PPNode): Set<string> {
   const descendants = new Set<string>();
   const queue: PPNode[] = [surface];
@@ -140,7 +145,7 @@ export function getDescendantSurfaceIds(surface: PPNode): Set<string> {
     // a Place/Repeat template on this surface pulls in its template's body
     getElementSockets(like).forEach((socket) =>
       socket.links.forEach((link) =>
-        visit(link.getSource().getNode().getTemplateBodySurface()),
+        visit(getPlacedBodySurface(link.getSource().getNode())),
       ),
     );
   }
@@ -155,7 +160,7 @@ export function wouldCreateSurfaceEmbeddingLoop(
   targetNode: PPNode,
 ): boolean {
   // a template placement embeds its template's body surface
-  const sourceSurface = sourceNode.getTemplateBodySurface() ?? sourceNode;
+  const sourceSurface = getPlacedBodySurface(sourceNode) ?? sourceNode;
   if (!sourceSurface.isSurface() || !targetNode.isSurface()) {
     return false;
   }

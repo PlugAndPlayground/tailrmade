@@ -16,6 +16,8 @@ import {
   getLinkedSourceNodeIds,
   SurfaceSync,
 } from './surfaceSync';
+import { markNodeShared, unmarkNodeShared } from '../../utils/sharedNodes';
+import { isTemplatePlacement } from '../../utils/templateOwner';
 import { getTemplates } from './uiTemplateNode';
 import type { UITemplate } from './uiTemplateNode';
 import type { UISurfaceNode } from './uiSurface';
@@ -43,14 +45,15 @@ function getPassNodes(template: UITemplate): PPNode[] {
 }
 
 /**
- * Marks what a pass runs as this template's body, so none of it lets its socket
- * types drift with one row's data, and releases whatever left since last time.
+ * Marks what a pass runs as shared by this template, so none of it lets its
+ * socket types drift with one row's data, and releases whatever left since
+ * last time.
  * Nodes that merely feed the template see no row data and keep adapting.
  */
 export function registerTemplateBody(template: UITemplate): void {
-  template.bodyNodes.forEach((node) => node.templateBodyOf.delete(template.id));
+  template.bodyNodes.forEach((node) => unmarkNodeShared(node, template.id));
   template.bodyNodes = getPassNodes(template);
-  template.bodyNodes.forEach((node) => node.templateBodyOf.add(template.id));
+  template.bodyNodes.forEach((node) => markNodeShared(node, template.id));
 }
 
 // A pass that reached a placement of its own template would wait in that
@@ -63,6 +66,7 @@ function placesItself(template: UITemplate, path: string[] = []): boolean {
   return getPassNodes(template).some((node) =>
     getTemplates().some(
       (placed) =>
+        isTemplatePlacement(node) &&
         node.isPlacingTemplate(placed.nodeName) &&
         placesItself(placed, nextPath),
     ),
@@ -114,7 +118,7 @@ function capturePass(template: UITemplate): TemplateInstanceCapture {
       if (node) {
         capture.snapshots[nodeId] = {
           ...PPNode.remapInput(node.inputSocketArray),
-          ...node.getTemplateSnapshotProps(),
+          ...(isTemplatePlacement(node) ? node.getTemplateSnapshotProps() : {}),
         };
       }
     });

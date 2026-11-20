@@ -7,6 +7,7 @@ import {
   SerializableActionHandler,
 } from '../../classes/Action';
 import HybridNode2 from '../../classes/HybridNode2';
+import { undoWidgetWrite, writeWidgetInputs } from './widgetEdits';
 import type PPNode from '../../classes/NodeClass';
 import Socket from '../../classes/SocketClass';
 import type {
@@ -372,25 +373,12 @@ export abstract class WidgetHybridBase extends HybridNode2 {
       SerializableActionHandler.getSafeNode(id) as WidgetHybridBase;
     const apply = async (data: T) => {
       const node = getNode();
-      return node.applyWidgetEdit(
-        socketName,
-        data,
-        instance,
-        getOutputs(data, node),
-      );
+      return writeWidgetInputs(node, { [socketName]: data }, instance, {
+        outputs: getOutputs(data, node),
+      });
     };
-    const undo = async (previous: T | TemplateNodeValues) => {
-      const owner = getNode().getTemplateOwner(instance);
-      if (owner) {
-        await owner.restoreRowEdits(
-          instance?.rowKey,
-          previous as TemplateNodeValues,
-          instance?.parent,
-        );
-      } else {
-        await apply(previous as T);
-      }
-    };
+    const undo = (previous: T | TemplateNodeValues) =>
+      undoWidgetWrite(instance, previous, (value) => apply(value as T));
     await ActionHandler.performRawAction(
       new BakedAction(
         new SerializableAction(apply, undo, actionName),

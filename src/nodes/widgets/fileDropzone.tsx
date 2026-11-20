@@ -34,6 +34,8 @@ import {
 } from '../../utils/constants';
 import { DEFAULT_DASHBOARD_ICON } from '../../components/dashboard/dashboardIcons';
 import type { TemplateInstanceHandle } from '../../components/dashboard/templateInstance';
+import { isSharedNode } from '../../utils/sharedNodes';
+import { ownsNode, writeWidgetInputs } from './widgetEdits';
 import {
   handleFileDrop,
   SUPPORTED_FILE_EXTENSIONS,
@@ -220,8 +222,8 @@ export class FileDropzone extends PPNode implements Layoutable {
     inputObject: any,
     outputObject: Record<string, unknown>,
   ): Promise<void> {
-    // inside a template a row's files arrive through these inputs either way
-    if (inputObject[persistName] || this.isInTemplateBody()) {
+    // a shared node's files arrive through these inputs either way, see commitFiles
+    if (inputObject[persistName] || isSharedNode(this)) {
       outputObject[outputFilesData] = inputObject[dataName] || [];
       outputObject[outputFileInfoName] = inputObject[infoName] || [];
     }
@@ -299,6 +301,29 @@ const FileDropzoneComponent: React.FC<{
   // Check if the drop is enabled
   const isDisabled = externalDisabled || configDisabled;
 
+  // Persisted files are stored on the input side. A view always stores them
+  // there: its widget writes go to the view's owner, never to the shared node.
+  const commitFiles = useCallback(
+    async (newDataArray: unknown[], newFileInfo: unknown[]) => {
+      const keepOnInputs =
+        !ownsNode(props.templateInstance) || node.getInputData(persistName);
+      await writeWidgetInputs(
+        node,
+        keepOnInputs
+          ? { [dataName]: newDataArray, [infoName]: newFileInfo }
+          : {},
+        props.templateInstance,
+        {
+          outputs: {
+            [outputFilesData]: newDataArray,
+            [outputFileInfoName]: newFileInfo,
+          },
+        },
+      );
+    },
+    [node, props.templateInstance],
+  );
+
   const removeFile = useCallback(
     async (index: number) => {
       const newFiles = files.filter((_, i) => i !== index);
@@ -309,24 +334,9 @@ const FileDropzoneComponent: React.FC<{
       setFileInfo(newFileInfo);
       setDataArray(newDataArray);
 
-      // A placement keeps its files in its own edits either way: without that
-      // they would be written to the node every row shares
-      if (props.templateInstance || node.getInputData(persistName)) {
-        await node.applyWidgetEdits(
-          { [dataName]: newDataArray, [infoName]: newFileInfo },
-          props.templateInstance,
-          {
-            [outputFilesData]: newDataArray,
-            [outputFileInfoName]: newFileInfo,
-          },
-        );
-      } else {
-        node.setOutputData(outputFilesData, newDataArray);
-        node.setOutputData(outputFileInfoName, newFileInfo);
-        await node.executeOptimizedChain();
-      }
+      await commitFiles(newDataArray, newFileInfo);
     },
-    [files, fileInfo, dataArray, node, props.templateInstance],
+    [files, fileInfo, dataArray, commitFiles],
   );
 
   const onDrop = async (acceptedFiles: File[]) => {
@@ -388,21 +398,7 @@ const FileDropzoneComponent: React.FC<{
     const updatedDataArray = [...dataArray, ...newDataItems];
     setDataArray(updatedDataArray);
 
-    if (props.templateInstance || node.getInputData(persistName)) {
-      // store on input side to persist data, per placement when in one
-      await node.applyWidgetEdits(
-        { [dataName]: updatedDataArray, [infoName]: updatedFileInfo },
-        props.templateInstance,
-        {
-          [outputFilesData]: updatedDataArray,
-          [outputFileInfoName]: updatedFileInfo,
-        },
-      );
-    } else {
-      node.setOutputData(outputFilesData, updatedDataArray);
-      node.setOutputData(outputFileInfoName, updatedFileInfo);
-      await node.executeOptimizedChain();
-    }
+    await commitFiles(updatedDataArray, updatedFileInfo);
   };
 
   const handlePasteFromClipboard = async () => {

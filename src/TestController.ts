@@ -39,8 +39,32 @@ import {
   ReplayService,
   ReplayStep,
 } from './services/ReplayService';
+import { isSharedNode } from './utils/sharedNodes';
+import {
+  readWidgetValue,
+  WidgetView,
+  writeWidgetInputs,
+} from './nodes/widgets/widgetEdits';
 
 export default class TestController {
+  // a widget edit as the viewer makes it, in `view` when given
+  applyWidgetEdit(
+    node: PPNode,
+    socketName: string,
+    value: unknown,
+    view?: WidgetView,
+  ) {
+    return writeWidgetInputs(node, { [socketName]: value }, view);
+  }
+
+  readWidgetValue(node: PPNode, socketName: string, view?: WidgetView) {
+    return readWidgetValue(node, socketName, view);
+  }
+
+  isSharedNode(node: PPNode): boolean {
+    return isSharedNode(node);
+  }
+
   isLoadedAppRunning(): boolean {
     return !pendingAppRun.get() && PPGraph.currentGraph.graphConfiguredAndReady;
   }

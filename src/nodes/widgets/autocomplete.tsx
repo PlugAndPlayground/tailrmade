@@ -32,6 +32,7 @@ import {
   stringifyIfNeeded,
   WidgetPaper,
 } from './abstract';
+import { readWidgetValue } from './widgetEdits';
 import { WidgetSelectableBase } from './selectable-base';
 import { SOCKET_TYPE } from '../../utils/constants';
 import { ArrayType } from '../datatypes/arrayType';
@@ -298,7 +299,7 @@ export class WidgetAutocomplete extends WidgetAutocompleteBase {
     options: any[],
     instance?: TemplateInstanceHandle,
   ): unknown {
-    const freeSolo = this.readWidgetValue(freeSoloName, instance);
+    const freeSolo = readWidgetValue(this, freeSoloName, instance);
     if (freeSolo) {
       return this.formatSelected(selected);
     }
@@ -334,7 +335,7 @@ export class WidgetMultiAutocomplete extends WidgetAutocompleteBase {
     instance?: TemplateInstanceHandle,
   ): unknown {
     const formatted = this.formatSelected(selected);
-    const freeSolo = this.readWidgetValue(freeSoloName, instance);
+    const freeSolo = readWidgetValue(this, freeSoloName, instance);
     if (freeSolo) {
       return formatted;
     }

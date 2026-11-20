@@ -20,6 +20,8 @@ import { deSerializeType, serializeType } from '../datatypes/typehelper';
 import type { TemplatePlacementNode } from './templatePlacement';
 import type { UISurfaceNode } from './uiSurface';
 import { isSurfaceNode } from '../../utils/interfaces';
+import { markClassShared, unmarkNodeShared } from '../../utils/sharedNodes';
+import { isTemplatePlacement } from '../../utils/templateOwner';
 import { MacroFrame } from '../macro/macroFrame';
 
 export function getTemplates(): UITemplate[] {
@@ -214,13 +216,6 @@ Template's "Output" instead.`;
     return source && isSurfaceNode(source) ? source : undefined;
   }
 
-  // Every pass runs the template, so it is always in its own body - also before
-  // the first registerTemplateBody. Otherwise a load, which copies each source's
-  // last row into the Outputs it feeds, would re-type them from that row.
-  public isInTemplateBody(): boolean {
-    return true;
-  }
-
   public getSocketDisplayName(socket: Socket): string {
     if (socket == undefined) {
       return '';
@@ -264,7 +259,7 @@ Template's "Output" instead.`;
   public getPlacements(): TemplatePlacementNode[] {
     return Object.values(PPGraph.currentGraph.nodes).filter(
       (node): node is TemplatePlacementNode =>
-        node.isPlacingTemplate(this.nodeName),
+        isTemplatePlacement(node) && node.isPlacingTemplate(this.nodeName),
     );
   }
 
@@ -286,9 +281,7 @@ Template's "Output" instead.`;
     if (!PPGraph.currentGraph?.graphConfiguredAndReady) {
       return;
     }
-    this.getPlacements().forEach((node) =>
-      node.placedTemplateUpdatedMeta(this),
-    );
+    this.getPlacements().forEach((node) => node.placedTemplateUpdatedMeta());
   }
 
   public outputPlugged(socket: Socket): void {
@@ -356,6 +349,11 @@ Template's "Output" instead.`;
   }
 
   onNodeRemoved: () => void = () => {
-    this.bodyNodes.forEach((node) => node.templateBodyOf.delete(this.id));
+    this.bodyNodes.forEach((node) => unmarkNodeShared(node, this.id));
   };
 }
+
+// Every pass runs the template, so it is always in its own body - also before
+// the first registerTemplateBody. Otherwise a load, which copies each source's
+// last row into the Outputs it feeds, would re-type them from that row.
+markClassShared(UITemplate);

@@ -33,6 +33,7 @@ import {
   colorName,
   defaultOptions,
 } from './abstract';
+import { ownsNode, readWidgetValue, runInWidgetView } from './widgetEdits';
 import { useResolvedButtonVariant, useThemeTokens } from '../../utils/theme';
 import { HybridWidgetContentProps } from '../../classes/HybridNode2';
 import Socket from '../../classes/SocketClass';
@@ -169,26 +170,21 @@ export class WidgetButton extends WidgetHybridBase {
     }
     this.isCurrentlyForceDisabled = true;
     const id = this.id;
-    const inputData = this.readWidgetValue(onValueName, instance);
-    const inputDataOff = this.readWidgetValue(offValueName, instance);
-    const owner = this.getTemplateOwner(instance);
-    if (owner) {
-      // what the press triggers has to see this row's values, so it fires
-      // inside the row's pass; a shared node's sockets are not this row's to
+    const inputData = readWidgetValue(this, onValueName, instance);
+    const inputDataOff = readWidgetValue(this, offValueName, instance);
+    if (!ownsNode(instance)) {
+      // the press fires while the view's values are in the node, so what it
+      // triggers sees them; the shared node's sockets are not the view's to
       // disable, and a press is not a value worth undoing
       const fire = async (value: unknown) => {
         await this.getOutputSocketByName(outName).setDataAndWait(value);
         await this.executeOptimizedChain();
       };
       try {
-        await owner.runInTemplateRow(
-          instance?.rowKey,
-          async () => {
-            await fire(inputData);
-            await fire(inputDataOff);
-          },
-          instance?.parent,
-        );
+        await runInWidgetView(instance, async () => {
+          await fire(inputData);
+          await fire(inputDataOff);
+        });
       } finally {
         this.isCurrentlyForceDisabled = false;
       }

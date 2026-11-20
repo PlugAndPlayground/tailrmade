@@ -8,6 +8,7 @@ import {
   stringifyIfNeeded,
   WidgetHybridBase,
 } from './abstract';
+import { readWidgetValue } from './widgetEdits';
 import { BackPropagation } from '../../interfaces';
 import type { TemplateInstanceHandle } from '../../components/dashboard/templateInstance';
 import { SOCKET_TYPE } from '../../utils/constants';
@@ -48,7 +49,7 @@ export abstract class WidgetSelectableBase extends WidgetHybridBase {
       const formatted = this.formatSelected(selected) as string;
       return options.includes(formatted)
         ? formatted
-        : this.readWidgetValue(fallbackValueName, instance);
+        : readWidgetValue(this, fallbackValueName, instance);
     }
     const formatted = this.formatSelected(selected) as string[];
     // Return options in their original order, only keeping those that were selected
@@ -117,7 +118,7 @@ export abstract class WidgetSelectableBase extends WidgetHybridBase {
     instance?: TemplateInstanceHandle,
   ): Promise<void> {
     const options = this.stringifyOptions(
-      this.readWidgetValue(optionsName, instance) as any[],
+      readWidgetValue(this, optionsName, instance) as any[],
     );
     await this.commitWidgetEdit(
       selectedOptionName,

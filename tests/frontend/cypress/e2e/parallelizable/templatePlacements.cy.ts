@@ -263,7 +263,7 @@ describe('template placements', () => {
       const placeA = await addPlace(tc, template, 'place-a');
       const placeB = await addPlace(tc, template, 'place-b');
 
-      await widget.applyWidgetEdit(VALUE, 'EDITED', {
+      await tc.applyWidgetEdit(widget, VALUE, 'EDITED', {
         ownerId: 'rep',
         rowKey: '1',
       });
@@ -274,7 +274,7 @@ describe('template placements', () => {
         'EDITED',
       ]);
 
-      await widget.applyWidgetEdit(VALUE, 'A-ONLY', { ownerId: 'place-a' });
+      await tc.applyWidgetEdit(widget, VALUE, 'A-ONLY', { ownerId: 'place-a' });
       await placeB.executeOptimizedChain();
       expect(placeA.capture.snapshots['t-w'][VALUE]).to.equal('A-ONLY');
       expect(placeB.capture.snapshots['t-w'][VALUE]).to.equal('AUTHORED');
@@ -297,7 +297,7 @@ describe('template placements', () => {
       const widget = await addWidget(tc, 't', 't-w');
       await tc.connectNodesByID('t', 't-w', 'Parameter 1', VALUE);
       const repeat = await addRepeat(tc, template, 'rep', ['a', 'b']);
-      await widget.applyWidgetEdit(VALUE, 'B!', {
+      await tc.applyWidgetEdit(widget, VALUE, 'B!', {
         ownerId: 'rep',
         rowKey: '1',
       });
@@ -320,7 +320,7 @@ describe('template placements', () => {
       const repeat = await addRepeat(tc, template, 'rep', ['a', 'b', 'c']);
 
       const [first, , third] = repeat.rows;
-      await widget.applyWidgetEdit(VALUE, 'B!', {
+      await tc.applyWidgetEdit(widget, VALUE, 'B!', {
         ownerId: 'rep',
         rowKey: '1',
       });
@@ -340,8 +340,8 @@ describe('template placements', () => {
       const repeat = await addRepeat(tc, template, 'rep', ['a', 'b']);
 
       const row = { ownerId: 'rep', rowKey: '0' };
-      await first.applyWidgetEdit(VALUE, 'first-edit', row);
-      await second.applyWidgetEdit(VALUE, 'second-edit', row);
+      await tc.applyWidgetEdit(first, VALUE, 'first-edit', row);
+      await tc.applyWidgetEdit(second, VALUE, 'second-edit', row);
       expect(rowValues(repeat, 'w0')).to.deep.equal(['second-edit', 'b']);
       expect(rowValues(repeat, 'w1')).to.deep.equal(['second-edit', 'b']);
     });
@@ -528,7 +528,7 @@ describe('template placements', () => {
 
       expect(widget.getInputData(VALUE)).to.equal('last');
       expect(
-        widget.readWidgetValue(VALUE, {
+        tc.readWidgetValue(widget, VALUE, {
           ownerId: 'rep',
           rowKey: '0',
           snapshot: repeat.rows[0].capture.snapshots['t-w'],
@@ -565,13 +565,19 @@ describe('template placements', () => {
     doWithTestController(async (tc: any) => {
       const template = await addTemplate(tc, 't');
       const button = await addWidget(tc, 't', 't-b', 'WidgetButton');
-      await tc.addNode('StateWrite', 'write', -200, 300);
+      // session storage outlives the test, so a retry gets its own location
+      const location = `templatePlacements-${Cypress._.uniqueId()}`;
+      await tc.addNode('StorageWrite', 'write', -200, 300);
       const write = tc.getNodeByID('write');
+      write.setInputData('Storage type', 'Session');
+      write.setInputData('Location', location);
       write.setInputData('Key', 'picked');
       await tc.connectNodesByID('t', 'write', 'Parameter 1', 'Value');
       await tc.connectNodesByID('t-b', 'write', 'Out', 'Execute');
-      await tc.addNode('StateRead', 'read', 400, 300);
+      await tc.addNode('StorageRead', 'read', 400, 300);
       const read = tc.getNodeByID('read');
+      read.setInputData('Storage type', 'Session');
+      read.setInputData('Location', location);
       read.setInputData('Key', 'picked');
       read.setInputData('Fallback value', ['a', 'b']);
       const repeat = await addRepeat(tc, template, 'rep', []);
@@ -637,11 +643,11 @@ describe('template placements', () => {
       await tc.connectNodesByID('t', 't-w', 'Parameter 1', VALUE);
       await addRepeat(tc, template, 'rep', ['a']);
 
-      expect(widget.isInTemplateBody()).to.equal(true);
-      expect(tc.getNodeByID('feeder').isInTemplateBody()).to.equal(false);
+      expect(tc.isSharedNode(widget)).to.equal(true);
+      expect(tc.isSharedNode(tc.getNodeByID('feeder'))).to.equal(false);
 
       await tc.getGraph().linkDisconnect('t-w', VALUE, false);
-      expect(widget.isInTemplateBody()).to.equal(false);
+      expect(tc.isSharedNode(widget)).to.equal(false);
     });
   });
 
@@ -699,7 +705,7 @@ describe('template placements', () => {
         'same',
         'same#1',
       ]);
-      await widget.applyWidgetEdit(VALUE, 'edited', {
+      await tc.applyWidgetEdit(widget, VALUE, 'edited', {
         ownerId: 'rep',
         rowKey: 'same#1',
       });
