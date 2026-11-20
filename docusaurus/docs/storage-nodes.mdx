@@ -18,7 +18,7 @@ The **Storage** nodes are a unified set of nodes for reading, writing, deleting,
 | **Session** | No | Temporary shared state, selections, counters, and values that reset on page reload |
 | **Cloud**         | No      | Signed-in user data that should follow the user across devices                                          |
 
-The **Storage type** defaults to **IndexedDB**. Change it to **Session** for temporary in-memory state, or **Cloud** when the data should be stored for the signed-in user. Session uses the same Read, Write, Update, Delete, and Browse nodes; writes notify matching readers. Session data resets on page reload and does not use the browser `sessionStorage` API.
+The **Storage type** defaults to **IndexedDB**. Change it to **Session** for temporary in-memory state, or **Cloud** when the data should be stored for the signed-in user. Session uses the same Read, Write, Update, Delete, and Browse nodes; writes notify matching readers. Session data is isolated to the currently loaded app and resets when an app is loaded or cleared, or on page reload and does not use the browser `sessionStorage` API.
 
 ## Common patterns
 

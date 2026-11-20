@@ -830,7 +830,7 @@ describe('template placements', () => {
         call('connect_sockets', { from_node, from_socket, to_node, to_socket });
 
       await add('UI template', 'ai-node-1');
-      await add('UI surface', 'ai-node-2');
+      await add('UI page', 'ai-node-2');
       await add('WidgetTextField', 'ai-node-3');
       await call('set_node_name', { node_id: 'ai-node-1', name: 'Card' });
       await connect('ai-node-3', 'ReactUI', 'ai-node-2');
@@ -872,7 +872,7 @@ describe('template placements', () => {
         ['a', 'b'],
       );
 
-      await add('UI surface', 'ai-node-6');
+      await add('UI page', 'ai-node-6');
       await connect('ai-node-5', 'ReactUI', 'ai-node-6');
       const refused = await tc.callAITool('connect_sockets', {
         from_node: 'ai-node-5',

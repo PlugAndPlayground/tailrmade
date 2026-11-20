@@ -60,7 +60,13 @@ export class SqliteReader extends PPNode {
   public getRisks(): NodeRisk[] {
     const url = this.getStaticInputData(inputResourceURLSocketName);
     if (url.known && !url.value) return [];
-    return [new NetworkRisk(url.value)];
+    // Downloading a fixed file only reveals the visit. An address set while
+    // running can carry app data in it.
+    return [
+      url.known
+        ? new NetworkRisk(url.value, undefined, 'info')
+        : new NetworkRisk(),
+    ];
   }
   sqlite3;
   db;

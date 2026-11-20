@@ -78,7 +78,7 @@ each placement keeps its own values.
 
 Pick the template under "${templateSocketName}". This node then
 grows one input per "${templateParameterPrefixName}" the template declares,
-and its "ReactUI" output connects to any UI surface like an ordinary widget.
+and its "ReactUI" output connects to any UI page like an ordinary widget.
 
 The nodes inside the template are shared between placements, so a change to
 the template shows up everywhere at once; only the parameter values differ, and

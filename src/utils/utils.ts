@@ -1,7 +1,6 @@
 import { useEffect, useState, useRef } from 'react';
 import JSON5 from 'json5';
 import * as PIXI from 'pixi.js';
-import isUrl from 'is-url';
 import { useTheme } from '@mui/material';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import PPStorage, { checkForUnsavedChanges } from '../PPStorage';
@@ -31,12 +30,14 @@ import {
 import { GraphDatabase, StoredGraph } from './indexedDB';
 import {
   DrawerSide,
+  GraphLoadOptions,
   IGraphSearch,
   IOverlay,
   IWarningHandler,
   Layoutable,
   SerializedSelection,
   TParseType,
+  InputOverride,
 } from './interfaces';
 import { parseElementId } from './elementIds';
 import { Viewport } from 'pixi-viewport';
@@ -57,8 +58,7 @@ import {
 } from '../nodes/textEditor/textEditor2';
 import { BackendGateway } from '../services/BackendGateway';
 import { ActionHandler } from '../classes/Action';
-import type { URLSetSocketData } from '../nodes/state/storage';
-import FlowLogic from '../classes/FlowLogic';
+import { getEmbeddableAddress } from './appHtml';
 
 const numberFormatter = new Intl.NumberFormat();
 
@@ -176,6 +176,23 @@ export function getDashboardWidth(overlayState: IOverlay): number {
     Math.min(DRAWER_CONSTANTS.MIN_DRAWER_WIDTH, maxWidth),
     maxWidth,
   );
+}
+
+// Docked shell row: rail | menu panel | dashboard | canvas | inspector.
+// Returns the x where the dashboard starts and where the canvas starts.
+export function getDashboardHorizontalBounds(overlayState: IOverlay): {
+  left: number;
+  right: number;
+} {
+  const left =
+    SHELL_CONSTANTS.RAIL_WIDTH +
+    (overlayState[DrawerSide.LEFT].visible
+      ? overlayState[DrawerSide.LEFT].width
+      : 0);
+  const width = overlayState[DrawerSide.DASHBOARD].visible
+    ? getDashboardWidth(overlayState)
+    : 0;
+  return { left, right: left + width };
 }
 
 export const limitRange = (
@@ -990,12 +1007,13 @@ export const pasteClipboard = async (e: ClipboardEvent): Promise<void> => {
         const plainText = clipboardBlobs['text/plain'];
         e.preventDefault();
         if (PPGraph.currentGraph.selection.selectedNodes.length < 1) {
-          if (isUrl(data)) {
+          const embedAddress = getEmbeddableAddress(data);
+          if (embedAddress) {
             await PPGraph.currentGraph.addNewNode(
               'EmbedWebsite',
               {
                 defaultArguments: {
-                  [htmlInputSocketName]: `<iframe src="${data}" style="width: 100%; height: 100%;"></iframe>`,
+                  [htmlInputSocketName]: `<iframe src="${embedAddress}" style="width: 100%; height: 100%;"></iframe>`,
                 },
                 nodePosX: currPos.x,
                 nodePosY: currPos.y,
@@ -1071,17 +1089,7 @@ export const getLoadExampleURL = (path: string, fileName: string): string => {
   return fullPath;
 };
 
-export const getLoadCloudGraphURL = (graph: IGraphSearch): string => {
-  const encodedOwner = encodeURIComponent(graph.owner);
-  const encodedName = encodeURIComponent(graph.name);
-  const encodedLocation = encodeURIComponent(graph.location);
-  const encodedAccess = encodeURIComponent(graph.access);
-
-  const fullPath = `${window.location.origin}${
-    window.location.pathname
-  }?loadGraph=${encodedOwner};;${encodedName};;${encodedLocation};;${encodedAccess}`;
-  return fullPath;
-};
+export { getLoadCloudGraphURL } from './cloudGraphURL';
 
 export const getLoadNodeExampleURL = (nodeName: string): string => {
   return getLoadExampleURL('nodes', nodeName);
@@ -1308,7 +1316,10 @@ export const getGraphFromIGraphSearch = async (
   }
 };
 
-export const loadGraphFromIGraphSearch = async (graph: IGraphSearch) => {
+export const loadGraphFromIGraphSearch = async (
+  graph: IGraphSearch,
+  options: GraphLoadOptions = {},
+) => {
   if (!checkForUnsavedChanges()) {
     return;
   }
@@ -1317,7 +1328,7 @@ export const loadGraphFromIGraphSearch = async (graph: IGraphSearch) => {
     getGraphFromIGraphSearch(graph),
   ]);
   if (data) {
-    await PPStorage.getInstance().loadGraphFromData(data);
+    await PPStorage.getInstance().loadGraphFromData(data, options);
   } else {
     console.warn(`No graph data found for:`, graph);
     await PPStorage.getInstance().createEmptyGraph();
@@ -1334,6 +1345,22 @@ export const getURLParameters = (): URLSearchParams => {
   return params;
 };
 
+const parseInputOverrides = (value: string | null): InputOverride[] => {
+  if (!value) return [];
+  try {
+    const parsed: unknown = JSON.parse(value);
+    return Array.isArray(parsed)
+      ? parsed.filter(
+          (entry): entry is InputOverride =>
+            typeof entry?.node === 'string' &&
+            typeof entry?.socket === 'string',
+        )
+      : [];
+  } catch {
+    return [];
+  }
+};
+
 export const loadGraph = async (urlParams: URLSearchParams) => {
   // Remote graph loading:
   const loadGraph = urlParams.get(URL_PARAMETER_NAME.LOADGRAPH); // Compact format: "owner;;name;;location;;access"
@@ -1348,6 +1375,8 @@ export const loadGraph = async (urlParams: URLSearchParams) => {
   // One-time actions:
   const createEmptyGraph = urlParams.get(URL_PARAMETER_NAME.NEW); // Create empty graph (REMOVED after load)
   const setSocketData = urlParams.get(URL_PARAMETER_NAME.SETSOCKETDATA); // Set socket data on nodes
+  const inputOverrides = parseInputOverrides(setSocketData);
+  const loadOptions: GraphLoadOptions = { inputOverrides };
 
   // Debug/settings:
   const toastEverything = urlParams.get(URL_PARAMETER_NAME.TOASTEVERYTHING); // Show all toast notifications
@@ -1356,16 +1385,21 @@ export const loadGraph = async (urlParams: URLSearchParams) => {
     `${URL_PARAMETER_NAME.LOADGRAPH}: ${loadGraph}, ${URL_PARAMETER_NAME.NEW}: ${createEmptyGraph},${URL_PARAMETER_NAME.TOASTEVERYTHING}: ${toastEverything}, ${URL_PARAMETER_NAME.LOADLOCALGRAPH}: ${loadLocalGraph}, ${URL_PARAMETER_NAME.LOADREMOTEGRAPH}: ${loadRemoteGraph}, ${URL_PARAMETER_NAME.SETSOCKETDATA}: ${setSocketData}`,
   );
   if (loadGraph) {
-    await PPStorage.getInstance().loadGraphFromCloudReference(loadGraph);
+    await PPStorage.getInstance().loadGraphFromCloudReference(
+      loadGraph,
+      loadOptions,
+    );
   } else if (loadFullGraphFromURL) {
     await PPStorage.getInstance().loadGraphFromDataEmbeddedInURL(
       loadFullGraphFromURL,
+      loadOptions,
     );
   } else if (loadLocalGraph) {
-    await PPStorage.getInstance().loadGraphFromDB(loadLocalGraph);
+    await PPStorage.getInstance().loadGraphFromDB(loadLocalGraph, loadOptions);
   } else if (loadRemoteGraph) {
     await loadGraphFromIGraphSearch(
       JSON.parse(loadRemoteGraph) as IGraphSearch,
+      loadOptions,
     );
   } else if (createEmptyGraph) {
     await PPStorage.getInstance().createEmptyGraph();
@@ -1379,28 +1413,6 @@ export const loadGraph = async (urlParams: URLSearchParams) => {
     } else {
       // Returning user with saved graphs → createEmptyGraph
       await PPStorage.getInstance().createEmptyGraph();
-    }
-  }
-  if (setSocketData) {
-    const socketDatas = JSON.parse(setSocketData) as URLSetSocketData[];
-    let foundNodes: PPNode[] = [];
-    for (const socketData of socketDatas) {
-      const node = PPGraph.currentGraph.getNodeById(socketData.node);
-      foundNodes.push(node);
-      const socket = node.getInputSocketByName(socketData.socket);
-      console.log(
-        'Setting data via URL, node: ' +
-          node.id +
-          ', socket: ' +
-          socket.name +
-          ', data: ' +
-          JSON.stringify(socketData.data),
-      );
-      socket.data = socketData.data;
-      const nodesThatShouldExecute = foundNodes.filter(
-        (node) => node.updateBehaviour.load || node.updateBehaviour.update,
-      );
-      await FlowLogic.executeOptimizedChainBatch(nodesThatShouldExecute);
     }
   }
   ActionHandler.setUnsavedChange(false); // reset unsaved changes after loading a graph
@@ -1488,7 +1500,7 @@ export const combineSelectedDrawNodes = async () => {
   }
 };
 
-// combine all selected layoutable nodes into a new UI surface node by
+// combine all selected layoutable nodes into a new UI page node by
 // connecting their ReactUI outputs to it
 export const combineSelectedLayoutablesIntoSurface = async () => {
   const selectedNodes = PPGraph.currentGraph.selection.selectedNodes.filter(

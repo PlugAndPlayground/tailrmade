@@ -1,5 +1,5 @@
 import { NodeExecutionWarning } from '../../classes/ErrorClass';
-import { NavigationRisk, NodeRisk } from '../../classes/NodeRisk';
+import { NavigationRisk, NodeRisk, isSameOrigin } from '../../classes/NodeRisk';
 import {
   NODE_TYPE_COLOR,
   SOCKET_TYPE,
@@ -8,11 +8,15 @@ import {
 import { TRgba } from '../../utils/color';
 import UpdateBehaviourClass from '../../classes/UpdateBehaviourClass';
 import PPNode from '../../classes/NodeClass';
+import PPGraph from '../../classes/GraphClass';
 import Socket from '../../classes/SocketClass';
 import { AnyType } from '../datatypes/anyType';
 import { BooleanType } from '../datatypes/booleanType';
 import { StringType } from '../datatypes/stringType';
 import { migrateFromCustomFunctionCommon } from '../data/array';
+import { getAppLink } from '../../utils/cloudGraphURL';
+
+export { getAppLink };
 
 const URLName = 'url';
 
@@ -20,6 +24,7 @@ const keyName = 'Key';
 const defaultName = 'Default';
 const valueName = 'Value';
 const foundName = 'Found';
+const appLinkName = 'App link';
 
 const reservedNames = new Set(Object.values(URL_PARAMETER_NAME));
 
@@ -47,7 +52,9 @@ export function readURLParameters(
 
 export class OpenURL extends PPNode {
   public getRisks(): NodeRisk[] {
-    return [new NavigationRisk(this.getStaticInputData(URLName).value)];
+    const url = this.getStaticInputData(URLName);
+    if (url.known && isSameOrigin(url.value)) return [];
+    return [new NavigationRisk(url.value)];
   }
 
   // Opening a URL is an external effect.
@@ -82,6 +89,16 @@ export class OpenURL extends PPNode {
 
   public getDescription(): string {
     return 'Opens a URL in a new tab';
+  }
+
+  public getDocs(): string {
+    return `Opens "url" in a new tab when the node runs. Only HTTP and HTTPS
+addresses are opened.
+
+Opening an address is a navigation risk, so an app with this node pauses
+behind the risk review until the user approves it. When the user only needs a
+link to click, a Markdown link in a Dynamic text node, such as [Open map](https://...),
+does the job without the review.`;
   }
 
   public getTags(): string[] {
@@ -126,7 +143,13 @@ appears more than once comes out as an array.
 
 "Found" is true when the address has the parameter. Without the parameter, "Value" is "Default".
 
-Tailrmade's own parameters, such as loadGraph, are never reported.`;
+Tailrmade's own parameters, such as loadGraph, are never reported.
+
+"App link" is the address that opens this app for someone else, without any
+#part, so an app can hand out links by adding its own, for example
+App link + "#santa=Anna". It is empty while the app is only saved in this
+browser, not saved at all, or saved to the cloud without public access; show
+something like "Publish this app to share links" then.`;
   }
 
   public getTags(): string[] {
@@ -143,6 +166,7 @@ Tailrmade's own parameters, such as loadGraph, are never reported.`;
       new Socket(SOCKET_TYPE.IN, defaultName, new AnyType(), ''),
       new Socket(SOCKET_TYPE.OUT, valueName, new AnyType()),
       new Socket(SOCKET_TYPE.OUT, foundName, new BooleanType()),
+      new Socket(SOCKET_TYPE.OUT, appLinkName, new StringType()),
     ];
   }
 
@@ -154,6 +178,7 @@ Tailrmade's own parameters, such as loadGraph, are never reported.`;
       window.location.search,
       window.location.hash,
     );
+    output[appLinkName] = getAppLink(PPGraph.currentGraph);
     const key = input[keyName];
     if (!key) {
       output[valueName] = Object.fromEntries(

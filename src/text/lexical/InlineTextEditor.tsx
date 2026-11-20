@@ -17,7 +17,7 @@ import {
   DATA_DASHBOARD_EDITABLE,
   DATA_DASHBOARD_WIDGET,
 } from '../../utils/constants';
-import { toneCssVariables } from '../TextView';
+import { textCssVariables } from '../TextView';
 import { registerInlineTextSanitizer } from './content';
 import { createTextEditorConfig, TextHostProfile } from './editorConfig';
 import {
@@ -53,7 +53,7 @@ export type InlineTextEditorProps = {
 const MAX_FOCUS_FRAMES = 10;
 const TOOLBAR_GAP = 4;
 
-// on a UI surface the toolbar stays outside the widget frame and its header
+// on a UI page the toolbar stays outside the widget frame and its header
 function getToolbarDistance(
   wrapper: HTMLElement | null,
   placement: string,
@@ -211,7 +211,7 @@ export function InlineTextEditor({
             }
           }}
           sx={[
-            (theme) => toneCssVariables(theme),
+            (theme) => textCssVariables(theme),
             { position: 'relative', width: '100%' },
             ...(Array.isArray(sx) ? sx : [sx]),
           ]}

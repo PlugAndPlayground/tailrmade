@@ -1,3 +1,4 @@
+import { isCssValue } from '../cssValue';
 import { ThemeLayer } from './resolve';
 import {
   COLOR_ROLES,
@@ -26,11 +27,20 @@ export type ThemeDocument = {
 
 export const EMPTY_THEME_DOCUMENT: ThemeDocument = {};
 
+const count = (value: string, character: string): number =>
+  value.split(character).length - 1;
+
+const isFontStack = (value: unknown): boolean =>
+  isCssValue(value) &&
+  !/[()]/.test(value) &&
+  count(value, '"') % 2 === 0 &&
+  count(value, "'") % 2 === 0;
+
 const SHAPE_TOKEN_VALIDATORS: Partial<
   Record<keyof ThemeTokens, (value: unknown) => boolean>
 > = {
-  fontFamily: (value) => typeof value === 'string',
-  fontFamilyMono: (value) => typeof value === 'string',
+  fontFamily: isFontStack,
+  fontFamilyMono: isFontStack,
   fontSizeScalar: (value) => typeof value === 'number' && value > 0,
   radius: (value) => typeof value === 'number' && value >= 0,
   density: (value) => DENSITIES.includes(value as Density),
@@ -43,7 +53,7 @@ const SHAPE_TOKEN_VALIDATORS: Partial<
 
 const isValidTokenEntry = (key: string, value: unknown): boolean => {
   if ((COLOR_ROLES as readonly string[]).includes(key)) {
-    return typeof value === 'string' && value.length > 0;
+    return isCssValue(value);
   }
   const validator = SHAPE_TOKEN_VALIDATORS[key as keyof ThemeTokens];
   return validator !== undefined && validator(value);

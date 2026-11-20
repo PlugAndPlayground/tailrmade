@@ -33,13 +33,33 @@ export const AIPersistantConversationName = 'Persistant conversation';
 export const AIConversationName = 'Conversation';
 export const responseName = 'Response';
 
+// The company, plus the product name people know when it differs:
+// "Anthropic (Claude)", "Google (Gemini)", "OpenAI".
+const describeAIProvider = (value: string): string => {
+  const label =
+    AI_PROVIDERS.find((provider) => provider.value === value)?.label ?? value;
+  return label.toLowerCase() === value.toLowerCase()
+    ? label
+    : `${label} (${value.charAt(0).toUpperCase()}${value.slice(1)})`;
+};
+
 export class AINode extends HTTPNode {
   // AI nodes replace the HTTP sockets entirely, so HTTPNode's risks do not
-  // apply: the provider key stays on the backend. The local relay is the one
-  // destination worth naming, because it leaves the browser for the Companion.
+  // apply: the provider key stays on the backend.
   public getRisks(): NodeRisk[] {
-    const risks: NodeRisk[] = [new AIUsageRisk()];
-    if (AIBackend.getInstance().isLocalAI()) risks.push(new CompanionRisk());
+    const provider = this.getStaticInputData(AIProviderName);
+    const local = AIBackend.getInstance().isLocalAI();
+    const risks: NodeRisk[] = [
+      new AIUsageRisk(
+        provider.known
+          ? describeAIProvider(
+              String(provider.value || this.getDefaultProvider()),
+            )
+          : undefined,
+        local ? 'provider-account' : 'tailrmade-allowance',
+      ),
+    ];
+    if (local) risks.push(new CompanionRisk());
     return risks;
   }
 

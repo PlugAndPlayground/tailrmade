@@ -300,7 +300,7 @@ export const NodeContextMenu = (props) => {
             <ListItemIcon>
               <AddIcon fontSize="small" />
             </ListItemIcon>
-            <ListItemText>Combine into UI surface</ListItemText>
+            <ListItemText>Combine into UI page</ListItemText>
             <Typography variant="body2" color="text.secondary">
               {'Shift+U'}
             </Typography>

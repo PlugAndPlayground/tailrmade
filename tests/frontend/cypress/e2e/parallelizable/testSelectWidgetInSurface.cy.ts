@@ -14,10 +14,10 @@ describe('node inspector "Used in" surface links', () => {
       // surface B only
       await testController.addNode('UISurfaceNode', 'ui-surface-a', 400, 0);
       await testController.addNode('UISurfaceNode', 'ui-surface-b', 400, 400);
-      await testController.addNode('Label', 'amber-otter-11', 0, -200);
+      await testController.addNode('Text', 'amber-otter-11', 0, -200);
       await testController.setNodeInputValue(
         'amber-otter-11',
-        'Input',
+        'Content',
         'hello',
       );
       await testController.waitForPendingExecution();

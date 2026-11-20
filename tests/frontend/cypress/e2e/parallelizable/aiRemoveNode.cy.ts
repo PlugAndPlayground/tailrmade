@@ -48,7 +48,7 @@ describe('AI remove_node', () => {
 
   it('rejects missing, invalid, and unknown IDs without deleting nodes', () => {
     doWithTestController(async (tc) => {
-      await tc.addNode('Label', 'keep-label');
+      await tc.addNode('CONSTANT_String', 'keep-label');
       tc.selectNodesById(['keep-label']);
       for (const input of [
         {},

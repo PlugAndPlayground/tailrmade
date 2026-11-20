@@ -4,10 +4,8 @@ import {
   openNewGraph,
 } from '../helpers';
 
-function exposeSelectedLabelOutput() {
+function openInspector() {
   cy.get('[data-cy="right-drawer-toggle-btn"]').click();
-  cy.get('#inspector-filter-out').click({ force: true });
-  cy.get('[data-cy="socket-visible-button"]').first().click();
 }
 
 describe('dataTypes', () => {
@@ -15,30 +13,32 @@ describe('dataTypes', () => {
     openNewGraph();
     doWithTestController(async (testController) => {
       await testController.addNode('WidgetSlider', 'Slider');
-      await testController.addNode('Label', 'Label');
+      await testController.addNode('CONSTANT_String', 'ConstantString');
       await testController.addNode('CustomFunction', 'CustomFunction');
       await testController.addNode('ArrayCreate', 'ArrayCreate', 0, -200);
       await testController.addNode('Concatenate', 'Concatenate', 200, -200);
     });
   });
-  it('expose label output', () => {
+  it('open the inspector', () => {
     doWithTestController((testController) => {
       testController.moveNodeByID('Slider', 0, 100);
       testController.moveNodeByID('CustomFunction', 200, 0);
-      // expose output on label
-      testController.selectNodesById(['Label']);
-      exposeSelectedLabelOutput();
+      testController.selectNodesById(['ConstantString']);
+      openInspector();
     });
   });
 
-  it('write some text in the label node, see that it registers', () => {
+  it('write some text in the Constant String, see that it registers', () => {
     doWithTestController((testController) => {
-      const [x, y] = testController.getNodeCenterById('Label');
+      const [x, y] = testController.getNodeCenterById('ConstantString');
       cy.get('#pixi-container').dblclick(x, y);
     });
     cy.focused().type('{selectall}{backspace}testin');
     doWithTestController((testController) => {
-      const value = testController.getNodeOutputValue('Label', 'Output');
+      const value = testController.getNodeOutputValue(
+        'ConstantString',
+        'String',
+      );
       expect(value).to.eq('testin');
     });
   });
@@ -48,12 +48,12 @@ describe('dataTypes', () => {
       expect(type).to.eq('Any');
     });
   });
-  it('connect label node with customfunction node', () => {
+  it('connect the Constant String with customfunction node', () => {
     doWithTestController(async (testController) => {
       await testController.connectNodesByID(
-        'Label',
+        'ConstantString',
         'CustomFunction',
-        'Output',
+        'String',
       );
       await testController.waitForPendingExecution();
     });
@@ -114,12 +114,16 @@ describe('dataTypes', () => {
     });
 
     doWithTestController(async (testController) => {
-      await testController.connectNodesByID('Label', 'Concatenate', 'Output');
+      await testController.connectNodesByID(
+        'ConstantString',
+        'Concatenate',
+        'String',
+      );
       await testController.waitForPendingExecution();
     });
 
     doWithTestController((testController) => {
-      expect(testController.getInputSocketType('Concatenate', 'Output')).to.eq(
+      expect(testController.getInputSocketType('Concatenate', 'String')).to.eq(
         'String',
       );
     });
@@ -131,18 +135,22 @@ describe('dataTypes', () => {
 
     doWithTestController(async (testController) => {
       await testController.addNode('Macro', 'Macro');
-      await testController.addNode('Label', 'Label');
+      await testController.addNode('CONSTANT_String', 'ConstantString');
     });
     // we first expect the output to be "any"
     doWithTestController((testController) => {
       expect(testController.getInputSocketType('Macro', 'Output')).to.eq('Any');
-      testController.selectNodesById(['Label']);
+      testController.selectNodesById(['ConstantString']);
     });
     cy.wait(100); // cursed
     // we first expect the output to be "any"
-    exposeSelectedLabelOutput();
+    openInspector();
     doWithTestController(async (testController) => {
-      await testController.connectNodesByID('Label', 'Macro', 'Output');
+      await testController.connectNodesByID(
+        'ConstantString',
+        'Macro',
+        'String',
+      );
       await testController.waitForPendingExecution();
     });
     // then when i connect string into it, to change into string
@@ -157,7 +165,11 @@ describe('dataTypes', () => {
       expect(testController.getInputSocketType('Macro', 'Output')).to.eq(
         'Number',
       );
-      await testController.connectNodesByID('Label', 'Macro', 'Output');
+      await testController.connectNodesByID(
+        'ConstantString',
+        'Macro',
+        'String',
+      );
       await testController.waitForPendingExecution();
     });
     // then back to string

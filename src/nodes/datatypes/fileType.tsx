@@ -42,6 +42,6 @@ export class FileType extends AbstractType {
   }
 
   recommendedInputNodeWidgets(): string[] {
-    return ['label', 'constant'];
+    return ['constant'];
   }
 }

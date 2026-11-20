@@ -61,6 +61,8 @@ export default class PPSelection extends PIXI.Container {
   selectionGraphics: PIXI.Graphics;
   protected singleSelectionsGraphics: PIXI.Graphics;
   protected focusGraphics: PIXI.Graphics;
+  // stays until cleared, unlike the focus, which selecting and zooming clear
+  protected highlightGraphics: PIXI.Graphics;
   protected scaleHandle: ScaleHandle;
   selectionHeader: SelectionHeaderClass;
 
@@ -81,6 +83,7 @@ export default class PPSelection extends PIXI.Container {
     this.singleSelectionsGraphics = new PIXI.Graphics();
     this.singleSelectionsGraphics.eventMode = 'none';
     this.focusGraphics = new PIXI.Graphics();
+    this.highlightGraphics = new PIXI.Graphics();
     this.selectionGraphicsContainer = new PIXI.Container();
     this.selectionGraphics = new PIXI.Graphics();
     this.selectionHeader = new SelectionHeaderClass();
@@ -99,6 +102,9 @@ export default class PPSelection extends PIXI.Container {
     this.addChild(this.singleSelectionsGraphics);
     this.focusGraphics.label = 'focusGraphics';
     this.addChild(this.focusGraphics);
+    this.highlightGraphics.label = 'highlightGraphics';
+    this.highlightGraphics.eventMode = 'none';
+    this.addChild(this.highlightGraphics);
     this.selectionGraphics.label = 'selectionGraphics';
     await this.selectionHeader.init();
     this.selectionGraphicsContainer.addChild(this.selectionGraphics);
@@ -878,17 +884,29 @@ export default class PPSelection extends PIXI.Container {
     this.focusGraphics.x = 0;
     this.focusGraphics.y = 0;
 
-    // draw single selections
     const nodeBounds = this.getBoundsFromNodes([node]);
-    if (!nodeBounds) {
-      return;
+    if (nodeBounds) {
+      this.drawFocusOutline(this.focusGraphics, nodeBounds);
     }
-    this.focusGraphics
+  }
+
+  public drawHighlight(areas: PIXI.Rectangle[]): void {
+    this.highlightGraphics.clear();
+    areas.forEach((area) =>
+      this.drawFocusOutline(this.highlightGraphics, area),
+    );
+  }
+
+  private drawFocusOutline(
+    graphics: PIXI.Graphics,
+    bounds: PIXI.Rectangle,
+  ): void {
+    graphics
       .roundRect(
-        nodeBounds.x - 4,
-        nodeBounds.y - 4,
-        nodeBounds.width + 8,
-        nodeBounds.height + 8,
+        bounds.x - 4,
+        bounds.y - 4,
+        bounds.width + 8,
+        bounds.height + 8,
         this.ROUNDNESS,
       )
       .fill({ color: SUCCESS_COLOR.hexNumber(), alpha: 0.15 })

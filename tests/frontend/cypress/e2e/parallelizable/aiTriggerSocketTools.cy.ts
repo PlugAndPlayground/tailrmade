@@ -69,10 +69,10 @@ describe('AI trigger socket tools', () => {
       });
       expect(badNode.is_error).to.eq(true);
 
-      // 'Surface' is a regular input, not a trigger socket
+      // 'Page' is a regular input, not a trigger socket
       const badSocket = await tc.callMCPTool('set_trigger_type', {
         node_id: 'trig-node-3',
-        socket_name: 'Surface',
+        socket_name: 'Page',
         trigger_type: 'change',
       });
       expect(badSocket.is_error).to.eq(true);
@@ -98,15 +98,15 @@ describe('AI trigger socket tools', () => {
     doWithTestController(async (tc) => {
       await tc.addNode('UISurfaceNode', 'trig-surface-1', 600, 0);
       await tc.addNode('UISurfaceNode', 'trig-surface-2', 600, 400);
-      await tc.addNode('Label', 'trig-label-1', -200, 0);
-      await tc.addNode('Label', 'trig-label-2', -200, 400);
+      await tc.addNode('Text', 'trig-label-1', -200, 0);
+      await tc.addNode('Text', 'trig-label-2', -200, 400);
       await tc.addNode('NavigateToPage', 'trig-nav-1', -200, 800);
       await tc.waitForPendingExecution();
       await tc.connectNodesByID('trig-label-1', 'trig-surface-1', 'ReactUI');
       await tc.connectNodesByID('trig-label-2', 'trig-surface-2', 'ReactUI');
       tc.setNodeInputValue('trig-surface-2', 'Route', 'page-two');
       await tc.waitForPendingExecution();
-      tc.setNodeInputValue('trig-nav-1', 'Surface', 'page-two');
+      tc.setNodeInputValue('trig-nav-1', 'Page', 'page-two');
       await tc.callMCPTool('set_trigger_type', {
         node_id: 'trig-nav-1',
         socket_name: 'Execute',

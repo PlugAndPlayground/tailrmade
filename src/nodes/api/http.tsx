@@ -59,12 +59,9 @@ export class HTTPNode extends PPNode {
       this.getStaticInputData(methodName).value === 'Get' &&
       inputs.every((input) => input.known) &&
       keys.length === 0;
+    const url = this.getStaticInputData(urlInputName).value;
     const risks: NodeRisk[] = [
-      new NetworkRisk(
-        this.getStaticInputData(urlInputName).value,
-        undefined,
-        informational ? 'info' : 'warning',
-      ),
+      new NetworkRisk(url, undefined, informational ? 'info' : 'warning'),
     ];
     if (usesCompanion) {
       risks.push(new CompanionRisk());
@@ -76,7 +73,7 @@ export class HTTPNode extends PPNode {
         risks.push(new ApiKeyRisk());
       }
     }
-    for (const key of keys) risks.push(new ApiKeyRisk(key));
+    for (const key of keys) risks.push(new ApiKeyRisk(key, url));
     return risks;
   }
 

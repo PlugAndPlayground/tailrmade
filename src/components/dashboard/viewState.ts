@@ -1,3 +1,4 @@
+import { sanitizeCustomStyles } from '../../utils/cssValue';
 import { createStore } from '../createStore';
 
 // Per-session view state of the dashboard. None of it belongs in the overlay
@@ -65,6 +66,8 @@ export const resolveCustomStylesForPreviewWidth = (
   customStyles: Record<string, any>,
   previewWidth: number | null,
 ): Record<string, any> => {
+  // Every container style passes through here on its way to the page.
+  customStyles = sanitizeCustomStyles(customStyles);
   if (previewWidth === null) {
     return customStyles;
   }
@@ -127,7 +130,7 @@ export const useToolboxOpen = toolboxOpenStore.useStore;
 export const toggleToolbox = (): void => toolboxOpenStore.set((open) => !open);
 
 // --- surface stack --------------------------------------------------------
-// The dive path of nested UI surfaces (first entry = the top-level selected
+// The dive path of nested UI pages (first entry = the top-level selected
 // surface, last = the one currently displayed). Maintained by DashboardEditor,
 // which owns the surface load listeners, and rendered by DashboardHeader's
 // breadcrumb.

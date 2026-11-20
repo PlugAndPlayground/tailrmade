@@ -1,42 +1,24 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Typography,
   Box,
   CircularProgress,
   Alert,
   Button,
-  Divider,
-  List,
-  ListItem,
-  ListItemText,
   Container,
   FormControlLabel,
   Radio,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  TextField,
   IconButton,
   Chip,
 } from '@mui/material';
 import CloudIcon from '@mui/icons-material/Cloud';
 import ComputerIcon from '@mui/icons-material/Computer';
 import VpnKeyIcon from '@mui/icons-material/VpnKey';
-import DeleteIcon from '@mui/icons-material/Delete';
 import AddIcon from '@mui/icons-material/Add';
-import CloseIcon from '@mui/icons-material/Close';
-import ContentCopyIcon from '@mui/icons-material/ContentCopy';
-import Visibility from '@mui/icons-material/Visibility';
-import VisibilityOff from '@mui/icons-material/VisibilityOff';
-import InputAdornment from '@mui/material/InputAdornment';
 import PsychologyIcon from '@mui/icons-material/Psychology';
 import CloudQueueIcon from '@mui/icons-material/CloudQueue';
 import StorageIcon from '@mui/icons-material/Storage';
-import {
-  ApiKeySummary,
-  FirebaseAppHandler,
-  QuotaInfo,
-} from '../firebase/FirebaseAppHandler';
+import { FirebaseAppHandler, QuotaInfo } from '../firebase/FirebaseAppHandler';
 import InterfaceController, { ListenEvent } from '../InterfaceController';
 import {
   EXECUTION_LOCATION_CLOUD,
@@ -46,8 +28,7 @@ import {
 } from '../services/shared-types';
 import { useUserPreferences } from '../components/useUserPreferences';
 import AccountDataControls from './AccountDataControls';
-
-// Check if two dates are the same day
+import ApiKeysDialog from './ApiKeysDialog';
 
 interface UserProfileProps {
   onSignOut?: () => void;
@@ -144,11 +125,6 @@ const UserProfile: React.FC<UserProfileProps> = ({
   const [preferences, savePreferences] = useUserPreferences();
   const { companionLocation } = preferences;
   const [apiKeysDialogOpen, setApiKeysDialogOpen] = useState(false);
-  const [apiKeys, setApiKeys] = useState<ApiKeySummary[]>([]);
-  const [newKeyName, setNewKeyName] = useState('');
-  const [newKeyDomain, setNewKeyDomain] = useState('');
-  const [newKeyValue, setNewKeyValue] = useState('');
-  const [showApiKey, setShowApiKey] = useState(false);
   const auth = FirebaseAppHandler.getInstance();
 
   const deepUpdate = async (force: boolean = false) => {
@@ -217,43 +193,6 @@ const UserProfile: React.FC<UserProfileProps> = ({
     savePreferences({
       companionLocation: newLocation,
     });
-  };
-
-  const fetchApiKeys = useCallback(async () => {
-    const keys = await auth.getApiKeys();
-    setApiKeys(keys);
-  }, [auth]);
-
-  useEffect(() => {
-    if (apiKeysDialogOpen) {
-      void fetchApiKeys();
-    }
-  }, [apiKeysDialogOpen, fetchApiKeys]);
-
-  const handleAddApiKey = async () => {
-    if (!newKeyName || !newKeyValue || !newKeyDomain) {
-      return;
-    }
-
-    const success = await auth.upsertApiKey({
-      name: newKeyName.trim(),
-      key: newKeyValue.trim(),
-      domain: newKeyDomain.trim(),
-    });
-
-    if (success) {
-      await fetchApiKeys();
-      setNewKeyName('');
-      setNewKeyValue('');
-      setNewKeyDomain('');
-    }
-  };
-
-  const handleRemoveApiKey = async (name: string) => {
-    const success = await auth.deleteApiKey(name);
-    if (success) {
-      setApiKeys((prev) => prev.filter((key) => key.name !== name));
-    }
   };
 
   if (loading) {
@@ -486,217 +425,9 @@ const UserProfile: React.FC<UserProfileProps> = ({
         </Box>
       </Box>
 
-      {/* API Keys Dialog */}
-      <Dialog
-        open={apiKeysDialogOpen}
-        onClose={() => setApiKeysDialogOpen(false)}
-        maxWidth="md"
-        fullWidth
-        sx={{ zIndex: 9999 }}
-        slotProps={{
-          paper: {
-            sx: {
-              bgcolor: 'background.default',
-              backgroundImage:
-                'linear-gradient(rgba(255, 255, 255, 0.165), rgba(255, 255, 255, 0.165))',
-            },
-          },
-        }}
-      >
-        <DialogTitle>
-          <Box
-            sx={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'flex-start',
-            }}
-          >
-            <Box>
-              Manage API Keys
-              <Typography
-                variant="body2"
-                color="text.secondary"
-                sx={{ mt: 0.5 }}
-              >
-                Store API keys securely for use in HTTP nodes with $TM_KEY{'{'}
-                key_name{'}'} syntax
-              </Typography>
-            </Box>
-            <IconButton
-              aria-label="close"
-              onClick={() => setApiKeysDialogOpen(false)}
-              sx={{ ml: 1 }}
-              data-cy="close-api-keys-button"
-            >
-              <CloseIcon />
-            </IconButton>
-          </Box>
-        </DialogTitle>
-        <DialogContent>
-          {apiKeys.length === 0 ? (
-            <Alert severity="info" sx={{ mb: 2 }}>
-              No API keys stored yet. Add one below.
-            </Alert>
-          ) : (
-            <>
-              <Typography variant="subtitle2" sx={{ mb: 1.5, fontWeight: 600 }}>
-                Your API Keys
-              </Typography>
-              <List sx={{ mb: 2 }}>
-                {apiKeys.map((apiKey) => (
-                  <ListItem
-                    key={apiKey.name}
-                    sx={{
-                      bgcolor: 'background.paper',
-                      borderRadius: 1,
-                      border: '1px solid',
-                      borderColor: 'divider',
-                      mb: 1,
-                    }}
-                    secondaryAction={
-                      <IconButton
-                        edge="end"
-                        onClick={() => void handleRemoveApiKey(apiKey.name)}
-                        color="error"
-                        data-cy="remove-api-key-button"
-                        data-key-name={apiKey.name}
-                        aria-label={`Delete API key ${apiKey.name}`}
-                      >
-                        <DeleteIcon />
-                      </IconButton>
-                    }
-                  >
-                    <ListItemText
-                      primary={
-                        <Box
-                          sx={{ display: 'flex', alignItems: 'center', gap: 1 }}
-                        >
-                          <Typography
-                            variant="body2"
-                            sx={{ fontFamily: 'monospace', fontWeight: 600 }}
-                          >
-                            {apiKey.name}
-                          </Typography>
-                          <Typography variant="caption" color="text.secondary">
-                            • {apiKey.domain}
-                          </Typography>
-                        </Box>
-                      }
-                      secondary={
-                        <Box
-                          sx={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: 0.5,
-                            mt: 0.5,
-                          }}
-                        >
-                          <Typography
-                            variant="caption"
-                            sx={{
-                              fontFamily: 'monospace',
-                              color: 'secondary.main',
-                            }}
-                          >
-                            Use as: $TM_KEY{'{'}
-                            {apiKey.name}
-                            {'}'}
-                          </Typography>
-                          <IconButton
-                            size="small"
-                            onClick={() => {
-                              void navigator.clipboard.writeText(
-                                `$TM_KEY{${apiKey.name}}`,
-                              );
-                            }}
-                            sx={{ ml: 0.5, p: 0.5 }}
-                            aria-label="Copy key usage syntax"
-                          >
-                            <ContentCopyIcon sx={{ fontSize: 14 }} />
-                          </IconButton>
-                        </Box>
-                      }
-                      slotProps={{
-                        secondary: { component: 'div' },
-                      }}
-                    />
-                  </ListItem>
-                ))}
-              </List>
-            </>
-          )}
-
-          <Divider sx={{ my: 2 }} />
-
-          <Typography variant="subtitle2" sx={{ mb: 2, fontWeight: 600 }}>
-            Add New API Key
-          </Typography>
-
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-            <Box sx={{ display: 'flex', gap: 2 }}>
-              <TextField
-                label="Key Name"
-                value={newKeyName}
-                onChange={(e) => setNewKeyName(e.target.value)}
-                fullWidth
-                placeholder="openai"
-                size="small"
-                helperText="A name to reference this key in your apps"
-                slotProps={{ htmlInput: { 'data-cy': 'api-key-name-input' } }}
-              />
-              <TextField
-                label="API Domain"
-                value={newKeyDomain}
-                onChange={(e) => setNewKeyDomain(e.target.value)}
-                fullWidth
-                placeholder="api.openai.com"
-                size="small"
-                helperText="The domain of the API service"
-                slotProps={{
-                  htmlInput: { 'data-cy': 'api-key-domain-input' },
-                }}
-              />
-            </Box>
-            <TextField
-              label="API Key Value"
-              type={showApiKey ? 'text' : 'password'}
-              value={newKeyValue}
-              onChange={(e) => setNewKeyValue(e.target.value)}
-              fullWidth
-              placeholder="Enter your API key"
-              size="small"
-              helperText="Your actual API key or token"
-              slotProps={{
-                htmlInput: { 'data-cy': 'api-key-value-input' },
-                input: {
-                  endAdornment: (
-                    <InputAdornment position="end">
-                      <IconButton
-                        aria-label="toggle API key visibility"
-                        onClick={() => setShowApiKey(!showApiKey)}
-                        edge="end"
-                        size="small"
-                      >
-                        {showApiKey ? <VisibilityOff /> : <Visibility />}
-                      </IconButton>
-                    </InputAdornment>
-                  ),
-                },
-              }}
-            />
-            <Button
-              variant="contained"
-              startIcon={<AddIcon />}
-              onClick={() => void handleAddApiKey()}
-              disabled={!newKeyName || !newKeyDomain || !newKeyValue}
-              data-cy="add-api-key-button"
-              sx={{ alignSelf: 'flex-start' }}
-            >
-              Add API Key
-            </Button>
-          </Box>
-        </DialogContent>
-      </Dialog>
+      {apiKeysDialogOpen && (
+        <ApiKeysDialog onClose={() => setApiKeysDialogOpen(false)} />
+      )}
     </>
   );
 };

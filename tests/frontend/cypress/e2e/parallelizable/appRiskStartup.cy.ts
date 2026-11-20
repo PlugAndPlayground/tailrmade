@@ -20,7 +20,7 @@ describe('app startup after risk review', () => {
     });
     doWithTestController(async (controller) => {
       await controller.addNode('UISurfaceNode', 'startup-surface', 400, 0);
-      await controller.addNode('Label', 'startup-label', 0, 0);
+      await controller.addNode('Text', 'startup-label', 0, 0);
       await controller.connectNodesByID(
         'startup-label',
         'startup-surface',

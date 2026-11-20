@@ -363,7 +363,7 @@ const GraphOverlay: React.FunctionComponent<GraphOverlayProps> = (props) => {
       const surface = PPGraph.currentGraph.getNodeById(surfaceId);
       if (!surface || !isSurfaceNode(surface)) {
         console.error(
-          'handleNodesChange: displayed surface id does not resolve to a UI surface node',
+          'handleNodesChange: displayed surface id does not resolve to a UI page node',
           surfaceId,
         );
         return;

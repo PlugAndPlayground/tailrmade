@@ -139,7 +139,7 @@ export class WidgetLayoutType extends AbstractType {
   }
 
   recommendedOutputNodeWidgets(): string[] {
-    return ['label', 'jsoneditor'];
+    return ['text', 'jsoneditor'];
   }
 
   recommendedInputNodeWidgets(): string[] {

@@ -28,6 +28,11 @@ import { StringType } from '../datatypes/stringType';
 import { TriggerType } from '../datatypes/triggerType';
 import { CLOUD_MODE } from '../../services/shared-types';
 import { BackendGateway } from '../../services/BackendGateway';
+import {
+  appSessionStorageVersion,
+  captureAppSessionStorage,
+  sessionLocations,
+} from '../../utils/appSessionStorage';
 
 const LOCATION_NAME = 'Location';
 export const STORAGE_BACKEND_NAME = 'Storage type';
@@ -42,6 +47,7 @@ const FILTER_BY_LOCATION_NAME = 'Filter by Location';
 const DEFAULT_LOCATION = 'Default';
 const OUTPUT_OBJECT_NAMES_NAME = 'Objects';
 const SHOW_TOAST_NOTIFICATION_NAME = 'Show Toast Notification';
+const ADDITIONAL_KEYS_NAME = 'Additional keys';
 const STORAGE_WRITE_SKIPPED_VALUE_EMPTY = 'Write skipped: value is empty';
 const STORAGE_WRITE_SKIPPED_KEY_EXISTS = 'Write skipped: key already exists';
 const STORAGE_DELETE_KEY_NOT_FOUND = 'Key not found in storage';
@@ -54,12 +60,6 @@ const STORAGE_BACKEND_OPTIONS = [
   { text: STORAGE_BACKEND_INDEXED_DB },
   { text: SESSION },
 ];
-export interface URLSetSocketData {
-  node: string;
-  socket: string;
-  data: any;
-}
-
 interface StorageSocketOptions {
   includeStorageBackend?: boolean;
   defaultLocation?: string;
@@ -88,9 +88,45 @@ abstract class AbstractStorageNode extends PPNode {
   protected mutatesStorage = false;
 
   public getRisks(): NodeRisk[] {
+    if (this.usesSessionBackend()) return [];
+    const { target, resolved } = this.getStorageRiskTarget();
     return [
-      this.mutatesStorage ? new StorageWriteRisk() : new StorageReadRisk(),
+      this.mutatesStorage
+        ? new StorageWriteRisk(target, resolved)
+        : new StorageReadRisk(target, resolved),
     ];
+  }
+
+  // Session state is temporary app state, not saved user data.
+  protected usesSessionBackend(): boolean {
+    const backend = this.getStaticInputData(STORAGE_BACKEND_NAME);
+    return backend.known && backend.value === STORAGE_BACKEND_SESSION;
+  }
+
+  // "<location> › <key> · this browser" once everything that picks the saved
+  // data is fixed. Anything set while running leaves it unresolved.
+  protected getStorageRiskTarget(): { target?: string; resolved: boolean } {
+    const key = this.getStaticInputData(KEY_NAME);
+    if (!key.known) return { resolved: false };
+    return this.getStorageRiskTargetForKey(key.value);
+  }
+
+  protected getStorageRiskTargetForKey(key: unknown): {
+    target?: string;
+    resolved: boolean;
+  } {
+    const backend = this.getStaticInputData(STORAGE_BACKEND_NAME);
+    const location = this.getStaticInputData(LOCATION_NAME);
+    if (!backend.known || !location.known) {
+      return { resolved: false };
+    }
+    return {
+      target: describeStorageTarget(
+        `${String(location.value)} \u203a ${String(key)}`,
+        backend.value,
+      ),
+      resolved: true,
+    };
   }
   public socketShouldAutomaticallyAdapt(socket: Socket): boolean {
     return socket.name === VALUE_NAME || socket.name === FALLBACK_VALUE_NAME;
@@ -325,8 +361,6 @@ function setStorageWriteSkippedWarning(
   node.setStatus(new NodeExecutionWarning(message));
 }
 
-const sessionLocations = new Map<string, Record<string, any>>();
-
 let dbInstance: GraphDatabase | undefined;
 
 function getDb(): GraphDatabase {
@@ -356,6 +390,15 @@ function describeStorageBackend(backend: string): string {
     : backend === STORAGE_BACKEND_CLOUD
       ? 'cloud storage'
       : 'IndexedDB';
+}
+
+function describeStorageTarget(address: string, backend: unknown): string {
+  return `${address} \u00b7 ${
+    getStorageBackend({ [STORAGE_BACKEND_NAME]: backend }) ===
+    STORAGE_BACKEND_CLOUD
+      ? 'your account'
+      : 'this browser'
+  }`;
 }
 
 function maybeShowToast(input: Record<string, any>, message: string): void {
@@ -393,7 +436,12 @@ function storageAddress(
   location: string,
   key: string,
 ): string {
-  return JSON.stringify([backend, location, key]);
+  return JSON.stringify([
+    backend,
+    location,
+    key,
+    ...(backend === SESSION ? [appSessionStorageVersion] : []),
+  ]);
 }
 async function serializeMutation<T>(
   address: string,
@@ -463,15 +511,18 @@ export async function writeSessionState(
   value: any,
   owner: PPNode,
 ): Promise<void> {
+  const assertSession = captureAppSessionStorage();
   const changed = await serializeMutation(
     storageAddress(SESSION, location, key),
     async () => {
+      assertSession();
       const values = readSessionLocation(location) ?? {};
       const previous = values[key];
       await mutateStorage(SESSION, location, key, structuredClone(value));
       return hasValueChanged(Object.hasOwn(values, key), previous, true, value);
     },
   );
+  assertSession();
   if (changed) await notifyStorageReadNodes(SESSION, location, key, owner);
 }
 
@@ -628,6 +679,24 @@ abstract class StorageNode extends AbstractStorageNode {
     );
   }
 
+  public getVersion(): number {
+    return 2;
+  }
+
+  // Version 1 offered 'Local storage', kept per session or for good by a
+  // Persistence input.
+  public async migrate(previousVersion: number): Promise<void> {
+    if (previousVersion >= 2) return;
+    const persistence = this.getInputSocketByName('Persistence');
+    const backend = this.getInputSocketByName(STORAGE_BACKEND_NAME);
+    if (backend?.data === 'Local storage') {
+      backend.data =
+        persistence?.data === SESSION ? SESSION : STORAGE_BACKEND_INDEXED_DB;
+      backend.defaultData = backend.data;
+    }
+    if (persistence) this.removeSocket(persistence);
+  }
+
   protected storageOptions(): StorageSocketOptions {
     return {
       includeStorageBackend: true,
@@ -693,6 +762,31 @@ abstract class StorageReader extends StorageNode {
 }
 
 export class StorageWrite extends StorageMutation {
+  public getRisks(): NodeRisk[] {
+    const risks = super.getRisks();
+    if (this.usesSessionBackend()) return risks;
+    if (!this.getInputSocketByName(ADDITIONAL_KEYS_NAME)) return risks;
+
+    const additionalKeys = this.getStaticInputData(ADDITIONAL_KEYS_NAME);
+    if (!additionalKeys.known) {
+      return [...risks, new StorageWriteRisk(undefined, false)];
+    }
+    // Invalid values make execution stop before any storage is changed.
+    if (
+      !Array.isArray(additionalKeys.value) ||
+      !additionalKeys.value.every((key) => typeof key === 'string')
+    ) {
+      return risks;
+    }
+    return [
+      ...risks,
+      ...[...new Set(additionalKeys.value)].map((key) => {
+        const { target, resolved } = this.getStorageRiskTargetForKey(key);
+        return new StorageWriteRisk(target, resolved);
+      }),
+    ];
+  }
+
   protected nextValue(previous: any, input: Record<string, any>): any {
     return input[VALUE_NAME];
   }
@@ -719,8 +813,10 @@ export class StorageWrite extends StorageMutation {
     initStorageSuccessAndError(output);
     try {
       const storageBackend = getStorageBackend(input);
+      const assertSession =
+        storageBackend === SESSION ? captureAppSessionStorage() : () => {};
       const location: string = input[LOCATION_NAME];
-      const additionalKeys = input['Additional keys'] ?? [];
+      const additionalKeys = input[ADDITIONAL_KEYS_NAME] ?? [];
       if (
         !Array.isArray(additionalKeys) ||
         !additionalKeys.every((key) => typeof key === 'string')
@@ -731,11 +827,13 @@ export class StorageWrite extends StorageMutation {
         const changed = await serializeMutation(
           storageAddress(storageBackend, location, key),
           async () => {
+            assertSession();
             const previousValue = await readStorageValue(
               storageBackend,
               location,
               key,
             );
+            assertSession();
             const value = this.nextValue(previousValue, input);
             const nonEmptyOnly = input[NON_EMPTY_ONLY_NAME];
             const insertOnly = input[INSERT_ONLY_NAME];
@@ -775,6 +873,7 @@ export class StorageWrite extends StorageMutation {
         );
         if (changed) changedKeys.push(key);
       }
+      assertSession();
       if (changedKeys.length)
         await notifyStorageReadNodes(storageBackend, location, changedKeys);
     } catch (err) {
@@ -943,17 +1042,21 @@ export class StorageDelete extends StorageMutation {
     initStorageSuccessAndError(output);
     try {
       const storageBackend = getStorageBackend(input);
+      const assertSession =
+        storageBackend === SESSION ? captureAppSessionStorage() : () => {};
       const location = input[LOCATION_NAME];
       const key = input[KEY_NAME];
 
       const changed = await serializeMutation(
         storageAddress(storageBackend, location, key),
         async () => {
+          assertSession();
           const previousValue = await readStorageValue(
             storageBackend,
             location,
             key,
           );
+          assertSession();
           if (previousValue === undefined) {
             setStorageWriteSkippedWarning(
               this,
@@ -971,6 +1074,7 @@ export class StorageDelete extends StorageMutation {
           return true;
         },
       );
+      assertSession();
       if (changed) await notifyStorageReadNodes(storageBackend, location, key);
     } catch (err) {
       this.setStorageExecutionError(
@@ -983,6 +1087,21 @@ export class StorageDelete extends StorageMutation {
 }
 
 export class StorageBrowse extends StorageReader {
+  // Without the location filter it reads everything, which today's wording
+  // already says, so there is no target to name.
+  protected getStorageRiskTarget(): { target?: string; resolved: boolean } {
+    const backend = this.getStaticInputData(STORAGE_BACKEND_NAME);
+    const filter = this.getStaticInputData(FILTER_BY_LOCATION_NAME);
+    if (!backend.known || !filter.known) return { resolved: false };
+    if (!filter.value) return { resolved: true };
+    const location = this.getStaticInputData(LOCATION_NAME);
+    if (!location.known) return { resolved: false };
+    return {
+      target: describeStorageTarget(String(location.value), backend.value),
+      resolved: true,
+    };
+  }
+
   public shouldExecuteOnStorageValueChanged(
     backend: string,
     location: string,

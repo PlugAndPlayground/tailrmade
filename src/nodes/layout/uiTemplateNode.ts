@@ -1,6 +1,6 @@
 // The UI template frame, inverted like a Macro: parameter OUTPUTS on the left
 // block and the UI INPUT on the right, so wires read left to right through the
-// nodes inside. Its body is whatever UI surface is plugged into "UI".
+// nodes inside. Its body is whatever UI page is plugged into "UI".
 import PPGraph from '../../classes/GraphClass';
 import PPNode from '../../classes/NodeClass';
 import Socket from '../../classes/SocketClass';
@@ -78,7 +78,7 @@ inspect_nodes. Prefer a template over duplicating widgets per row or wiring
 per-row widget nodes by hand.
 
 Build order, all with the ordinary tools:
-1. add_node "UI template", "UI surface", and the widgets. Give the widgets the
+1. add_node "UI template", "UI page", and the widgets. Give the widgets the
    defaults every placement should start from.
 2. connect_sockets each widget's ReactUI to the surface, and the surface's ReactUI
    to the template's "${templateUISocketName}". Arrange that surface as usual with

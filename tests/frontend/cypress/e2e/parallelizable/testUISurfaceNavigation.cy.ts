@@ -1,13 +1,13 @@
 import { doWithTestController, openNewGraph } from '../helpers';
 
-describe('UI surface navigation and management', () => {
+describe('UI page navigation and management', () => {
   it('setup: two surfaces with one widget each', () => {
     openNewGraph();
     doWithTestController(async (testController) => {
       await testController.addNode('UISurfaceNode', 'nav-surface-1', 600, 0);
       await testController.addNode('UISurfaceNode', 'nav-surface-2', 600, 400);
-      await testController.addNode('Label', 'nav-label-1', -200, 0);
-      await testController.addNode('Label', 'nav-label-2', -200, 400);
+      await testController.addNode('Text', 'nav-label-1', -200, 0);
+      await testController.addNode('Text', 'nav-label-2', -200, 400);
       await testController.waitForPendingExecution();
       await testController.connectNodesByID(
         'nav-label-1',
@@ -77,7 +77,7 @@ describe('UI surface navigation and management', () => {
   });
 
   it('NavigateToPage switches the displayed surface by name', () => {
-    // both surfaces are named "UI surface" — rename via node name is not
+    // both surfaces are named "UI page" — rename via node name is not
     // exposed here, so navigate by the shared name resolves to the first.
     // This variant verifies the "Execute" trigger socket fires navigation
     // by itself (TriggerType.onDataSet calls executeOptimizedChain), without
@@ -87,7 +87,7 @@ describe('UI surface navigation and management', () => {
     doWithTestController(async (testController) => {
       await testController.addNode('NavigateToPage', 'nav-node-1', -200, 800);
       await testController.waitForPendingExecution();
-      testController.setNodeInputValue('nav-node-1', 'Surface', 'UI surface');
+      testController.setNodeInputValue('nav-node-1', 'Page', 'UI page');
       // TriggerType.onDataSet skips the first population of a socket
       // (previousData is undefined), so set 0 first to establish a baseline,
       // then 1 to produce the positiveFlank rising edge that fires the node.
@@ -106,12 +106,12 @@ describe('UI surface navigation and management', () => {
     // This variant verifies that manually running the node (e.g. via a
     // parent chain, not the trigger itself) still navigates now that the
     // boolean "shouldNavigate" gate is gone - navigation only depends on a
-    // non-empty "Surface" target.
+    // non-empty "Page" target.
     doWithTestController(async (testController) => {
       // give surface-2 a distinct route slug; navigate by it
       testController.setNodeInputValue('nav-surface-2', 'Route', 'Second Page');
       await testController.waitForPendingExecution();
-      testController.setNodeInputValue('nav-node-1', 'Surface', 'second-page');
+      testController.setNodeInputValue('nav-node-1', 'Page', 'second-page');
       const node = testController.getNodeByID('nav-node-1');
       await node.executeOptimizedChain();
     });
@@ -122,8 +122,8 @@ describe('UI surface navigation and management', () => {
 
   it('combines selected layoutable nodes into a new surface (Shift+U)', () => {
     doWithTestController(async (testController) => {
-      await testController.addNode('Label', 'nav-label-3', -200, 1200);
-      await testController.addNode('Label', 'nav-label-4', -200, 1400);
+      await testController.addNode('Text', 'nav-label-3', -200, 1200);
+      await testController.addNode('Text', 'nav-label-4', -200, 1400);
       await testController.waitForPendingExecution();
       testController.selectNodesById(['nav-label-3', 'nav-label-4']);
     });

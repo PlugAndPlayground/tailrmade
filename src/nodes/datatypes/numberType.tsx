@@ -101,7 +101,7 @@ export class NumberType extends AbstractType {
 
   recommendedOutputNodeWidgets(): string[] {
     return [
-      'label',
+      'text',
       'add',
       'subtract',
       'multiply',

@@ -4,9 +4,9 @@ import { hri } from 'human-readable-ids';
 import { v4 as uuid } from 'uuid';
 
 import { NODE_SOURCE, NODE_WIDTH, SOCKET_TYPE } from '../utils/constants';
-import { migrateLegacyStorageNodes } from '../nodes/state/migrations';
 import { GRAPH_DATA_VERSION } from '../utils/graphMigrations';
 import { serializeSocketData } from '../utils/serializeSocketData';
+import { resetAppSessionStorage } from '../utils/appSessionStorage';
 import SocketFocus from './SocketFocus';
 import {
   CustomArgs,
@@ -18,8 +18,10 @@ import {
   DrawerSide,
   TNodeSource,
   AccessType,
+  GraphLoadOptions,
   isSurfaceNode,
   DisplacedLink,
+  InputOverride,
 } from '../utils/interfaces';
 import {
   calculateDistance,
@@ -140,7 +142,7 @@ export default class PPGraph {
 
   _showDebugInfo: boolean;
   _showExecutionVisualisation: boolean;
-  // the UI surface node shown on app load (set in the User Interface tab)
+  // the UI page node shown on app load (set in the User Interface tab)
   defaultUISurfaceNodeId: string | undefined;
   selectedSocket: undefined | PPSocket;
   clickPoint: undefined | PIXI.Point;
@@ -187,6 +189,7 @@ export default class PPGraph {
 
   // lives forever
   constructor(app: PIXI.Application, viewport: Viewport) {
+    resetAppSessionStorage();
     this.app = app;
     globalThis.__PPGRAPH__ = this;
     this.id = hri.random();
@@ -1366,6 +1369,7 @@ export default class PPGraph {
 
   // teardown done before another app is loaded and not undoable
   async clear(): Promise<void> {
+    resetAppSessionStorage();
     this.source = undefined;
     FlowLogic.clearPausedExecutions();
     PNPWorker.resetSession();
@@ -1430,7 +1434,6 @@ export default class PPGraph {
       if (!(await reviewNodePaste(data.nodes.length))) return [];
       if (session !== getNodePasteSession()) return [];
     }
-    data = migrateLegacyStorageNodes(data);
     const newNodes: PPNode[] = [];
     const mappingOfOldAndNewNodes: { [key: string]: PPNode } = {};
 
@@ -1648,12 +1651,10 @@ export default class PPGraph {
     storedGraph: StoredGraph,
     approvalGraphData: SerializedGraph = storedGraph.graphData,
     source = getGraphSource(storedGraph),
+    options: GraphLoadOptions = {},
   ): Promise<boolean> {
     if (this.isConfiguring) return false;
-    storedGraph = {
-      ...storedGraph,
-      graphData: migrateLegacyStorageNodes(storedGraph.graphData),
-    };
+    resetAppSessionStorage();
     FlowLogic.clearPausedExecutions();
     PNPWorker.resetSession();
     resetNodePasteTrust();
@@ -1669,6 +1670,7 @@ export default class PPGraph {
         storedGraph,
         approvalGraphData,
         source,
+        options,
       );
       return configured;
     } finally {
@@ -1692,6 +1694,7 @@ export default class PPGraph {
     storedGraph: StoredGraph,
     approvalGraphData: SerializedGraph,
     source: GraphSource | undefined,
+    options: GraphLoadOptions,
   ): Promise<boolean> {
     // Loading nodes can add defaults or generated values to their serialized data.
     const loadedGraphData = structuredClone(approvalGraphData);
@@ -1798,8 +1801,19 @@ export default class PPGraph {
       }
     }
 
+    const appliedInputOverrides = this.applyInputOverrides(
+      options.inputOverrides ?? [],
+    );
+    loadedGraphData.inputOverrides = appliedInputOverrides.values.length
+      ? appliedInputOverrides.values
+      : undefined;
     appExecutionAllowed.set(true);
-    await this.executeAllSeedNodes(Object.values(this.nodes));
+    await this.executeAllSeedNodes(
+      Object.values(this.nodes),
+      appliedInputOverrides.targets.filter(
+        (node) => node.updateBehaviour.update,
+      ),
+    );
 
     InterfaceController.hideSpinner();
     document.body.style.cursor = 'default';
@@ -1899,8 +1913,49 @@ export default class PPGraph {
     return true;
   }
 
-  async executeAllSeedNodes(nodes: PPNode[]): Promise<void> {
-    const firstIteration = getLoadSeedNodes(nodes);
+  // Input overrides are external values, not replacements for graph wiring. Apply
+  // only the final value for each unconnected input and return exactly what
+  // took effect so the approval can be tied to the same values.
+  private applyInputOverrides(inputOverrides: InputOverride[]): {
+    targets: PPNode[];
+    values: InputOverride[];
+  } {
+    const targets = new Set<PPNode>();
+    const values = new Map<string, InputOverride>();
+    for (const value of inputOverrides) {
+      values.set(JSON.stringify([value.node, value.socket]), value);
+    }
+    const applied: InputOverride[] = [];
+    for (const { node: nodeId, socket: socketName, data } of values.values()) {
+      const node = this.nodes[nodeId];
+      const socket = node?.inputSocketArray.find(
+        (input) => input.name === socketName,
+      );
+      if (!node || !socket) continue;
+      if (socket.hasLink()) {
+        console.warn(
+          `Ignoring override for connected input: ${nodeId}/${socketName}`,
+        );
+        continue;
+      }
+      socket.data = data;
+      targets.add(node);
+      applied.push({
+        node: nodeId,
+        socket: socketName,
+        data: socket.serialize().data,
+      });
+    }
+    return { targets: [...targets], values: applied };
+  }
+
+  async executeAllSeedNodes(
+    nodes: PPNode[],
+    additionalSeeds: PPNode[] = [],
+  ): Promise<void> {
+    const firstIteration = [
+      ...new Set([...getLoadSeedNodes(nodes), ...additionalSeeds]),
+    ];
     await FlowLogic.executeOptimizedChainBatch(firstIteration);
   }
 
@@ -2007,8 +2062,14 @@ export default class PPGraph {
     const groupsSerialized = this.groupLayer.serializeTouching(
       nodesSerialized.map((node) => node.id),
     );
+    const deletedIds = new Set(nodesSerialized.map((node) => node.id));
     const action = async () => {
-      this.selection.deselectAllNodesAndResetSelection();
+      // in one go rather than node by node, so selection listeners never see
+      // a node that is about to go; selected nodes that are not deleted stay
+      // selected
+      this.selection.selectNodes(
+        this.selection.selectedNodes.filter((node) => !deletedIds.has(node.id)),
+      );
       for (let i = 0; i < nodesSerialized.length; i++) {
         await this.removeNode(this.nodes[nodesSerialized[i].id]);
       }
@@ -2119,6 +2180,7 @@ export default class PPGraph {
   }
 
   destroy(): void {
+    resetAppSessionStorage();
     this.stopLogicLoop();
   }
 

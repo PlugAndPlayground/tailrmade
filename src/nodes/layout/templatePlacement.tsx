@@ -83,7 +83,7 @@ export function getPlacementProblem(
   }
   const body = template.getBodySurface();
   if (!body) {
-    return `"${template.nodeName}" has no UI surface plugged into its ${templateUISocketName} input`;
+    return `"${template.nodeName}" has no UI page plugged into its ${templateUISocketName} input`;
   }
   // the guard embedded surfaces already use, keyed on the body surface - two
   // placements of one template are fine, a template inside itself is not

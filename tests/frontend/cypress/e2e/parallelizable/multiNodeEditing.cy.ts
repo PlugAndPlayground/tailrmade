@@ -16,6 +16,9 @@ describe('multi-node editing - basic', () => {
         0,
       );
     });
+    // a new Constant String opens its editor; leave it so keys reach the graph
+    cy.get('[data-cy="constant-string-editor"]').type('{esc}');
+    cy.get('[data-cy="constant-string-editor"]').should('not.exist');
   });
 
   it('select both nodes via ctrl-a', () => {

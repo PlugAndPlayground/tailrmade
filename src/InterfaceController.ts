@@ -6,9 +6,9 @@ import {
   combineSelectedDrawNodes,
   combineSelectedLayoutablesIntoSurface,
   combineToArray,
-  getCurrentCursorPosition,
   isEventComingFromWithinTextInput,
   isMac,
+  getDashboardHorizontalBounds,
 } from './utils/utils';
 import PPGraph from './classes/GraphClass';
 import type { Tooltipable } from './components/Tooltip';
@@ -26,12 +26,7 @@ import {
   TVisibilityAction,
   surfaceElementVisibleSuffix,
 } from './utils/constants_shared';
-import {
-  ActionHandler,
-  ACTIONS,
-  AddNodeActionArgs,
-  PNPAction,
-} from './classes/Action';
+import { ActionHandler } from './classes/Action';
 import {
   ALIGNOPTIONS,
   DASHBOARD_DEFAULT,
@@ -75,13 +70,14 @@ export enum ListenEvent {
   UserHasProAccessChanged,
   GraphListUpdated,
   ActionHistoryChanged, // data = ActionHistorySnapshot
-  SurfaceListChanged, // data = { nodeId: string; action: 'added' | 'removed' } - a UI surface node was added to or removed from the graph
-  SurfaceLayoutChanged, // data = { nodeId: string } - a UI surface node's layout tree (Layout JSON socket) changed
-  DisplayedSurfaceChanged, // data = { nodeId: string } - the UI surface shown in the dashboard changed
+  SurfaceListChanged, // data = { nodeId: string; action: 'added' | 'removed' } - a UI page node was added to or removed from the graph
+  SurfaceLayoutChanged, // data = { nodeId: string } - a UI page node's layout tree (Layout JSON socket) changed
+  DisplayedSurfaceChanged, // data = { nodeId: string } - the UI page shown in the dashboard changed
   SurfaceRuntimeChanged, // data = { nodeId: string } - a surface's runtime override sockets (visible/layout) changed
   ModalOpenChanged, // data = { nodeId: string } - a UI modal node's open/closed state changed
   NodeStatusChanged, // data = { nodeId: string } - a node's error/warning/custom status changed
   NodeDetailPopoverRequested, // data = { nodeId: string; kind: 'status' | 'comment'; x: number; y: number } | null - open the pinned detail popover, or null to close it
+  SubtitleChanged, // data = Caption[] - every caption shown over the canvas
 }
 
 type InterfaceEventListener = (data: any, event: ListenEvent) => void;
@@ -209,11 +205,11 @@ export default class InterfaceController {
   static updateOverlayState: (overlayState: Partial<IOverlay>) => void =
     () => {};
 
-  // The UI surface node currently displayed/edited in the dashboard
+  // The UI page node currently displayed/edited in the dashboard
   static displayedSurfaceNodeId: string | null = null;
 
   /**
-   * Show a specific UI surface node in the dashboard (view and edit mode).
+   * Show a specific UI page node in the dashboard (view and edit mode).
    * source: 'select' resets the breadcrumb, 'dive' pushes onto it,
    * 'crumb' navigates back up
    */
@@ -257,7 +253,7 @@ export default class InterfaceController {
   }
 
   /**
-   * Find a UI surface node by its route slug (the user-controlled URL fragment).
+   * Find a UI page node by its route slug (the user-controlled URL fragment).
    */
   static getSurfaceByRouteSlug(routeSlug: string): UISurfaceNode | undefined {
     const normalized = String(routeSlug ?? '').trim();
@@ -331,7 +327,7 @@ export default class InterfaceController {
   }
 
   /**
-   * Navigate by a single identifier: try a UI surface route slug first, then
+   * Navigate by a single identifier: try a UI page route slug first, then
    * fall back to a surface name.
    */
   static navigateToSurface(identifier: string): 'surface' | 'not-found' {
@@ -375,16 +371,8 @@ export default class InterfaceController {
     const overlayState = InterfaceController.getOverlayState();
 
     if (overlayState.dashboard.visible) {
-      const dashboardWidthPercentage = overlayState.dashboard.widthPercentage;
-      const leftDrawerWidth = overlayState.leftSide.visible
-        ? overlayState.leftSide.width
-        : 0;
-
-      // Calculate dashboard bounds
-      const dashboardWidth =
-        window.innerWidth * (dashboardWidthPercentage / 100);
-      const dashboardLeft = leftDrawerWidth;
-      const dashboardRight = dashboardLeft + dashboardWidth;
+      const { left: dashboardLeft, right: dashboardRight } =
+        getDashboardHorizontalBounds(overlayState);
 
       // Check if click is within dashboard bounds
       if (event.global.x >= dashboardLeft && event.global.x <= dashboardRight) {
@@ -449,7 +437,7 @@ export default class InterfaceController {
               e.preventDefault();
               break;
             case 'k':
-              PPStorage.getInstance().copyCurrentGraphURLToClipboard();
+              void PPStorage.getInstance().copyCurrentGraphURLToClipboard();
               e.preventDefault();
               break;
             case '=':
@@ -601,15 +589,6 @@ export default class InterfaceController {
           case 'KeyT':
             e.preventDefault();
             this.toggleAppView(VISIBILITY_ACTION.TOGGLE);
-            break;
-          case 'KeyL':
-            e.preventDefault();
-            const currPos = getCurrentCursorPosition();
-
-            await PNPAction(
-              ACTIONS.ADD_NODE,
-              new AddNodeActionArgs('Label', currPos),
-            );
             break;
         }
       }

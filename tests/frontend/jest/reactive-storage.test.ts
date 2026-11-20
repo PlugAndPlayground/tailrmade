@@ -6,6 +6,9 @@ jest.mock('../../../src/classes/NodeClass', () => ({
     getInputData(name) {
       return this.inputs[name];
     }
+    getStaticInputData(name) {
+      return { known: true, value: this.inputs[name] };
+    }
     getTags() {
       return [];
     }
@@ -146,10 +149,14 @@ import {
   StorageUpdate,
   StorageDelete,
   StorageBrowse,
+  readSessionState,
+  writeSessionState,
 } from '../../../src/nodes/state/storage';
 import PPGraph from '../../../src/classes/GraphClass';
 import FlowLogic from '../../../src/classes/FlowLogic';
 import { BackendGateway } from '../../../src/services/BackendGateway';
+import { requiresAppRiskReview } from '../../../src/classes/NodeRisk';
+import { resetAppSessionStorage } from '../../../src/utils/appSessionStorage';
 
 const defaults = {
   'Storage type': 'Session',
@@ -165,6 +172,7 @@ function node(Type, inputs = {}) {
   return instance;
 }
 beforeEach(() => {
+  resetAppSessionStorage();
   PPGraph.currentGraph.nodes = {};
   const values = new Map();
   Object.defineProperty(globalThis, 'localStorage', {
@@ -179,6 +187,93 @@ beforeEach(() => {
     },
   });
   jest.clearAllMocks();
+});
+
+test.each([
+  [StorageWrite, 'storage-write'],
+  [StorageUpdate, 'storage-write'],
+  [StorageDelete, 'storage-write'],
+  [StorageRead, 'storage-read'],
+  [StorageBrowse, 'storage-read'],
+])('%p exempts Session state from saved-data risk review', (Type, kind) => {
+  const instance = node(Type);
+  expect(instance.getRisks()).toEqual([]);
+  expect(requiresAppRiskReview(instance.getRisks())).toBe(false);
+
+  for (const backend of ['IndexedDB', 'Cloud', undefined]) {
+    instance.setInputData('Storage type', backend);
+    const risks = instance.getRisks();
+    expect(risks.map((risk) => risk.kind)).toEqual([kind]);
+    expect(
+      requiresAppRiskReview(risks.map((risk) => ({ risk, nodes: [] }))),
+    ).toBe(true);
+  }
+
+  // An unknown backend may still be saved data. Dynamic additional keys on a
+  // write add their own unresolved risk of the same kind.
+  instance.getStaticInputData = () => ({ known: false, value: 'Session' });
+  expect([...new Set(instance.getRisks().map((risk) => risk.kind))]).toEqual([
+    kind,
+  ]);
+});
+
+test('a new app cannot read or browse the previous app session, but IndexedDB stays shared', async () => {
+  await node(StorageWrite, { Value: 'private session value' }).run();
+  await node(StorageWrite, {
+    'Storage type': 'IndexedDB',
+    Value: 'saved value',
+  }).run();
+
+  resetAppSessionStorage();
+  for (const Key of ['key', '']) {
+    const reader = node(StorageRead, { Key, 'Fallback value': 'empty' });
+    await reader.run();
+    expect(reader.output.Value).toBe('empty');
+  }
+  const browser = node(StorageBrowse);
+  await browser.run();
+  expect(browser.output.Objects).toEqual([]);
+  const savedReader = node(StorageRead, { 'Storage type': 'IndexedDB' });
+  await savedReader.run();
+  expect(savedReader.output.Value).toBe('saved value');
+
+  await node(StorageWrite, { Value: 'new app value' }).run();
+  const reader = node(StorageRead);
+  await reader.run();
+  expect(reader.output.Value).toBe('new app value');
+});
+
+test.each([0, 1])(
+  'pending session mutations cannot cross app switches (%i microtasks)',
+  async (ticks) => {
+    await node(StorageWrite, { Value: 'old app value' }).run();
+    const writer = node(StorageWrite, {
+      Value: 'late old app write',
+      'Additional keys': ['other'],
+    });
+    const deletion = node(StorageDelete);
+    const pending = [writer.run(), deletion.run()];
+    for (let i = 0; i < ticks; i++) await Promise.resolve();
+    resetAppSessionStorage();
+    await node(StorageWrite, { Value: 'new app value' }).run();
+    await Promise.all(pending);
+
+    const reader = node(StorageRead, { Key: '' });
+    await reader.run();
+    expect(reader.output.Value).toEqual({ key: 'new app value' });
+    expect(writer.output.Error).toContain('app session has ended');
+    expect(deletion.output.Error).toContain('app session has ended');
+  },
+);
+
+test('legacy accumulator state and pending writes end with the app session', async () => {
+  const owner = node(StorageWrite);
+  await writeSessionState('legacy', 'key', 12, owner);
+  expect(readSessionState('legacy', 'key', 0)).toBe(12);
+  const pending = writeSessionState('legacy', 'key', 13, owner);
+  resetAppSessionStorage();
+  await expect(pending).rejects.toThrow('app session has ended');
+  expect(readSessionState('legacy', 'key', 0)).toBe(0);
 });
 
 test('writes notify matching readers, skip unchanged values, and delete restores fallback', async () => {
@@ -397,7 +492,29 @@ test('loading a saved storage node replaces obsolete backend enum choices', asyn
   ]);
 });
 
-import { migrateCopySocketNodes } from '../../../src/nodes/state/migrations';
+test.each([
+  ['Local storage', 'Session', 'Session'],
+  ['Local storage', 'Saved locally', 'IndexedDB'],
+  ['Cloud', 'Session', 'Cloud'],
+])(
+  'a version 1 storage node on %s kept %s migrates to %s',
+  async (backend, persistence, expected) => {
+    const writer = node(StorageWrite);
+    const sockets = {
+      'Storage type': { data: backend },
+      Persistence: { data: persistence },
+    };
+    writer.getInputSocketByName = (name) => sockets[name];
+    writer.removeSocket = (socket) => {
+      if (socket === sockets.Persistence) delete sockets.Persistence;
+    };
+    await writer.migrate(1);
+    expect(sockets['Storage type'].data).toBe(expected);
+    expect(sockets.Persistence).toBeUndefined();
+  },
+);
+
+import { loadWithStubs } from './loadWithStubs';
 
 test('migrated overlapping copy triggers update only their own destinations in one batch', async () => {
   const input = (name, data) => ({
@@ -416,22 +533,23 @@ test('migrated overlapping copy triggers update only their own destinations in o
       ...['a', 'b', 'c'].map((id) => ({
         id,
         type: 'Constant',
-        socketArray: [input('Value', 0)],
+        socketArray: [input('Value', 0), input('Other', 0)],
       })),
     ],
+    // both copy into b's Value: first by name through its link into Other
     links: [
-      ['first', 'a'],
-      ['first', 'b'],
-      ['second', 'b'],
-      ['second', 'c'],
-    ].map(([sourceNodeId, targetNodeId]) => ({
+      ['first', 'a', 'Value'],
+      ['first', 'b', 'Other'],
+      ['second', 'b', 'Value'],
+      ['second', 'c', 'Value'],
+    ].map(([sourceNodeId, targetNodeId, targetSocketName]) => ({
       sourceNodeId,
       targetNodeId,
       sourceSocketName: 'Value',
-      targetSocketName: 'Value',
+      targetSocketName,
     })),
   } as any;
-  const migrated = migrateCopySocketNodes(original);
+  const migrated = loadWithStubs(original);
   const instances = Object.fromEntries(
     migrated.nodes
       .filter((node) => ['StorageRead', 'StorageWrite'].includes(node.type))
@@ -454,7 +572,10 @@ test('migrated overlapping copy triggers update only their own destinations in o
   );
   const value = (target) =>
     instances[
-      migrated.links.find((link) => link.targetNodeId === target).sourceNodeId
+      migrated.links.find(
+        (link) =>
+          link.targetNodeId === target && link.targetSocketName === 'Value',
+      ).sourceNodeId
     ].output.Value;
   for (const reader of Object.values(PPGraph.currentGraph.nodes) as any[])
     await reader.run();

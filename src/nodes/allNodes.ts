@@ -1,4 +1,5 @@
 import PPNode from '../classes/NodeClass';
+import { DeprecatedNode } from './deprecated/DeprecatedNode';
 import { RegisteredNodeTypes } from '../utils/interfaces';
 
 declare const require: (path: string) => any;
@@ -40,6 +41,8 @@ const getNodeCategories = () => ({
   macro: require('./macro/macro'),
   math: require('./math'),
   tailrmade: require('./utility/tailrmade'),
+  replay: require('./utility/replay'),
+  subtitle: require('./utility/subtitle'),
   typeOf: require('./utility/typeOf'),
   theme: require('./utility/theme'),
   pixotopegateway: require('./api/pixotopeGateway'),
@@ -73,6 +76,7 @@ const getNodeCategories = () => ({
   uiModal: require('./layout/uiModal'),
   uiTemplate: require('./layout/uiTemplate'),
   repeatTemplate: require('./layout/repeatTemplate'),
+  deprecated: require('./deprecated/deprecatedNodes'),
 });
 
 const getAINodeCategories = () => {
@@ -102,6 +106,7 @@ const getAINodeCategories = () => {
     storage: categories.storage,
     statistics: categories.statistics,
     plotlyChart: categories.plotlyChart,
+    browser: categories.browser,
   };
 };
 
@@ -126,6 +131,7 @@ export const getAllNodeTypes = (): RegisteredNodeTypes => {
             tags: node.getTags(),
             hasExample: node.hasExample(),
             showInNodeSearch: node.showInNodeSearch(),
+            deprecated: node instanceof DeprecatedNode,
           };
         }
       }
