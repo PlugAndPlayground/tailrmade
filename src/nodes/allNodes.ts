@@ -77,40 +77,47 @@ const getNodeCategories = () => ({
   deprecated: require('./deprecated/deprecatedNodes'),
 });
 
-const getAINodeCategories = () => {
-  const categories = getNodeCategories();
-  return {
-    codeEditor: categories.codeEditor,
-    dataFunctions: categories.dataFunctions,
-    get: categories.get,
-    websocket: categories.websocket,
-    html: categories.html,
-    json: categories.json,
-    table2: categories.table2,
-    text: categories.text,
-    shader: categories.shader,
-    widgetNodes: categories.widgetNodes,
-    uiSurface: categories.uiSurface,
-    uiModal: categories.uiModal,
-    layout: categories.layout,
-    string: categories.string,
-    math: categories.math,
-    booleanlogic: categories.booleanlogic,
-    array: categories.array,
-    constants: categories.constants,
-    storageAccumulators: categories.storageAccumulators,
-    storage: categories.storage,
-    statistics: categories.statistics,
-    plotlyChart: categories.plotlyChart,
-    browser: categories.browser,
-    // single nodes from categories that are otherwise too noisy for the AI
-    aiExtras: {
-      LoadNPM: categories.utility.LoadNPM,
-      Tailrmade: categories.tailrmade.Tailrmade,
-      DRAW_Shape: categories.draw.DRAW_Shape,
-    },
-  };
-};
+// The AI sees every node but these. A new node is visible to it by default -
+// a node it cannot see, it will not use
+const AI_EXCLUDED_CATEGORIES = new Set<string>([
+  // the native canvas charts and their input conversions: PlotlyChart
+  // replaces them
+  'lineCharts',
+  'pieCharts',
+  'scatterCharts',
+  'trendLine',
+  'barCharts',
+  'graphConversions',
+  // test fixtures
+  'test',
+  'autoTestNodes',
+  // vendor integrations that need hardware or files the AI cannot assume
+  'pixotopegateway',
+  'unrealEngine',
+  'deprecated',
+]);
+const AI_EXCLUDED_NODES = new Set<string>([
+  // jumps the editor's viewport, which means nothing in an app
+  'JumpToNode',
+  // stands in for a node type that failed to load
+  'Placeholder',
+  // presets of AINode, which the AI picks the provider on directly
+  'ClaudeNode',
+  'GeminiNode',
+  // default exports share the registry key "default", so add_node cannot
+  // tell them apart (Get Draw Bounds, Sequence)
+  'default',
+]);
+
+const isAIVisible = (node: PPNode, key: string): boolean =>
+  !AI_EXCLUDED_NODES.has(key) && !(node instanceof DeprecatedNode);
+
+const getAINodeCategories = () =>
+  Object.fromEntries(
+    Object.entries(getNodeCategories()).filter(
+      ([category]) => !AI_EXCLUDED_CATEGORIES.has(category),
+    ),
+  );
 
 export const getAllNodeTypes = (): RegisteredNodeTypes => {
   if (allNodesCached === undefined) {
@@ -201,12 +208,16 @@ const getDetailsForNode = (node: PPNode, key: string): any => {
   };
 };
 
-const getDetailsForCategory = (category: any): any[] => {
+const getDetailsForCategory = (
+  category: any,
+  include: (node: PPNode, key: string) => boolean = () => true,
+): any[] => {
   const toReturn: any[] = [];
   for (const key of Object.keys(category)) {
     const nodeConstructor = category[key];
     if (nodeConstructor.prototype instanceof PPNode) {
       const node: PPNode = new nodeConstructor(key);
+      if (!include(node, key)) continue;
       toReturn.push(getDetailsForNode(node, key));
     }
   }
@@ -231,8 +242,8 @@ export const getAINodesInDetail = (): Promise<any[]> => {
   if (aiNodesInDetail === undefined) {
     const categories = getAINodeCategories();
     const toReturn: any[] = [];
-    for (const [categoryKey, categoryValue] of Object.entries(categories)) {
-      toReturn.push(...getDetailsForCategory(categoryValue));
+    for (const categoryValue of Object.values(categories)) {
+      toReturn.push(...getDetailsForCategory(categoryValue, isAIVisible));
     }
     aiNodesInDetail = Promise.resolve(
       toReturn.sort((a, b) => a.name.localeCompare(b.name)),
