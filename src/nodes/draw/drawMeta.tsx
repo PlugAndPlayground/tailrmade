@@ -16,7 +16,7 @@ const outputWidthName = 'Width';
 const outputHeightName = 'Height';
 const inputMarginName = 'Margin';
 
-export default class DRAW_Get_Bounds extends PPNode {
+export class DRAW_Get_Bounds extends PPNode {
   static hashedBounds: Record<string, PIXI.Rectangle> = {};
   public getName(): string {
     return 'Get Draw Bounds';

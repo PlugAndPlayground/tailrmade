@@ -77,26 +77,28 @@ const getNodeCategories = () => ({
   deprecated: require('./deprecated/deprecatedNodes'),
 });
 
-// The AI sees every node but these. A new node is visible to it by default -
-// a node it cannot see, it will not use
-const AI_EXCLUDED_CATEGORIES = new Set<string>([
-  // the native canvas charts and their input conversions: PlotlyChart
-  // replaces them
-  'lineCharts',
-  'pieCharts',
-  'scatterCharts',
-  'trendLine',
-  'barCharts',
-  'graphConversions',
-  // test fixtures
-  'test',
-  'autoTestNodes',
-  // vendor integrations that need hardware or files the AI cannot assume
-  'pixotopegateway',
-  'unrealEngine',
-  'deprecated',
-]);
+// The AI sees every node but these, by the key add_node takes. A new node is
+// visible to it by default - a node it cannot see, it will not use.
+// Deprecated nodes are always hidden.
 const AI_EXCLUDED_NODES = new Set<string>([
+  // the native canvas charts and their graph inputs: PlotlyChart replaces them
+  'GRAPH_LINE',
+  'GRAPH_PIE',
+  'GRAPH_SCATTER',
+  'GRAPH_BAR',
+  'TrendLine',
+  'JSONArrayToGraphInputX',
+  'JSONArrayToGraphInputXY',
+  'JSONArrayToGraphInputXYZ',
+  // test fixtures
+  'TestDataTypes',
+  'TEST_PotentiallyFail',
+  'TEXT_PotentiallySucceed',
+  // vendor integrations that need hardware or files the AI cannot assume
+  'PixotopeGatewayGet',
+  'PixotopeGatewaySet',
+  'PixotopeGatewayCall',
+  'UAssetParser',
   // jumps the editor's viewport, which means nothing in an app
   'JumpToNode',
   // stands in for a node type that failed to load
@@ -104,20 +106,10 @@ const AI_EXCLUDED_NODES = new Set<string>([
   // presets of AINode, which the AI picks the provider on directly
   'ClaudeNode',
   'GeminiNode',
-  // default exports share the registry key "default", so add_node cannot
-  // tell them apart (Get Draw Bounds, Sequence)
-  'default',
 ]);
 
 const isAIVisible = (node: PPNode, key: string): boolean =>
   !AI_EXCLUDED_NODES.has(key) && !(node instanceof DeprecatedNode);
-
-const getAINodeCategories = () =>
-  Object.fromEntries(
-    Object.entries(getNodeCategories()).filter(
-      ([category]) => !AI_EXCLUDED_CATEGORIES.has(category),
-    ),
-  );
 
 export const getAllNodeTypes = (): RegisteredNodeTypes => {
   if (allNodesCached === undefined) {
@@ -240,7 +232,7 @@ export const getAllNodesInDetail = (): Promise<any[]> => {
 
 export const getAINodesInDetail = (): Promise<any[]> => {
   if (aiNodesInDetail === undefined) {
-    const categories = getAINodeCategories();
+    const categories = getNodeCategories();
     const toReturn: any[] = [];
     for (const categoryValue of Object.values(categories)) {
       toReturn.push(...getDetailsForCategory(categoryValue, isAIVisible));

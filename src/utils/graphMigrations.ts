@@ -36,7 +36,7 @@ import { migrateLegacyMentions } from '../text/tokens';
 import { migrateStaticTextItemsInTree } from '../text/migrations';
 import { migrateLegacyTextNodes } from '../text/nodeMigrations';
 
-export const GRAPH_DATA_VERSION = 12;
+export const GRAPH_DATA_VERSION = 13;
 const LEGACY_GRAPH_DATA_VERSION = 0.1;
 
 type GraphMigration = {
@@ -989,7 +989,29 @@ function migrateSurfaceDefaultsV6ToV7(
   );
 }
 
+// Sequence and Get Draw Bounds were default exports, so both registered as
+// "default" and Sequence, registered last, won: every saved "default" node has
+// always loaded as a Sequence. They now register under their class names.
+function migrateDefaultNodeTypeV12ToV13(
+  graphData: SerializedGraph,
+): SerializedGraph {
+  return {
+    ...graphData,
+    version: 13,
+    nodes: graphData.nodes.map((node) =>
+      node.type?.toLowerCase() === 'default'
+        ? { ...node, type: 'Sequence' }
+        : node,
+    ),
+  };
+}
+
 const GRAPH_MIGRATIONS: GraphMigration[] = [
+  {
+    fromVersion: 12,
+    toVersion: 13,
+    migrate: migrateDefaultNodeTypeV12ToV13,
+  },
   // 8 to 12 changed only storage nodes, which now migrate themselves on load.
   ...[7, 8, 9, 10, 11].map((fromVersion) => ({
     fromVersion,

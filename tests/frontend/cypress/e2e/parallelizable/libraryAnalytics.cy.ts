@@ -84,7 +84,14 @@ describe('library-backed charts and statistics', () => {
   it('shows the AI every node except the excluded ones', () => {
     doWithTestController(async (tc) => {
       const prompt = await tc.getAISystemPrompt();
-      for (const key of ['LoadNPM', 'Tailrmade', 'DRAW_Shape', 'TextEditor2'])
+      for (const key of [
+        'LoadNPM',
+        'Tailrmade',
+        'DRAW_Shape',
+        'TextEditor2',
+        'Sequence',
+        'DRAW_Get_Bounds',
+      ])
         expect(prompt).to.include(`- ${key} (`);
       for (const key of ['JumpToNode', 'Placeholder', 'TEST_PotentiallyFail'])
         expect(prompt).not.to.include(`- ${key} (`);
