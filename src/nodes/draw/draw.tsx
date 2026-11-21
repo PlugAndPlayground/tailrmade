@@ -41,7 +41,7 @@ import {
   outputMultiplierPointerDown,
   outputPixiName,
 } from './abstract';
-import DRAW_Get_Bounds from './drawMeta';
+import { DRAW_Get_Bounds } from './drawMeta';
 import { IsCompatible } from '../datatypes/abstractType';
 import InterfaceController from '../../InterfaceController';
 import { SOCKET_NAME_DASHBOARD_CONTENT } from '../../utils/layoutableHelpers';

@@ -66,12 +66,17 @@ export class ArrayType extends AbstractType {
     let parsedData;
     const warnings: SocketParsingWarning[] = [];
 
-    if (Array.isArray(data)) {
+    // nothing to list is an empty list, not a list holding null
+    if (data === null || data === undefined) {
+      parsedData = [];
+    } else if (Array.isArray(data)) {
       parsedData = data;
     } else if (typeof data === 'string') {
       try {
         parsedData = JSON.parse(data);
-        if (!Array.isArray(parsedData)) {
+        if (parsedData === null) {
+          parsedData = [];
+        } else if (!Array.isArray(parsedData)) {
           parsedData = [data];
         }
       } catch (error) {
