@@ -1,5 +1,6 @@
 import { VISIBILITY_ACTION } from '../../../../../src/utils/constants_shared';
 import {
+  controlOrMetaKey,
   doWithTestController,
   openNewGraph,
   shouldWithTestController,
@@ -810,7 +811,7 @@ describe('template placements', () => {
       });
     cy.get(editors).eq(1).should('contain.text', 'second').type('{end}!');
     markdownsAre(['first', 'second!']);
-    cy.get(editors).eq(1).type('{meta}z');
+    cy.get(editors).eq(1).type(`${controlOrMetaKey()}z`);
     markdownsAre(['first', 'second']);
     cy.get(editors).eq(1).should('have.text', 'second');
     cy.get(editors).eq(0).should('have.text', 'first');
