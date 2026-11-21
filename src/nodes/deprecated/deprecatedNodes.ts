@@ -12,6 +12,8 @@ import Socket from '../../classes/SocketClass';
 import { SOCKET_TYPE } from '../../utils/constants';
 import { DeferredReactType } from '../datatypes/deferredHtmlType';
 import { StringType } from '../datatypes/stringType';
+import { NumberType } from '../datatypes/numberType';
+import { TriggerType } from '../datatypes/triggerType';
 import { plainTextToMarkdown } from '../../text/markdownEscaping';
 import { textDefaultProps } from '../../text/model';
 import {
@@ -585,3 +587,31 @@ export class UserStorageBrowse extends DeprecatedUserStorageNode {
     return 'StorageBrowse';
   }
 }
+
+// Sequence and Get Draw Bounds were default exports, so both registered as
+// "default" and Sequence, registered last, won: a saved "default" node has
+// always loaded as a Sequence. Both now have their class names as keys, and
+// this stub takes over "default" - which is why it is this module's default
+// export and has no named one.
+class DefaultSequence extends DeprecatedNode {
+  public getName(): string {
+    return 'Sequence';
+  }
+  // the sockets its replacement keeps links on, there even if not saved
+  protected getDefaultIO(): Socket[] {
+    return [
+      new Socket(SOCKET_TYPE.TRIGGER, 'Trigger', new TriggerType()),
+      new Socket(SOCKET_TYPE.OUT, 'Sequence 0', new NumberType()),
+    ];
+  }
+  protected getReplacement(
+    node: SerializedNode,
+    { links }: NodeReplacementContext,
+  ): NodeReplacement {
+    return {
+      nodes: [{ ...node, type: 'Sequence', version: undefined }],
+      links: linksOf(node, links),
+    };
+  }
+}
+export default DefaultSequence;
