@@ -42,7 +42,9 @@ import {
   DataTypeProps,
   isDirectlyCompatible,
 } from '../nodes/datatypes/abstractType';
+import { AnyType } from '../nodes/datatypes/anyType';
 import { dataToType, serializeType } from '../nodes/datatypes/typehelper';
+import { isSharedNode } from '../utils/sharedNodes';
 import {
   clearDocumentSelection,
   constructSocketId,
@@ -387,7 +389,11 @@ export default class Socket
       adaptationAcceptable &&
       (incompatibleData || socketWantsToAdapt || this.isOutput())
     ) {
-      const proposedType = dataToType(newData);
+      // a shared node runs for several contexts in turn, so its socket goes
+      // untyped instead of taking the type of whichever one ran last
+      const proposedType = isSharedNode(this.getNode())
+        ? new AnyType()
+        : dataToType(newData);
       if (this.dataType.getName() !== proposedType.getName()) {
         this.changeSocketDataType(proposedType);
       }
@@ -761,7 +767,11 @@ export default class Socket
 
   // if the socket we are connecting to changed type then so do we (assuming we care)
   connectedTargetSocketChangedType(socket: Socket) {
-    if (this.getNode().socketShouldAutomaticallyAdapt(this)) {
+    if (
+      // same as the guard in the data setter above
+      !isSharedNode(this.getNode()) &&
+      this.getNode().socketShouldAutomaticallyAdapt(this)
+    ) {
       this.changeSocketDataType(socket.dataType);
     }
     this.getNode().connectedTargetSocketChangedType(socket);

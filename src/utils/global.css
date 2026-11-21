@@ -19,6 +19,29 @@ html {
   font-size: 100% !important;
 }
 
+/* MUI's autofill detection, defined once here instead of by every InputBase
+   (disableInjectingGlobalStyles in both themes). Each InputBase otherwise
+   mounts a Global that adds four <style> tags, never deduped - a 505-row
+   Repeat of inputs spent ~100 s inserting them into an ever-longer head. */
+@keyframes mui-auto-fill {
+  from {
+    animation-name: mui-auto-fill;
+  }
+}
+@keyframes mui-auto-fill-cancel {
+  from {
+    animation-name: mui-auto-fill-cancel;
+  }
+}
+.MuiInputBase-input {
+  animation-name: mui-auto-fill-cancel;
+  animation-duration: 10ms;
+}
+.MuiInputBase-input:-webkit-autofill {
+  animation-name: mui-auto-fill;
+  animation-duration: 5000s;
+}
+
 .MuiBox-root,
 .MuiStack-root,
 .MuiDivider-root {

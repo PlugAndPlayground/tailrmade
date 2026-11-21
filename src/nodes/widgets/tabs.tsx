@@ -8,6 +8,7 @@ import {
   getSizeSocket,
   getWidgetControlProps,
   outName,
+  clampSelectedIndex,
   outIndexName,
   sizeName,
   useWidgetSize,
@@ -21,13 +22,8 @@ import { BooleanType } from '../datatypes/booleanType';
 import { SOCKET_TYPE } from '../../utils/constants';
 import { useThemeTokens } from '../../utils/theme';
 import { WidgetContentProps } from '../../utils/interfaces';
-import {
-  ActionHandler,
-  BakedAction,
-  SerializableAction,
-  SerializableActionHandler,
-} from '../../classes/Action';
 import { AGENT_DOCS_HEADING } from '../../utils/nodeDocs';
+import type { TemplateInstanceHandle } from '../../components/dashboard/templateInstance';
 
 const tabsOptionsName = 'Tab Options';
 const selectedTabIndex = 'Selected Tab';
@@ -116,35 +112,18 @@ are intentionally independent.`;
     return selectedTabIndex;
   }
 
-  handleOnChange = async (event, newValue) => {
-    const id = this.id;
-    const prev = this.getInputData(selectedTabIndex);
-
-    const applyFunction = async (newIndex) => {
-      const safeNode = SerializableActionHandler.getSafeNode(id);
-      safeNode.setInputData(selectedTabIndex, newIndex);
-      const selectedOption = safeNode.getInputData(tabsOptionsName)[newIndex];
-      safeNode.setOutputData(outName, selectedOption);
-      safeNode.setOutputData(outIndexName, newIndex);
-      await safeNode.executeOptimizedChain();
-    };
-
-    await ActionHandler.performRawAction(
-      new BakedAction(
-        new SerializableAction(applyFunction, applyFunction, 'Select Tab'),
-        newValue,
-        prev,
-      ),
-    );
+  handleOnChange = async (
+    event,
+    newValue,
+    instance?: TemplateInstanceHandle,
+  ) => {
+    await this.commitSelectedIndex(newValue, instance, 'Select Tab');
   };
 
   getWidgetContent(props: WidgetContentProps): React.ReactElement {
     const node = props.node as WidgetTabs;
     const options = props[tabsOptionsName] || [];
-    const selectedIndex = Math.max(
-      0,
-      Math.min(options.length - 1, props[selectedTabIndex]),
-    );
+    const selectedIndex = clampSelectedIndex(options, props[selectedTabIndex]);
 
     const scrollable = props[scrollableName];
     const size = useWidgetSize(props[sizeName]);
@@ -167,7 +146,9 @@ are intentionally independent.`;
           <Tabs
             data-cy={`${props.dataCyId}-tabs`}
             value={selectedIndex}
-            onChange={node.handleOnChange}
+            onChange={(event, newValue) =>
+              void node.handleOnChange(event, newValue, props.templateInstance)
+            }
             variant={scrollable ? 'scrollable' : 'standard'}
             scrollButtons={scrollable ? 'auto' : false}
             centered={!scrollable}

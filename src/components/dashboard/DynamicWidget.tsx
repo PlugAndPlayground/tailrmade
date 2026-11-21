@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useContext } from 'react';
 import {
   Accordion,
   AccordionDetails,
@@ -34,6 +34,7 @@ import {
 import { DATA_DASHBOARD_WIDGET } from '../../utils/constants';
 import { DynamicWidgetName } from '../../utils/constants_shared';
 import { dynamicWidgetDefaultProps } from '../../utils/surfaceTree';
+import { TemplateInstanceContext } from './templateInstance';
 import { ColorSetting, colorSettingToCss } from '../../utils/themeColors';
 
 export type DynamicWidgetBaseProps = {
@@ -98,10 +99,12 @@ export const DynamicWidgetView = (viewProps: DynamicWidgetViewProps) => {
   const layoutableElement = props.id
     ? getLayoutableElement(props.id)
     : undefined;
-  // this hook runs on both branches below, so returning the placeholder
+  // these hooks run on both branches below, so returning the placeholder
   // early cannot violate the rules of hooks
   const { handleMouseEnter, handleMouseLeave } =
     useHoverEvents(layoutableElement);
+  // set when this widget is part of a UI template placement's rendering
+  const placement = useContext(TemplateInstanceContext);
   const graphOnScreen = useIsGraphOnScreen();
   if (!layoutableElement) {
     // a widget whose graph node cannot be resolved must be visibly broken,
@@ -152,6 +155,12 @@ export const DynamicWidgetView = (viewProps: DynamicWidgetViewProps) => {
 
   const style = getBasicLayoutStyles(width, height, parentDirection);
 
+  // In a placement the widget renders from that placement's snapshot, through
+  // the channel a linked ReactUI output already uses. An inner node that has not
+  // run yet has none and falls back to its live sockets.
+  const instanceSnapshot =
+    placement?.snapshots[layoutableElement.getRelatedNode().id];
+
   const widgetContent = (
     <>
       {showLabel && (
@@ -163,6 +172,15 @@ export const DynamicWidgetView = (viewProps: DynamicWidgetViewProps) => {
         index,
         isEditMode,
         disabled: disabled ?? false,
+        reactUIProps: instanceSnapshot,
+        templateInstance: placement
+          ? {
+              ownerId: placement.ownerId,
+              rowKey: placement.rowKey,
+              parent: placement.parent,
+              snapshot: instanceSnapshot,
+            }
+          : undefined,
         blockInteraction,
         height: style.height as string,
         width: style.width as string,
