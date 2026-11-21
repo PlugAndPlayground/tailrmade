@@ -122,7 +122,7 @@ export function findEmbeddingsOf(
 // Ids of all surfaces (transitively) reachable inside the given surface -
 // embedded directly, or through a UI template placed on it, whose body surface
 // is just as much a part of what this surface renders.
-// a Place/Repeat template embeds its template's body surface
+// a UI template instance or list embeds its template's body surface
 const getPlacedBodySurface = (node: PPNode): PPNode | undefined =>
   isTemplatePlacement(node) ? node.getTemplateBodySurface() : undefined;
 
@@ -142,7 +142,7 @@ export function getDescendantSurfaceIds(surface: PPNode): Set<string> {
     }
     const like = current as unknown as SurfaceLikeNode;
     getEmbeddedSurfaceNodes(like).forEach(visit);
-    // a Place/Repeat template on this surface pulls in its template's body
+    // a UI template instance or list on this surface pulls in its template's body
     getElementSockets(like).forEach((socket) =>
       socket.links.forEach((link) =>
         visit(getPlacedBodySurface(link.getSource().getNode())),

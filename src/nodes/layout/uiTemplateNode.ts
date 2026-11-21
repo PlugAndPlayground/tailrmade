@@ -58,11 +58,11 @@ of a "${templateParameterPrefixName}" socket on the left: wire it into the
 input that should change. A fresh parameter appears as soon as you use the last
 one, and each takes the name of the socket it feeds.
 
-Place it with "Place template", once per copy you want. Each placement has its
-own parameter values and renders on its own; the nodes inside the frame are
+Show it with a "UI template instance", one per copy you want. Each instance has
+its own parameter values and renders on its own; the nodes inside the frame are
 shared, so a change to the template shows up in every placement.
 
-To show it once per entry of an array or object, use "Repeat template" instead.
+To show it once per entry of an array or object, use "UI template list" instead.
 
 A viewer's change to a widget inside a placement stays in that placement. To show
 or hide a widget per placement, wire a test of a parameter into that widget's
@@ -88,7 +88,7 @@ Build order, all with the ordinary tools:
 3. connect_sockets from the template's "${templateParameterPrefixName} 1" to each
    input that should differ. One parameter can feed several inputs, and a spare
    "${templateParameterPrefixName} 2" appears once the first is used.
-4. add_node "Place template" or "Repeat template", set_socket_value its
+4. add_node "UI template instance" or "UI template list", set_socket_value its
    "${templateSocketName}" to the template's name, then connect its ReactUI to the
    surface the app shows.
 

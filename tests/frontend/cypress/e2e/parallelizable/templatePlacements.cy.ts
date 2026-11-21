@@ -843,7 +843,7 @@ describe('template placements', () => {
       await connect('ai-node-2', 'ReactUI', 'ai-node-1', 'UI');
       await connect('ai-node-1', 'Parameter 1', 'ai-node-3', VALUE);
 
-      await add('Place template', 'ai-node-4');
+      await add('UI template instance', 'ai-node-4');
       await call('set_socket_value', {
         node_id: 'ai-node-4',
         socket_name: 'Template',
@@ -858,7 +858,7 @@ describe('template placements', () => {
         tc.getNodeByID('ai-node-4').capture.snapshots['ai-node-3'][VALUE],
       ).to.equal('placed');
 
-      await add('Repeat template', 'ai-node-5');
+      await add('UI template list', 'ai-node-5');
       await call('set_socket_value', {
         node_id: 'ai-node-5',
         socket_name: 'Template',

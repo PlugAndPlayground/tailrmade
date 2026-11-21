@@ -56,9 +56,9 @@ export interface TemplateInstanceHandle extends TemplateRowRef {
 }
 
 export interface TemplateInstanceContextValue extends TemplateInstanceCapture {
-  // the node this rendering belongs to (Place template, or Repeat template)
+  // the node this rendering belongs to (UI template instance, or UI template list)
   ownerId: string;
-  // distinguishes rows of one Repeat template; undefined for a single placement
+  // distinguishes rows of one UI template list; undefined for a single placement
   rowKey?: string;
   // the outer row, when this placement is nested in a template
   parent?: TemplateRowRef;

@@ -1,4 +1,4 @@
-// What Place template and Repeat template have in common: which template they
+// What UI template instance and UI template list have in common: which template they
 // place, the edits made in their placements, and rendering one placement.
 //
 // Deliberately not exported from a module allNodes.ts lists, which would

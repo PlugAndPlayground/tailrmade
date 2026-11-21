@@ -65,11 +65,11 @@ export class PlaceTemplate extends TemplatePlacementNode {
   capture: TemplateInstanceCapture = emptyTemplateCapture();
 
   public getName(): string {
-    return 'Place template';
+    return 'UI template instance';
   }
 
   public getDescription(): string {
-    return 'Place a UI template, with its own parameter values';
+    return 'Show a UI template once, with its own parameter values';
   }
 
   public getDocs(): string {

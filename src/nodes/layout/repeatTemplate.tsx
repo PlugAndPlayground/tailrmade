@@ -1,4 +1,4 @@
-// Repeat template: one placement of a UI template per entry of an array or
+// UI template list: one placement of a UI template per entry of an array or
 // object. Not called "grid": columns is a setting, and "Widget grid array"
 // already exists.
 import React from 'react';
@@ -194,7 +194,7 @@ export class RepeatTemplate extends TemplatePlacementNode {
   rows: TemplateRow[] = [];
 
   public getName(): string {
-    return 'Repeat template';
+    return 'UI template list';
   }
 
   public getDescription(): string {
