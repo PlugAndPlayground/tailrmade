@@ -263,7 +263,7 @@ appended.
       new PPSocket(
         SOCKET_TYPE.IN,
         TEXT_NODE_SOCKETS.alignment,
-        new EnumType(enumOptions(TEXT_ALIGNMENTS)),
+        new EnumType(enumOptions(TEXT_ALIGNMENTS), undefined, true),
         textDefaultProps.alignment,
         false,
       ),
