@@ -170,7 +170,9 @@ graph owns the layout and it can no longer be arranged by hand.
 ## Layout
 - A container holds children in a row or column, with its own gap, padding,
   background, width, height, align and justify. The root is ALWAYS a vertical
-  stack; nest a row container for side-by-side items.
+  stack; nest a row container for side-by-side items. On the root, align
+  places children horizontally and justify vertically (only visible when the
+  root is taller than its content, e.g. height '100dvh').
 - A container's emphasis makes it stand out: 'subtle' is a faint tint,
   'strong' a card with a border and shadow. Its tone picks the theme color:
   neutral, primary or secondary. Both follow light/dark and the preset, so

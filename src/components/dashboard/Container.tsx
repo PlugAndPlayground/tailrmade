@@ -195,6 +195,10 @@ export const ContainerView = (viewProps: ContainerViewProps) => {
       sx={{
         display: 'flex',
         flexDirection: 'column', // Root container uses column direction
+        // column: alignItems places children horizontally, justifyContent
+        // vertically (only visible when the root has spare height)
+        alignItems,
+        justifyContent,
         width: width,
         height: height,
         gap: `${gapValue}px`,
@@ -284,6 +288,58 @@ export const Container = (props: ContainerProps) => {
   );
 };
 
+// Page-level settings that only the root has: it is the page column, so it
+// gets the UI preset and a max width in the slot where a child container
+// shows its direction/mobile Layout section.
+const RootPageSection: React.FC<{
+  setProp: (callback: (props: any) => void) => void;
+  height: string;
+  maxWidth: ContainerWidgetProps['maxWidth'];
+}> = ({ setProp, height, maxWidth }) => (
+  <>
+    <UIPresetSection
+      setProp={setProp}
+      height={height}
+      onApplyPreset={(presetKey) => {
+        const presetMaxWidth = ROOT_PRESET_MAX_WIDTH[presetKey];
+        if (presetMaxWidth !== undefined) {
+          setProp((p: any) => {
+            p.maxWidth = presetMaxWidth;
+          });
+        }
+      }}
+    />
+    <AlignmentControl
+      value={getRootMaxWidth(maxWidth)}
+      onChange={(value) => setProp((p: any) => (p.maxWidth = value))}
+      label="Max Width"
+      options={[
+        <ToggleButton size="small" value="xs" key="xs">
+          XS
+        </ToggleButton>,
+        <ToggleButton size="small" value="sm" key="sm">
+          SM
+        </ToggleButton>,
+        <ToggleButton size="small" value="md" key="md">
+          MD
+        </ToggleButton>,
+        <ToggleButton size="small" value="lg" key="lg">
+          LG
+        </ToggleButton>,
+        <ToggleButton size="small" value="xl" key="xl">
+          XL
+        </ToggleButton>,
+        <ToggleButton size="small" value={false} key="false">
+          None
+        </ToggleButton>,
+      ]}
+    />
+  </>
+);
+
+// Root and child containers share one panel in one order, so both read the
+// same in the inspector. The root only differs where it really is different:
+// page settings instead of Layout (it is always a column) and no emphasis.
 const ContainerSettings = () => {
   const {
     actions: { setProp },
@@ -299,146 +355,27 @@ const ContainerSettings = () => {
     return null;
   }
 
-  return isRoot ? (
-    <RootContainerSettings
-      setProp={setProp}
-      width={props.width}
-      height={props.height}
-      minWidth={props.minWidth}
-      minHeight={props.minHeight}
-      maxWidth={props.maxWidth}
-      maxHeight={props.maxHeight}
-      padding={props.padding}
-      gap={props.gap}
-      background={props.background}
-      customStyles={props.customStyles}
-    />
-  ) : (
-    <ChildContainerSettings
-      setProp={setProp}
-      flexDirection={props.flexDirection}
-      width={props.width}
-      height={props.height}
-      justifyContent={props.justifyContent}
-      alignItems={props.alignItems}
-      padding={props.padding}
-      gap={props.gap}
-      background={props.background}
-      mobileBehavior={props.mobileBehavior}
-      emphasis={props.emphasis}
-      tone={props.tone}
-      minWidth={props.minWidth}
-      minHeight={props.minHeight}
-      maxWidth={props.maxWidth}
-      maxHeight={props.maxHeight}
-      customStyles={props.customStyles}
-    />
-  );
-};
-
-interface RootContainerSettingsProps {
-  setProp: (callback: (props: any) => void) => void;
-  width: string;
-  height: string;
-  minWidth: string;
-  minHeight: string;
-  maxWidth: ContainerWidgetProps['maxWidth'];
-  maxHeight: string;
-  padding: number[];
-  gap: number;
-  background: Record<'r' | 'g' | 'b' | 'a', number>;
-  customStyles: Record<string, any>;
-}
-
-const RootContainerSettings: React.FC<RootContainerSettingsProps> = ({
-  setProp,
-  ...props
-}) => {
   return (
     <Stack spacing={0.5} sx={{ bgcolor: 'background.paper' }}>
-      <UIPresetSection
-        setProp={setProp}
-        height={props.height}
-        onApplyPreset={(presetKey) => {
-          const maxWidth = ROOT_PRESET_MAX_WIDTH[presetKey];
-          if (maxWidth !== undefined) {
-            setProp((p: any) => {
-              p.maxWidth = maxWidth;
-            });
-          }
-        }}
-      />
-      <AlignmentControl
-        value={getRootMaxWidth(props.maxWidth)}
-        onChange={(value) => setProp((props: any) => (props.maxWidth = value))}
-        label="Max Width"
-        options={[
-          <ToggleButton size="small" value="xs" key="xs">
-            XS
-          </ToggleButton>,
-          <ToggleButton size="small" value="sm" key="sm">
-            SM
-          </ToggleButton>,
-          <ToggleButton size="small" value="md" key="md">
-            MD
-          </ToggleButton>,
-          <ToggleButton size="small" value="lg" key="lg">
-            LG
-          </ToggleButton>,
-          <ToggleButton size="small" value="xl" key="xl">
-            XL
-          </ToggleButton>,
-          <ToggleButton size="small" value={false} key="false">
-            None
-          </ToggleButton>,
-        ]}
-      />
-      <DimensionsSection setProp={setProp} props={props} />
-      <PaddingSection setProp={setProp} props={props} />
-      <GapSection setProp={setProp} props={props} />
-      <ColorSection setProp={setProp} props={props} />
-      <CustomCSSSection setProp={setProp} props={props} />
-    </Stack>
-  );
-};
-
-interface ChildContainerSettingsProps {
-  setProp: (callback: (props: any) => void) => void;
-  flexDirection: FlexDirection;
-  width: string;
-  height: string;
-  justifyContent: string;
-  alignItems: string;
-  padding: number[];
-  gap: number;
-  background: Record<'r' | 'g' | 'b' | 'a', number>;
-  mobileBehavior: MobileBehavior;
-  emphasis: ContainerEmphasis;
-  tone: ContainerTone;
-  minWidth: string;
-  minHeight: string;
-  maxWidth: string;
-  maxHeight: string;
-  customStyles: Record<string, any>;
-}
-
-const ChildContainerSettings: React.FC<ChildContainerSettingsProps> = ({
-  setProp,
-  ...props
-}) => {
-  return (
-    <Stack spacing={0.5} sx={{ bgcolor: 'background.paper' }}>
-      <LayoutSection setProp={setProp} props={props} />
+      {isRoot ? (
+        <RootPageSection
+          setProp={setProp}
+          height={props.height}
+          maxWidth={props.maxWidth}
+        />
+      ) : (
+        <LayoutSection setProp={setProp} props={props} />
+      )}
       <PaddingSection setProp={setProp} props={props} />
       <GapSection setProp={setProp} props={props} />
       <AlignmentSection
         setProp={setProp}
         props={props}
-        flexDirection={props.flexDirection}
+        flexDirection={isRoot ? 'column' : props.flexDirection}
       />
       <DimensionsSection setProp={setProp} props={props} />
       <ColorSection setProp={setProp} props={props} />
-      <EmphasisSection setProp={setProp} props={props} />
+      {!isRoot && <EmphasisSection setProp={setProp} props={props} />}
       <CustomCSSSection setProp={setProp} props={props} />
     </Stack>
   );
