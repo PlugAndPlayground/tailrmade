@@ -20,6 +20,9 @@ export default defineConfig({
         'inventoryOut',
         'libraryRef',
         'TEST_EMAIL',
+        'transformersManualOut',
+        'transformersManualDevice',
+        'transformersManualModel',
       ]) {
         if (config.env[key] !== undefined) {
           config.expose[key] = config.env[key];

@@ -33,6 +33,7 @@ import { AIBackend } from './services/AIBackend';
 import { createTokenInput } from './text/nodeInputs';
 import PPGroup from './classes/groups/GroupClass';
 import { pendingAppRun } from './services/appExecution';
+import { TransformersWorkerClient } from './nodes/transformers/TransformersWorkerClient';
 import {
   GetReplaySettings,
   ReplayProgress,
@@ -41,6 +42,16 @@ import {
 } from './services/ReplayService';
 
 export default class TestController {
+  // Makes the Transformers.js worker report no WebGPU adapter, as headless
+  // Chrome does on CI, also on machines that have a GPU.
+  simulateMissingWebGPU(reason = 'simulated: no graphics adapter') {
+    return TransformersWorkerClient.get().simulateWebGPU({
+      available: false,
+      adapter: '',
+      reason,
+    });
+  }
+
   isLoadedAppRunning(): boolean {
     return !pendingAppRun.get() && PPGraph.currentGraph.graphConfiguredAndReady;
   }

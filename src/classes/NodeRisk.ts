@@ -279,6 +279,38 @@ export class NavigationRisk extends NodeRisk {
   }
 }
 
+// Models are fetched from Hugging Face by id. The id is all that is sent, so a
+// known one only reveals the visit; one chosen while running could carry app
+// data in its name.
+export const HUGGING_FACE_HOST = 'huggingface.co';
+
+export class ModelDownloadRisk extends NodeRisk {
+  readonly kind = 'model-download';
+  readonly title = 'Download AI models';
+  readonly severity: RiskSeverity;
+  readonly description: string;
+  readonly consequences: readonly Consequence[];
+  readonly resolved: boolean;
+
+  // `size` is a label such as "3.1 GB", known once the model was inspected.
+  constructor(modelId?: string, size?: string) {
+    const model = modelId?.trim();
+    super(
+      model
+        ? `${HUGGING_FACE_HOST}/${model}${size ? ` · ${size}` : ''}`
+        : undefined,
+    );
+    this.resolved = !!model;
+    this.severity = this.resolved ? 'info' : 'warning';
+    this.description = this.resolved
+      ? 'Downloads the model below once and keeps it on this computer. Hugging Face sees your IP address.'
+      : 'Downloads a model chosen while running. Anything in its name reaches Hugging Face.';
+    this.consequences = this.resolved
+      ? [CONSEQUENCE.revealsYouVisited]
+      : [CONSEQUENCE.sendsDataOut];
+  }
+}
+
 export class CompanionRisk extends NodeRisk {
   readonly kind = 'companion';
   readonly title = 'Use your Companion';
