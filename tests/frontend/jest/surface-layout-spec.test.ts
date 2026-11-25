@@ -53,6 +53,41 @@ describe('surfaceLayoutSpec', () => {
     });
   });
 
+  describe('root alignment', () => {
+    // the root renderer used to drop align/justify, so a spec setting them
+    // compiled fine but changed nothing on screen
+    it('stores align and justify on the root and round-trips them', () => {
+      const { tree, warnings } = compileSurfaceSpec(
+        {
+          direction: 'column',
+          align: 'center',
+          justify: 'flex-end',
+          children: [],
+        },
+        new Set(),
+      );
+      expect(warnings).toEqual([]);
+      expect(tree[RootName].props).toMatchObject({
+        alignItems: 'center',
+        justifyContent: 'flex-end',
+      });
+      expect(decompileSurfaceTree(tree).root).toMatchObject({
+        align: 'center',
+        justify: 'flex-end',
+      });
+    });
+
+    it('omits the default flex-start from a decompiled root', () => {
+      const { tree } = compileSurfaceSpec(
+        { direction: 'column', children: [] },
+        new Set(),
+      );
+      const { root } = decompileSurfaceTree(tree);
+      expect(root.align).toBeUndefined();
+      expect(root.justify).toBeUndefined();
+    });
+  });
+
   describe('compileSurfaceSpec dimensions', () => {
     // a numeric height compiled straight into the tree and then crashed the
     // dashboard on render with `height.endsWith is not a function`

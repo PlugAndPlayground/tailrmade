@@ -36,9 +36,12 @@ export class PNPWorker {
     const { signal } = PNPWorker.session;
     const worker = PNPWorker.getWorker();
     let succeeded = false;
+    // the worker gives up a little before the hard stop, so its message (what
+    // timed out and why) arrives instead of a bare termination
+    const workerTimeout = timeout - Math.min(1000, timeout / 10);
     const result = await runWorkerJob(
       worker,
-      { ...message, timeout },
+      { ...message, timeout: workerTimeout },
       timeout,
       async (payload) => {
         if (!payload || typeof payload.success !== 'boolean' || payload.type) {
@@ -76,10 +79,8 @@ export class PNPWorker {
         timeout,
       );
       if (!res.success) {
-        return {
-          result: [],
-          success: false,
-        };
+        // keep the error and its line so the node can show why the chunk failed
+        return { ...res, result: [] };
       }
       const chunkResult = (res.result ?? []) as any[];
       outArray.push(...chunkResult);

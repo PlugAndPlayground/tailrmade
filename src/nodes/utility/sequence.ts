@@ -5,7 +5,7 @@ import { SOCKET_TYPE } from '../../utils/constants';
 import { NumberType } from '../datatypes/numberType';
 import { TriggerType } from '../datatypes/triggerType';
 
-export default class Sequence extends PPNode {
+export class Sequence extends PPNode {
   public getName() {
     return 'Sequence';
   }

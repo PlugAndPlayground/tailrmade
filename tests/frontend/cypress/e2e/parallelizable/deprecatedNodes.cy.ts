@@ -160,6 +160,34 @@ describe('deprecated nodes', () => {
     });
   });
 
+  it('turns a node saved as "default" into the Sequence it loaded as', () => {
+    load(
+      serializedGraph(
+        [
+          serializedNode(
+            'default',
+            'sequence',
+            [
+              serializedSocket('Trigger', undefined, 'TriggerType', 'trigger'),
+              serializedSocket('Sequence 0', 0, 'NumberType', 'out'),
+              serializedSocket('Sequence 1', 0, 'NumberType', 'out'),
+            ],
+            { x: 0, y: 0 },
+          ),
+          constant('target', 'initial', 0),
+        ],
+        [link('sequence', 'Sequence 1', 'target', 'In')],
+      ),
+    );
+
+    shouldWithTestController((testController) => {
+      expect(testController.getNodeByID('sequence').type).to.eq('sequence');
+      expect(
+        testController.getSocketLinks('sequence', 'Sequence 1'),
+      ).to.have.length(1);
+    });
+  });
+
   it('swaps old storage nodes for Storage nodes', () => {
     load(
       serializedGraph([
