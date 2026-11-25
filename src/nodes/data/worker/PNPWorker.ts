@@ -76,10 +76,7 @@ export class PNPWorker {
         timeout,
       );
       if (!res.success) {
-        return {
-          result: [],
-          success: false,
-        };
+        return res;
       }
       const chunkResult = (res.result ?? []) as any[];
       outArray.push(...chunkResult);

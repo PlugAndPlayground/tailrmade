@@ -35,3 +35,37 @@ describe('arrayTransformations', () => {
     });
   });
 });
+
+describe('Transform (Map) Array worker errors', () => {
+  const failures = [
+    {
+      name: 'a missing console global at runtime',
+      code: '(item) => { console.log(item); return item * 2; }',
+      message: /'console' is not defined/,
+    },
+    {
+      name: 'a syntax error in a console.log statement',
+      code: '(item) => { console.log(item; return item * 2; }',
+      message: /expecting ','/,
+    },
+  ];
+
+  for (const { name, code, message } of failures) {
+    it(`reports ${name} on the node with chunking enabled`, () => {
+      openNewGraph();
+      doWithTestController(async (controller) => {
+        await controller.addNode('MapNode', 'map');
+        expect(controller.getNodeInputValue('map', 'Execute in Chunks')).to.be
+          .true;
+        controller.setNodeInputValue('map', 'Array', [1, 2]);
+        controller.setNodeInputValue('map', 'Code', code);
+        await controller.executeNodeByID('map');
+
+        expect(controller.getNodeOutputValue('map', 'Array')).to.deep.equal([]);
+        const status = controller.getNodeByID('map').status.node;
+        expect(status.isError(), 'node has an execution error').to.be.true;
+        expect(status.message).to.match(message);
+      });
+    });
+  }
+});
