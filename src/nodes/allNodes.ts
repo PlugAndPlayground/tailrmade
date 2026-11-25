@@ -74,6 +74,8 @@ const getNodeCategories = () => ({
   events: require('./events'),
   uiSurface: require('./layout/uiSurface'),
   uiModal: require('./layout/uiModal'),
+  uiTemplate: require('./layout/uiTemplate'),
+  repeatTemplate: require('./layout/repeatTemplate'),
   deprecated: require('./deprecated/deprecatedNodes'),
 });
 

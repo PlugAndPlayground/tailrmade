@@ -29,13 +29,8 @@ import { NumberType } from '../datatypes/numberType';
 import { EnumType, EnumStructure } from '../datatypes/enumType';
 import { AbstractType } from '../datatypes/abstractType';
 import { BackPropagation } from '../../interfaces';
+import type { TemplateInstanceHandle } from '../../components/dashboard/templateInstance';
 import { SOCKET_TYPE } from '../../utils/constants';
-import {
-  ActionHandler,
-  BakedAction,
-  SerializableAction,
-  SerializableActionHandler,
-} from '../../classes/Action';
 import { WidgetContentProps } from '../../utils/interfaces';
 import { useResolvedInputVariant } from '../../utils/theme';
 import { NumberInput } from '../../components/NumberInput';
@@ -189,27 +184,12 @@ zeros survive. For a value you calculate with, use a Number Field instead.`;
     this.setOutputData(outName, inputObject[initialValueName]);
   }
 
-  handleOnChange = async (value: string) => {
-    const id = this.id;
-    const prev = this.getInputData(initialValueName);
-
-    const applyFunction = async (newValue) => {
-      const safeNode = SerializableActionHandler.getSafeNode(id);
-      safeNode.setInputData(initialValueName, newValue);
-      safeNode.setOutputData(outName, newValue);
-      await safeNode.executeOptimizedChain();
-    };
-
-    await ActionHandler.performRawAction(
-      new BakedAction(
-        new SerializableAction(
-          applyFunction,
-          applyFunction,
-          'Update Text Field',
-        ),
-        value,
-        prev,
-      ),
+  handleOnChange = async (value: string, instance?: TemplateInstanceHandle) => {
+    await this.commitWidgetEdit(
+      initialValueName,
+      value,
+      instance,
+      'Update Text Field',
     );
   };
 
@@ -218,7 +198,7 @@ zeros survive. For a value you calculate with, use a Number Field instead.`;
     const multiline = props[multilineName];
     const commit = useCommitMode<string>(
       props[initialValueName],
-      (value) => void node.handleOnChange(value),
+      (value) => void node.handleOnChange(value, props.templateInstance),
       {
         mode: props[commitModeName],
         delay: props[commitDelayName],
@@ -379,7 +359,7 @@ Field with "Keyboard" set to "numeric".`;
     const node = props.node as WidgetNumberField;
     const commit = useCommitMode<number>(
       props[initialValueName],
-      (value) => void node.handleValueChange(value),
+      (value) => void node.handleValueChange(value, props.templateInstance),
       { mode: props[commitModeName], delay: props[commitDelayName] },
     );
     const size = useWidgetSize(props[sizeName]);
