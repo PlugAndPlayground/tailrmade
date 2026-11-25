@@ -28,7 +28,7 @@ import {
 } from './abstract';
 import { inputGraphicsName, inputReverseName } from './draw';
 import { DynamicInputNodeFunctions } from '../abstract/DynamicInputNode';
-import DRAW_Get_Bounds from './drawMeta';
+import { DRAW_Get_Bounds } from './drawMeta';
 import { IsCompatible } from '../datatypes/abstractType';
 
 const layoutName = 'Layout mode';

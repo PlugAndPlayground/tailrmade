@@ -121,4 +121,26 @@ describe('restricted worker pool', () => {
     expect(worker.terminate).toHaveBeenCalledTimes(1);
     expect(PNPWorker.workerStack).toHaveLength(0);
   });
+
+  it("passes a failed chunk's error through", async () => {
+    create.mockImplementation(() => ({
+      terminate: jest.fn(),
+      onmessage: null as any,
+      postMessage: jest.fn(function (this: any) {
+        queueMicrotask(() =>
+          this.onmessage({
+            data: { success: false, error: 'boom', lineNumber: 3 },
+          }),
+        );
+      }),
+    }));
+    await expect(
+      new PNPWorker().workChunkedArray({ code: '() => 1', data: [1, 2] }),
+    ).resolves.toEqual({
+      success: false,
+      result: [],
+      error: 'boom',
+      lineNumber: 3,
+    });
+  });
 });

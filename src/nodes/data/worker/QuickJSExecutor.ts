@@ -6,9 +6,38 @@ import {
   type QuickJSContext,
   type QuickJSHandle,
 } from 'quickjs-emscripten-core';
-import { fromQuickJS, toQuickJS } from './quickJSData';
+import { fromQuickJS, toQuickJS, type CopyCheck } from './quickJSData';
 
 const moduleReady = newQuickJSWASMModuleFromVariant(variant);
+const MEMORY_LIMIT_MB = 64;
+// Date.now on every copied value would dominate the copy itself
+const VALUES_PER_DEADLINE_CHECK = 1024;
+
+const largeDataHint =
+  'Pass less data, or use a Custom function with "Main Thread" set to true for trusted code.';
+
+type Phase = 'copying the input' | 'running' | 'copying the result';
+
+// QuickJS's own wording ("interrupted", "out of memory") reads like a crash.
+// The message is rewritten on the original error, so its stack still points
+// at the line in the custom function
+const describeError = (
+  error: unknown,
+  phase: Phase,
+  timeout: number,
+): unknown => {
+  if (!(error instanceof Error)) return error;
+  if (/out of memory|memory access out of bounds/i.test(error.message)) {
+    error.message =
+      phase === 'running'
+        ? `The function ran out of memory in the sandbox (${MEMORY_LIMIT_MB} MB limit).`
+        : `Data is too large for the sandbox (${MEMORY_LIMIT_MB} MB limit) while ${phase}. ${largeDataHint}`;
+  } else if (/^interrupted$/i.test(error.message)) {
+    error.message = `Compute operation timed out after ${timeout} ms`;
+  }
+  return error;
+};
+
 type CachedFunction = {
   vm: QuickJSContext;
   fn: QuickJSHandle;
@@ -24,7 +53,7 @@ export class QuickJSExecutor {
 
   private constructor(runtime: QuickJSRuntime) {
     this.runtime = runtime;
-    runtime.setMemoryLimit(64 * 1024 * 1024);
+    runtime.setMemoryLimit(MEMORY_LIMIT_MB * 1024 * 1024);
     runtime.setMaxStackSize(64 * 1024);
     runtime.setInterruptHandler(() => Date.now() >= this.deadline);
   }
@@ -93,10 +122,38 @@ export class QuickJSExecutor {
   }
 
   execute(code: string, data: unknown, timeout = 30000): unknown {
+    const progress = { phase: 'copying the input' as Phase };
+    try {
+      return this.run(code, data, timeout, progress);
+    } catch (error) {
+      throw describeError(error, progress.phase, timeout);
+    }
+  }
+
+  private run(
+    code: string,
+    data: unknown,
+    timeout: number,
+    progress: { phase: Phase },
+  ): unknown {
     this.deadline = Date.now() + timeout;
+    let copied = 0;
+    const checkCopy =
+      (direction: string): CopyCheck =>
+      () => {
+        if (
+          ++copied % VALUES_PER_DEADLINE_CHECK === 0 &&
+          Date.now() >= this.deadline
+        ) {
+          throw new Error(
+            `Compute operation timed out while copying ${copied} values ${direction} the sandbox. ${largeDataHint}`,
+          );
+        }
+      };
     const { vm, fn, classify, keys, define } = this.compile(code);
     return Scope.withScope((scope) => {
-      const input = toQuickJS(vm, data, scope, define);
+      const input = toQuickJS(vm, data, scope, define, 0, checkCopy('into'));
+      progress.phase = 'running';
       const output = scope.manage(
         vm.unwrapResult(vm.callFunction(fn, vm.undefined, input)),
       );
@@ -123,7 +180,9 @@ export class QuickJSExecutor {
           'QuickJS promise did not settle; browser async APIs are unavailable',
         );
       const settled = scope.manage(vm.unwrapResult(state));
-      return fromQuickJS(vm, settled, classify, keys);
+      progress.phase = 'copying the result';
+      copied = 0;
+      return fromQuickJS(vm, settled, classify, keys, 0, checkCopy('out of'));
     });
   }
 
