@@ -162,12 +162,6 @@ const config: import('webpack').Configuration = {
           to: path.resolve(__dirname, 'dist'),
         },
         {
-          // ONNX Runtime's WASM for the Transformers.js worker, served from
-          // our origin instead of the jsDelivr CDN it would use by default.
-          from: 'node_modules/onnxruntime-web/dist/ort-wasm-simd-threaded.asyncify.{mjs,wasm}',
-          to: path.resolve(__dirname, 'dist', 'onnxruntime', '[name][ext]'),
-        },
-        {
           // Root-level files such as robots.txt and favicon.ico
           from: 'public',
           to: path.resolve(__dirname, 'dist'),

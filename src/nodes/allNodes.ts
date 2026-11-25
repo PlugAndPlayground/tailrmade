@@ -25,7 +25,6 @@ const getNodeCategories = () => ({
   database: require('./utility/database'),
   dataFunctions: require('./data/dataFunctions'),
   statistics: require('./data/statistics'),
-  transformers: require('./transformers/transformersNodes'),
   plotlyChart: require('./draw/graph/plotlyChart'),
   draw: require('./draw/draw'),
   drawCombine: require('./draw/drawCombine'),
@@ -102,7 +101,6 @@ const getAINodeCategories = () => {
     storageAccumulators: categories.storageAccumulators,
     storage: categories.storage,
     statistics: categories.statistics,
-    transformers: categories.transformers,
     plotlyChart: categories.plotlyChart,
     browser: categories.browser,
   };
