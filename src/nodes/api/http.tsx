@@ -108,7 +108,7 @@ KEYNAME comes from either:
 The key must be configured in whichever source is used.
 
 Sending through the companion app needs
-[tailrmade Companion](https://github.com/magnificus/pnp-companion-2/releases/).`;
+[tailrmade Companion](https://github.com/PlugAndPlayground/tailrmade-companion/releases/).`;
   }
 
   public getTags(): string[] {
