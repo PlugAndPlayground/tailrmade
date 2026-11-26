@@ -1,4 +1,10 @@
-import { clearGraph, closeBothDrawers, openNewGraph } from '../helpers';
+import { VISIBILITY_ACTION } from '../../../../../src/utils/constants_shared';
+import {
+  clearGraph,
+  closeBothDrawers,
+  doWithTestController,
+  openNewGraph,
+} from '../helpers';
 
 const openDashboardInspector = () => {
   cy.get('[data-cy="toggle-dashboard-btn"]').click({ force: true });
@@ -66,6 +72,34 @@ describe('Root Container CSS Tests', () => {
       withRootContainer(($root) => {
         expect(getComputedStyle($root[0]).gap).to.contain('48px');
       });
+    });
+  });
+
+  it('tests root container alignment controls', () => {
+    openDashboardInspector();
+    // the inspector shows settings for the selected item only
+    doWithTestController((testController) => {
+      testController.toggleRightSideDrawer(VISIBILITY_ACTION.OPEN);
+    });
+    cy.get('[data-cy="interface-settings-tab"]').click({ force: true });
+    cy.get('[data-cy="dashboard"] #ROOT').click(20, 20, { force: true });
+    cy.get('[data-cy="selected-node-name"]').should(
+      'have.text',
+      'Root container',
+    );
+
+    cy.get('button[title="Center Horizontally"]').first().click();
+    withRootContainer(($root) => {
+      expect(getComputedStyle($root[0]).alignItems).to.eq('center');
+    });
+
+    cy.get('button[title="Bottom"]').first().click();
+    withRootContainer(($root) => {
+      // newer Chrome serializes the computed flex-end as flow-end
+      expect(getComputedStyle($root[0]).justifyContent).to.be.oneOf([
+        'flex-end',
+        'flow-end',
+      ]);
     });
   });
 

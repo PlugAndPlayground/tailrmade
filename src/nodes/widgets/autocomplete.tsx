@@ -32,6 +32,7 @@ import {
   stringifyIfNeeded,
   WidgetPaper,
 } from './abstract';
+import { readWidgetValue } from './widgetEdits';
 import { WidgetSelectableBase } from './selectable-base';
 import { SOCKET_TYPE } from '../../utils/constants';
 import { ArrayType } from '../datatypes/arrayType';
@@ -39,6 +40,7 @@ import { StringType } from '../datatypes/stringType';
 import { BooleanType } from '../datatypes/booleanType';
 import { WidgetContentProps } from '../../utils/interfaces';
 import { useResolvedInputVariant } from '../../utils/theme';
+import type { TemplateInstanceHandle } from '../../components/dashboard/templateInstance';
 
 enum AutocompleteType {
   SINGLE = '(single select)',
@@ -102,8 +104,11 @@ abstract class WidgetAutocompleteBase extends WidgetSelectableBase {
     return [...new Set(options.map(stringifyIfNeeded))];
   }
 
-  handleOnChange = async (newValue: unknown) => {
-    await this.performValueChange(newValue);
+  handleOnChange = async (
+    newValue: unknown,
+    instance?: TemplateInstanceHandle,
+  ) => {
+    await this.performValueChange(newValue, instance);
   };
 
   protected getDefaultIO(): Socket[] {
@@ -158,7 +163,7 @@ abstract class WidgetAutocompleteBase extends WidgetSelectableBase {
     // only the single-select free-text path defers
     const commit = useCommitMode<string>(
       typeof currentValue === 'string' ? currentValue : '',
-      (text) => void node.handleOnChange(text),
+      (text) => void node.handleOnChange(text, props.templateInstance),
       { mode: props[commitModeName], delay: props[commitDelayName] },
     );
 
@@ -186,7 +191,10 @@ abstract class WidgetAutocompleteBase extends WidgetSelectableBase {
               onChange={(_event, newValue) => {
                 // a pick beats whatever was half-typed
                 commit.revert();
-                void node.handleOnChange(newValue ?? '');
+                void node.handleOnChange(
+                  newValue ?? '',
+                  props.templateInstance,
+                );
               }}
               onInputChange={(_event, newInputValue, reason) => {
                 if (freeSolo && reason === 'input') {
@@ -234,7 +242,7 @@ abstract class WidgetAutocompleteBase extends WidgetSelectableBase {
             disableCloseOnSelect
             noOptionsText={noOptionsText}
             onChange={(_event, newValue) => {
-              void node.handleOnChange(newValue);
+              void node.handleOnChange(newValue, props.templateInstance);
             }}
             renderOption={(optionProps, option, { selected }) => (
               <li {...optionProps}>
@@ -289,12 +297,13 @@ export class WidgetAutocomplete extends WidgetAutocompleteBase {
   protected validateAndFormatSelected(
     selected: unknown,
     options: any[],
+    instance?: TemplateInstanceHandle,
   ): unknown {
-    const freeSolo = this.getInputData(freeSoloName);
+    const freeSolo = readWidgetValue(this, freeSoloName, instance);
     if (freeSolo) {
       return this.formatSelected(selected);
     }
-    return super.validateAndFormatSelected(selected, options);
+    return super.validateAndFormatSelected(selected, options, instance);
   }
 
   protected getDefaultSelectedSocket(): Socket {
@@ -323,13 +332,14 @@ export class WidgetMultiAutocomplete extends WidgetAutocompleteBase {
   protected validateAndFormatSelected(
     selected: unknown,
     options: any[],
+    instance?: TemplateInstanceHandle,
   ): unknown {
     const formatted = this.formatSelected(selected);
-    const freeSolo = this.getInputData(freeSoloName);
+    const freeSolo = readWidgetValue(this, freeSoloName, instance);
     if (freeSolo) {
       return formatted;
     }
-    return super.validateAndFormatSelected(selected, options);
+    return super.validateAndFormatSelected(selected, options, instance);
   }
 
   protected getDefaultSelectedSocket(): Socket {

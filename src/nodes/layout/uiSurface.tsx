@@ -13,6 +13,7 @@ import {
   SurfaceVisitedContext,
 } from '../../components/dashboard/SurfaceRenderer';
 import { SurfaceChrome } from '../../components/dashboard/SurfaceChrome';
+import { TemplateInstanceContext } from '../../components/dashboard/templateInstance';
 import { getPageDashboardIcon } from '../../components/dashboard/dashboardIcons';
 import { DeferredReactType } from '../datatypes/deferredHtmlType';
 import { JSONType } from '../datatypes/jsonType';
@@ -71,6 +72,8 @@ export const UISurfaceWidget: React.FunctionComponent<
   // embedded in it render with inDashboard true, so inherit the flag too
   const isCanvasPreview =
     useContext(SurfaceCanvasPreviewContext) || !props.inDashboard;
+  // set when this surface is nested inside a template placement's rendering
+  const templateInstance = useContext(TemplateInstanceContext);
 
   if (visited.includes(node.id)) {
     return (
@@ -88,12 +91,17 @@ export const UISurfaceWidget: React.FunctionComponent<
     );
   }
 
-  const tree = SurfaceSync.applyRuntimeOverrides(
-    node,
-    coerceSurfaceTreeOrEmpty(
-      props[surfaceJsonSocketName] ?? node.getSurfaceTree(),
-    ),
-  );
+  // Inside a template placement, visibility and per-element layout belong to
+  // that placement's pass - they live on this surface's shared sockets, so
+  // re-deriving them here would give every placement the last pass's answer.
+  const tree =
+    templateInstance?.trees[node.id] ??
+    SurfaceSync.applyRuntimeOverrides(
+      node,
+      coerceSurfaceTreeOrEmpty(
+        props[surfaceJsonSocketName] ?? node.getSurfaceTree(),
+      ),
+    );
 
   // A UISurfaceWidget only ever renders a surface as a canvas preview or as a
   // surface embedded inside another surface — never the top-level surface that
@@ -170,7 +178,9 @@ graph owns the layout and it can no longer be arranged by hand.
 ## Layout
 - A container holds children in a row or column, with its own gap, padding,
   background, width, height, align and justify. The root is ALWAYS a vertical
-  stack; nest a row container for side-by-side items.
+  stack; nest a row container for side-by-side items. On the root, align
+  places children horizontally and justify vertically (only visible when the
+  root is taller than its content, e.g. height '100dvh').
 - A container's emphasis makes it stand out: 'subtle' is a faint tint,
   'strong' a card with a border and shadow. Its tone picks the theme color:
   neutral, primary or secondary. Both follow light/dark and the preset, so

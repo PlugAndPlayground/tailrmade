@@ -17,6 +17,11 @@ import PPGraph from '../classes/GraphClass';
 import PPNode from '../classes/NodeClass';
 import PPSelection from '../classes/selection/SelectionClass';
 import {
+  Bounds,
+  findFreeStart,
+  pushDownUntilFree,
+} from '../classes/selection/blockPlacement';
+import {
   addNodesToGroup,
   createGroupData,
   groupNodes,
@@ -289,9 +294,24 @@ SerializableActionHandler.getInstance().registerAction(
   ),
 );
 
+const moveNodesBy = (nodes: PPNode[], dx: number, dy: number): void => {
+  if (dx === 0 && dy === 0) {
+    return;
+  }
+  nodes.forEach((node) => node.setPosition(node.x + dx, node.y + dy));
+};
+
 // Space between two sections laid out by finish_section, wider than the gap
 // between layers inside one so the sections read as separate blocks.
 const SECTION_GAP = 240;
+
+// Minimum free space between a block the AI builds and the nodes already on
+// the canvas. Leaves room for a group frame's header and padding.
+const PLACEMENT_CLEARANCE = 80;
+
+// Area that must be free at the viewport centre for a turn's first node to
+// spawn there; otherwise the turn starts below the existing graph.
+const NEW_BLOCK_FOOTPRINT = 600;
 
 interface DescribeNodeInput {
   node_type: string;
@@ -383,7 +403,16 @@ export class TailrmadeMCPServer {
       // is given and re-anchors the result to their original top-left, so with
       // one node it's a geometric no-op (deOverlap at add time already placed
       // it). Skip the pointless move animation.
+      const obstacles = this.getObstacleBounds(nodes);
+      const start = findFreeStart(
+        PPSelection.getNodesMinMax(nodes),
+        obstacles,
+        PLACEMENT_CLEARANCE,
+        SECTION_GAP,
+      );
+      moveNodesBy(nodes, start.dx, start.dy);
       await PPGraph.currentGraph.selection.autoAlignNodes(nodes);
+      this.keepClearOf(nodes, obstacles);
     }
     this.lastSectionBounds = null;
     const allNodes = sectionNodes.concat(nodes);
@@ -396,6 +425,52 @@ export class TailrmadeMCPServer {
     return Array.from(nodeIds)
       .map((id) => PPGraph.currentGraph.nodes[id])
       .filter((node): node is PPNode => node !== undefined);
+  }
+
+  // Bounds of every node a block must stay clear of: all nodes except the
+  // block itself and this turn's not-yet-placed nodes, which move later.
+  private getObstacleBounds(block: PPNode[]): Bounds[] {
+    const excluded = new Set([
+      ...block.map((node) => node.id),
+      ...this.turnCreatedNodeIds,
+    ]);
+    return Object.values(PPGraph.currentGraph.nodes)
+      .filter((node) => !excluded.has(node.id))
+      .map((node) => PPSelection.getNodesMinMax([node]))
+      .filter((bounds) => bounds.minX <= bounds.maxX);
+  }
+
+  // Last-resort check after a block is aligned: if it still touches another
+  // node, push it down until it is clear.
+  private keepClearOf(block: PPNode[], obstacles: Bounds[]): void {
+    if (block.length === 0) {
+      return;
+    }
+    const { dy } = pushDownUntilFree(
+      PPSelection.getNodesMinMax(block),
+      obstacles,
+      PLACEMENT_CLEARANCE,
+    );
+    moveNodesBy(block, 0, dy);
+  }
+
+  // The turn's first node spawns at the viewport centre when there is room
+  // for a block there, otherwise below the existing graph, so new nodes never
+  // fan out between the user's.
+  private getFreeNodeAnchor(): PIXI.Point {
+    const anchor = PPGraph.currentGraph.getDefaultNewNodeLocation();
+    const { dx, dy } = findFreeStart(
+      {
+        minX: anchor.x,
+        minY: anchor.y,
+        maxX: anchor.x + NEW_BLOCK_FOOTPRINT,
+        maxY: anchor.y + NEW_BLOCK_FOOTPRINT,
+      },
+      this.getObstacleBounds([]),
+      PLACEMENT_CLEARANCE,
+      SECTION_GAP,
+    );
+    return new PIXI.Point(anchor.x + dx, anchor.y + dy);
   }
 
   // Moves the block next to the previous section, auto-aligns it there and
@@ -420,6 +495,7 @@ export class TailrmadeMCPServer {
     const previousPositions = movedNodes.map(
       (node) => new PIXI.Point(node.x, node.y),
     );
+    const obstacles = this.getObstacleBounds(movedNodes);
     let previous = this.lastSectionBounds;
     if (!previous && restructure) {
       const graph = PPSelection.getNodesMinMax(
@@ -439,13 +515,24 @@ export class TailrmadeMCPServer {
         placement === 'below'
           ? this.sectionRowBottom + SECTION_GAP
           : previous.minY;
-      movedNodes.forEach((node) => {
-        node.setPosition(node.x + targetX - minX, node.y + targetY - minY);
-      });
+      moveNodesBy(movedNodes, targetX - minX, targetY - minY);
+    } else if (placementNodes.length > 0) {
+      // The turn's first section stays where its nodes spawned unless that
+      // spot is taken, then it starts below the existing graph.
+      const start = findFreeStart(
+        PPSelection.getNodesMinMax(placementNodes),
+        obstacles,
+        PLACEMENT_CLEARANCE,
+        SECTION_GAP,
+      );
+      moveNodesBy(movedNodes, start.dx, start.dy);
     }
     if (nodes.length >= 2) {
       await PPGraph.currentGraph.selection.autoAlignNodes(nodes);
     }
+    // aligning can grow the block into a neighbour, e.g. a section placed to
+    // the right of the previous one running into the user's nodes
+    this.keepClearOf(movedNodes, obstacles);
     const nodeIds = movedNodes.map((node) => node.id);
     await PNPAction(
       FINISH_SECTION_ACTION,
@@ -1754,7 +1841,7 @@ export class TailrmadeMCPServer {
     if (placedExactly) {
       position = new PIXI.Point(input.x, input.y);
     } else {
-      this.turnNodeAnchor ??= PPGraph.currentGraph.getDefaultNewNodeLocation();
+      this.turnNodeAnchor ??= this.getFreeNodeAnchor();
       position = this.turnNodeAnchor.clone();
     }
     const args = new AddNodeActionArgs(nodeTypeKey, position, nodeId);

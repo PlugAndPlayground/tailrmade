@@ -19,6 +19,12 @@ jest.mock('../../../src/nodes/datatypes/deferredHtmlType', () => ({
 jest.mock('../../../src/nodes/datatypes/stringType', () => ({
   StringType: class {},
 }));
+jest.mock('../../../src/nodes/datatypes/numberType', () => ({
+  NumberType: class {},
+}));
+jest.mock('../../../src/nodes/datatypes/triggerType', () => ({
+  TriggerType: class {},
+}));
 
 import * as deprecatedNodes from '../../../src/nodes/deprecated/deprecatedNodes';
 import type {

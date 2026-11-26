@@ -33,23 +33,36 @@ import { AIBackend } from './services/AIBackend';
 import { createTokenInput } from './text/nodeInputs';
 import PPGroup from './classes/groups/GroupClass';
 import { pendingAppRun } from './services/appExecution';
-import { TransformersWorkerClient } from './nodes/transformers/TransformersWorkerClient';
 import {
   GetReplaySettings,
   ReplayProgress,
   ReplayService,
   ReplayStep,
 } from './services/ReplayService';
+import { isSharedNode } from './utils/sharedNodes';
+import {
+  readWidgetValue,
+  WidgetView,
+  writeWidgetInputs,
+} from './nodes/widgets/widgetEdits';
 
 export default class TestController {
-  // Makes the Transformers.js worker report no WebGPU adapter, as headless
-  // Chrome does on CI, also on machines that have a GPU.
-  simulateMissingWebGPU(reason = 'simulated: no graphics adapter') {
-    return TransformersWorkerClient.get().simulateWebGPU({
-      available: false,
-      adapter: '',
-      reason,
-    });
+  // a widget edit as the viewer makes it, in `view` when given
+  applyWidgetEdit(
+    node: PPNode,
+    socketName: string,
+    value: unknown,
+    view?: WidgetView,
+  ) {
+    return writeWidgetInputs(node, { [socketName]: value }, view);
+  }
+
+  readWidgetValue(node: PPNode, socketName: string, view?: WidgetView) {
+    return readWidgetValue(node, socketName, view);
+  }
+
+  isSharedNode(node: PPNode): boolean {
+    return isSharedNode(node);
   }
 
   isLoadedAppRunning(): boolean {

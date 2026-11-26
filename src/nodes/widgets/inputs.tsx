@@ -29,13 +29,8 @@ import { NumberType } from '../datatypes/numberType';
 import { EnumType, EnumStructure } from '../datatypes/enumType';
 import { AbstractType } from '../datatypes/abstractType';
 import { BackPropagation } from '../../interfaces';
+import type { TemplateInstanceHandle } from '../../components/dashboard/templateInstance';
 import { SOCKET_TYPE } from '../../utils/constants';
-import {
-  ActionHandler,
-  BakedAction,
-  SerializableAction,
-  SerializableActionHandler,
-} from '../../classes/Action';
 import { WidgetContentProps } from '../../utils/interfaces';
 import { useResolvedInputVariant } from '../../utils/theme';
 import { NumberInput } from '../../components/NumberInput';
@@ -63,6 +58,16 @@ const textFieldDefaultLabel = 'Text Field';
 
 // Options
 const typeOptions: EnumStructure = [{ text: 'text' }, { text: 'password' }];
+const keyboardName = 'Keyboard';
+// the on-screen keyboard a phone shows (HTML inputmode). The value stays text,
+// so PINs, ZIP codes and phone numbers keep their leading zeros and spaces
+const keyboardOptions: EnumStructure = [
+  { text: 'text' },
+  { text: 'numeric' },
+  { text: 'decimal' },
+  { text: 'tel' },
+  { text: 'email' },
+];
 
 const getFieldEndSockets = (
   node: WidgetHybridBase,
@@ -83,6 +88,12 @@ export class WidgetTextField extends WidgetHybridBase {
 
   public getDescription(): string {
     return 'Adds a text input field';
+  }
+
+  public getDocs(): string {
+    return `"Keyboard" picks the on-screen keyboard phones show: "numeric" for PINs,
+ZIP codes and IDs, "tel" for phone numbers. The output stays text, so leading
+zeros survive. For a value you calculate with, use a Number Field instead.`;
   }
 
   public getTags(): string[] {
@@ -112,6 +123,13 @@ export class WidgetTextField extends WidgetHybridBase {
         typeName,
         new EnumType(typeOptions, undefined, true),
         typeOptions[0].text,
+        false,
+      ),
+      new Socket(
+        SOCKET_TYPE.IN,
+        keyboardName,
+        new EnumType(keyboardOptions, undefined, true),
+        keyboardOptions[0].text,
         false,
       ),
       new Socket(
@@ -166,27 +184,12 @@ export class WidgetTextField extends WidgetHybridBase {
     this.setOutputData(outName, inputObject[initialValueName]);
   }
 
-  handleOnChange = async (value: string) => {
-    const id = this.id;
-    const prev = this.getInputData(initialValueName);
-
-    const applyFunction = async (newValue) => {
-      const safeNode = SerializableActionHandler.getSafeNode(id);
-      safeNode.setInputData(initialValueName, newValue);
-      safeNode.setOutputData(outName, newValue);
-      await safeNode.executeOptimizedChain();
-    };
-
-    await ActionHandler.performRawAction(
-      new BakedAction(
-        new SerializableAction(
-          applyFunction,
-          applyFunction,
-          'Update Text Field',
-        ),
-        value,
-        prev,
-      ),
+  handleOnChange = async (value: string, instance?: TemplateInstanceHandle) => {
+    await this.commitWidgetEdit(
+      initialValueName,
+      value,
+      instance,
+      'Update Text Field',
     );
   };
 
@@ -195,7 +198,7 @@ export class WidgetTextField extends WidgetHybridBase {
     const multiline = props[multilineName];
     const commit = useCommitMode<string>(
       props[initialValueName],
-      (value) => void node.handleOnChange(value),
+      (value) => void node.handleOnChange(value, props.templateInstance),
       {
         mode: props[commitModeName],
         delay: props[commitDelayName],
@@ -208,6 +211,7 @@ export class WidgetTextField extends WidgetHybridBase {
     const maxLength = props[maxLengthName];
     const required = props[requiredName];
     const type = props[typeName];
+    const keyboard = props[keyboardName];
     const placeholder = props[placeholderName];
     const helperText = props[helperTextName];
     const isInteractive = !(props.inDashboard && props.disabled);
@@ -237,6 +241,8 @@ export class WidgetTextField extends WidgetHybridBase {
               slotProps={{
                 htmlInput: {
                   maxLength: maxLength > 0 ? maxLength : undefined,
+                  inputMode:
+                    keyboard && keyboard !== 'text' ? keyboard : undefined,
                 },
                 input: { sx: { fontSize }, readOnly: !isInteractive },
               }}
@@ -261,6 +267,7 @@ export class WidgetTextField extends WidgetHybridBase {
 const limitRangeName = 'Limit Range';
 const stepName = 'Step';
 const steppersName = 'Show Steppers';
+const groupingName = 'Digit Grouping';
 
 const numberFieldDefaultValue = 0;
 const numberFieldDefaultLabel = 'Number Field';
@@ -272,6 +279,12 @@ export class WidgetNumberField extends WidgetNumberBase {
 
   public getDescription(): string {
     return 'Adds a number input field';
+  }
+
+  public getDocs(): string {
+    return `Turn "Digit Grouping" off for years, IDs and ports, so 2026 does not show
+as "2,026". For codes with leading zeros, such as ZIP codes or PINs, use a Text
+Field with "Keyboard" set to "numeric".`;
   }
 
   public getTags(): string[] {
@@ -314,6 +327,7 @@ export class WidgetNumberField extends WidgetNumberBase {
       new Socket(SOCKET_TYPE.IN, helperTextName, new StringType(), '', false),
       new Socket(SOCKET_TYPE.IN, stepName, new NumberType(), 1, false),
       new Socket(SOCKET_TYPE.IN, steppersName, new BooleanType(), true, false),
+      new Socket(SOCKET_TYPE.IN, groupingName, new BooleanType(), true, false),
       ...getFieldEndSockets(this, new NumberType()),
     ];
   }
@@ -345,7 +359,7 @@ export class WidgetNumberField extends WidgetNumberBase {
     const node = props.node as WidgetNumberField;
     const commit = useCommitMode<number>(
       props[initialValueName],
-      (value) => void node.handleValueChange(value),
+      (value) => void node.handleValueChange(value, props.templateInstance),
       { mode: props[commitModeName], delay: props[commitDelayName] },
     );
     const size = useWidgetSize(props[sizeName]);
@@ -367,6 +381,8 @@ export class WidgetNumberField extends WidgetNumberBase {
           max={limitRange ? props[maxValueName] : undefined}
           step={Math.max(props[stepName], 10 ** -decimals)}
           decimals={decimals}
+          // apps saved before the setting existed keep their separators
+          grouping={props[groupingName] !== false}
           required={props[requiredName]}
           disabled={props.disabled}
           readOnly={props.inDashboard && props.disabled}

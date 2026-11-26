@@ -33,6 +33,9 @@ import {
   SOCKET_TYPE,
 } from '../../utils/constants';
 import { DEFAULT_DASHBOARD_ICON } from '../../components/dashboard/dashboardIcons';
+import type { TemplateInstanceHandle } from '../../components/dashboard/templateInstance';
+import { isSharedNode } from '../../utils/sharedNodes';
+import { ownsNode, writeWidgetInputs } from './widgetEdits';
 import {
   handleFileDrop,
   SUPPORTED_FILE_EXTENSIONS,
@@ -60,6 +63,8 @@ const maxSizeName = 'MaxSize';
 const persistName = 'Persist data';
 const labelName = 'Label';
 const dataName = 'Data';
+// what FileInfo puts out, stored next to Data for the same reasons
+const infoName = 'Info';
 const outputFilesData = 'Filedata';
 const outputFileInfoName = 'FileInfo';
 const showPasteFromClipboardName = 'Show paste from clipboard button';
@@ -165,6 +170,7 @@ export class FileDropzone extends PPNode implements Layoutable {
         true,
       ),
       new PPSocket(SOCKET_TYPE.IN, dataName, new ArrayType(), [], false),
+      new PPSocket(SOCKET_TYPE.IN, infoName, new ArrayType(), [], false),
       new PPSocket(SOCKET_TYPE.OUT, outputFilesData, new ArrayType(), [], true),
       new PPSocket(
         SOCKET_TYPE.OUT,
@@ -216,8 +222,10 @@ export class FileDropzone extends PPNode implements Layoutable {
     inputObject: any,
     outputObject: Record<string, unknown>,
   ): Promise<void> {
-    if (inputObject[persistName]) {
+    // a shared node's files arrive through these inputs either way, see commitFiles
+    if (inputObject[persistName] || isSharedNode(this)) {
       outputObject[outputFilesData] = inputObject[dataName] || [];
+      outputObject[outputFileInfoName] = inputObject[infoName] || [];
     }
     return Promise.resolve();
   }
@@ -267,6 +275,7 @@ export class FileDropzone extends PPNode implements Layoutable {
 const FileDropzoneComponent: React.FC<{
   node: PPNode;
   disabled?: boolean;
+  templateInstance?: TemplateInstanceHandle;
   [activeExtensionsName]?: string[];
   [disabledName]?: boolean;
   [maxFilesName]?: number;
@@ -292,6 +301,29 @@ const FileDropzoneComponent: React.FC<{
   // Check if the drop is enabled
   const isDisabled = externalDisabled || configDisabled;
 
+  // Persisted files are stored on the input side. A view always stores them
+  // there: its widget writes go to the view's owner, never to the shared node.
+  const commitFiles = useCallback(
+    async (newDataArray: unknown[], newFileInfo: unknown[]) => {
+      const keepOnInputs =
+        !ownsNode(props.templateInstance) || node.getInputData(persistName);
+      await writeWidgetInputs(
+        node,
+        keepOnInputs
+          ? { [dataName]: newDataArray, [infoName]: newFileInfo }
+          : {},
+        props.templateInstance,
+        {
+          outputs: {
+            [outputFilesData]: newDataArray,
+            [outputFileInfoName]: newFileInfo,
+          },
+        },
+      );
+    },
+    [node, props.templateInstance],
+  );
+
   const removeFile = useCallback(
     async (index: number) => {
       const newFiles = files.filter((_, i) => i !== index);
@@ -302,19 +334,9 @@ const FileDropzoneComponent: React.FC<{
       setFileInfo(newFileInfo);
       setDataArray(newDataArray);
 
-      // Update node data
-      if (node.getInputData(persistName)) {
-        node.setInputData(dataName, newDataArray);
-      }
-
-      // Update outputs
-      node.setOutputData(outputFilesData, newDataArray);
-      node.setOutputData(outputFileInfoName, newFileInfo);
-
-      // Execute the node to update downstream nodes
-      await node.executeOptimizedChain();
+      await commitFiles(newDataArray, newFileInfo);
     },
-    [files, fileInfo, dataArray, node],
+    [files, fileInfo, dataArray, commitFiles],
   );
 
   const onDrop = async (acceptedFiles: File[]) => {
@@ -376,17 +398,7 @@ const FileDropzoneComponent: React.FC<{
     const updatedDataArray = [...dataArray, ...newDataItems];
     setDataArray(updatedDataArray);
 
-    if (node.getInputData(persistName)) {
-      // store on input side to persist data
-      node.setInputData(dataName, updatedDataArray);
-    }
-
-    // Update outputs
-    node.setOutputData(outputFilesData, updatedDataArray);
-    node.setOutputData(outputFileInfoName, updatedFileInfo);
-
-    // Execute the node to update downstream nodes
-    await node.executeOptimizedChain();
+    await commitFiles(updatedDataArray, updatedFileInfo);
   };
 
   const handlePasteFromClipboard = async () => {

@@ -25,7 +25,6 @@ const getNodeCategories = () => ({
   database: require('./utility/database'),
   dataFunctions: require('./data/dataFunctions'),
   statistics: require('./data/statistics'),
-  transformers: require('./transformers/transformersNodes'),
   plotlyChart: require('./draw/graph/plotlyChart'),
   draw: require('./draw/draw'),
   drawCombine: require('./draw/drawCombine'),
@@ -75,38 +74,44 @@ const getNodeCategories = () => ({
   events: require('./events'),
   uiSurface: require('./layout/uiSurface'),
   uiModal: require('./layout/uiModal'),
+  uiTemplate: require('./layout/uiTemplate'),
+  repeatTemplate: require('./layout/repeatTemplate'),
   deprecated: require('./deprecated/deprecatedNodes'),
 });
 
-const getAINodeCategories = () => {
-  const categories = getNodeCategories();
-  return {
-    codeEditor: categories.codeEditor,
-    dataFunctions: categories.dataFunctions,
-    get: categories.get,
-    websocket: categories.websocket,
-    html: categories.html,
-    json: categories.json,
-    table2: categories.table2,
-    text: categories.text,
-    shader: categories.shader,
-    widgetNodes: categories.widgetNodes,
-    uiSurface: categories.uiSurface,
-    uiModal: categories.uiModal,
-    layout: categories.layout,
-    string: categories.string,
-    math: categories.math,
-    booleanlogic: categories.booleanlogic,
-    array: categories.array,
-    constants: categories.constants,
-    storageAccumulators: categories.storageAccumulators,
-    storage: categories.storage,
-    statistics: categories.statistics,
-    transformers: categories.transformers,
-    plotlyChart: categories.plotlyChart,
-    browser: categories.browser,
-  };
-};
+// The AI sees every node but these, by the key add_node takes. A new node is
+// visible to it by default - a node it cannot see, it will not use.
+// Deprecated nodes are always hidden.
+const AI_EXCLUDED_NODES = new Set<string>([
+  // the native canvas charts and their graph inputs: PlotlyChart replaces them
+  'GRAPH_LINE',
+  'GRAPH_PIE',
+  'GRAPH_SCATTER',
+  'GRAPH_BAR',
+  'TrendLine',
+  'JSONArrayToGraphInputX',
+  'JSONArrayToGraphInputXY',
+  'JSONArrayToGraphInputXYZ',
+  // test fixtures
+  'TestDataTypes',
+  'TEST_PotentiallyFail',
+  'TEXT_PotentiallySucceed',
+  // vendor integrations that need hardware or files the AI cannot assume
+  'PixotopeGatewayGet',
+  'PixotopeGatewaySet',
+  'PixotopeGatewayCall',
+  'UAssetParser',
+  // jumps the editor's viewport, which means nothing in an app
+  'JumpToNode',
+  // stands in for a node type that failed to load
+  'Placeholder',
+  // presets of AINode, which the AI picks the provider on directly
+  'ClaudeNode',
+  'GeminiNode',
+]);
+
+const isAIVisible = (node: PPNode, key: string): boolean =>
+  !AI_EXCLUDED_NODES.has(key) && !(node instanceof DeprecatedNode);
 
 export const getAllNodeTypes = (): RegisteredNodeTypes => {
   if (allNodesCached === undefined) {
@@ -197,12 +202,16 @@ const getDetailsForNode = (node: PPNode, key: string): any => {
   };
 };
 
-const getDetailsForCategory = (category: any): any[] => {
+const getDetailsForCategory = (
+  category: any,
+  include: (node: PPNode, key: string) => boolean = () => true,
+): any[] => {
   const toReturn: any[] = [];
   for (const key of Object.keys(category)) {
     const nodeConstructor = category[key];
     if (nodeConstructor.prototype instanceof PPNode) {
       const node: PPNode = new nodeConstructor(key);
+      if (!include(node, key)) continue;
       toReturn.push(getDetailsForNode(node, key));
     }
   }
@@ -225,10 +234,10 @@ export const getAllNodesInDetail = (): Promise<any[]> => {
 
 export const getAINodesInDetail = (): Promise<any[]> => {
   if (aiNodesInDetail === undefined) {
-    const categories = getAINodeCategories();
+    const categories = getNodeCategories();
     const toReturn: any[] = [];
-    for (const [categoryKey, categoryValue] of Object.entries(categories)) {
-      toReturn.push(...getDetailsForCategory(categoryValue));
+    for (const categoryValue of Object.values(categories)) {
+      toReturn.push(...getDetailsForCategory(categoryValue, isAIVisible));
     }
     aiNodesInDetail = Promise.resolve(
       toReturn.sort((a, b) => a.name.localeCompare(b.name)),

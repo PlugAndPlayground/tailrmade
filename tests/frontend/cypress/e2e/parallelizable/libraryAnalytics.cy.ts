@@ -75,6 +75,27 @@ describe('library-backed charts and statistics', () => {
       expect(prompt).to.include('PlotlyChart (Chart (Plotly))');
       expect(prompt).to.include('Statistics (Statistics)');
       expect(prompt).not.to.include('Load versioned packages with "LoadNPM"');
+      // the native charts stay hidden so the AI reaches for Plotly
+      expect(prompt).not.to.include('- GRAPH_LINE ');
+      expect(prompt).not.to.include('- GRAPH_BAR ');
+    });
+  });
+
+  it('shows the AI every node except the excluded ones', () => {
+    doWithTestController(async (tc) => {
+      const prompt = await tc.getAISystemPrompt();
+      for (const key of [
+        'LoadNPM',
+        'Tailrmade',
+        'DRAW_Shape',
+        'TextEditor2',
+        'Sequence',
+        'DRAW_Get_Bounds',
+      ])
+        expect(prompt).to.include(`- ${key} (`);
+      for (const key of ['JumpToNode', 'Placeholder', 'TEST_PotentiallyFail'])
+        expect(prompt).not.to.include(`- ${key} (`);
+      expect(prompt).not.to.include('- default (');
     });
   });
 
