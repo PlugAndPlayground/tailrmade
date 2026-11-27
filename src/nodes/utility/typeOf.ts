@@ -22,6 +22,18 @@ const matchName = 'Match';
 const matchesOutName = 'Matches';
 const typeOutName = 'Type';
 
+// One ready-made exact check per type a form or a branch most often asks
+// about, so telling values apart needs one node rather than one per type.
+// Output name -> the type name it checks; Any is how an empty value reports.
+const quickChecks: [string, string][] = [
+  ['Is String', new StringType().getName()],
+  ['Is Number', new NumberType().getName()],
+  ['Is Boolean', new BooleanType().getName()],
+  ['Is Array', new ArrayType().getName()],
+  ['Is JSON', new JSONType().getName()],
+  ['Is empty', new AnyType().getName()],
+];
+
 const MATCH_EXACT = 'Exact';
 const MATCH_COMPATIBLE = 'Compatible';
 
@@ -78,6 +90,10 @@ Exact is how you test for an empty value.
 A string holding JSON is reported by what it contains, so "[1,2]" is an Array
 and "{}" is JSON. Parse or quote upstream if you need the string itself.
 
+For the usual questions there is no need to pick a type at all: "Is String",
+"Is Number", "Is Boolean", "Is Array", "Is JSON" and "Is empty" each answer one
+of them exactly, so a single node can show the right widget for a value.
+
 The "Value" input stays Any and never adapts to what flows through it, so rows
 of mixed types each report their own type instead of being coerced to the first
 one seen.`;
@@ -113,6 +129,9 @@ one seen.`;
       ),
       new Socket(SOCKET_TYPE.OUT, matchesOutName, new BooleanType()),
       new Socket(SOCKET_TYPE.OUT, typeOutName, new StringType()),
+      ...quickChecks.map(
+        ([name]) => new Socket(SOCKET_TYPE.OUT, name, new BooleanType()),
+      ),
     ];
   }
 
@@ -123,6 +142,9 @@ one seen.`;
     const value = input[valueName];
     const actualTypeName = dataToType(value).getName();
     output[typeOutName] = actualTypeName;
+    quickChecks.forEach(([name, typeName]) => {
+      output[name] = actualTypeName === typeName;
+    });
 
     const expectedName = input[isTypeName];
     const expected = typesByName.get(expectedName);

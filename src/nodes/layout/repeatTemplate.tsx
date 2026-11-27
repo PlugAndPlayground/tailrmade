@@ -2,13 +2,16 @@
 // object. Not called "grid": columns is a setting, and "Widget grid array"
 // already exists.
 import React from 'react';
-import { Box } from '@mui/material';
+import { Box, IconButton } from '@mui/material';
+import ChevronRightIcon from '@mui/icons-material/ChevronRight';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import { HybridWidgetContentProps } from '../../classes/HybridNode2';
 import PPSocket from '../../classes/SocketClass';
 import {
   TEMPLATE_PLACED_STATE_PROP,
   TemplateInstanceCapture,
 } from '../../components/dashboard/templateInstance';
+import { BooleanType } from '../datatypes/booleanType';
 import { EnumStructure, EnumType } from '../datatypes/enumType';
 import { JSONType } from '../datatypes/jsonType';
 import { NumberType } from '../datatypes/numberType';
@@ -20,6 +23,16 @@ import {
   templateSocketName,
 } from '../../utils/constants_shared';
 import { SOCKET_NAME_DASHBOARD_CONTENT } from '../../utils/layoutableHelpers';
+import {
+  EntryPath,
+  expandEntries,
+  isInsideCollapsed,
+  isPlainObject,
+  readCollapsed,
+  setAtPaths,
+  toEntries,
+  toggleCollapsed,
+} from './templateEntries';
 import { runTemplateAsInstance, TemplateArgs } from './templateInstancing';
 import {
   TemplateBody,
@@ -36,6 +49,10 @@ const gapSocketName = 'Gap';
 const maxItemsSocketName = 'Max items';
 const keyFieldSocketName = 'Key field';
 const emptyTextSocketName = 'Empty text';
+const expandSocketName = 'Expand nested';
+const indentSocketName = 'Indent';
+const collapsibleSocketName = 'Collapsible groups';
+const collapsedSocketName = 'Collapsed';
 const outName = 'Output';
 const EMPTY_TREE = {};
 
@@ -51,29 +68,19 @@ const fieldSocketNameFor = (parameterName: string): string =>
 // named "Label", and almost always wants the entry itself rather than the key
 const KEY_PARAMETER_NAMES = ['key', 'index'];
 
+// Where an expanded row sits in the tree. Only rows of "Expand nested" have it.
+export interface ExpandedPlace {
+  path: EntryPath;
+  depth: number;
+  group: boolean;
+}
+
 export interface TemplateRow {
   key: string;
   label: string;
   entry: unknown;
   capture: TemplateInstanceCapture;
-}
-
-const isPlainObject = (value: unknown): value is Record<string, unknown> =>
-  typeof value === 'object' && value !== null && !Array.isArray(value);
-
-/** The entries to repeat over, as [key, value] pairs, for arrays and objects. */
-export function toEntries(items: unknown): [string, unknown][] {
-  if (Array.isArray(items)) {
-    return items.map((value, index) => [String(index), value]);
-  }
-  if (isPlainObject(items)) {
-    return Object.entries(items);
-  }
-  if (items === undefined || items === null || items === '') {
-    return [];
-  }
-  // a single scalar is a one-row repeat, which beats rendering nothing
-  return [['0', items]];
+  place?: ExpandedPlace;
 }
 
 /**
@@ -84,6 +91,9 @@ export function toEntries(items: unknown): [string, unknown][] {
  * - any other parameter gets the entry's field of that name
  * - if the entry is not an object, an unmatched parameter gets the entry
  *
+ * An expanded row is one value, never a record to pick fields from: path,
+ * depth and group get its place in the tree, and any other name gets the value.
+ *
  * Matching is on the parameter's display name, the one the user sees.
  */
 export function bindEntryToParameters(
@@ -91,9 +101,10 @@ export function bindEntryToParameters(
   key: string,
   entry: unknown,
   overrides: Record<string, string> = {},
+  place?: ExpandedPlace,
 ): Record<string, unknown> {
   const findField = (wanted: string): string | undefined =>
-    isPlainObject(entry)
+    isPlainObject(entry) && !place
       ? Object.keys(entry).find((name) => name.trim().toLowerCase() === wanted)
       : undefined;
   const pick = (wanted: string): unknown => {
@@ -101,6 +112,12 @@ export function bindEntryToParameters(
       return key;
     }
     if (ENTRY_PARAMETER_NAMES.includes(wanted)) {
+      return entry;
+    }
+    if (place) {
+      if (wanted === 'path') return place.path;
+      if (wanted === 'depth') return place.depth;
+      if (wanted === 'group') return place.group;
       return entry;
     }
     if (isPlainObject(entry)) {
@@ -156,7 +173,18 @@ export const RepeatTemplateWidget: React.FunctionComponent<
     Math.round(Number(props[columnsSocketName]) || 1),
   );
   const gap = Math.max(0, Number(props[gapSocketName]) || 0);
+  const indent = Math.max(0, Number(props[indentSocketName]) || 0);
   const interactive = Boolean(props.inDashboard) && !props.disabled;
+  // a fold toggle only where there are groups, and only for this node's own
+  // rows: nested in another template, its rows belong to that template's row
+  const foldable =
+    Boolean(props[collapsibleSocketName]) &&
+    !props[TEMPLATE_PLACED_STATE_PROP] &&
+    rows.some((row) => row.place?.group);
+  const collapsed = foldable ? readCollapsed(props[collapsedSocketName]) : [];
+  const shownRows = rows.filter(
+    (row) => !row.place || !isInsideCollapsed(row.place.path, collapsed),
+  );
 
   return (
     <Box
@@ -169,25 +197,125 @@ export const RepeatTemplateWidget: React.FunctionComponent<
         // column lays every row out side by side - all the same node
         gridTemplateColumns:
           direction === 'row' && columns === 1
-            ? `repeat(${rows.length}, minmax(0, 1fr))`
+            ? `repeat(${shownRows.length}, minmax(0, 1fr))`
             : `repeat(${columns}, minmax(0, 1fr))`,
       }}
     >
-      {rows.map((row) => (
-        <TemplateBody
-          key={row.key}
-          ownerId={node.id}
-          rowKey={row.key}
-          capture={row.capture}
-          tree={row.capture.trees[body.id] ?? EMPTY_TREE}
-          visited={bodyVisited}
-          isCanvasPreview={isCanvasPreview}
-          interactive={interactive}
-        />
-      ))}
+      {shownRows.map((row) => {
+        const placed = (
+          <TemplateBody
+            key={row.key}
+            ownerId={node.id}
+            rowKey={row.key}
+            capture={row.capture}
+            tree={row.capture.trees[body.id] ?? EMPTY_TREE}
+            visited={bodyVisited}
+            isCanvasPreview={isCanvasPreview}
+            interactive={interactive}
+          />
+        );
+        const groupPath =
+          foldable && row.place?.group && !props.disabled
+            ? row.place.path
+            : undefined;
+        const content = foldable ? (
+          <Box
+            key={row.key}
+            data-cy={groupPath && `group row ${JSON.stringify(groupPath)}`}
+            // the whole heading folds, not just the chevron
+            onClick={
+              groupPath &&
+              ((event: React.MouseEvent) => {
+                if (!isPlainClick(event)) {
+                  return;
+                }
+                node.toggleGroup(groupPath);
+              })
+            }
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              minWidth: 0,
+              ...(groupPath && {
+                cursor: 'pointer',
+                borderRadius: 1,
+                '&:hover': { bgcolor: 'action.hover' },
+              }),
+            }}
+          >
+            {/* every row keeps the slot, so values line up with headings */}
+            <Box sx={{ width: 28, flexShrink: 0 }}>
+              {row.place?.group && (
+                <FoldToggle
+                  node={node}
+                  path={row.place.path}
+                  // folded exactly when its own rows would be hidden
+                  open={!isInsideCollapsed([...row.place.path, ''], collapsed)}
+                  disabled={Boolean(props.disabled)}
+                />
+              )}
+            </Box>
+            <Box sx={{ flex: 1, minWidth: 0 }}>{placed}</Box>
+          </Box>
+        ) : (
+          placed
+        );
+        const depth = row.place?.depth ?? 0;
+        // only an expanded row has a depth, so plain rows keep their DOM as is
+        return depth > 0 && indent > 0 ? (
+          <Box key={row.key} sx={{ pl: `${depth * indent}px`, minWidth: 0 }}>
+            {content}
+          </Box>
+        ) : (
+          content
+        );
+      })}
     </Box>
   );
 };
+
+// Controls inside a group row keep their own clicks, the chevron included, and
+// selecting the heading's text does not fold it.
+const OWN_CLICK_SELECTOR =
+  'button, a, input, textarea, select, label, [role="button"], [role="slider"], [role="checkbox"], [role="switch"], [role="combobox"], [contenteditable="true"]';
+function isPlainClick(event: React.MouseEvent): boolean {
+  const target = event.target as HTMLElement | null;
+  if (target?.closest(OWN_CLICK_SELECTOR)) {
+    return false;
+  }
+  return !window.getSelection()?.toString();
+}
+
+function FoldToggle({
+  node,
+  path,
+  open,
+  disabled,
+}: {
+  node: RepeatTemplate;
+  path: EntryPath;
+  open: boolean;
+  disabled: boolean;
+}): React.ReactElement {
+  const label = `${open ? 'Collapse' : 'Expand'} ${path.join(' › ')}`;
+  return (
+    <IconButton
+      size="small"
+      aria-label={label}
+      aria-expanded={open}
+      title={label}
+      disabled={disabled}
+      data-cy={`fold ${JSON.stringify(path)}`}
+      onClick={() => node.toggleGroup(path)}
+    >
+      {open ? (
+        <ExpandMoreIcon fontSize="small" />
+      ) : (
+        <ChevronRightIcon fontSize="small" />
+      )}
+    </IconButton>
+  );
+}
 
 export class RepeatTemplate extends TemplatePlacementNode {
   // one evaluated row per entry, in render order
@@ -214,6 +342,18 @@ input to a field name, "key" or "entry".
 reorder. "${maxItemsSocketName}" caps the rows; each one runs the template once.
 "${directionSocketName}" and "${columnsSocketName}" set the layout.
 
+"${expandSocketName}" shows nested JSON as one row per value at any depth, as
+a settings form does. A nested object or list gets a row of its own before its
+values, so the template can show it as a heading. Each row is one value:
+"key" gets its own key, "path" the keys down to it, "depth" how deep it is
+(0 at the top), "group" whether it is an object or list, and any other name
+gets the value. Rows are indented by "${indentSocketName}" per level. "${outName}"
+is then the JSON in the shape that came in, each value replaced by what its
+row outputs; group rows and values past "${maxItemsSocketName}" stay as they were.
+With "${collapsibleSocketName}" on, each group row gets a toggle that folds its
+rows away. Folding only hides rows, so "${outName}" still has every value. Which
+groups are folded is kept in "${collapsedSocketName}", a list of paths.
+
 What a viewer changes in a row stays in that row. The template's
 "${templateOutputPrefixName}" values are collected per row into "${outName}".
 
@@ -221,7 +361,11 @@ ${AGENT_DOCS_HEADING}
 See describe_node "UI template" for how to build one; it is referenced by name.
 Wire the template's parameters before setting "${templateSocketName}", which
 creates the "<parameter> from" inputs. Prefer those inputs over reshaping the
-data with extra nodes. Connect this node's ReactUI to the surface it appears on,
+data with extra nodes. For a form over nested JSON, turn on
+"${expandSocketName}" rather than flattening and rebuilding the JSON yourself.
+To start with groups folded, set_socket_value "${collapsedSocketName}" to their
+paths, for example [["db"], ["servers", 0]].
+Connect this node's ReactUI to the surface it appears on,
 not the template's body. Leave "Edits" alone; fire "Clear edits" to reset rows.
 For a row button that changes the list, feed "${itemsSocketName}" from a
 Storage Read and fire a Storage Write of the same key from the button. Check
@@ -259,6 +403,34 @@ with inspect_ui.`;
       ),
       new PPSocket(
         SOCKET_TYPE.IN,
+        expandSocketName,
+        new BooleanType(),
+        false,
+        false,
+      ),
+      new PPSocket(
+        SOCKET_TYPE.IN,
+        indentSocketName,
+        new NumberType(true, 0, 64),
+        16,
+        false,
+      ),
+      new PPSocket(
+        SOCKET_TYPE.IN,
+        collapsibleSocketName,
+        new BooleanType(),
+        true,
+        false,
+      ),
+      new PPSocket(
+        SOCKET_TYPE.IN,
+        collapsedSocketName,
+        new JSONType(),
+        [],
+        false,
+      ),
+      new PPSocket(
+        SOCKET_TYPE.IN,
         keyFieldSocketName,
         new StringType(),
         '',
@@ -282,6 +454,18 @@ with inspect_ui.`;
       this.getClearEditsSocket(),
       new PPSocket(SOCKET_TYPE.OUT, outName, new JSONType()),
     ];
+  }
+
+  // Folding only hides rows, so nothing runs again: Output keeps every value.
+  public toggleGroup(path: EntryPath): void {
+    this.setInputData(
+      collapsedSocketName,
+      toggleCollapsed(
+        readCollapsed(this.getInputData(collapsedSocketName)),
+        path,
+      ),
+    );
+    this.forceRerender(false);
   }
 
   public placedTemplateUpdatedMeta(): void {
@@ -370,6 +554,7 @@ with inspect_ui.`;
         row.label,
         row.entry,
         this.getFieldOverrides(),
+        row.place,
       )
     );
   }
@@ -389,11 +574,26 @@ with inspect_ui.`;
 
   // the template's declared Outputs, collected per row in the shape that came
   // in: an object keeps its keys, an array stays an array
+  // An expanded list instead writes each value row's output back where the
+  // value came from, so the result is the edited JSON.
   private collectOutputs(items: unknown): unknown {
     const collected = this.rows.map((row) => {
       const values = Object.values(row.capture.outputs);
       return values.length === 1 ? values[0] : row.capture.outputs;
     });
+    if (this.rows.some((row) => row.place)) {
+      return setAtPaths(
+        items,
+        this.rows.flatMap((row, i): [EntryPath, unknown][] =>
+          // a group row outputting its value would undo its own rows' edits
+          row.place &&
+          !row.place.group &&
+          Object.keys(row.capture.outputs).length > 0
+            ? [[row.place.path, collected[i]]]
+            : [],
+        ),
+      );
+    }
     return Array.isArray(items)
       ? collected
       : Object.fromEntries(
@@ -411,10 +611,25 @@ with inspect_ui.`;
   // reactUIProps, which throws on anything non-cloneable the items may carry.
   protected async onExecute(input: any, output: any): Promise<void> {
     const template = this.getTemplate();
-    const entries = toEntries(input[itemsSocketName]).slice(
-      0,
-      Math.max(1, Math.round(Number(input[maxItemsSocketName]) || 1)),
-    );
+    const items = input[itemsSocketName];
+    const expand = Boolean(input[expandSocketName]);
+    const entries: [string, unknown, ExpandedPlace?][] = (
+      expand
+        ? expandEntries(items).map(
+            ({
+              key,
+              value,
+              path,
+              depth,
+              group,
+            }): [string, unknown, ExpandedPlace] => [
+              key,
+              value,
+              { path, depth, group },
+            ],
+          )
+        : toEntries(items)
+    ).slice(0, Math.max(1, Math.round(Number(input[maxItemsSocketName]) || 1)));
 
     const rows: TemplateRow[] = [];
     if (template) {
@@ -423,8 +638,11 @@ with inspect_ui.`;
       const usedKeys = new Set<string>();
       // sequential on purpose: every row writes the same shared parameter
       // sockets, so the passes must not interleave
-      for (const [key, entry] of entries) {
-        const rowKey = this.getRowKey(key, entry);
+      for (const [key, entry, place] of entries) {
+        // an expanded row is known by its path: its key repeats across levels
+        const rowKey = place
+          ? JSON.stringify(place.path)
+          : this.getRowKey(key, entry);
         // repeated key field values must not share React keys and edits
         let uniqueKey = rowKey;
         for (let n = 1; usedKeys.has(uniqueKey); n++) {
@@ -433,7 +651,7 @@ with inspect_ui.`;
         usedKeys.add(uniqueKey);
         const capture = await runTemplateAsInstance(
           template,
-          bindEntryToParameters(template, key, entry, overrides),
+          bindEntryToParameters(template, key, entry, overrides, place),
           this.getRowEdits(uniqueKey),
         );
         rows.push({
@@ -441,11 +659,12 @@ with inspect_ui.`;
           label: key,
           entry,
           capture,
+          place,
         });
       }
     }
     this.rows = rows;
-    output[outName] = this.collectOutputs(input[itemsSocketName]);
+    output[outName] = this.collectOutputs(items);
 
     if (this.getOutputSocketByName(SOCKET_NAME_DASHBOARD_CONTENT)?.hasLink()) {
       output[SOCKET_NAME_DASHBOARD_CONTENT] = {

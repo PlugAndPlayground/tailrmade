@@ -14,6 +14,7 @@ const getNodeCategories = () => ({
   array: require('./data/array'),
   base: require('./base'),
   booleanlogic: require('./logic/boolean'),
+  selectByKey: require('./logic/selectByKey'),
   browser: require('./utility/browser'),
   lineCharts: require('./draw/graph/lineGraph'),
   pieCharts: require('./draw/graph/pieGraph'),

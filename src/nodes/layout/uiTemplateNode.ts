@@ -307,12 +307,18 @@ Template's "Output" instead.`;
         socket.changeSocketDataType(new AnyType());
       }
     } else {
-      // otherwise adopt the type of what it was wired into, as Macro does
+      // otherwise adopt the type of what it was wired into, as Macro does -
+      // unless the targets disagree, as the widgets of a form for any value
+      // do: taking the first one's would turn every row into that type
       const linked = targets[0];
-      if (linked && linked.dataType.getName() !== socket.dataType.getName()) {
-        socket.changeSocketDataType(
-          deSerializeType(serializeType(linked.dataType)),
+      const agreed =
+        linked &&
+        targets.every(
+          (target) => target.dataType.getName() === linked.dataType.getName(),
         );
+      const wanted = agreed ? linked.dataType : new AnyType();
+      if (linked && wanted.getName() !== socket.dataType.getName()) {
+        socket.changeSocketDataType(deSerializeType(serializeType(wanted)));
       }
     }
     this.updateParameterSocketCount();
