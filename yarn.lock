@@ -8233,9 +8233,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"cypress@npm:^16.2.0":
-  version: 16.2.0
-  resolution: "cypress@npm:16.2.0"
+"cypress@npm:^16.4.0":
+  version: 16.4.0
+  resolution: "cypress@npm:16.4.0"
   dependencies:
     "@cypress/request": "npm:^4.0.0"
     "@cypress/xvfb": "npm:^1.2.4"
@@ -8271,14 +8271,14 @@ __metadata:
     proxy-from-env: "npm:1.0.0"
     request-progress: "npm:^3.0.0"
     supports-color: "npm:^8.1.1"
-    systeminformation: "npm:^5.31.1"
+    systeminformation: "npm:^5.33.16"
     tmp: "npm:~0.2.4"
     tree-kill: "npm:1.2.2"
     untildify: "npm:^4.0.0"
     yauzl: "npm:^3.3.1"
   bin:
     cypress: bin/cypress
-  checksum: 10/ea33937b4f713bf3451a16d16c7a542e1de2f89d9343c311f4177a0d4c00b8d1bbcd85e57d8497e9a26f9a4f141e13af929efef04c981931dc222ab0b45f581b
+  checksum: 10/4764db5c25032ca76dff9eb4ebe0a9ee8064586a9449b451b0357c935b09cabb75460b5df53eda6d80fc7d31e789abf3f1311bb6349ec199410d941b90aedf48
   languageName: node
   linkType: hard
 
@@ -16075,12 +16075,12 @@ __metadata:
   languageName: node
   linkType: hard
 
-"systeminformation@npm:^5.31.1":
-  version: 5.31.9
-  resolution: "systeminformation@npm:5.31.9"
+"systeminformation@npm:^5.33.16":
+  version: 5.33.26
+  resolution: "systeminformation@npm:5.33.26"
   bin:
     systeminformation: lib/cli.js
-  checksum: 10/34a3cc1d086390a0f86cd3d4ffc6bf0120c89e34dbc83877ae71f93de9a866459928a36063e92eb7bd6a36f694240d7f31430321a3c18737942afcade457b88c
+  checksum: 10/f8a3a05287994ca3aa15cf842110e90e9d1dc4a42fae7c3caefe8b2c728c7cfb1ee84cf2e3663d2e013b365c8f55cf5996f33de53e7454bfedabeaa99ebde47b
   conditions: (os=darwin | os=linux | os=win32 | os=freebsd | os=openbsd | os=netbsd | os=sunos | os=android)
   languageName: node
   linkType: hard
@@ -16145,7 +16145,7 @@ __metadata:
     cross-env: "npm:^10.1.0"
     css-loader: "npm:^7.1.5"
     css-minimizer-webpack-plugin: "npm:^8.0.0"
-    cypress: "npm:^16.2.0"
+    cypress: "npm:^16.4.0"
     cypress-real-events: "npm:^1.15.1"
     cypress-split: "npm:^1.25.0"
     del-cli: "npm:^8.0.1"
