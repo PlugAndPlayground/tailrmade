@@ -17,6 +17,10 @@ import {
   sizeName,
   useWidgetSize,
   useSizeTokens,
+  getLabelPosition,
+  getLabelPositionSocket,
+  useWidgetLabelIds,
+  WidgetLabelFrame,
 } from './abstract';
 import { isSharedNode } from '../../utils/sharedNodes';
 import {
@@ -55,9 +59,10 @@ export class WidgetSlider extends WidgetNumberBase {
   }
 
   public getDocs(): string {
-    return `"Label" is the text above the slider. Write ${valueToken} where the
-current value should appear, for example "Volume: ${valueToken}" or
-"${valueToken} px". Leave it empty to show no text at all.`;
+    return `"Label" is the text above the slider, or beside it with "Label position"
+set to "Left". Write ${valueToken} where the current value should appear, for
+example "Volume: ${valueToken}" or "${valueToken} px". Leave it empty to show no
+text at all.`;
   }
 
   protected getDefaultIO(): Socket[] {
@@ -73,6 +78,7 @@ current value should appear, for example "Volume: ${valueToken}" or
         withValueToken('Slider'),
         false,
       ),
+      getLabelPositionSocket(),
       getCommitModeSocket(draggingCommitOptions),
       getColorSocket(),
       getSizeSocket(),
@@ -186,73 +192,88 @@ current value should appear, for example "Volume: ${valueToken}" or
       valueToken,
       String(roundToDecimals(value, decimals)),
     );
+    const position = getLabelPosition(props);
+    const framed = position !== 'Default';
+    const { labelId } = useWidgetLabelIds();
+    // the frame draws the label, otherwise it sits centred above the slider
+    const ownLabelId = `slider-label-${node.id}`;
+    const labelledBy = framed ? labelId : ownLabelId;
 
     return (
       <WidgetPaper node={node} inDashboard={props.inDashboard}>
-        <Box
-          sx={{
-            width: '100%',
-            boxSizing: 'border-box',
-            overflow: 'hidden',
-          }}
+        <WidgetLabelFrame
+          position={position}
+          label={label}
+          labelId={labelId}
+          tokens={tokens}
+          rowHeight={sliderHeight}
         >
-          {label !== '' && (
-            <Typography
-              id={`slider-label-${node.id}`}
-              gutterBottom={!props.inDashboard}
-              sx={{
-                fontSize: props.inDashboard
-                  ? `${tokens.fontSize}px`
-                  : `${(node.nodeHeight / 8) * tokens.scale}px`,
-                fontWeight: 500,
-                textAlign: 'center',
-              }}
-            >
-              {label}
-            </Typography>
-          )}
-          <Slider
-            {...getWidgetDragControlProps(props.disabled)}
-            color={color}
-            disabled={props.disabled}
-            size={getMuiSize(size)}
-            aria-label={label === '' ? node.getName() : undefined}
-            aria-labelledby={
-              label === '' ? undefined : `slider-label-${node.id}`
-            }
-            value={value}
-            min={min}
-            max={max}
-            step={10 ** -decimals}
-            onChange={(_event, newValue) => commit.edit(newValue as number)}
-            onChangeCommitted={commit.endEditing}
-            valueLabelDisplay="off"
+          <Box
             sx={{
               width: '100%',
-              padding: 0,
-              '@media (pointer: coarse)': { padding: 0 },
-              pointerEvents: props.disabled ? 'none' : undefined,
-              height: sliderHeight,
-              '& .MuiSlider-track': {
-                border: 'none',
-              },
-              borderRadius: 2,
-              '& .MuiSlider-thumb': {
-                height: sliderHeight,
-                width: 16 * tokens.scale,
-                backgroundColor: 'transparent',
-                borderRadius: 0,
-                '&:focus, &:hover, &.Mui-active, &.Mui-focusVisible': {
-                  boxShadow: 'inherit',
-                },
-
-                '&::before': {
-                  display: 'none',
-                },
-              },
+              boxSizing: 'border-box',
+              overflow: 'hidden',
             }}
-          />
-        </Box>
+          >
+            {!framed && label !== '' && (
+              <Typography
+                id={ownLabelId}
+                gutterBottom={!props.inDashboard}
+                sx={{
+                  fontSize: props.inDashboard
+                    ? `${tokens.fontSize}px`
+                    : `${(node.nodeHeight / 8) * tokens.scale}px`,
+                  fontWeight: 500,
+                  textAlign: 'center',
+                }}
+              >
+                {label}
+              </Typography>
+            )}
+            <Slider
+              {...getWidgetDragControlProps(props.disabled)}
+              color={color}
+              disabled={props.disabled}
+              size={getMuiSize(size)}
+              aria-label={label === '' ? node.getName() : undefined}
+              aria-labelledby={label === '' ? undefined : labelledBy}
+              value={value}
+              min={min}
+              max={max}
+              step={10 ** -decimals}
+              onChange={(_event, newValue) => commit.edit(newValue as number)}
+              onChangeCommitted={commit.endEditing}
+              valueLabelDisplay="off"
+              sx={{
+                width: '100%',
+                // inline-block by default, so on a page it would leave room for
+                // descenders below itself; the canvas keeps its look
+                ...(props.inDashboard && { display: 'block' }),
+                padding: 0,
+                '@media (pointer: coarse)': { padding: 0 },
+                pointerEvents: props.disabled ? 'none' : undefined,
+                height: sliderHeight,
+                '& .MuiSlider-track': {
+                  border: 'none',
+                },
+                borderRadius: 2,
+                '& .MuiSlider-thumb': {
+                  height: sliderHeight,
+                  width: 16 * tokens.scale,
+                  backgroundColor: 'transparent',
+                  borderRadius: 0,
+                  '&:focus, &:hover, &.Mui-active, &.Mui-focusVisible': {
+                    boxShadow: 'inherit',
+                  },
+
+                  '&::before': {
+                    display: 'none',
+                  },
+                },
+              }}
+            />
+          </Box>
+        </WidgetLabelFrame>
       </WidgetPaper>
     );
   }

@@ -28,6 +28,10 @@ import {
   stringifyIfNeeded,
   useWidgetSize,
   useSizeTokens,
+  getLabelPosition,
+  getLabelPositionSocket,
+  useWidgetLabelIds,
+  WidgetLabelFrame,
 } from './abstract';
 import { readWidgetValue } from './widgetEdits';
 import Socket from '../../classes/SocketClass';
@@ -68,12 +72,53 @@ const getOptionLabelSx = (rowLayout: boolean) => ({
   boxSizing: 'border-box' as const,
 });
 
+// MUI's radio and checkbox draw their icon inside this much padding
+const OPTION_PADDING = 9;
+
 const OptionGroupFrame: React.FC<{
   props: WidgetContentProps;
   tokens: SizeTokens;
+  // the size of one option's icon, which sets the height of its row
+  iconSize: number;
   children: React.ReactNode;
-}> = ({ props, tokens, children }) => {
+}> = ({ props, tokens, iconSize, children }) => {
   const node = props.node;
+  const position = getLabelPosition(props);
+  const { labelId } = useWidgetLabelIds();
+  if (position !== 'Default') {
+    // a form row: the frame draws the label, and the group hugs its options,
+    // their icons on the left edge, with no title, padding or scrolling
+    return (
+      <WidgetPaper
+        node={node as WidgetHybridBase}
+        inDashboard={props.inDashboard}
+      >
+        <WidgetLabelFrame
+          position={position}
+          label={props[labelName]}
+          labelId={labelId}
+          tokens={tokens}
+          rowHeight={iconSize + 2 * OPTION_PADDING}
+        >
+          <FormControl
+            component="fieldset"
+            aria-labelledby={labelId}
+            disabled={props.disabled}
+            margin="none"
+            sx={{
+              display: 'flex',
+              flexDirection: 'column',
+              width: '100%',
+              userSelect: 'none',
+              '& > *': { ml: `-${OPTION_PADDING}px` },
+            }}
+          >
+            {children}
+          </FormControl>
+        </WidgetLabelFrame>
+      </WidgetPaper>
+    );
+  }
   return (
     <WidgetPaper
       node={node as WidgetHybridBase}
@@ -162,6 +207,7 @@ export class WidgetRadio extends WidgetHybridBase {
         false,
       ),
       getLabelSocket(radioDefaultLabel),
+      getLabelPositionSocket(),
       getColorSocket(),
       getSizeSocket(),
       new Socket(SOCKET_TYPE.OUT, outName, new StringType()),
@@ -219,7 +265,11 @@ export class WidgetRadio extends WidgetHybridBase {
     const { size, tokens, color, fontSize } = useOptionGroupStyle(props);
 
     return (
-      <OptionGroupFrame props={props} tokens={tokens}>
+      <OptionGroupFrame
+        props={props}
+        tokens={tokens}
+        iconSize={parseFloat(fontSize)}
+      >
         <RadioGroup
           value={selectedValue}
           onChange={(event) =>
@@ -276,6 +326,12 @@ export class WidgetCheckbox extends WidgetHybridBase {
     return 'Adds a group of checkboxes allowing multiple selections';
   }
 
+  public getDocs(): string {
+    return `A group of options to tick any number of: "Out" is the list of ticked
+"Options". For one on/off checkbox that outputs true or false, use a Switch
+with "Control" set to "Checkbox".`;
+  }
+
   protected getDefaultIO(): Socket[] {
     return [
       new Socket(
@@ -300,6 +356,7 @@ export class WidgetCheckbox extends WidgetHybridBase {
         false,
       ),
       getLabelSocket(checkboxDefaultLabel),
+      getLabelPositionSocket(),
       getColorSocket(),
       getSizeSocket(),
       new Socket(SOCKET_TYPE.OUT, outName, new ArrayType()),
@@ -383,7 +440,11 @@ export class WidgetCheckbox extends WidgetHybridBase {
     const { size, tokens, color, fontSize } = useOptionGroupStyle(props);
 
     return (
-      <OptionGroupFrame props={props} tokens={tokens}>
+      <OptionGroupFrame
+        props={props}
+        tokens={tokens}
+        iconSize={parseFloat(fontSize)}
+      >
         <Box
           sx={{
             display: 'flex',

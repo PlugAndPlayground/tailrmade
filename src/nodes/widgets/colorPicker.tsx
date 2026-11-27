@@ -24,6 +24,10 @@ import {
   sizeName,
   useWidgetSize,
   useSizeTokens,
+  getLabelPosition,
+  getLabelPositionSocket,
+  useWidgetLabelIds,
+  WidgetLabelFrame,
 } from './abstract';
 import { TRgba } from '../../utils/color';
 import { WidgetContentProps } from '../../utils/interfaces';
@@ -53,6 +57,7 @@ export class WidgetColorPicker extends WidgetHybridBase {
         false,
       ),
       getLabelSocket(pickerDefaultName),
+      getLabelPositionSocket(),
       getSizeSocket(),
       new Socket(SOCKET_TYPE.OUT, outName, new ColorType()),
     ];
@@ -109,70 +114,84 @@ export class WidgetColorPicker extends WidgetHybridBase {
     const initialColor = TRgba.fromObject(props[initialValueName]);
     const size = useWidgetSize(props[sizeName]);
     const tokens = useSizeTokens(size);
+    const position = getLabelPosition(props);
+    const framed = position !== 'Default';
+    const { labelId, controlId } = useWidgetLabelIds();
 
     return (
       <WidgetPaper ref={ref} node={node} inDashboard={props.inDashboard}>
-        <Button
-          {...getWidgetControlProps(props.disabled)}
-          disabled={props.disabled}
-          variant="contained"
-          size={getMuiSize(size)}
-          onClick={() => {
-            showColorPicker(!colorPicker);
-          }}
-          sx={{
-            margin: 'auto',
-            // keep the same dashboard height as the other button-like widgets
-            // (see WidgetButton) so the picker fills its widget box instead of
-            // sitting at MUI's natural button height
-            minHeight: props.inDashboard
-              ? `${tokens.controlHeight}px`
-              : undefined,
-            lineHeight: props.inDashboard
-              ? `${36 * tokens.scale}px`
-              : `${(node.nodeHeight / 5) * tokens.scale}px`,
-            py: props.inDashboard ? 0 : undefined,
-            border: 0,
-            bgcolor: initialColor.hexa(),
-            color: initialColor.getContrastTextColor().hex(),
-            width: '100%',
-            height: '100%',
-            borderRadius: props.inDashboard
-              ? '48px'
-              : `${node.nodeWidth / 4}px`,
-            '&:hover': {
-              bgcolor: initialColor.darken(0.1).hex(),
-            },
-            '&:active': {
-              boxShadow: 4,
-            },
-            pointerEvents: props.disabled ? 'none' : undefined,
-          }}
+        <WidgetLabelFrame
+          position={position}
+          label={props[labelName]}
+          labelId={labelId}
+          htmlFor={controlId}
+          tokens={tokens}
+          rowHeight={tokens.controlHeight}
         >
-          <Typography
+          <Button
+            {...getWidgetControlProps(props.disabled)}
+            {...(framed && { id: controlId })}
+            disabled={props.disabled}
+            variant="contained"
+            size={getMuiSize(size)}
+            onClick={() => {
+              showColorPicker(!colorPicker);
+            }}
             sx={{
-              fontSize: props.inDashboard
-                ? `${tokens.fontSize}px`
-                : `${(node.nodeHeight / 6) * tokens.scale}px`,
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              whiteSpace: 'nowrap',
-              maxWidth: '100%',
-              textTransform: 'none',
+              margin: 'auto',
+              // keep the same dashboard height as the other button-like widgets
+              // (see WidgetButton) so the picker fills its widget box instead of
+              // sitting at MUI's natural button height
+              minHeight: props.inDashboard
+                ? `${tokens.controlHeight}px`
+                : undefined,
+              lineHeight: props.inDashboard
+                ? `${36 * tokens.scale}px`
+                : `${(node.nodeHeight / 5) * tokens.scale}px`,
+              py: props.inDashboard ? 0 : undefined,
+              border: 0,
+              bgcolor: initialColor.hexa(),
+              color: initialColor.getContrastTextColor().hex(),
+              width: '100%',
+              height: '100%',
+              borderRadius: props.inDashboard
+                ? '48px'
+                : `${node.nodeWidth / 4}px`,
+              '&:hover': {
+                bgcolor: initialColor.darken(0.1).hex(),
+              },
+              '&:active': {
+                boxShadow: 4,
+              },
+              pointerEvents: props.disabled ? 'none' : undefined,
             }}
           >
-            {props[labelName]}
-          </Typography>
-          <ColorizeIcon
-            sx={{
-              pl: 0.5,
-              flexShrink: 0,
-              fontSize: props.inDashboard
-                ? `${tokens.iconSize}px`
-                : `${(node.nodeHeight / 6) * tokens.scale}px`,
-            }}
-          />
-        </Button>
+            <Typography
+              sx={{
+                fontSize: props.inDashboard
+                  ? `${tokens.fontSize}px`
+                  : `${(node.nodeHeight / 6) * tokens.scale}px`,
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+                maxWidth: '100%',
+                textTransform: 'none',
+              }}
+            >
+              {/* with the label outside, the pill names the color it shows */}
+              {framed ? initialColor.hex().toUpperCase() : props[labelName]}
+            </Typography>
+            <ColorizeIcon
+              sx={{
+                pl: 0.5,
+                flexShrink: 0,
+                fontSize: props.inDashboard
+                  ? `${tokens.iconSize}px`
+                  : `${(node.nodeHeight / 6) * tokens.scale}px`,
+              }}
+            />
+          </Button>
+        </WidgetLabelFrame>
         <Popper
           id="toolbar-popper"
           open={colorPicker}

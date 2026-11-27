@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { Paper, Stack } from '@mui/material';
+import { Box, Paper, Stack } from '@mui/material';
 import {
   ActionHandler,
   BakedAction,
@@ -347,6 +347,170 @@ export const getSizeSocket = (): Socket =>
     defaultSizeSetting,
     false,
   );
+
+export const labelPositionName = 'Label position';
+export type LabelPosition = 'Default' | 'Above' | 'Left';
+export const labelPositionOptions: EnumStructure = [
+  { text: 'Default' },
+  { text: 'Above' },
+  { text: 'Left' },
+];
+
+/**
+ * Where a widget's label sits on a page. 'Default' is the widget's own look
+ * (a floating label, a group title, text beside a switch), so apps saved
+ * before the setting existed do not change. 'Above' and 'Left' put a plain
+ * label outside the control, the same way on every widget, so the widgets of a
+ * form line up. Place it right after the widget's Label socket.
+ */
+export const getLabelPositionSocket = (): Socket =>
+  new Socket(
+    SOCKET_TYPE.IN,
+    labelPositionName,
+    new EnumType(labelPositionOptions, undefined, true),
+    labelPositionOptions[0].text,
+    false,
+  );
+
+/** The label position a widget renders with: the canvas always keeps its own look. */
+export const getLabelPosition = (props: {
+  inDashboard?: boolean;
+  [labelPositionName]?: unknown;
+}): LabelPosition => {
+  const position = props[labelPositionName];
+  return props.inDashboard && (position === 'Above' || position === 'Left')
+    ? position
+    : 'Default';
+};
+
+// one width for every Left label, so the controls of a form start at the
+// same edge row after row; long labels wrap inside it
+export const FORM_LABEL_WIDTH = 160;
+// below this a label column would squeeze the control, so Left stacks as Above
+export const FORM_LABEL_STACK_BELOW = 600;
+const wideEnoughForLeftLabel = `@media (min-width: ${FORM_LABEL_STACK_BELOW}px)`;
+
+/** Unique per rendering, so the rows of a template list never share an id. */
+export const useWidgetLabelIds = () => {
+  const id = React.useId();
+  return { labelId: `${id}-label`, controlId: `${id}-control` };
+};
+
+/**
+ * Sx for an input whose label sits outside it: without a floating label the
+ * filled input centres its text instead of leaving room above it. Spread it
+ * after getSizeSx, whose padding it replaces.
+ */
+export const getHiddenLabelSx = (tokens: SizeTokens) => {
+  const padding = Math.max(
+    0,
+    Math.floor(
+      (tokens.controlHeight -
+        Math.round(tokens.fontSize * INPUT_LINE_HEIGHT_EM)) /
+        2,
+    ),
+  );
+  return {
+    '& .MuiFilledInput-input:not(.MuiAutocomplete-input)': {
+      paddingTop: `${padding}px`,
+      paddingBottom: `${padding}px`,
+    },
+    '& .MuiFilledInput-input.MuiInputBase-inputMultiline': {
+      paddingTop: 0,
+      paddingBottom: 0,
+    },
+    '& .MuiAutocomplete-root .MuiFilledInput-root': {
+      paddingTop: 0,
+      paddingBottom: 0,
+    },
+    '& .MuiAutocomplete-root .MuiFilledInput-root .MuiAutocomplete-input': {
+      paddingTop: `${padding}px`,
+      paddingBottom: `${padding}px`,
+    },
+  };
+};
+
+interface WidgetLabelFrameProps {
+  position: LabelPosition;
+  label: unknown;
+  labelId: string;
+  // the input the label focuses when clicked, where the control has one
+  htmlFor?: string;
+  tokens: SizeTokens;
+  // height of the control's first row: a Left label centres on it, so it
+  // lines up with a single-line control and with the first option of a group
+  rowHeight: number;
+  children: React.ReactNode;
+}
+
+/**
+ * The one place a widget's Above or Left label is drawn. Default renders the
+ * control alone, exactly as the widget built it.
+ */
+export const WidgetLabelFrame = ({
+  position,
+  label,
+  labelId,
+  htmlFor,
+  tokens,
+  rowHeight,
+  children,
+}: WidgetLabelFrameProps): React.ReactElement => {
+  if (position === 'Default') {
+    return <>{children}</>;
+  }
+  const text = label === undefined || label === null ? '' : String(label);
+  const isLeft = position === 'Left';
+  return (
+    <Box
+      data-cy="widget-label-frame"
+      data-label-position={position}
+      sx={{
+        display: 'grid',
+        width: '100%',
+        minWidth: 0,
+        gridTemplateColumns: 'minmax(0, 1fr)',
+        rowGap: 0.5,
+        columnGap: 2,
+        alignItems: 'start',
+        ...(isLeft && {
+          [wideEnoughForLeftLabel]: {
+            gridTemplateColumns: `${FORM_LABEL_WIDTH}px minmax(0, 1fr)`,
+          },
+        }),
+      }}
+    >
+      {(text !== '' || isLeft) && (
+        <Box
+          component={htmlFor ? 'label' : 'span'}
+          id={labelId}
+          htmlFor={htmlFor}
+          data-cy="widget-label"
+          sx={{
+            display: text === '' ? 'none' : 'flex',
+            alignItems: 'center',
+            minWidth: 0,
+            color: 'text.primary',
+            fontSize: `${tokens.fontSize}px`,
+            lineHeight: INPUT_LINE_HEIGHT_EM,
+            overflowWrap: 'anywhere',
+            ...(isLeft && {
+              [wideEnoughForLeftLabel]: {
+                display: 'flex',
+                minHeight: `${rowHeight}px`,
+              },
+            }),
+          }}
+        >
+          {text}
+        </Box>
+      )}
+      <Box data-cy="widget-control" sx={{ minWidth: 0 }}>
+        {children}
+      </Box>
+    </Box>
+  );
+};
 
 export const CANVAS_MARGIN = 4;
 

@@ -27,6 +27,12 @@ import {
   useFontScalar,
   stringifyIfNeeded,
   WidgetPaper,
+  getHiddenLabelSx,
+  getLabelPosition,
+  getLabelPositionSocket,
+  useSizeTokens,
+  useWidgetLabelIds,
+  WidgetLabelFrame,
 } from './abstract';
 import { WidgetSelectableBase } from './selectable-base';
 import { SOCKET_TYPE } from '../../utils/constants';
@@ -80,6 +86,7 @@ abstract class WidgetDropdownBase extends WidgetSelectableBase {
 
       this.getDefaultSelectedSocket(),
       getLabelSocket(dropDownDefaultName),
+      getLabelPositionSocket(),
       getColorSocket(),
       getSizeSocket(),
     ];
@@ -90,8 +97,12 @@ abstract class WidgetDropdownBase extends WidgetSelectableBase {
     const size = useWidgetSize(props[sizeName]);
     const fontScalar = useFontScalar();
     const sizeSx = useSizeSx(size);
+    const tokens = useSizeTokens(size);
     const inputVariant = useResolvedInputVariant();
     const color = props[colorName];
+    const position = getLabelPosition(props);
+    const framed = position !== 'Default';
+    const { labelId } = useWidgetLabelIds();
 
     const renderMenuItems = () => {
       if (!Array.isArray(props[optionsName])) return null;
@@ -116,37 +127,50 @@ abstract class WidgetDropdownBase extends WidgetSelectableBase {
 
     return (
       <WidgetPaper node={node} inDashboard={props.inDashboard}>
-        <FormControl
-          variant={inputVariant}
-          color={color}
-          size={getMuiSize(size)}
-          margin="none"
-          sx={{
-            pointerEvents: props.disabled ? 'none' : undefined,
-            ...sizeSx,
-          }}
+        <WidgetLabelFrame
+          position={position}
+          label={props[labelName]}
+          labelId={labelId}
+          tokens={tokens}
+          rowHeight={tokens.controlHeight}
         >
-          <InputLabel {...getWidgetControlProps(props.disabled)}>
-            {props[labelName]}
-          </InputLabel>
-          <Select
-            {...getWidgetControlProps(props.disabled)}
+          <FormControl
             variant={inputVariant}
             color={color}
-            disabled={props.disabled}
-            multiple={!node.isSingle()}
-            value={node.formatSelected(props[selectedOptionName])}
-            onChange={(event) => {
-              void node.handleOnChange(event, props.templateInstance);
+            size={getMuiSize(size)}
+            margin="none"
+            {...(framed && { hiddenLabel: true, fullWidth: true })}
+            sx={{
+              pointerEvents: props.disabled ? 'none' : undefined,
+              ...sizeSx,
+              ...(framed && getHiddenLabelSx(tokens)),
             }}
-            renderValue={(selected) =>
-              Array.isArray(selected) ? selected.join(', ') : String(selected)
-            }
-            MenuProps={getMenuProps(size, fontScalar)}
           >
-            {renderMenuItems()}
-          </Select>
-        </FormControl>
+            {!framed && (
+              <InputLabel {...getWidgetControlProps(props.disabled)}>
+                {props[labelName]}
+              </InputLabel>
+            )}
+            <Select
+              {...getWidgetControlProps(props.disabled)}
+              variant={inputVariant}
+              color={color}
+              disabled={props.disabled}
+              multiple={!node.isSingle()}
+              {...(framed && { labelId })}
+              value={node.formatSelected(props[selectedOptionName])}
+              onChange={(event) => {
+                void node.handleOnChange(event, props.templateInstance);
+              }}
+              renderValue={(selected) =>
+                Array.isArray(selected) ? selected.join(', ') : String(selected)
+              }
+              MenuProps={getMenuProps(size, fontScalar)}
+            >
+              {renderMenuItems()}
+            </Select>
+          </FormControl>
+        </WidgetLabelFrame>
       </WidgetPaper>
     );
   }

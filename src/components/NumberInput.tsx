@@ -22,6 +22,8 @@ import type { InputVariant } from '../utils/theme/tokens';
  */
 export interface NumberInputProps {
   label?: string;
+  /** The input's id, for a label drawn outside the field. */
+  id?: string;
   value: number | null; // null shows an empty field
   onChange?: (value: number) => void;
   onCommit?: (value: number) => void;
@@ -63,6 +65,7 @@ InitialFilledMarker.muiName = 'Input';
 
 export const NumberInput = ({
   label,
+  id: givenId,
   value,
   onChange,
   onCommit,
@@ -85,7 +88,8 @@ export const NumberInput = ({
   sx,
   ...rest
 }: NumberInputProps) => {
-  const id = useId();
+  const generatedId = useId();
+  const id = givenId ?? generatedId;
   // null while the field holds no complete number (empty, or a lone '-'): that
   // never reaches onChange, and leaving the field brings the last value back
   const [typed, setTyped] = useState<number | null>(value);

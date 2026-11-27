@@ -3,6 +3,7 @@ import {
   Box,
   Button,
   ButtonGroup,
+  Checkbox,
   FormControl,
   Stack,
   Switch,
@@ -32,6 +33,10 @@ import {
   onValueName,
   colorName,
   defaultOptions,
+  getLabelPosition,
+  getLabelPositionSocket,
+  useWidgetLabelIds,
+  WidgetLabelFrame,
 } from './abstract';
 import { ownsNode, readWidgetValue, runInWidgetView } from './widgetEdits';
 import { useResolvedButtonVariant, useThemeTokens } from '../../utils/theme';
@@ -451,6 +456,10 @@ export class WidgetButtonGroup extends WidgetSelectionBase {
         variantOptions[0].text,
         () => !this.getInputData(isToggleGroupName),
       ),
+      // empty by default: a group had no label before, and saved apps keep
+      // showing none
+      getLabelSocket(''),
+      getLabelPositionSocket(),
       new Socket(
         SOCKET_TYPE.IN,
         colorName,
@@ -523,174 +532,197 @@ export class WidgetButtonGroup extends WidgetSelectionBase {
       node.nodeHeight,
       12,
     );
+    // a group had no label of its own look to keep, so on a page Default
+    // shows one above it
+    const label = props[labelName] ?? '';
+    const chosenPosition = getLabelPosition(props);
+    const position =
+      chosenPosition === 'Default' && props.inDashboard && label !== ''
+        ? 'Above'
+        : chosenPosition;
+    const { labelId } = useWidgetLabelIds();
+    const groupLabelProps =
+      position === 'Default' ? {} : { 'aria-labelledby': labelId };
 
     return (
       <WidgetPaper node={node} inDashboard={props.inDashboard}>
-        <Box
-          sx={{
-            width: '100%',
-            height: '100%',
-            display: 'flex',
-            flexDirection: 'column',
-            justifyContent: 'center',
-          }}
+        <WidgetLabelFrame
+          position={position}
+          label={label}
+          labelId={labelId}
+          tokens={tokens}
+          rowHeight={tokens.controlHeight}
         >
           <Box
             sx={{
+              width: '100%',
+              height: '100%',
               display: 'flex',
               flexDirection: 'column',
-              alignItems: 'center',
-              width: '100%',
-              flex: 1,
+              justifyContent: 'center',
             }}
           >
-            {isToggleMode ? (
-              // Toggle Button Group
-              <Box
-                sx={{
-                  width: '100%',
-                  display: 'flex',
-                  flexDirection: isVertical ? 'column' : 'row',
-                  justifyContent: 'center',
-                  pointerEvents: props.disabled ? 'none' : undefined,
-                }}
-              >
-                {options.map((option, index) => {
-                  const isFirst = index === 0;
-                  const isLast = index === options.length - 1;
+            <Box
+              sx={{
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                width: '100%',
+                flex: 1,
+              }}
+            >
+              {isToggleMode ? (
+                // Toggle Button Group
+                <Box
+                  {...(position !== 'Default' && { role: 'group' })}
+                  {...groupLabelProps}
+                  sx={{
+                    width: '100%',
+                    display: 'flex',
+                    flexDirection: isVertical ? 'column' : 'row',
+                    justifyContent: 'center',
+                    pointerEvents: props.disabled ? 'none' : undefined,
+                  }}
+                >
+                  {options.map((option, index) => {
+                    const isFirst = index === 0;
+                    const isLast = index === options.length - 1;
 
-                  return (
+                    return (
+                      <Button
+                        {...getWidgetControlProps(props.disabled)}
+                        key={index}
+                        variant={
+                          selectedIndex === index ? 'contained' : 'outlined'
+                        }
+                        color={color}
+                        size={getMuiSize(size)}
+                        onClick={() =>
+                          void (node as WidgetButtonGroup).handleButtonClick(
+                            index,
+                            props.templateInstance,
+                          )
+                        }
+                        disabled={props.disabled}
+                        sx={{
+                          fontSize: fontSize,
+                          minHeight: props.inDashboard
+                            ? `${tokens.controlHeight}px`
+                            : undefined,
+                          flex: isVertical ? '0 0 auto' : '1 1 0',
+                          minWidth: isVertical ? '90%' : '30%',
+                          ...(selectedIndex === index && {
+                            boxShadow: 2,
+                          }),
+                          py: props.inDashboard ? 0 : 1.5,
+                          textTransform: 'none',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap',
+                          // the group reads as one control: only its outer
+                          // corners are rounded, and they follow the theme
+                          // radius rather than a fixed 4px
+                          borderRadius: 0,
+                          ...(isVertical
+                            ? {
+                                ...(isFirst && {
+                                  borderTopLeftRadius: groupRadius,
+                                  borderTopRightRadius: groupRadius,
+                                }),
+                                ...(isLast && {
+                                  borderBottomLeftRadius: groupRadius,
+                                  borderBottomRightRadius: groupRadius,
+                                }),
+                              }
+                            : {
+                                ...(isFirst && {
+                                  borderTopLeftRadius: groupRadius,
+                                  borderBottomLeftRadius: groupRadius,
+                                }),
+                                ...(isLast && {
+                                  borderTopRightRadius: groupRadius,
+                                  borderBottomRightRadius: groupRadius,
+                                }),
+                              }),
+                          m: 0,
+                          ...(isFirst
+                            ? {}
+                            : isVertical
+                              ? { mt: '-1px' }
+                              : { ml: '-1px' }),
+                          ...(selectedIndex === index && {
+                            position: 'relative',
+                            zIndex: 1,
+                          }),
+                          '&.Mui-disabled': {
+                            opacity: 0.7,
+                            color: 'text.secondary',
+                            backgroundColor:
+                              variant === 'contained'
+                                ? 'action.disabledBackground'
+                                : 'transparent',
+                            border:
+                              variant === 'outlined' ? '1px solid' : 'none',
+                            borderColor:
+                              variant === 'outlined'
+                                ? 'action.disabled'
+                                : undefined,
+                          },
+                        }}
+                      >
+                        {option}
+                      </Button>
+                    );
+                  })}
+                </Box>
+              ) : (
+                // Regular Button Group
+                <ButtonGroup
+                  {...groupLabelProps}
+                  variant={variant}
+                  color={color}
+                  size={getMuiSize(size)}
+                  orientation={isVertical ? 'vertical' : 'horizontal'}
+                  sx={{
+                    justifyContent: 'center',
+                    pointerEvents: props.disabled ? 'none' : undefined,
+                    width: '100%',
+                    '& .MuiButtonGroup-grouped': {
+                      flex: 1,
+                    },
+                  }}
+                  disabled={props.disabled}
+                >
+                  {options.map((option, index) => (
                     <Button
                       {...getWidgetControlProps(props.disabled)}
                       key={index}
-                      variant={
-                        selectedIndex === index ? 'contained' : 'outlined'
-                      }
-                      color={color}
-                      size={getMuiSize(size)}
                       onClick={() =>
                         void (node as WidgetButtonGroup).handleButtonClick(
                           index,
                           props.templateInstance,
                         )
                       }
-                      disabled={props.disabled}
                       sx={{
                         fontSize: fontSize,
                         minHeight: props.inDashboard
                           ? `${tokens.controlHeight}px`
                           : undefined,
-                        flex: isVertical ? '0 0 auto' : '1 1 0',
-                        minWidth: isVertical ? '90%' : '30%',
-                        ...(selectedIndex === index && {
-                          boxShadow: 2,
-                        }),
                         py: props.inDashboard ? 0 : 1.5,
                         textTransform: 'none',
                         overflow: 'hidden',
                         textOverflow: 'ellipsis',
                         whiteSpace: 'nowrap',
-                        // the group reads as one control: only its outer
-                        // corners are rounded, and they follow the theme
-                        // radius rather than a fixed 4px
-                        borderRadius: 0,
-                        ...(isVertical
-                          ? {
-                              ...(isFirst && {
-                                borderTopLeftRadius: groupRadius,
-                                borderTopRightRadius: groupRadius,
-                              }),
-                              ...(isLast && {
-                                borderBottomLeftRadius: groupRadius,
-                                borderBottomRightRadius: groupRadius,
-                              }),
-                            }
-                          : {
-                              ...(isFirst && {
-                                borderTopLeftRadius: groupRadius,
-                                borderBottomLeftRadius: groupRadius,
-                              }),
-                              ...(isLast && {
-                                borderTopRightRadius: groupRadius,
-                                borderBottomRightRadius: groupRadius,
-                              }),
-                            }),
-                        m: 0,
-                        ...(isFirst
-                          ? {}
-                          : isVertical
-                            ? { mt: '-1px' }
-                            : { ml: '-1px' }),
-                        ...(selectedIndex === index && {
-                          position: 'relative',
-                          zIndex: 1,
-                        }),
-                        '&.Mui-disabled': {
-                          opacity: 0.7,
-                          color: 'text.secondary',
-                          backgroundColor:
-                            variant === 'contained'
-                              ? 'action.disabledBackground'
-                              : 'transparent',
-                          border: variant === 'outlined' ? '1px solid' : 'none',
-                          borderColor:
-                            variant === 'outlined'
-                              ? 'action.disabled'
-                              : undefined,
-                        },
                       }}
                     >
                       {option}
                     </Button>
-                  );
-                })}
-              </Box>
-            ) : (
-              // Regular Button Group
-              <ButtonGroup
-                variant={variant}
-                color={color}
-                size={getMuiSize(size)}
-                orientation={isVertical ? 'vertical' : 'horizontal'}
-                sx={{
-                  justifyContent: 'center',
-                  pointerEvents: props.disabled ? 'none' : undefined,
-                  width: '100%',
-                  '& .MuiButtonGroup-grouped': {
-                    flex: 1,
-                  },
-                }}
-                disabled={props.disabled}
-              >
-                {options.map((option, index) => (
-                  <Button
-                    {...getWidgetControlProps(props.disabled)}
-                    key={index}
-                    onClick={() =>
-                      void (node as WidgetButtonGroup).handleButtonClick(
-                        index,
-                        props.templateInstance,
-                      )
-                    }
-                    sx={{
-                      fontSize: fontSize,
-                      minHeight: props.inDashboard
-                        ? `${tokens.controlHeight}px`
-                        : undefined,
-                      py: props.inDashboard ? 0 : 1.5,
-                      textTransform: 'none',
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
-                      whiteSpace: 'nowrap',
-                    }}
-                  >
-                    {option}
-                  </Button>
-                ))}
-              </ButtonGroup>
-            )}
+                  ))}
+                </ButtonGroup>
+              )}
+            </Box>
           </Box>
-        </Box>
+        </WidgetLabelFrame>
       </WidgetPaper>
     );
   }
@@ -699,7 +731,15 @@ export class WidgetButtonGroup extends WidgetSelectionBase {
 const switchDefaultData = false;
 const switchDefaultName = 'Switch';
 
+const controlName = 'Control';
+const controlOptions: EnumStructure = [
+  { text: 'Switch' },
+  { text: 'Checkbox' },
+];
+
 const MUI_SWITCH_HEIGHT = 38;
+// MUI's checkbox draws its icon inside this much padding
+const CHECKBOX_PADDING = 9;
 
 export class WidgetSwitch extends WidgetHybridBase {
   public getName(): string {
@@ -707,7 +747,17 @@ export class WidgetSwitch extends WidgetHybridBase {
   }
 
   public getDescription(): string {
-    return 'Adds a switch to toggle between values';
+    return 'Adds a switch or checkbox to toggle between values';
+  }
+
+  public getDocs(): string {
+    return `One on/off value. "Control" shows it as a switch or as a checkbox; either
+way "Out" is "On value" when it is on and "Off value" when it is off. For a
+group of options to tick, use the Checkbox node.`;
+  }
+
+  public getTags(): string[] {
+    return ['Checkbox', 'Toggle'].concat(super.getTags());
   }
 
   protected getDefaultIO(): Socket[] {
@@ -721,7 +771,15 @@ export class WidgetSwitch extends WidgetHybridBase {
       ),
       new Socket(SOCKET_TYPE.IN, offValueName, new BooleanType(), false, false),
       new Socket(SOCKET_TYPE.IN, onValueName, new BooleanType(), true, false),
+      new Socket(
+        SOCKET_TYPE.IN,
+        controlName,
+        new EnumType(controlOptions, undefined, true),
+        controlOptions[0].text,
+        false,
+      ),
       getLabelSocket(switchDefaultName),
+      getLabelPositionSocket(),
       getColorSocket(),
       getSizeSocket(),
       new Socket(SOCKET_TYPE.OUT, outName, new BooleanType()),
@@ -790,18 +848,86 @@ export class WidgetSwitch extends WidgetHybridBase {
     const node = props.node as WidgetHybridBase;
     const size = useWidgetSize(props[sizeName]);
     const tokens = useSizeTokens(size);
+    const position = getLabelPosition(props);
+    const framed = position !== 'Default';
+    const isCheckbox = props[controlName] === 'Checkbox';
+    const { labelId, controlId } = useWidgetLabelIds();
 
     const handleChange = (event: React.ChangeEvent<HTMLInputElement>) => {
       const checked = event.target.checked;
       (node as WidgetSwitch).handleOnChange(checked, props.templateInstance);
     };
 
+    const pointerEvents = props.disabled ? ('none' as const) : undefined;
+    const controlProps = {
+      ...getWidgetControlProps(props.disabled),
+      disabled: props.disabled,
+      checked: props[initialValueName],
+      color: props[colorName],
+      onChange: handleChange,
+      // on a page the control starts at the left edge, like a text field
+      ...(props.inDashboard && { edge: 'start' as const }),
+      ...((framed || isCheckbox) && { id: controlId }),
+    };
+    const canvasScale = {
+      transform: `scale(${(node.nodeHeight / 60) * tokens.scale})`,
+      pointerEvents,
+    };
+    const control = isCheckbox ? (
+      <Checkbox
+        {...controlProps}
+        sx={
+          props.inDashboard
+            ? {
+                '& .MuiSvgIcon-root': { fontSize: `${tokens.iconSize}px` },
+                pointerEvents,
+              }
+            : canvasScale
+        }
+      />
+    ) : (
+      <Switch
+        {...controlProps}
+        size="medium"
+        sx={
+          props.inDashboard
+            ? {
+                zoom: tokens.controlHeight / MUI_SWITCH_HEIGHT,
+                pointerEvents,
+              }
+            : canvasScale
+        }
+      />
+    );
+
+    if (framed) {
+      return (
+        <WidgetPaper node={node} inDashboard={props.inDashboard}>
+          <WidgetLabelFrame
+            position={position}
+            label={props[labelName]}
+            labelId={labelId}
+            htmlFor={controlId}
+            tokens={tokens}
+            rowHeight={
+              isCheckbox
+                ? tokens.iconSize + 2 * CHECKBOX_PADDING
+                : tokens.controlHeight
+            }
+          >
+            <Box sx={{ display: 'flex' }}>{control}</Box>
+          </WidgetLabelFrame>
+        </WidgetPaper>
+      );
+    }
+
     return (
       <WidgetPaper node={node} inDashboard={props.inDashboard}>
         <FormControl
           component="fieldset"
           sx={{
-            margin: 'auto',
+            // centred on the canvas, at the left edge on a page
+            margin: props.inDashboard ? 0 : 'auto',
             minHeight: props.inDashboard
               ? `${tokens.controlHeight}px`
               : undefined,
@@ -811,33 +937,19 @@ export class WidgetSwitch extends WidgetHybridBase {
           <Stack
             direction="row"
             spacing={1}
+            // spaces with gap: Stack's spacing margins would reset the
+            // control's edge margin that puts it at the left edge
+            useFlexGap
             sx={{
               alignItems: 'center',
               minWidth: 'min-content',
               flexWrap: 'wrap',
-              justifyContent: 'center',
+              justifyContent: props.inDashboard ? 'flex-start' : 'center',
             }}
           >
-            <Switch
-              {...getWidgetControlProps(props.disabled)}
-              disabled={props.disabled}
-              size="medium"
-              checked={props[initialValueName]}
-              color={props[colorName]}
-              onChange={handleChange}
-              sx={
-                props.inDashboard
-                  ? {
-                      zoom: tokens.controlHeight / MUI_SWITCH_HEIGHT,
-                      pointerEvents: props.disabled ? 'none' : undefined,
-                    }
-                  : {
-                      transform: `scale(${(node.nodeHeight / 60) * tokens.scale})`,
-                      pointerEvents: props.disabled ? 'none' : undefined,
-                    }
-              }
-            />
+            {control}
             <Typography
+              {...(isCheckbox && { component: 'label', htmlFor: controlId })}
               sx={{
                 mt: props.inDashboard ? '0' : `${node.nodeHeight / 24}px`,
                 fontSize: props.inDashboard

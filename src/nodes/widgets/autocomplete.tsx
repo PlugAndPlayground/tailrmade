@@ -31,6 +31,12 @@ import {
   useFontScalar,
   stringifyIfNeeded,
   WidgetPaper,
+  getHiddenLabelSx,
+  getLabelPosition,
+  getLabelPositionSocket,
+  useSizeTokens,
+  useWidgetLabelIds,
+  WidgetLabelFrame,
 } from './abstract';
 import { readWidgetValue } from './widgetEdits';
 import { WidgetSelectableBase } from './selectable-base';
@@ -122,6 +128,7 @@ abstract class WidgetAutocompleteBase extends WidgetSelectableBase {
       ),
       this.getDefaultSelectedSocket(),
       getLabelSocket(autocompleteDefaultLabel),
+      getLabelPositionSocket(),
       new Socket(
         SOCKET_TYPE.IN,
         placeholderName,
@@ -156,8 +163,35 @@ abstract class WidgetAutocompleteBase extends WidgetSelectableBase {
     const size = useWidgetSize(props[sizeName]);
     const fontScalar = useFontScalar();
     const sizeSx = useSizeSx(size);
+    const tokens = useSizeTokens(size);
     const inputVariant = useResolvedInputVariant();
     const color = props[colorName];
+    const position = getLabelPosition(props);
+    const framed = position !== 'Default';
+    const { labelId, controlId } = useWidgetLabelIds();
+    const formSx = {
+      width: '100%',
+      ...sizeSx,
+      ...(framed && getHiddenLabelSx(tokens)),
+    };
+    // the label sits outside the field, or floats inside it by default
+    const labelProps = framed
+      ? { hiddenLabel: true }
+      : { label: props[labelName] };
+    const frame = (control: React.ReactElement) => (
+      <WidgetPaper node={node} inDashboard={props.inDashboard}>
+        <WidgetLabelFrame
+          position={position}
+          label={props[labelName]}
+          labelId={labelId}
+          htmlFor={controlId}
+          tokens={tokens}
+          rowHeight={tokens.controlHeight}
+        >
+          {control}
+        </WidgetLabelFrame>
+      </WidgetPaper>
+    );
 
     const currentValue = node.formatSelected(props[selectedOptionName]);
     // only the single-select free-text path defers
@@ -168,53 +202,45 @@ abstract class WidgetAutocompleteBase extends WidgetSelectableBase {
     );
 
     if (node.isSingle()) {
-      return (
-        <WidgetPaper node={node} inDashboard={props.inDashboard}>
-          <FormControl
-            variant={inputVariant}
-            margin="none"
-            sx={{ width: '100%', ...sizeSx }}
-          >
-            <Autocomplete
-              {...getWidgetControlProps(isDisabled)}
-              autoHighlight
-              size={getMuiSize(size)}
-              freeSolo={freeSolo}
-              options={options}
-              value={
-                typeof currentValue === 'string' && currentValue !== ''
-                  ? currentValue
-                  : null
+      return frame(
+        <FormControl variant={inputVariant} margin="none" sx={formSx}>
+          <Autocomplete
+            {...getWidgetControlProps(isDisabled)}
+            {...(framed && { id: controlId })}
+            autoHighlight
+            size={getMuiSize(size)}
+            freeSolo={freeSolo}
+            options={options}
+            value={
+              typeof currentValue === 'string' && currentValue !== ''
+                ? currentValue
+                : null
+            }
+            disabled={isDisabled}
+            noOptionsText={noOptionsText}
+            onChange={(_event, newValue) => {
+              // a pick beats whatever was half-typed
+              commit.revert();
+              void node.handleOnChange(newValue ?? '', props.templateInstance);
+            }}
+            onInputChange={(_event, newInputValue, reason) => {
+              if (freeSolo && reason === 'input') {
+                commit.edit(newInputValue);
               }
-              disabled={isDisabled}
-              noOptionsText={noOptionsText}
-              onChange={(_event, newValue) => {
-                // a pick beats whatever was half-typed
-                commit.revert();
-                void node.handleOnChange(
-                  newValue ?? '',
-                  props.templateInstance,
-                );
-              }}
-              onInputChange={(_event, newInputValue, reason) => {
-                if (freeSolo && reason === 'input') {
-                  commit.edit(newInputValue);
-                }
-              }}
-              renderInput={(params) => (
-                <TextField
-                  {...params}
-                  margin="none"
-                  color={color}
-                  variant={inputVariant}
-                  label={props[labelName]}
-                  placeholder={placeholder}
-                />
-              )}
-              slotProps={getAutocompleteSlotProps(size, fontScalar)}
-            />
-          </FormControl>
-        </WidgetPaper>
+            }}
+            renderInput={(params) => (
+              <TextField
+                {...params}
+                margin="none"
+                color={color}
+                variant={inputVariant}
+                {...labelProps}
+                placeholder={placeholder}
+              />
+            )}
+            slotProps={getAutocompleteSlotProps(size, fontScalar)}
+          />
+        </FormControl>,
       );
     }
 
@@ -223,55 +249,50 @@ abstract class WidgetAutocompleteBase extends WidgetSelectableBase {
       ? currentValue
       : [];
 
-    return (
-      <WidgetPaper node={node} inDashboard={props.inDashboard}>
-        <FormControl
-          variant={inputVariant}
-          margin="none"
-          sx={{ width: '100%', ...sizeSx }}
-        >
-          <Autocomplete
-            {...getWidgetControlProps(isDisabled)}
-            multiple
-            autoHighlight
-            size={getMuiSize(size)}
-            freeSolo={freeSolo}
-            options={options}
-            value={multiValue}
-            disabled={isDisabled}
-            disableCloseOnSelect
-            noOptionsText={noOptionsText}
-            onChange={(_event, newValue) => {
-              void node.handleOnChange(newValue, props.templateInstance);
-            }}
-            renderOption={(optionProps, option, { selected }) => (
-              <li {...optionProps}>
-                <Checkbox color={color} checked={selected} sx={{ mr: 1 }} />
-                {option}
-              </li>
-            )}
-            renderValue={(value, getItemProps) =>
-              value.map((option, index) => {
-                const { key, ...itemProps } = getItemProps({ index });
-                return (
-                  <Chip label={option} size="small" {...itemProps} key={key} />
-                );
-              })
-            }
-            renderInput={(params) => (
-              <TextField
-                {...params}
-                margin="none"
-                color={color}
-                variant={inputVariant}
-                label={props[labelName]}
-                placeholder={multiValue.length === 0 ? placeholder : undefined}
-              />
-            )}
-            slotProps={getAutocompleteSlotProps(size, fontScalar)}
-          />
-        </FormControl>
-      </WidgetPaper>
+    return frame(
+      <FormControl variant={inputVariant} margin="none" sx={formSx}>
+        <Autocomplete
+          {...getWidgetControlProps(isDisabled)}
+          {...(framed && { id: controlId })}
+          multiple
+          autoHighlight
+          size={getMuiSize(size)}
+          freeSolo={freeSolo}
+          options={options}
+          value={multiValue}
+          disabled={isDisabled}
+          disableCloseOnSelect
+          noOptionsText={noOptionsText}
+          onChange={(_event, newValue) => {
+            void node.handleOnChange(newValue, props.templateInstance);
+          }}
+          renderOption={(optionProps, option, { selected }) => (
+            <li {...optionProps}>
+              <Checkbox color={color} checked={selected} sx={{ mr: 1 }} />
+              {option}
+            </li>
+          )}
+          renderValue={(value, getItemProps) =>
+            value.map((option, index) => {
+              const { key, ...itemProps } = getItemProps({ index });
+              return (
+                <Chip label={option} size="small" {...itemProps} key={key} />
+              );
+            })
+          }
+          renderInput={(params) => (
+            <TextField
+              {...params}
+              margin="none"
+              color={color}
+              variant={inputVariant}
+              {...labelProps}
+              placeholder={multiValue.length === 0 ? placeholder : undefined}
+            />
+          )}
+          slotProps={getAutocompleteSlotProps(size, fontScalar)}
+        />
+      </FormControl>,
     );
   }
 }

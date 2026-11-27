@@ -21,6 +21,11 @@ import {
   useWidgetSize,
   useSizeTokens,
   useSizeSx,
+  getHiddenLabelSx,
+  getLabelPosition,
+  getLabelPositionSocket,
+  useWidgetLabelIds,
+  WidgetLabelFrame,
 } from './abstract';
 import Socket from '../../classes/SocketClass';
 import { StringType } from '../datatypes/stringType';
@@ -110,6 +115,7 @@ zeros survive. For a value you calculate with, use a Number Field instead.`;
         false,
       ),
       getLabelSocket(textFieldDefaultLabel),
+      getLabelPositionSocket(),
       new Socket(
         SOCKET_TYPE.IN,
         placeholderName,
@@ -220,45 +226,61 @@ zeros survive. For a value you calculate with, use a Number Field instead.`;
     const inputVariant = useResolvedInputVariant();
     const color = props[colorName];
     const sizeSx = useSizeSx(size);
-    const fontSize = `${useSizeTokens(size).fontSize}px`;
+    const tokens = useSizeTokens(size);
+    const fontSize = `${tokens.fontSize}px`;
+    const position = getLabelPosition(props);
+    const framed = position !== 'Default';
+    const { labelId, controlId } = useWidgetLabelIds();
     return (
       <WidgetPaper node={node} inDashboard={props.inDashboard}>
-        <Box sx={{ width: '100%' }}>
-          <FormControl fullWidth margin="none">
-            <TextField
-              {...getWidgetControlProps(props.disabled)}
-              margin="none"
-              value={commit.value}
-              label={props[labelName]}
-              placeholder={placeholder}
-              helperText={helperText}
-              variant={inputVariant}
-              color={color}
-              size={getMuiSize(size)}
-              type={type}
-              multiline={multiline}
-              rows={multiline ? rows : undefined}
-              slotProps={{
-                htmlInput: {
-                  maxLength: maxLength > 0 ? maxLength : undefined,
-                  inputMode:
-                    keyboard && keyboard !== 'text' ? keyboard : undefined,
-                },
-                input: { sx: { fontSize }, readOnly: !isInteractive },
-              }}
-              required={required}
-              disabled={props.disabled}
-              onFocus={commit.beginEditing}
-              onChange={(e) => commit.edit(e.target.value)}
-              onBlur={commit.endEditing}
-              onKeyDown={commit.handleKeyDown}
-              sx={{
-                pointerEvents: props.disabled ? 'none' : undefined,
-                ...sizeSx,
-              }}
-            />
-          </FormControl>
-        </Box>
+        <WidgetLabelFrame
+          position={position}
+          label={props[labelName]}
+          labelId={labelId}
+          htmlFor={controlId}
+          tokens={tokens}
+          rowHeight={tokens.controlHeight}
+        >
+          <Box sx={{ width: '100%' }}>
+            <FormControl fullWidth margin="none">
+              <TextField
+                {...getWidgetControlProps(props.disabled)}
+                margin="none"
+                value={commit.value}
+                {...(framed
+                  ? { id: controlId, hiddenLabel: true }
+                  : { label: props[labelName] })}
+                placeholder={placeholder}
+                helperText={helperText}
+                variant={inputVariant}
+                color={color}
+                size={getMuiSize(size)}
+                type={type}
+                multiline={multiline}
+                rows={multiline ? rows : undefined}
+                slotProps={{
+                  htmlInput: {
+                    maxLength: maxLength > 0 ? maxLength : undefined,
+                    inputMode:
+                      keyboard && keyboard !== 'text' ? keyboard : undefined,
+                  },
+                  input: { sx: { fontSize }, readOnly: !isInteractive },
+                }}
+                required={required}
+                disabled={props.disabled}
+                onFocus={commit.beginEditing}
+                onChange={(e) => commit.edit(e.target.value)}
+                onBlur={commit.endEditing}
+                onKeyDown={commit.handleKeyDown}
+                sx={{
+                  pointerEvents: props.disabled ? 'none' : undefined,
+                  ...sizeSx,
+                  ...(framed && getHiddenLabelSx(tokens)),
+                }}
+              />
+            </FormControl>
+          </Box>
+        </WidgetLabelFrame>
       </WidgetPaper>
     );
   }
@@ -323,6 +345,7 @@ Field with "Keyboard" set to "numeric".`;
       ),
       getDecimalsSocket(),
       getLabelSocket(numberFieldDefaultLabel),
+      getLabelPositionSocket(),
       new Socket(SOCKET_TYPE.IN, placeholderName, new StringType(), '', false),
       new Socket(SOCKET_TYPE.IN, helperTextName, new StringType(), '', false),
       new Socket(SOCKET_TYPE.IN, stepName, new NumberType(), 1, false),
@@ -369,37 +392,51 @@ Field with "Keyboard" set to "numeric".`;
     const limitRange = props[limitRangeName];
     const decimals = getDecimals(props[decimalsName]);
 
+    const position = getLabelPosition(props);
+    const framed = position !== 'Default';
+    const { labelId, controlId } = useWidgetLabelIds();
+
     return (
       <WidgetPaper node={node} inDashboard={props.inDashboard}>
-        <NumberInput
-          {...getWidgetControlProps(props.disabled)}
+        <WidgetLabelFrame
+          position={position}
           label={props[labelName]}
-          value={props[initialValueName]}
-          onChange={commit.edit}
-          onCommit={commit.endEditing}
-          min={limitRange ? props[minValueName] : undefined}
-          max={limitRange ? props[maxValueName] : undefined}
-          step={Math.max(props[stepName], 10 ** -decimals)}
-          decimals={decimals}
-          // apps saved before the setting existed keep their separators
-          grouping={props[groupingName] !== false}
-          required={props[requiredName]}
-          disabled={props.disabled}
-          readOnly={props.inDashboard && props.disabled}
-          size={getMuiSize(size)}
-          variant={inputVariant}
-          color={props[colorName]}
-          placeholder={props[placeholderName]}
-          helperText={props[helperTextName]}
-          hideSteppers={!props[steppersName]}
-          sx={{
-            pointerEvents: props.disabled ? 'none' : undefined,
-            ...sizeSx,
-            '& .MuiInputAdornment-root .MuiSvgIcon-root': {
-              fontSize: `${Math.round(tokens.iconSize * 0.75)}px`,
-            },
-          }}
-        />
+          labelId={labelId}
+          htmlFor={controlId}
+          tokens={tokens}
+          rowHeight={tokens.controlHeight}
+        >
+          <NumberInput
+            {...getWidgetControlProps(props.disabled)}
+            {...(framed ? { id: controlId } : { label: props[labelName] })}
+            value={props[initialValueName]}
+            onChange={commit.edit}
+            onCommit={commit.endEditing}
+            min={limitRange ? props[minValueName] : undefined}
+            max={limitRange ? props[maxValueName] : undefined}
+            step={Math.max(props[stepName], 10 ** -decimals)}
+            decimals={decimals}
+            // apps saved before the setting existed keep their separators
+            grouping={props[groupingName] !== false}
+            required={props[requiredName]}
+            disabled={props.disabled}
+            readOnly={props.inDashboard && props.disabled}
+            size={getMuiSize(size)}
+            variant={inputVariant}
+            color={props[colorName]}
+            placeholder={props[placeholderName]}
+            helperText={props[helperTextName]}
+            hideSteppers={!props[steppersName]}
+            sx={{
+              pointerEvents: props.disabled ? 'none' : undefined,
+              ...sizeSx,
+              ...(framed && getHiddenLabelSx(tokens)),
+              '& .MuiInputAdornment-root .MuiSvgIcon-root': {
+                fontSize: `${Math.round(tokens.iconSize * 0.75)}px`,
+              },
+            }}
+          />
+        </WidgetLabelFrame>
       </WidgetPaper>
     );
   }
