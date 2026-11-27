@@ -2,7 +2,9 @@
 // object. Not called "grid": columns is a setting, and "Widget grid array"
 // already exists.
 import React from 'react';
-import { Box } from '@mui/material';
+import { Box, IconButton } from '@mui/material';
+import ChevronRightIcon from '@mui/icons-material/ChevronRight';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import { HybridWidgetContentProps } from '../../classes/HybridNode2';
 import PPSocket from '../../classes/SocketClass';
 import {
@@ -24,9 +26,12 @@ import { SOCKET_NAME_DASHBOARD_CONTENT } from '../../utils/layoutableHelpers';
 import {
   EntryPath,
   expandEntries,
+  isInsideCollapsed,
   isPlainObject,
+  readCollapsed,
   setAtPaths,
   toEntries,
+  toggleCollapsed,
 } from './templateEntries';
 import { runTemplateAsInstance, TemplateArgs } from './templateInstancing';
 import {
@@ -46,6 +51,8 @@ const keyFieldSocketName = 'Key field';
 const emptyTextSocketName = 'Empty text';
 const expandSocketName = 'Expand nested';
 const indentSocketName = 'Indent';
+const collapsibleSocketName = 'Collapsible groups';
+const collapsedSocketName = 'Collapsed';
 const outName = 'Output';
 const EMPTY_TREE = {};
 
@@ -168,6 +175,16 @@ export const RepeatTemplateWidget: React.FunctionComponent<
   const gap = Math.max(0, Number(props[gapSocketName]) || 0);
   const indent = Math.max(0, Number(props[indentSocketName]) || 0);
   const interactive = Boolean(props.inDashboard) && !props.disabled;
+  // a fold toggle only where there are groups, and only for this node's own
+  // rows: nested in another template, its rows belong to that template's row
+  const foldable =
+    Boolean(props[collapsibleSocketName]) &&
+    !props[TEMPLATE_PLACED_STATE_PROP] &&
+    rows.some((row) => row.place?.group);
+  const collapsed = foldable ? readCollapsed(props[collapsedSocketName]) : [];
+  const shownRows = rows.filter(
+    (row) => !row.place || !isInsideCollapsed(row.place.path, collapsed),
+  );
 
   return (
     <Box
@@ -180,12 +197,12 @@ export const RepeatTemplateWidget: React.FunctionComponent<
         // column lays every row out side by side - all the same node
         gridTemplateColumns:
           direction === 'row' && columns === 1
-            ? `repeat(${rows.length}, minmax(0, 1fr))`
+            ? `repeat(${shownRows.length}, minmax(0, 1fr))`
             : `repeat(${columns}, minmax(0, 1fr))`,
       }}
     >
-      {rows.map((row) => {
-        const content = (
+      {shownRows.map((row) => {
+        const placed = (
           <TemplateBody
             key={row.key}
             ownerId={node.id}
@@ -196,6 +213,28 @@ export const RepeatTemplateWidget: React.FunctionComponent<
             isCanvasPreview={isCanvasPreview}
             interactive={interactive}
           />
+        );
+        const content = foldable ? (
+          <Box
+            key={row.key}
+            sx={{ display: 'flex', alignItems: 'center', minWidth: 0 }}
+          >
+            {/* every row keeps the slot, so values line up with headings */}
+            <Box sx={{ width: 28, flexShrink: 0 }}>
+              {row.place?.group && (
+                <FoldToggle
+                  node={node}
+                  path={row.place.path}
+                  // folded exactly when its own rows would be hidden
+                  open={!isInsideCollapsed([...row.place.path, ''], collapsed)}
+                  disabled={Boolean(props.disabled)}
+                />
+              )}
+            </Box>
+            <Box sx={{ flex: 1, minWidth: 0 }}>{placed}</Box>
+          </Box>
+        ) : (
+          placed
         );
         const depth = row.place?.depth ?? 0;
         // only an expanded row has a depth, so plain rows keep their DOM as is
@@ -210,6 +249,37 @@ export const RepeatTemplateWidget: React.FunctionComponent<
     </Box>
   );
 };
+
+function FoldToggle({
+  node,
+  path,
+  open,
+  disabled,
+}: {
+  node: RepeatTemplate;
+  path: EntryPath;
+  open: boolean;
+  disabled: boolean;
+}): React.ReactElement {
+  const label = `${open ? 'Collapse' : 'Expand'} ${path.join(' › ')}`;
+  return (
+    <IconButton
+      size="small"
+      aria-label={label}
+      aria-expanded={open}
+      title={label}
+      disabled={disabled}
+      data-cy={`fold ${JSON.stringify(path)}`}
+      onClick={() => node.toggleGroup(path)}
+    >
+      {open ? (
+        <ExpandMoreIcon fontSize="small" />
+      ) : (
+        <ChevronRightIcon fontSize="small" />
+      )}
+    </IconButton>
+  );
+}
 
 export class RepeatTemplate extends TemplatePlacementNode {
   // one evaluated row per entry, in render order
@@ -244,6 +314,9 @@ values, so the template can show it as a heading. Each row is one value:
 gets the value. Rows are indented by "${indentSocketName}" per level. "${outName}"
 is then the JSON in the shape that came in, each value replaced by what its
 row outputs; group rows and values past "${maxItemsSocketName}" stay as they were.
+With "${collapsibleSocketName}" on, each group row gets a toggle that folds its
+rows away. Folding only hides rows, so "${outName}" still has every value. Which
+groups are folded is kept in "${collapsedSocketName}", a list of paths.
 
 What a viewer changes in a row stays in that row. The template's
 "${templateOutputPrefixName}" values are collected per row into "${outName}".
@@ -254,6 +327,8 @@ Wire the template's parameters before setting "${templateSocketName}", which
 creates the "<parameter> from" inputs. Prefer those inputs over reshaping the
 data with extra nodes. For a form over nested JSON, turn on
 "${expandSocketName}" rather than flattening and rebuilding the JSON yourself.
+To start with groups folded, set_socket_value "${collapsedSocketName}" to their
+paths, for example [["db"], ["servers", 0]].
 Connect this node's ReactUI to the surface it appears on,
 not the template's body. Leave "Edits" alone; fire "Clear edits" to reset rows.
 For a row button that changes the list, feed "${itemsSocketName}" from a
@@ -306,6 +381,20 @@ with inspect_ui.`;
       ),
       new PPSocket(
         SOCKET_TYPE.IN,
+        collapsibleSocketName,
+        new BooleanType(),
+        true,
+        false,
+      ),
+      new PPSocket(
+        SOCKET_TYPE.IN,
+        collapsedSocketName,
+        new JSONType(),
+        [],
+        false,
+      ),
+      new PPSocket(
+        SOCKET_TYPE.IN,
         keyFieldSocketName,
         new StringType(),
         '',
@@ -329,6 +418,18 @@ with inspect_ui.`;
       this.getClearEditsSocket(),
       new PPSocket(SOCKET_TYPE.OUT, outName, new JSONType()),
     ];
+  }
+
+  // Folding only hides rows, so nothing runs again: Output keeps every value.
+  public toggleGroup(path: EntryPath): void {
+    this.setInputData(
+      collapsedSocketName,
+      toggleCollapsed(
+        readCollapsed(this.getInputData(collapsedSocketName)),
+        path,
+      ),
+    );
+    this.forceRerender(false);
   }
 
   public placedTemplateUpdatedMeta(): void {
@@ -479,17 +580,20 @@ with inspect_ui.`;
     const entries: [string, unknown, ExpandedPlace?][] = (
       expand
         ? expandEntries(items).map(
-            ({ key, value, path, depth, group }): [
-              string,
-              unknown,
-              ExpandedPlace,
-            ] => [key, value, { path, depth, group }],
+            ({
+              key,
+              value,
+              path,
+              depth,
+              group,
+            }): [string, unknown, ExpandedPlace] => [
+              key,
+              value,
+              { path, depth, group },
+            ],
           )
         : toEntries(items)
-    ).slice(
-      0,
-      Math.max(1, Math.round(Number(input[maxItemsSocketName]) || 1)),
-    );
+    ).slice(0, Math.max(1, Math.round(Number(input[maxItemsSocketName]) || 1)));
 
     const rows: TemplateRow[] = [];
     if (template) {

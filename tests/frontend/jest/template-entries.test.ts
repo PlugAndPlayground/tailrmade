@@ -1,7 +1,10 @@
 import {
   expandEntries,
+  isInsideCollapsed,
+  readCollapsed,
   setAtPaths,
   toEntries,
+  toggleCollapsed,
 } from '../../../src/nodes/layout/templateEntries';
 
 const settings = {
@@ -113,5 +116,41 @@ describe('setAtPaths', () => {
   it('replaces a scalar source with its single row', () => {
     expect(setAtPaths('hi', [[['0'], 'bye']])).toBe('bye');
     expect(setAtPaths('hi', [])).toBe('hi');
+  });
+});
+
+describe('collapsed groups', () => {
+  it('hides everything below a folded group, but not the group itself', () => {
+    const collapsed = [['theme'], ['ports']];
+    const shown = expandEntries(settings)
+      .filter((row) => !isInsideCollapsed(row.path, collapsed))
+      .map((row) => row.path);
+    expect(shown).toEqual([
+      ['name'],
+      ['retries'],
+      ['extra'],
+      ['theme'],
+      ['ports'],
+    ]);
+  });
+
+  it('matches list indexes whether stored as numbers or strings', () => {
+    expect(isInsideCollapsed(['servers', 0, 'host'], [['servers', '0']])).toBe(
+      true,
+    );
+    expect(isInsideCollapsed(['servers', 1, 'host'], [['servers', 0]])).toBe(
+      false,
+    );
+  });
+
+  it('folds and unfolds a group, and reads only valid paths back', () => {
+    const folded = toggleCollapsed([], ['db']);
+    expect(folded).toEqual([['db']]);
+    expect(toggleCollapsed(folded, ['db'])).toEqual([]);
+    expect(readCollapsed([['db'], 'db', [], [{}], ['a', 1]])).toEqual([
+      ['db'],
+      ['a', 1],
+    ]);
+    expect(readCollapsed('nope')).toEqual([]);
   });
 });

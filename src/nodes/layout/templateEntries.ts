@@ -59,7 +59,10 @@ export function expandEntries(items: unknown): ExpandedEntry[] {
     const entries: [string | number, unknown][] = Array.isArray(node)
       ? node.map((value, index) => [index, value])
       : Object.entries(node);
-    const toRow = ([key, value]: [string | number, unknown]): ExpandedEntry => ({
+    const toRow = ([key, value]: [
+      string | number,
+      unknown,
+    ]): ExpandedEntry => ({
       key: String(key),
       path: [...path, key],
       depth: path.length,
@@ -113,4 +116,43 @@ export function setAtPaths(
     }
   });
   return copy;
+}
+
+const samePath = (a: EntryPath, b: EntryPath): boolean =>
+  a.length === b.length && a.every((key, i) => String(key) === String(b[i]));
+
+/** Whether a path lies inside one of the collapsed groups, below it. */
+export function isInsideCollapsed(
+  path: EntryPath,
+  collapsed: EntryPath[],
+): boolean {
+  return collapsed.some(
+    (group) =>
+      group.length < path.length &&
+      samePath(group, path.slice(0, group.length)),
+  );
+}
+
+/** The collapsed groups with this one folded or unfolded. */
+export function toggleCollapsed(
+  collapsed: EntryPath[],
+  path: EntryPath,
+): EntryPath[] {
+  return collapsed.some((group) => samePath(group, path))
+    ? collapsed.filter((group) => !samePath(group, path))
+    : [...collapsed, path];
+}
+
+/** Collapsed groups as stored: paths, dropping anything that is not one. */
+export function readCollapsed(stored: unknown): EntryPath[] {
+  return Array.isArray(stored)
+    ? stored.filter(
+        (path): path is EntryPath =>
+          Array.isArray(path) &&
+          path.length > 0 &&
+          path.every(
+            (key) => typeof key === 'string' || typeof key === 'number',
+          ),
+      )
+    : [];
 }

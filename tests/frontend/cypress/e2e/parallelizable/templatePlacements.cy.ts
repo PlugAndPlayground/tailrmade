@@ -820,6 +820,38 @@ describe('template placements', () => {
     });
   });
 
+  it('folds a group away in the dashboard and keeps its values', () => {
+    const settings = { name: 'app', db: { host: 'local', user: 'me' } };
+    doWithTestController(async (tc: any) => {
+      await tc.addNode('UISurfaceNode', 'page', 2400, 0);
+      const template = await addTemplate(tc, 't');
+      await addWidget(tc, 't', 't-w');
+      await tc.connectNodesByID('t', 't-w', 'Parameter 1', VALUE);
+      const repeat = await addRepeat(tc, template, 'rep', settings);
+      repeat.setInputData('Expand nested', true);
+      await repeat.executeOptimizedChain();
+      await tc.connectNodesByID('rep', 'page', 'ReactUI');
+      await tc.waitForPendingExecution();
+      tc.toggleDashboard(VISIBILITY_ACTION.OPEN);
+    });
+
+    const list = '[data-cy="dashboard"] [data-cy="repeat-template of rep"]';
+    const fold = `${list} [data-cy='fold ["db"]']`;
+    // name, the db heading, host and user
+    cy.get(`${list} input`).should('have.length', 4);
+    cy.get(fold).should('have.attr', 'aria-expanded', 'true').click();
+    cy.get(`${list} input`).should('have.length', 2);
+    cy.get(fold).should('have.attr', 'aria-expanded', 'false');
+    shouldWithTestController((tc: any) => {
+      const repeat = tc.getNodeByID('rep');
+      expect(repeat.getInputData('Collapsed')).to.deep.equal([['db']]);
+      // folding hides rows, it does not drop their values
+      expect(repeat.getOutputData('Output')).to.deep.equal(settings);
+    });
+    cy.get(fold).click();
+    cy.get(`${list} input`).eq(2).should('have.value', 'local');
+  });
+
   it('types into one row of a dashboard, and into a nested placement', () => {
     doWithTestController(async (tc: any) => {
       await tc.addNode('UISurfaceNode', 'page', 2400, 0);
