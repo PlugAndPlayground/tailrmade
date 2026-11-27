@@ -135,8 +135,6 @@ connected to it.`;
     this.adaptCaseSockets();
     const picked = matchCase(this.getCases(), input[keyName]);
     output[outputName] =
-      picked === undefined
-        ? input[defaultName]
-        : this.getInputData(picked);
+      picked === undefined ? input[defaultName] : this.getInputData(picked);
   }
 }
