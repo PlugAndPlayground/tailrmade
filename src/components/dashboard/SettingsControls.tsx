@@ -33,6 +33,7 @@ import {
   customTheme,
   COLOR_WHITE_TEXT,
 } from '../../utils/constants';
+import { FORM_LABEL_WIDTH } from '../../utils/theme/cssVariables';
 
 const WIDTH_PRESETS = [
   {
@@ -684,6 +685,20 @@ export const GapSection: React.FC<SettingsSectionProps> = ({
     value={props.gap}
     onChange={(value) => setProp((p: any) => (p.gap = value))}
     label="Gap"
+  />
+);
+
+export const LabelWidthSection: React.FC<SettingsSectionProps> = ({
+  setProp,
+  props,
+}) => (
+  <SliderControl
+    value={props.labelWidth ?? FORM_LABEL_WIDTH}
+    onChange={(value) => setProp((p: any) => (p.labelWidth = value))}
+    label="Label width (widgets with Left labels)"
+    min={40}
+    max={400}
+    step={8}
   />
 );
 

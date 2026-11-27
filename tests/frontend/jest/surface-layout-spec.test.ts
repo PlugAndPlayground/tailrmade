@@ -53,6 +53,61 @@ describe('surfaceLayoutSpec', () => {
     });
   });
 
+  describe('container label width', () => {
+    const compileForm = (extra: Record<string, unknown>) =>
+      compileSurfaceSpec(
+        {
+          direction: 'column',
+          children: [{ direction: 'column', children: [], ...extra }],
+        },
+        new Set(),
+      );
+
+    it('round-trips as a first-class field', () => {
+      const { tree, warnings } = compileForm({ labelWidth: 220 });
+      expect(warnings).toEqual([]);
+      const form = decompileSurfaceTree(tree).root
+        .children[0] as ContainerSpecItem;
+      expect(form.labelWidth).toBe(220);
+      expect(form.props).toBeUndefined();
+    });
+
+    it('is left out of a container that does not set it', () => {
+      const { tree } = compileForm({});
+      const form = decompileSurfaceTree(tree).root
+        .children[0] as ContainerSpecItem;
+      expect(form).not.toHaveProperty('labelWidth');
+    });
+
+    it('ignores a value that is not a positive number', () => {
+      const { tree, warnings } = compileForm({ labelWidth: '200px' });
+      expect(warnings).toEqual([
+        expect.stringContaining('"labelWidth" must be a positive number'),
+      ]);
+      const form = decompileSurfaceTree(tree).root
+        .children[0] as ContainerSpecItem;
+      expect(form).not.toHaveProperty('labelWidth');
+    });
+
+    it('is patched by set_layout_value and cleared with null', () => {
+      const set = applySpecProperties({}, { labelWidth: 200 }, 'container');
+      expect(set.warnings).toEqual([]);
+      expect(set.props.labelWidth).toBe(200);
+      const cleared = applySpecProperties(
+        set.props,
+        { labelWidth: null },
+        'container',
+      );
+      expect(cleared.applied).toEqual(['labelWidth']);
+      expect(cleared.props).not.toHaveProperty('labelWidth');
+      const bad = applySpecProperties({}, { labelWidth: -5 }, 'container');
+      expect(bad.applied).toEqual([]);
+      expect(bad.warnings).toEqual([
+        expect.stringContaining('"labelWidth" must be a positive number'),
+      ]);
+    });
+  });
+
   describe('root alignment', () => {
     // the root renderer used to drop align/justify, so a spec setting them
     // compiled fine but changed nothing on screen

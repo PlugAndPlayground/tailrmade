@@ -114,6 +114,9 @@ export interface ContainerSpecItem extends SpecItemIdentity {
   // 'column' (default) stacks the children vertically, 'wrap' lets them
   // wrap, 'row' keeps them side by side. No effect on 'column' containers.
   mobileBehavior?: 'row' | 'column' | 'wrap';
+  // px width of the label column of every widget inside whose Label position
+  // is Left (default 160), so a form's controls start at one edge
+  labelWidth?: number;
   // how much the container stands out: 'subtle' tints it with the theme's
   // text color, 'strong' makes it a card. Follows light/dark on its own.
   emphasis?: ContainerEmphasis;
@@ -242,6 +245,7 @@ const SPEC_PROPERTY_TO_CRAFT_PROP: Record<string, string> = {
   align: 'alignItems',
   justify: 'justifyContent',
   mobileBehavior: 'mobileBehavior',
+  labelWidth: 'labelWidth',
   emphasis: 'emphasis',
   tone: 'tone',
   showLabel: 'showLabel',
@@ -266,6 +270,7 @@ export const SPEC_PROPERTIES_BY_KIND: Record<
     'align',
     'justify',
     'mobileBehavior',
+    'labelWidth',
     'emphasis',
     'tone',
   ],
@@ -281,6 +286,10 @@ export const SPEC_PROPERTIES_BY_KIND: Record<
     'collapsedByDefault',
   ],
 };
+
+const isLabelWidth = (value: unknown): value is number =>
+  typeof value === 'number' && Number.isFinite(value) && value > 0;
+const LABEL_WIDTH_WARNING = '"labelWidth" must be a positive number of px';
 
 const CONTAINER_ENUMS: Record<string, readonly string[]> = {
   emphasis: CONTAINER_EMPHASES,
@@ -358,6 +367,19 @@ export function applySpecProperties(
       kind === 'container' ? CONTAINER_ENUMS[name] : undefined;
     if (allowedValues && !allowedValues.includes(value as string)) {
       warnings.push(`"${name}" must be ${allowedValues.join(' | ')}.`);
+      continue;
+    }
+    if (name === 'labelWidth') {
+      // null clears it, so the widgets fall back to their default
+      if (value === null) {
+        delete patched.labelWidth;
+      } else if (isLabelWidth(value)) {
+        patched.labelWidth = value;
+      } else {
+        warnings.push(`${LABEL_WIDTH_WARNING}, or null to clear it.`);
+        continue;
+      }
+      applied.push(name);
       continue;
     }
     if (name === 'padding') {
@@ -513,6 +535,15 @@ export function compileSurfaceSpec(
     }
     if (item.mobileBehavior !== undefined) {
       overrides.mobileBehavior = item.mobileBehavior;
+    }
+    if (item.labelWidth !== undefined) {
+      if (isLabelWidth(item.labelWidth)) {
+        overrides.labelWidth = item.labelWidth;
+      } else {
+        warnings.push(
+          `container "${id}": ${LABEL_WIDTH_WARNING}, so ${JSON.stringify(item.labelWidth)} was ignored.`,
+        );
+      }
     }
     Object.entries(CONTAINER_ENUMS).forEach(([key, allowed]) => {
       const value: unknown = item[key as keyof ContainerSpecItem];
@@ -757,6 +788,7 @@ export function decompileSurfaceTree(
       'alignItems',
       'justifyContent',
       'mobileBehavior',
+      'labelWidth',
       'emphasis',
       'tone',
     ]);
@@ -785,6 +817,9 @@ export function decompileSurfaceTree(
       result.mobileBehavior = diffed.mobileBehavior as
         'row' | 'column' | 'wrap';
     }
+    if (diffed.labelWidth !== undefined) {
+      result.labelWidth = diffed.labelWidth as number;
+    }
     if (diffed.emphasis !== undefined) {
       result.emphasis = diffed.emphasis as ContainerEmphasis;
     }
@@ -801,6 +836,7 @@ export function decompileSurfaceTree(
       'alignItems',
       'justifyContent',
       'mobileBehavior',
+      'labelWidth',
       'emphasis',
       'tone',
     ]);

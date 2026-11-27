@@ -26,6 +26,10 @@ import { EnumStructure, EnumType } from '../datatypes/enumType';
 import { StringType } from '../datatypes/stringType';
 import { Density, useResolvedDensity, useThemeTokens } from '../../utils/theme';
 import { getCanvasGrabThroughSx } from '../../utils/nodeInteractivity';
+import {
+  FORM_LABEL_WIDTH,
+  FORM_LABEL_WIDTH_VAR,
+} from '../../utils/theme/cssVariables';
 
 export {
   getWidgetControlProps,
@@ -383,12 +387,18 @@ export const getLabelPosition = (props: {
     : 'Default';
 };
 
-// one width for every Left label, so the controls of a form start at the
+// FORM_LABEL_WIDTH is the Left label column when no container sets a Label
+// width: one width for every widget, so the controls of a form start at the
 // same edge row after row; long labels wrap inside it
-export const FORM_LABEL_WIDTH = 160;
-// below this a label column would squeeze the control, so Left stacks as Above
-export const FORM_LABEL_STACK_BELOW = 600;
-const wideEnoughForLeftLabel = `@media (min-width: ${FORM_LABEL_STACK_BELOW}px)`;
+export { FORM_LABEL_WIDTH };
+// the label never takes more than this share of the widget, so a wide label
+// column cannot squeeze the control in a narrow one
+export const FORM_LABEL_MAX_SHARE = 0.4;
+// a widget narrower than this stacks a Left label as Above. It measures the
+// widget, not the window, so a form in a narrow column stacks too
+export const FORM_LABEL_STACK_BELOW = 480;
+const wideEnoughForLeftLabel = `@container (min-width: ${FORM_LABEL_STACK_BELOW}px)`;
+const leftLabelColumn = `min(var(${FORM_LABEL_WIDTH_VAR}, ${FORM_LABEL_WIDTH}px), ${FORM_LABEL_MAX_SHARE * 100}%)`;
 
 /** Unique per rendering, so the rows of a template list never share an id. */
 export const useWidgetLabelIds = () => {
@@ -461,7 +471,7 @@ export const WidgetLabelFrame = ({
   }
   const text = label === undefined || label === null ? '' : String(label);
   const isLeft = position === 'Left';
-  return (
+  const frame = (
     <Box
       data-cy="widget-label-frame"
       data-label-position={position}
@@ -475,7 +485,7 @@ export const WidgetLabelFrame = ({
         alignItems: 'start',
         ...(isLeft && {
           [wideEnoughForLeftLabel]: {
-            gridTemplateColumns: `${FORM_LABEL_WIDTH}px minmax(0, 1fr)`,
+            gridTemplateColumns: `${leftLabelColumn} minmax(0, 1fr)`,
           },
         }),
       }}
@@ -509,6 +519,15 @@ export const WidgetLabelFrame = ({
         {children}
       </Box>
     </Box>
+  );
+  // a container query needs an ancestor to measure, so a Left frame gets a
+  // wrapper that is the size container
+  return isLeft ? (
+    <Box sx={{ width: '100%', minWidth: 0, containerType: 'inline-size' }}>
+      {frame}
+    </Box>
+  ) : (
+    frame
   );
 };
 

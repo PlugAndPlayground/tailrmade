@@ -8,6 +8,7 @@ import {
   LayoutSection,
   PaddingSection,
   GapSection,
+  LabelWidthSection,
   AlignmentControl,
   AlignmentSection,
   DimensionsSection,
@@ -42,6 +43,7 @@ import {
   DEFAULT_CONTAINER_EMPHASIS,
   DEFAULT_CONTAINER_TONE,
 } from '../../utils/theme/emphasis';
+import { FORM_LABEL_WIDTH_VAR } from '../../utils/theme/cssVariables';
 
 const ROOT_PRESET_MAX_WIDTH: Record<string, false | string> = {
   fullscreen: false,
@@ -66,6 +68,9 @@ type ContainerWidgetProps = {
   mobileBehavior: MobileBehavior;
   emphasis: ContainerEmphasis;
   tone: ContainerTone;
+  // px width of the label column of every Left-labelled widget inside;
+  // unset keeps the widgets' own default
+  labelWidth?: number;
   customStyles: Record<string, any>;
 };
 
@@ -109,6 +114,15 @@ export interface ContainerViewProps extends ContainerProps {
   innerRef?: (ref: HTMLDivElement | null) => void;
 }
 
+// Hands the label width down as a CSS variable, which every widget inside
+// inherits, including nested containers and the rows of a template list.
+const getLabelWidthSx = (labelWidth: unknown): Record<string, string> =>
+  typeof labelWidth === 'number' &&
+  Number.isFinite(labelWidth) &&
+  labelWidth > 0
+    ? { [FORM_LABEL_WIDTH_VAR]: `${labelWidth}px` }
+    : {};
+
 // Pure presentational container, usable outside of a craftjs Editor
 // (e.g. by the SurfaceRenderer). The craft `Container` below wraps it.
 export const ContainerView = (viewProps: ContainerViewProps) => {
@@ -135,6 +149,7 @@ export const ContainerView = (viewProps: ContainerViewProps) => {
     mobileBehavior,
     emphasis,
     tone,
+    labelWidth,
     customStyles = {},
   } = viewProps;
 
@@ -175,6 +190,8 @@ export const ContainerView = (viewProps: ContainerViewProps) => {
     !isTransparentColor(background),
   );
 
+  const labelWidthSx = getLabelWidthSx(labelWidth);
+
   // Apply minimum padding values when in edit mode
   const paddingValues = isEditMode
     ? padding.map((p) => Math.max(editPadding, p))
@@ -209,6 +226,7 @@ export const ContainerView = (viewProps: ContainerViewProps) => {
         overflow: 'auto',
         minWidth: minWidth,
         minHeight: minHeight,
+        ...labelWidthSx,
         ...resolvedCustomStyles,
       }}
     >
@@ -242,6 +260,7 @@ export const ContainerView = (viewProps: ContainerViewProps) => {
         flexGrow: shouldFillMainAxis ? 1 : 0,
         flexShrink: shouldFillMainAxis ? 1 : 0,
         ...style,
+        ...labelWidthSx,
         ...resolvedCustomStyles,
         ...editModeStyles,
       }}
@@ -368,6 +387,7 @@ const ContainerSettings = () => {
       )}
       <PaddingSection setProp={setProp} props={props} />
       <GapSection setProp={setProp} props={props} />
+      <LabelWidthSection setProp={setProp} props={props} />
       <AlignmentSection
         setProp={setProp}
         props={props}

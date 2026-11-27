@@ -7,8 +7,24 @@ import {
 
 const LABEL = 'Field label';
 const POSITION = 'Label position';
-// FORM_LABEL_WIDTH plus the frame's column gap
+// FORM_LABEL_WIDTH plus the frame's column gap, when no container sets one
 const LEFT_CONTROL_OFFSET = 160 + 16;
+// a widget narrower than this stacks a Left label as Above
+const STACK_BELOW = 480;
+// the page opens beside the canvas at 35% of the window, so a Left label
+// needs a wide window to get a page wide enough for its column
+const WIDE = { width: 1800, height: 900 };
+const DEFAULT_VIEWPORT = { width: 1000, height: 660 };
+// waits for the page pane to follow, so a test measures the wide page and
+// not the one before it
+const useWideWindow = (width = WIDE.width, height = WIDE.height) => {
+  cy.viewport(width, height);
+  cy.get('[data-cy="dashboard"]').should(($page) =>
+    expect($page[0].getBoundingClientRect().width, 'page width').to.be.at.least(
+      width * 0.3,
+    ),
+  );
+};
 
 type WidgetCase = {
   id: string;
@@ -84,6 +100,13 @@ const WIDGETS: WidgetCase[] = [
 ];
 
 const widgetBox = (id: string) => `[data-cy="widget of NODE_${id}"]`;
+
+// setSurfaceLayout returns before the page redraws, so wait for a widget to
+// show the new layout before measuring it
+const waitForWidget = (id: string, ready: (box: HTMLElement) => void) =>
+  cy
+    .get(`[data-cy="dashboard"] ${widgetBox(id)}`)
+    .should(($box) => ready($box[0]));
 
 const rect = (el: Element) => el.getBoundingClientRect();
 const near = (actual: number, expected: number, what: string, slack = 1) =>
@@ -224,9 +247,11 @@ describe('form labels on widgets', () => {
   });
 
   it('puts the label in a fixed column on the left', () => {
+    useWideWindow();
     showOnPage('Left');
     for (const widget of WIDGETS) {
       measure(widget, ({ box, label, wrapper, control, firstRow, visible }) => {
+        expect(box.width, `${widget.id} width`).to.be.at.least(STACK_BELOW);
         near(label!.left, box.left, `${widget.id} label left`);
         // the same column width on every widget, so their controls line up
         near(
@@ -255,18 +280,100 @@ describe('form labels on widgets', () => {
     }
   });
 
-  it('stacks a Left label above the control on a phone', () => {
-    cy.viewport(390, 844);
+  it('takes the label width from the container, nested ones too', () => {
+    useWideWindow();
     showOnPage('Left');
-    for (const id of ['text', 'switch', 'radio', 'slider']) {
-      const widget = WIDGETS.find((w) => w.id === id)!;
-      measure(widget, ({ box, label, wrapper }) => {
-        near(label!.left, box.left, `${id} label left`);
-        near(wrapper!.left, box.left, `${id} control left`);
-        expect(label!.bottom).to.be.at.most(wrapper!.top + 0.5);
-      });
+    const ids = ['text', 'switch', 'radio', 'slider'];
+    setSurfaceLayout('page', [
+      {
+        direction: 'column',
+        width: '100%',
+        labelWidth: 220,
+        children: [
+          { widget: 'text' },
+          { widget: 'switch' },
+          // a nested container inherits the width it does not set
+          {
+            direction: 'column',
+            width: '100%',
+            children: [{ widget: 'radio' }, { widget: 'slider' }],
+          },
+        ],
+      },
+      // outside the form the default column stays
+      { widget: 'number' },
+    ]);
+    waitForWidget('slider', (box) =>
+      expect(
+        getComputedStyle(box).getPropertyValue('--tm-label-width'),
+        'slider inherits the width',
+      ).to.eq('220px'),
+    );
+    for (const id of ids) {
+      measure(
+        WIDGETS.find((w) => w.id === id)!,
+        ({ box, label, wrapper }) => {
+          // wide enough that the 40% cap leaves the 220px alone
+          expect(box.width * 0.4, `${id} width`).to.be.at.least(220);
+          near(wrapper!.left - box.left, 220 + 16, `${id} control column`);
+          expect(label!.right).to.be.at.most(wrapper!.left);
+        },
+      );
     }
-    cy.viewport(1000, 660);
+    measure(
+      WIDGETS.find((w) => w.id === 'number')!,
+      ({ box, wrapper }) => {
+        near(wrapper!.left - box.left, LEFT_CONTROL_OFFSET, 'number column');
+      },
+    );
+  });
+
+  it('stacks a Left label in a narrow column on a wide screen', () => {
+    // a page of about 840px: a 300px column and a wide one beside it
+    useWideWindow(2400, 1000);
+    showOnPage('Left');
+    setSurfaceLayout('page', [
+      {
+        direction: 'row',
+        width: '100%',
+        children: [
+          {
+            direction: 'column',
+            width: '300px',
+            children: [{ widget: 'text' }, { widget: 'switch' }],
+          },
+          {
+            direction: 'column',
+            width: '100%',
+            children: [{ widget: 'number' }],
+          },
+        ],
+      },
+    ]);
+    waitForWidget('text', (box) =>
+      expect(box.getBoundingClientRect().width, 'text width').to.be.lessThan(
+        STACK_BELOW,
+      ),
+    );
+    for (const id of ['text', 'switch']) {
+      measure(
+        WIDGETS.find((w) => w.id === id)!,
+        ({ box, label, wrapper }) => {
+          expect(box.width, `${id} width`).to.be.lessThan(STACK_BELOW);
+          near(wrapper!.left, box.left, `${id} control left`);
+          expect(label!.bottom).to.be.at.most(wrapper!.top + 0.5);
+        },
+      );
+    }
+    // the wide column beside it keeps the label on the left
+    measure(
+      WIDGETS.find((w) => w.id === 'number')!,
+      ({ box, wrapper }) => {
+        expect(box.width, 'number width').to.be.at.least(STACK_BELOW);
+        near(wrapper!.left - box.left, LEFT_CONTROL_OFFSET, 'number column');
+      },
+    );
+    cy.viewport(DEFAULT_VIEWPORT.width, DEFAULT_VIEWPORT.height);
   });
 
   it('keeps each widget as it was with Default, minus the baseline gap', () => {
@@ -403,5 +510,20 @@ describe('form labels on widgets', () => {
     cy.get(rows).eq(0).should('be.checked');
     cy.get(rows).eq(1).should('be.checked');
     cy.get(rows).eq(2).should('not.be.checked');
+  });
+
+  // last: after a phone width the page pane no longer follows the window
+  it('stacks a Left label above the control on a phone', () => {
+    cy.viewport(390, 844);
+    showOnPage('Left');
+    for (const id of ['text', 'switch', 'radio', 'slider']) {
+      const widget = WIDGETS.find((w) => w.id === id)!;
+      measure(widget, ({ box, label, wrapper }) => {
+        near(label!.left, box.left, `${id} label left`);
+        near(wrapper!.left, box.left, `${id} control left`);
+        expect(label!.bottom).to.be.at.most(wrapper!.top + 0.5);
+      });
+    }
+    cy.viewport(DEFAULT_VIEWPORT.width, DEFAULT_VIEWPORT.height);
   });
 });

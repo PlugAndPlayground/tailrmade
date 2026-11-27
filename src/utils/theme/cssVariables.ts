@@ -30,6 +30,13 @@ export const themeToCssVariables = (theme: Theme): Record<string, string> => {
   };
 };
 
+// Width of the label column of widgets whose Label position is Left. A page
+// container sets it and every widget inside inherits it, so a form's
+// controls all start at the same edge.
+export const FORM_LABEL_WIDTH_VAR = '--tm-label-width';
+// the width when no container sets one
+export const FORM_LABEL_WIDTH = 160;
+
 export const appSurfaceSx = (
   theme: Theme,
 ): Record<string, string | number> => ({
