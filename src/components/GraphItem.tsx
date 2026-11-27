@@ -11,7 +11,7 @@ import {
   Stack,
   Tooltip,
 } from '@mui/material';
-import React, { useState } from 'react';
+import React from 'react';
 import PPGraph from '../classes/GraphClass';
 import InterfaceController from '../InterfaceController';
 import { MAIN_COLOR } from '../utils/constants';
@@ -88,8 +88,6 @@ interface GraphItemProps {
 
 export const GraphItem = ({ property: graph, sx }: GraphItemProps) => {
   const smallScreen = useIsSmallScreen();
-  const [isHovered, setIsHovered] = useState(false);
-  const [isActionAreaHovered, setIsActionAreaHovered] = useState(false);
 
   if ('label' in graph) {
     return (
@@ -139,8 +137,6 @@ export const GraphItem = ({ property: graph, sx }: GraphItemProps) => {
         bgcolor: `${TRgba.fromString(MAIN_COLOR).darken(0.6)}`,
       }}
       title={`Load app`}
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
     >
       <ListItemButton
         selected={selected}
@@ -275,15 +271,15 @@ export const GraphItem = ({ property: graph, sx }: GraphItemProps) => {
       <ListItemSecondaryAction
         data-cy={`hover-${graph.name}`}
         sx={{
-          visibility:
-            smallScreen || selected || isHovered || isActionAreaHovered
-              ? 'visible'
-              : 'hidden',
+          // Reveal on hover with CSS only and keep it always visible on touch
+          // devices. Showing it from a JS mouseenter made iOS Safari treat the
+          // first tap as a hover and swallow the click that loads the app.
+          visibility: smallScreen || selected ? 'visible' : 'hidden',
+          '.MuiListItem-root:hover > &': { visibility: 'visible' },
+          '@media (hover: none)': { visibility: 'visible' },
           bgcolor: `${TRgba.fromString(MAIN_COLOR).darken(0.6)}`,
           right: '6px',
         }}
-        onMouseEnter={() => setIsActionAreaHovered(true)}
-        onMouseLeave={() => setIsActionAreaHovered(false)}
       >
         {graph.isRemote &&
           (() => {
