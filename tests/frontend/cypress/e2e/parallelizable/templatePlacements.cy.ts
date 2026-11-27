@@ -714,6 +714,112 @@ describe('template placements', () => {
     });
   });
 
+  it('expands nested JSON into rows and rebuilds it from their outputs', () => {
+    doWithTestController(async (tc: any) => {
+      const template = await addTemplate(tc, 't');
+      const widget = await addWidget(tc, 't', 't-w');
+      await tc.connectNodesByID('t', 't-w', 'Parameter 1', VALUE);
+      await tc.connectNodesByID('t-w', 't', 'Out', 'Output 1');
+      const depth = await addWidget(tc, 't', 't-d', 'WidgetNumberField');
+      await tc.connectNodesByID('t', 't-d', 'Parameter 2', VALUE);
+      const settings = { name: 'app', theme: { accent: 'red' }, tags: ['a'] };
+      const repeat = await addRepeat(tc, template, 'rep', settings);
+      repeat.setInputData('Parameter 2 from', 'depth');
+      repeat.setInputData('Expand nested', true);
+      await repeat.executeOptimizedChain();
+
+      expect(repeat.rows.map((row: any) => row.key)).to.deep.equal([
+        '["name"]',
+        '["theme"]',
+        '["theme","accent"]',
+        '["tags"]',
+        '["tags",0]',
+      ]);
+      expect(rowValues(repeat, 't-d')).to.deep.equal([0, 0, 1, 0, 1]);
+      expect(repeat.getOutputData('Output')).to.deep.equal(settings);
+
+      await tc.applyWidgetEdit(widget, VALUE, 'blue', {
+        ownerId: 'rep',
+        rowKey: '["theme","accent"]',
+      });
+      expect(repeat.getOutputData('Output')).to.deep.equal({
+        ...settings,
+        theme: { accent: 'blue' },
+      });
+    });
+  });
+
+  it('builds a settings form from Type of and Select by key alone', () => {
+    doWithTestController(async (tc: any) => {
+      const template = await addTemplate(tc, 't');
+      const text = await addWidget(tc, 't', 't-text');
+      const number = await addWidget(tc, 't', 't-num', 'WidgetNumberField');
+      const flag = await addWidget(tc, 't', 't-flag', 'WidgetSwitch');
+      await tc.addNode('TypeOf', 't-type', -600, 600);
+      await tc.addNode('SelectByKey', 't-pick', -300, 600);
+      for (const target of ['t-text', 't-num', 't-flag']) {
+        await tc.connectNodesByID('t', target, 'Parameter 1', VALUE);
+      }
+      await tc.connectNodesByID('t', 't-type', 'Parameter 1', 'Value');
+      await tc.connectNodesByID('t', 't-pick', 'Parameter 1', 'Default');
+      await tc.connectNodesByID('t-type', 't-pick', 'Type', 'Key');
+      await tc.connectNodesByID('t-text', 't-pick', 'Out', 'String');
+      await tc.connectNodesByID('t-num', 't-pick', 'Out', 'Number');
+      await tc.connectNodesByID('t-flag', 't-pick', 'Out', 'Boolean');
+      await tc.connectNodesByID('t-pick', 't', 'Output', 'Output 1');
+
+      const settings = {
+        name: 'app',
+        port: 80,
+        debug: false,
+        // the last row to run is text, which the Number Field can't read
+        db: { pool: 4, host: 'local' },
+      };
+      const repeat = await addRepeat(tc, template, 'rep', settings);
+      repeat.setInputData('Expand nested', true);
+      await repeat.executeOptimizedChain();
+      expect(repeat.getOutputData('Output')).to.deep.equal(settings);
+      // every widget runs for every row, so the Number Field also got text and
+      // objects; a warning about one row's value must not stick to the node
+      for (const widget of [text, number, flag]) {
+        expect(widget.getInputSocketByName(VALUE).status.isProblem()).to.equal(
+          false,
+        );
+      }
+
+      const row = (path: unknown[]) => ({
+        ownerId: 'rep',
+        rowKey: JSON.stringify(path),
+      });
+      await tc.applyWidgetEdit(number, VALUE, 8080, row(['port']));
+      await tc.applyWidgetEdit(flag, VALUE, true, row(['debug']));
+      await tc.applyWidgetEdit(text, VALUE, 'remote', row(['db', 'host']));
+      await tc.applyWidgetEdit(number, VALUE, 8, row(['db', 'pool']));
+      expect(repeat.getOutputData('Output')).to.deep.equal({
+        name: 'app',
+        port: 8080,
+        debug: true,
+        db: { host: 'remote', pool: 8 },
+      });
+
+      // one Type of node answers every check a form needs
+      const typeOf = tc.getNodeByID('t-type');
+      typeOf.setInputData('Value', null);
+      await typeOf.executeOptimizedChain();
+      expect(typeOf.getOutputData('Is empty')).to.equal(true);
+      expect(typeOf.getOutputData('Is Number')).to.equal(false);
+
+      // a new case gets an input, a dropped unconnected one goes
+      const pick = tc.getNodeByID('t-pick');
+      pick.setInputData('Cases', 'String, Number, Boolean, JSON');
+      await pick.executeOptimizedChain();
+      expect(pick.getInputSocketByName('JSON')).to.exist;
+      pick.setInputData('Cases', 'String, Number, Boolean');
+      await pick.executeOptimizedChain();
+      expect(pick.getInputSocketByName('JSON')).to.not.exist;
+    });
+  });
+
   it('types into one row of a dashboard, and into a nested placement', () => {
     doWithTestController(async (tc: any) => {
       await tc.addNode('UISurfaceNode', 'page', 2400, 0);

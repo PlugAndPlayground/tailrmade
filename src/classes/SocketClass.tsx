@@ -330,13 +330,27 @@ export default class Socket
 
   get data(): any {
     if (this.cachedParsedData == undefined) {
-      this.cachedParsedData = parseValueAndAttachWarnings(
-        this,
-        this.dataType,
-        this._data,
-      );
+      if (this.holdsPerRowData()) {
+        this.setStatus(new PNPSuccess());
+        this.cachedParsedData = this.dataType.parse(this._data).value;
+      } else {
+        this.cachedParsedData = parseValueAndAttachWarnings(
+          this,
+          this.dataType,
+          this._data,
+        );
+      }
     }
     return this.cachedParsedData;
+  }
+
+  // A linked input of a shared node, such as a widget in a UI template, gets a
+  // different row's value on every run, and the row decides whether the widget
+  // shows at all. A warning about one row's value would sit on the node for
+  // whichever row ran last, so it is left off; the value still parses as usual.
+  private holdsPerRowData(): boolean {
+    const node = this.getNode();
+    return this.isInput() && this.hasLink() && !!node && isSharedNode(node);
   }
 
   getStringifiedData(): string {
