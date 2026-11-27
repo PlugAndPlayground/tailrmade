@@ -850,6 +850,15 @@ describe('template placements', () => {
     });
     cy.get(fold).click();
     cy.get(`${list} input`).eq(2).should('have.value', 'local');
+
+    // the whole heading row folds, but a control inside it keeps its click
+    const groupRow = `${list} [data-cy='group row ["db"]']`;
+    cy.get(groupRow).find('input').click();
+    cy.get(`${list} input`).should('have.length', 4);
+    cy.get(groupRow).then(($row) => $row[0].click());
+    cy.get(`${list} input`).should('have.length', 2);
+    cy.get(groupRow).then(($row) => $row[0].click());
+    cy.get(`${list} input`).should('have.length', 4);
   });
 
   it('types into one row of a dashboard, and into a nested placement', () => {

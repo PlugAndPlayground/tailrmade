@@ -214,10 +214,34 @@ export const RepeatTemplateWidget: React.FunctionComponent<
             interactive={interactive}
           />
         );
+        const groupPath =
+          foldable && row.place?.group && !props.disabled
+            ? row.place.path
+            : undefined;
         const content = foldable ? (
           <Box
             key={row.key}
-            sx={{ display: 'flex', alignItems: 'center', minWidth: 0 }}
+            data-cy={groupPath && `group row ${JSON.stringify(groupPath)}`}
+            // the whole heading folds, not just the chevron
+            onClick={
+              groupPath &&
+              ((event: React.MouseEvent) => {
+                if (!isPlainClick(event)) {
+                  return;
+                }
+                node.toggleGroup(groupPath);
+              })
+            }
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              minWidth: 0,
+              ...(groupPath && {
+                cursor: 'pointer',
+                borderRadius: 1,
+                '&:hover': { bgcolor: 'action.hover' },
+              }),
+            }}
           >
             {/* every row keeps the slot, so values line up with headings */}
             <Box sx={{ width: 28, flexShrink: 0 }}>
@@ -249,6 +273,18 @@ export const RepeatTemplateWidget: React.FunctionComponent<
     </Box>
   );
 };
+
+// Controls inside a group row keep their own clicks, the chevron included, and
+// selecting the heading's text does not fold it.
+const OWN_CLICK_SELECTOR =
+  'button, a, input, textarea, select, label, [role="button"], [role="slider"], [role="checkbox"], [role="switch"], [role="combobox"], [contenteditable="true"]';
+function isPlainClick(event: React.MouseEvent): boolean {
+  const target = event.target as HTMLElement | null;
+  if (target?.closest(OWN_CLICK_SELECTOR)) {
+    return false;
+  }
+  return !window.getSelection()?.toString();
+}
 
 function FoldToggle({
   node,
