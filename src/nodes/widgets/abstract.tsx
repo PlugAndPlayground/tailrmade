@@ -391,14 +391,20 @@ export const getLabelPosition = (props: {
 // width: one width for every widget, so the controls of a form start at the
 // same edge row after row; long labels wrap inside it
 export { FORM_LABEL_WIDTH };
-// the label never takes more than this share of the widget, so a wide label
-// column cannot squeeze the control in a narrow one
-export const FORM_LABEL_MAX_SHARE = 0.4;
-// a widget narrower than this stacks a Left label as Above. It measures the
-// widget, not the window, so a form in a narrow column stacks too
-export const FORM_LABEL_STACK_BELOW = 480;
-const wideEnoughForLeftLabel = `@container (min-width: ${FORM_LABEL_STACK_BELOW}px)`;
-const leftLabelColumn = `min(var(${FORM_LABEL_WIDTH_VAR}, ${FORM_LABEL_WIDTH}px), ${FORM_LABEL_MAX_SHARE * 100}%)`;
+// the narrowest a control gets beside a Left label: a widget without room
+// for the label column, the gap and this puts its label above instead
+export const FORM_CONTROL_MIN_WIDTH = 200;
+const FORM_LABEL_GAP = 16;
+const FORM_LABEL_ROW_GAP = 4;
+const leftLabelWidth = `var(${FORM_LABEL_WIDTH_VAR}, ${FORM_LABEL_WIDTH}px)`;
+// the widget width a Left label needs to stay beside its control. It follows
+// the label width, which a container query cannot do
+const leftLabelFits = `(${leftLabelWidth} + ${FORM_LABEL_GAP + FORM_CONTROL_MIN_WIDTH}px)`;
+// In a label's sx, a percentage is the frame's width. These are 0 or less
+// where the label fits beside the control and positive where it does not,
+// scaled so clamp() turns them into an on/off switch at that width.
+const whenStacked = `calc((${leftLabelFits} - 100%) * 999)`;
+const whenBeside = `calc((100% - ${leftLabelFits}) * 999)`;
 
 /** Unique per rendering, so the rows of a template list never share an id. */
 export const useWidgetLabelIds = () => {
@@ -470,64 +476,87 @@ export const WidgetLabelFrame = ({
     return <>{children}</>;
   }
   const text = label === undefined || label === null ? '' : String(label);
-  const isLeft = position === 'Left';
-  const frame = (
+  const labelSx = {
+    minWidth: 0,
+    color: 'text.primary',
+    fontSize: `${tokens.fontSize}px`,
+    lineHeight: INPUT_LINE_HEIGHT_EM,
+    overflowWrap: 'anywhere',
+  } as const;
+  const labelElement = (sx: Record<string, unknown>) => (
+    <Box
+      component={htmlFor ? 'label' : 'span'}
+      id={labelId}
+      htmlFor={htmlFor}
+      data-cy="widget-label"
+      sx={{ ...labelSx, ...sx }}
+    >
+      {text}
+    </Box>
+  );
+  const control = (sx: Record<string, unknown>) => (
+    <Box data-cy="widget-control" sx={{ minWidth: 0, ...sx }}>
+      {children}
+    </Box>
+  );
+
+  if (position === 'Above') {
+    return (
+      <Box
+        data-cy="widget-label-frame"
+        data-label-position={position}
+        sx={{
+          display: 'grid',
+          width: '100%',
+          minWidth: 0,
+          gridTemplateColumns: 'minmax(0, 1fr)',
+          rowGap: `${FORM_LABEL_ROW_GAP}px`,
+          alignItems: 'start',
+        }}
+      >
+        {text !== '' && labelElement({})}
+        {control({})}
+      </Box>
+    );
+  }
+
+  // Left: the label column and the control share a line while the control
+  // keeps FORM_CONTROL_MIN_WIDTH; below that the label takes the whole line
+  // and the control wraps under it, as with Above
+  const lineHeight = tokens.fontSize * INPUT_LINE_HEIGHT_EM;
+  // centres a one-line label on the control's first row
+  const besidePadding = Math.max(0, (rowHeight - lineHeight) / 2);
+  const padding = `clamp(0px, ${whenBeside}, ${besidePadding}px)`;
+  return (
     <Box
       data-cy="widget-label-frame"
       data-label-position={position}
       sx={{
-        display: 'grid',
+        display: 'flex',
+        flexWrap: 'wrap',
+        alignItems: 'flex-start',
         width: '100%',
         minWidth: 0,
-        gridTemplateColumns: 'minmax(0, 1fr)',
-        rowGap: 0.5,
-        columnGap: 2,
-        alignItems: 'start',
-        ...(isLeft && {
-          [wideEnoughForLeftLabel]: {
-            gridTemplateColumns: `${leftLabelColumn} minmax(0, 1fr)`,
-          },
-        }),
+        columnGap: `${FORM_LABEL_GAP}px`,
       }}
     >
-      {(text !== '' || isLeft) && (
-        <Box
-          component={htmlFor ? 'label' : 'span'}
-          id={labelId}
-          htmlFor={htmlFor}
-          data-cy="widget-label"
-          sx={{
-            display: text === '' ? 'none' : 'flex',
-            alignItems: 'center',
-            minWidth: 0,
-            color: 'text.primary',
-            fontSize: `${tokens.fontSize}px`,
-            lineHeight: INPUT_LINE_HEIGHT_EM,
-            overflowWrap: 'anywhere',
-            ...(isLeft && {
-              [wideEnoughForLeftLabel]: {
-                display: 'flex',
-                minHeight: `${rowHeight}px`,
-              },
-            }),
-          }}
-        >
-          {text}
-        </Box>
-      )}
-      <Box data-cy="widget-control" sx={{ minWidth: 0 }}>
-        {children}
-      </Box>
+      {labelElement({
+        display: 'block',
+        flex: '0 0 auto',
+        boxSizing: 'border-box',
+        width: `max(${leftLabelWidth}, ${whenStacked})`,
+        maxWidth: '100%',
+        paddingTop: padding,
+        paddingBottom: padding,
+        // the gap to the control, only when it sits below; an empty label
+        // keeps the column but takes no room above the control
+        marginBottom:
+          text === ''
+            ? 0
+            : `clamp(0px, ${whenStacked}, ${FORM_LABEL_ROW_GAP}px)`,
+      })}
+      {control({ flex: '1 1 0px' })}
     </Box>
-  );
-  // a container query needs an ancestor to measure, so a Left frame gets a
-  // wrapper that is the size container
-  return isLeft ? (
-    <Box sx={{ width: '100%', minWidth: 0, containerType: 'inline-size' }}>
-      {frame}
-    </Box>
-  ) : (
-    frame
   );
 };
 
